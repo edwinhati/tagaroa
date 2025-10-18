@@ -1,0 +1,138 @@
+"use client";
+
+import React, { ReactNode } from "react";
+import {
+  ChevronFirstIcon,
+  ChevronLastIcon,
+  ChevronLeftIcon,
+  ChevronRightIcon,
+} from "lucide-react";
+import { Table } from "@tanstack/react-table";
+
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@repo/ui/components/select";
+import {
+  Pagination,
+  PaginationContent,
+  PaginationItem,
+} from "@repo/ui/components/pagination";
+import { Label } from "@repo/ui/components/label";
+import { Button } from "@repo/ui/components/button";
+
+export type DataTablePaginationProps<TData> = {
+  table: Table<TData>;
+  pageSizeOptions?: number[];
+  label?: string;
+  trailingContent?: ReactNode;
+};
+
+const DEFAULT_PAGE_SIZE_OPTIONS = [10, 20, 30, 40, 50];
+
+/**
+ * Shared pagination footer for TanStack tables.
+ */
+export function DataTablePagination<TData>({
+  table,
+  pageSizeOptions = DEFAULT_PAGE_SIZE_OPTIONS,
+  label = "Rows per page",
+  trailingContent,
+}: DataTablePaginationProps<TData>) {
+  const { pageIndex, pageSize } = table.getState().pagination;
+  const rowCount = table.getRowCount();
+  const start = rowCount === 0 ? 0 : pageIndex * pageSize + 1;
+  const end =
+    rowCount === 0 ? 0 : Math.min((pageIndex + 1) * pageSize, rowCount);
+
+  return (
+    <div className="flex flex-wrap items-center justify-between gap-4">
+      <div className="flex items-center gap-3">
+        <Label htmlFor="data-table-pagination" className="max-sm:sr-only">
+          {label}
+        </Label>
+        <Select
+          value={pageSize.toString()}
+          onValueChange={(value) => table.setPageSize(Number(value))}
+        >
+          <SelectTrigger
+            id="data-table-pagination"
+            className="w-fit whitespace-nowrap"
+          >
+            <SelectValue placeholder="Select number of results" />
+          </SelectTrigger>
+          <SelectContent>
+            {pageSizeOptions.map((option) => (
+              <SelectItem key={option} value={option.toString()}>
+                {option}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+        <p className="text-muted-foreground text-sm">
+          Showing <span className="text-foreground">{start}</span> -{" "}
+          <span className="text-foreground">{end}</span> of{" "}
+          <span className="text-foreground">{rowCount}</span>
+        </p>
+      </div>
+      <div className="flex items-center gap-3">
+        {trailingContent}
+        <Pagination>
+          <PaginationContent>
+            <PaginationItem>
+              <Button
+                size="icon"
+                variant="outline"
+                className="disabled:pointer-events-none disabled:opacity-50"
+                onClick={() => table.firstPage()}
+                disabled={!table.getCanPreviousPage()}
+                aria-label="Go to first page"
+              >
+                <ChevronFirstIcon size={16} aria-hidden="true" />
+              </Button>
+            </PaginationItem>
+            <PaginationItem>
+              <Button
+                size="icon"
+                variant="outline"
+                className="disabled:pointer-events-none disabled:opacity-50"
+                onClick={() => table.previousPage()}
+                disabled={!table.getCanPreviousPage()}
+                aria-label="Go to previous page"
+              >
+                <ChevronLeftIcon size={16} aria-hidden="true" />
+              </Button>
+            </PaginationItem>
+            <PaginationItem>
+              <Button
+                size="icon"
+                variant="outline"
+                className="disabled:pointer-events-none disabled:opacity-50"
+                onClick={() => table.nextPage()}
+                disabled={!table.getCanNextPage()}
+                aria-label="Go to next page"
+              >
+                <ChevronRightIcon size={16} aria-hidden="true" />
+              </Button>
+            </PaginationItem>
+            <PaginationItem>
+              <Button
+                size="icon"
+                variant="outline"
+                className="disabled:pointer-events-none disabled:opacity-50"
+                onClick={() => table.lastPage()}
+                disabled={!table.getCanNextPage()}
+                aria-label="Go to last page"
+              >
+                <ChevronLastIcon size={16} aria-hidden="true" />
+              </Button>
+            </PaginationItem>
+          </PaginationContent>
+        </Pagination>
+      </div>
+    </div>
+  );
+}
