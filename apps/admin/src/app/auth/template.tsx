@@ -1,5 +1,6 @@
 "use client";
 
+import { useState, useEffect } from "react";
 import Link from "next/link";
 import {
   ResizableHandle,
@@ -18,12 +19,21 @@ import {
   SidebarSeparator,
 } from "@repo/ui/components/sidebar";
 import { FingerprintIcon, UsersIcon } from "lucide-react";
+import { useFeatureFlagEnabled } from "posthog-js/react";
 
 export default function AuthTemplate({
   children,
 }: {
   children: React.ReactNode;
 }) {
+  const [mounted, setMounted] = useState(false);
+  const oidcAdministratorFlagEnabled =
+    useFeatureFlagEnabled("oidc-administator");
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
+
   return (
     <>
       <ResizablePanelGroup direction="horizontal" className="h-full">
@@ -45,14 +55,16 @@ export default function AuthTemplate({
                       </SidebarMenuButton>
                     </Link>
                   </SidebarMenuItem>
-                  <SidebarMenuItem>
-                    <Link href="/auth/oidc">
-                      <SidebarMenuButton>
-                        <FingerprintIcon className="w-4 h-4 mr-2" />
-                        <span>OIDC Clients</span>
-                      </SidebarMenuButton>
-                    </Link>
-                  </SidebarMenuItem>
+                  {mounted && oidcAdministratorFlagEnabled && (
+                    <SidebarMenuItem>
+                      <Link href="/auth/oidc">
+                        <SidebarMenuButton>
+                          <FingerprintIcon className="w-4 h-4 mr-2" />
+                          <span>OIDC Clients</span>
+                        </SidebarMenuButton>
+                      </Link>
+                    </SidebarMenuItem>
+                  )}
                 </SidebarMenu>
               </SidebarGroupContent>
             </SidebarGroup>

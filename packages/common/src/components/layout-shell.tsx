@@ -1,8 +1,8 @@
 import React, { Suspense } from "react";
-import { ThemeProvider } from "next-themes";
 import "@repo/ui/styles/globals.css";
 import { Loading } from "@repo/common/components/loading";
 import { geistMono, geistSans } from "@repo/common/lib/fonts";
+import { AppProvider } from "@repo/common/providers/app-provider";
 
 type LayoutShellProps = {
   children: React.ReactNode;
@@ -20,14 +20,9 @@ export function LayoutShell({
       <body
         className={`${geistSans.variable} ${geistMono.variable} antialiased ${bodyClassName}`}
       >
-        <ThemeProvider
-          attribute="class"
-          defaultTheme="system"
-          enableSystem
-          disableTransitionOnChange
-        >
+        <AppProvider>
           <Suspense fallback={<Loading />}>{children}</Suspense>
-        </ThemeProvider>
+        </AppProvider>
       </body>
     </html>
   );
