@@ -9,6 +9,9 @@ import {
   ShieldBan,
   ShieldCheck,
   Trash2,
+  User,
+  Shield,
+  UserCheck,
 } from "lucide-react";
 import { toast } from "sonner";
 
@@ -22,24 +25,12 @@ import {
   CardTitle,
 } from "@repo/ui/components/card";
 import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@repo/ui/components/select";
-import {
   Sheet,
   SheetContent,
   SheetDescription,
   SheetHeader,
   SheetTitle,
 } from "@repo/ui/components/sheet";
-import {
-  ButtonGroup,
-  ButtonGroupSeparator,
-  ButtonGroupText,
-} from "@repo/ui/components/button-group";
 import { Badge } from "@repo/ui/components/badge";
 import { Button } from "@repo/ui/components/button";
 import { Input } from "@repo/ui/components/input";
@@ -303,6 +294,18 @@ export function UserDetailSheet({
 
   const handleChangeRole = async (value: string) => {
     if (!localUser || value === pickPrimaryRole(localUser.role)) return;
+
+    // Show confirmation dialog for role changes
+    const currentRole = pickPrimaryRole(localUser.role);
+    const userName = localUser.name || localUser.email || "this user";
+    const confirmed = window.confirm(
+      `Are you sure you want to change ${userName}'s role from "${currentRole}" to "${value}"? This will immediately affect their permissions across the system.`
+    );
+
+    if (!confirmed) {
+      return;
+    }
+
     setRoleValue(value);
     setIsUpdatingRole(true);
     try {
@@ -317,7 +320,7 @@ export function UserDetailSheet({
       );
       setLocalUser(updatedUser);
       onUserUpdated?.(updatedUser);
-      toast.success("User role updated.");
+      toast.success(`User role updated to ${value}.`);
     } catch (error) {
       const message =
         error instanceof Error ? error.message : "Failed to update user role.";
@@ -712,6 +715,108 @@ export function UserDetailSheet({
                   </p>
                 </CardFooter>
               </Card>
+
+              <Card>
+                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                  <div>
+                    <CardTitle className="text-sm font-semibold">
+                      Role Management
+                    </CardTitle>
+                    <CardDescription>
+                      Change the user's role and permissions
+                    </CardDescription>
+                  </div>
+                  <CardAction>
+                    <Badge
+                      variant={
+                        roleValue === "admin"
+                          ? "default"
+                          : roleValue === "moderator"
+                            ? "outline"
+                            : "secondary"
+                      }
+                      className="capitalize flex items-center gap-1"
+                    >
+                      {roleValue === "admin" && <Shield className="h-3 w-3" />}
+                      {roleValue === "moderator" && (
+                        <UserCheck className="h-3 w-3" />
+                      )}
+                      {roleValue === "user" && <User className="h-3 w-3" />}
+                      {roleValue}
+                    </Badge>
+                  </CardAction>
+                </CardHeader>
+                <CardContent className="space-y-3">
+                  <div className="space-y-1.5">
+                    <Label htmlFor="user-role">User Role</Label>
+                    <RadioGroup
+                      value={roleValue}
+                      onValueChange={handleChangeRole}
+                      disabled={isUpdatingRole}
+                      className="flex flex-col gap-2"
+                    >
+                      <div className="flex items-center space-x-3 rounded-lg border p-3 hover:bg-muted/50 transition-colors">
+                        <RadioGroupItem value="user" id="role-user" />
+                        <User className="h-4 w-4 text-muted-foreground" />
+                        <Label
+                          htmlFor="role-user"
+                          className="flex-1 cursor-pointer"
+                        >
+                          <div>
+                            <div className="font-medium">User</div>
+                            <div className="text-xs text-muted-foreground">
+                              Standard user with basic permissions
+                            </div>
+                          </div>
+                        </Label>
+                      </div>
+                      <div className="flex items-center space-x-3 rounded-lg border p-3 hover:bg-muted/50 transition-colors">
+                        <RadioGroupItem value="admin" id="role-admin" />
+                        <Shield className="h-4 w-4 text-muted-foreground" />
+                        <Label
+                          htmlFor="role-admin"
+                          className="flex-1 cursor-pointer"
+                        >
+                          <div>
+                            <div className="font-medium">Admin</div>
+                            <div className="text-xs text-muted-foreground">
+                              Administrator with full system access
+                            </div>
+                          </div>
+                        </Label>
+                      </div>
+                      {/* <div className="flex items-center space-x-3 rounded-lg border p-3 hover:bg-muted/50 transition-colors">
+                        <RadioGroupItem value="moderator" id="role-moderator" />
+                        <UserCheck className="h-4 w-4 text-muted-foreground" />
+                        <Label
+                          htmlFor="role-moderator"
+                          className="flex-1 cursor-pointer"
+                        >
+                          <div>
+                            <div className="font-medium">Moderator</div>
+                            <div className="text-xs text-muted-foreground">
+                              Moderator with limited administrative permissions
+                            </div>
+                          </div>
+                        </Label>
+                      </div> */}
+                    </RadioGroup>
+                  </div>
+                  {isUpdatingRole && (
+                    <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                      <div className="h-4 w-4 animate-spin rounded-full border-2 border-current border-t-transparent" />
+                      Updating role...
+                    </div>
+                  )}
+                </CardContent>
+                <CardFooter>
+                  <p className="text-xs text-muted-foreground">
+                    Role changes take effect immediately and will affect the
+                    user&apos;s permissions across the system.
+                  </p>
+                </CardFooter>
+              </Card>
+
               <Card>
                 <CardHeader>
                   <CardTitle className="text-sm font-semibold">

@@ -86,14 +86,28 @@ const typeFilterFn: FilterFn<OIDCClient> = (
   return filterValue.includes(type);
 };
 
+// Helper function to determine client status
+const getClientStatus = (client: OIDCClient) => {
+  return client.disabled ? "disabled" : "active";
+};
+
+// Helper function to render status badge
+const renderStatusBadge = (status: string) => {
+  const variant = status === "disabled" ? "destructive" : "default";
+  const label = status.charAt(0).toUpperCase() + status.slice(1);
+  return <Badge variant={variant}>{label}</Badge>;
+};
+
+// Helper function to render empty values consistently
+const renderEmptyValue = () => <span className="text-muted-foreground">—</span>;
+
 const statusFilterFn: FilterFn<OIDCClient> = (
   row,
   _columnId,
   filterValue: string[]
 ) => {
   if (!filterValue?.length) return true;
-  const disabled = row.original.disabled;
-  const status = disabled ? "disabled" : "active";
+  const status = getClientStatus(row.original);
   return filterValue.includes(status);
 };
 
@@ -120,12 +134,26 @@ export function OIDCClientDataTable() {
   const [error, setError] = useState<string | null>(null);
   const [showSecrets, setShowSecrets] = useState<Record<string, boolean>>({});
 
+  // Helper function to handle async operations with loading and error states
+  const withLoadingAndError = useCallback(
+    async (operation: () => Promise<void>) => {
+      try {
+        setLoading(true);
+        setError(null);
+        await operation();
+      } catch (error) {
+        console.error("Operation failed:", error);
+        setError("An error occurred. Please try again.");
+      } finally {
+        setLoading(false);
+      }
+    },
+    []
+  );
+
   // Fetch OIDC clients - we'll need to implement this endpoint
   const fetchClients = useCallback(async () => {
-    try {
-      setLoading(true);
-      setError(null);
-
+    await withLoadingAndError(async () => {
       // Get clients from localStorage (since Better Auth doesn't provide a list endpoint)
       const storedClients = localStorage.getItem("oidc-clients");
       const parsedClients = storedClients ? JSON.parse(storedClients) : [];
@@ -140,12 +168,8 @@ export function OIDCClientDataTable() {
       );
 
       setClients(clients);
-    } catch {
-      setError("Failed to fetch OIDC clients. Please try again.");
-    } finally {
-      setLoading(false);
-    }
-  }, []);
+    });
+  }, [withLoadingAndError]);
 
   useEffect(() => {
     fetchClients();
@@ -220,7 +244,7 @@ export function OIDCClientDataTable() {
           const isVisible = showSecrets[client.clientId];
 
           if (!clientSecret) {
-            return <span className="text-muted-foreground">—</span>;
+            return renderEmptyValue();
           }
 
           return (
@@ -273,12 +297,8 @@ export function OIDCClientDataTable() {
         header: "Status",
         accessorKey: "disabled",
         cell: ({ row }) => {
-          const disabled = row.getValue("disabled") as boolean;
-          return (
-            <Badge variant={disabled ? "destructive" : "default"}>
-              {disabled ? "Disabled" : "Active"}
-            </Badge>
-          );
+          const status = getClientStatus(row.original);
+          return renderStatusBadge(status);
         },
         size: 100,
         filterFn: statusFilterFn,
@@ -325,10 +345,7 @@ export function OIDCClientDataTable() {
       return;
     }
 
-    try {
-      setLoading(true);
-      setError(null);
-
+    await withLoadingAndError(async () => {
       // Delete from localStorage
       const existingClients = JSON.parse(
         localStorage.getItem("oidc-clients") || "[]"
@@ -347,14 +364,7 @@ export function OIDCClientDataTable() {
       toast.success(
         `Successfully deleted ${selectedClientIds.length} client${selectedClientIds.length === 1 ? "" : "s"}.`
       );
-    } catch (error) {
-      console.error("Failed to delete clients:", error);
-      setError(
-        `Failed to delete ${selectedClientIds.length} selected client${selectedClientIds.length === 1 ? "" : "s"}. Please try again.`
-      );
-    } finally {
-      setLoading(false);
-    }
+    });
   };
 
   const tableData = useMemo(() => {
@@ -382,64 +392,64 @@ export function OIDCClientDataTable() {
     },
   });
 
-  // Get unique type values
-  const typeColumn = table.getColumn("type");
-  const uniqueTypeValues = typeColumn
-    ? Array.from(typeColumn.getFacetedUniqueValues().keys()).sort()
-    : [];
-  const typeCounts = typeColumn
-    ? typeColumn.getFacetedUniqueValues()
-    : new Map();
-  const selectedTypes =
-    (table.getColumn("type")?.getFilterValue() as string[]) ?? [];
+  // Helper function to get column filter data
+  const getColumnFilterData = useCallback(
+    (columnId: string) => {
+      const column = table.getColumn(columnId);
+      return {
+        column,
+        uniqueValues: column
+          ? Array.from(column.getFacetedUniqueValues().keys()).sort()
+          : [],
+        counts: column ? column.getFacetedUniqueValues() : new Map(),
+        selectedValues: (column?.getFilterValue() as string[]) ?? [],
+      };
+    },
+    [table]
+  );
 
-  // Get unique status values
-  const statusColumn = table.getColumn("disabled");
-  const statusCounts = statusColumn
-    ? statusColumn.getFacetedUniqueValues()
-    : new Map();
-  const selectedStatuses =
-    (table.getColumn("disabled")?.getFilterValue() as string[]) ?? [];
+  const typeFilterData = getColumnFilterData("type");
+  const statusFilterData = getColumnFilterData("disabled");
 
   const selectedCount = table.getSelectedRowModel().rows.length;
 
-  const handleTypesChange = (value: string, checked: boolean) => {
-    const filterValue = table.getColumn("type")?.getFilterValue() as string[];
-    const newFilterValue = filterValue ? [...filterValue] : [];
+  // Generic filter change handler to reduce duplication
+  const handleFilterChange = useCallback(
+    (columnId: string, value: string, checked: boolean) => {
+      const filterValue = table
+        .getColumn(columnId)
+        ?.getFilterValue() as string[];
+      const newFilterValue = filterValue ? [...filterValue] : [];
 
-    if (checked) {
-      newFilterValue.push(value);
-    } else {
-      const index = newFilterValue.indexOf(value);
-      if (index > -1) {
-        newFilterValue.splice(index, 1);
+      if (checked) {
+        newFilterValue.push(value);
+      } else {
+        const index = newFilterValue.indexOf(value);
+        if (index > -1) {
+          newFilterValue.splice(index, 1);
+        }
       }
-    }
 
-    table
-      .getColumn("type")
-      ?.setFilterValue(newFilterValue.length ? newFilterValue : undefined);
-  };
+      table
+        .getColumn(columnId)
+        ?.setFilterValue(newFilterValue.length ? newFilterValue : undefined);
+    },
+    [table]
+  );
 
-  const handleStatusChange = (value: string, checked: boolean) => {
-    const filterValue = table
-      .getColumn("disabled")
-      ?.getFilterValue() as string[];
-    const newFilterValue = filterValue ? [...filterValue] : [];
+  const handleTypesChange = useCallback(
+    (value: string, checked: boolean) => {
+      handleFilterChange("type", value, checked);
+    },
+    [handleFilterChange]
+  );
 
-    if (checked) {
-      newFilterValue.push(value);
-    } else {
-      const index = newFilterValue.indexOf(value);
-      if (index > -1) {
-        newFilterValue.splice(index, 1);
-      }
-    }
-
-    table
-      .getColumn("disabled")
-      ?.setFilterValue(newFilterValue.length ? newFilterValue : undefined);
-  };
+  const handleStatusChange = useCallback(
+    (value: string, checked: boolean) => {
+      handleFilterChange("disabled", value, checked);
+    },
+    [handleFilterChange]
+  );
 
   return (
     <div className="space-y-4">
@@ -462,14 +472,14 @@ export function OIDCClientDataTable() {
           />
           <DataTableMultiSelectFilter
             triggerLabel="Type"
-            options={uniqueTypeValues.map((value) => ({
+            options={typeFilterData.uniqueValues.map((value) => ({
               value,
               label: value.charAt(0).toUpperCase() + value.slice(1),
-              count: typeCounts.get(value),
+              count: typeFilterData.counts.get(value),
             }))}
-            selectedValues={selectedTypes}
-            onChange={(value, checked) => handleTypesChange(value, checked)}
-            onClear={() => table.getColumn("type")?.setFilterValue(undefined)}
+            selectedValues={typeFilterData.selectedValues}
+            onChange={handleTypesChange}
+            onClear={() => typeFilterData.column?.setFilterValue(undefined)}
           />
           <DataTableMultiSelectFilter
             triggerLabel="Status"
@@ -477,19 +487,17 @@ export function OIDCClientDataTable() {
               {
                 value: "active",
                 label: "Active",
-                count: statusCounts.get(false) || 0,
+                count: statusFilterData.counts.get(false) || 0,
               },
               {
                 value: "disabled",
                 label: "Disabled",
-                count: statusCounts.get(true) || 0,
+                count: statusFilterData.counts.get(true) || 0,
               },
             ]}
-            selectedValues={selectedStatuses}
-            onChange={(value, checked) => handleStatusChange(value, checked)}
-            onClear={() =>
-              table.getColumn("disabled")?.setFilterValue(undefined)
-            }
+            selectedValues={statusFilterData.selectedValues}
+            onChange={handleStatusChange}
+            onClear={() => statusFilterData.column?.setFilterValue(undefined)}
           />
         </div>
         <div className="flex items-center gap-3">

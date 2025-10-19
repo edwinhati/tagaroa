@@ -17,7 +17,9 @@ type RoleBasedOptions = {
   requireAdmin?: boolean; // shorthand for admin-only access
 };
 
-async function fetchUser(sessionCookie: string): Promise<User | null> {
+async function fetchUserSession<T extends User = User>(
+  sessionCookie: string
+): Promise<T | null> {
   try {
     const response = await fetch(
       `${process.env.NEXT_PUBLIC_API_URL}/api/auth/get-session`,
@@ -51,40 +53,14 @@ async function fetchUser(sessionCookie: string): Promise<User | null> {
   }
 }
 
+async function fetchUser(sessionCookie: string): Promise<User | null> {
+  return fetchUserSession<User>(sessionCookie);
+}
+
 async function fetchUserWithRole(
   sessionCookie: string
 ): Promise<UserWithRole | null> {
-  try {
-    const response = await fetch(
-      `${process.env.NEXT_PUBLIC_API_URL}/api/auth/get-session`,
-      {
-        headers: {
-          Cookie: `better-auth.session_token=${sessionCookie}`,
-        },
-        // Add timeout to prevent hanging requests
-        signal: AbortSignal.timeout(5000),
-      }
-    );
-
-    if (!response.ok) {
-      console.warn(
-        `Auth session fetch failed: ${response.status} ${response.statusText}`
-      );
-      return null;
-    }
-
-    const data = await response.json();
-
-    // Extract user from the response structure
-    return data.user || null;
-  } catch (error) {
-    if (error instanceof Error && error.name === "TimeoutError") {
-      console.error("Auth session fetch timeout");
-    } else {
-      console.error("Error fetching user profile:", error);
-    }
-    return null;
-  }
+  return fetchUserSession<UserWithRole>(sessionCookie);
 }
 
 function redirectToAuth(
@@ -143,74 +119,92 @@ function clearSessionCookie(response: NextResponse) {
   return response;
 }
 
+// Shared middleware logic to reduce duplication
+async function handleCommonMiddlewareLogic(
+  request: NextRequest,
+  authAppUrl: string
+) {
+  const { pathname, searchParams } = request.nextUrl;
+
+  // Skip auth check for health checks and monitoring endpoints
+  if (pathname === "/health" || pathname === "/ping") {
+    return { type: "next" as const };
+  }
+
+  // Prevent redirect loops
+  const redirectParam = searchParams.get("redirect");
+  if (redirectParam && redirectParam.includes("redirect=")) {
+    console.warn(
+      "Detected potential redirect loop, clearing redirect parameter"
+    );
+    const cleanUrl = new URL(request.nextUrl);
+    cleanUrl.searchParams.delete("redirect");
+    return { type: "redirect" as const, url: cleanUrl };
+  }
+
+  const sessionCookie = getSessionCookie(request);
+
+  if (!sessionCookie) {
+    if (pathname === "/") {
+      return { type: "auth-redirect" as const, url: authAppUrl };
+    }
+    if (!pathname.startsWith("/_next")) {
+      return {
+        type: "auth-redirect" as const,
+        url: authAppUrl,
+        redirect: request.nextUrl.href,
+      };
+    }
+    return { type: "auth-redirect" as const, url: authAppUrl };
+  }
+
+  return { type: "continue" as const, sessionCookie };
+}
+
 export function createAuthMiddleware(opts: Options) {
   const verifyPath = opts.verifyPath ?? "/verify-email";
 
   return async function middleware(request: NextRequest) {
-    const { pathname, searchParams } = request.nextUrl;
+    const { pathname } = request.nextUrl;
 
-    // Skip auth check for health checks and monitoring endpoints
-    if (pathname === "/health" || pathname === "/ping") {
+    const commonResult = await handleCommonMiddlewareLogic(
+      request,
+      opts.authAppUrl
+    );
+
+    if (commonResult.type === "next") {
       return NextResponse.next();
     }
 
-    // Prevent redirect loops - if we have multiple redirect parameters, something's wrong
-    const redirectParam = searchParams.get("redirect");
-    if (redirectParam && redirectParam.includes("redirect=")) {
-      console.warn(
-        "Detected potential redirect loop, clearing redirect parameter"
-      );
-      const cleanUrl = new URL(request.nextUrl);
-      cleanUrl.searchParams.delete("redirect");
-      return NextResponse.redirect(cleanUrl);
+    if (commonResult.type === "redirect") {
+      return NextResponse.redirect(commonResult.url);
+    }
+
+    if (commonResult.type === "auth-redirect") {
+      return redirectToAuth(request, commonResult.url, commonResult.redirect);
     }
 
     // Additional safety: if we're coming from the auth app, don't redirect back immediately
-    // BUT only if we have a valid session (to prevent blocking logout redirects)
     const referer = request.headers.get("referer");
-    const sessionCookie = getSessionCookie(request);
     if (
       referer &&
       referer.startsWith(opts.authAppUrl) &&
       pathname === "/" &&
-      sessionCookie
+      commonResult.sessionCookie
     ) {
       return NextResponse.next();
     }
 
-    if (!sessionCookie) {
-      // For root path, redirect to auth without redirect parameter to prevent loops
-      if (pathname === "/") {
-        return redirectToAuth(request, opts.authAppUrl);
-      }
-      // For other meaningful pages, include redirect
-      if (!pathname.startsWith("/_next")) {
-        return redirectToAuth(request, opts.authAppUrl, request.nextUrl.href);
-      }
-      return redirectToAuth(request, opts.authAppUrl);
-    }
-
     try {
-      const user = await fetchUser(sessionCookie);
+      const user = await fetchUser(commonResult.sessionCookie);
 
       if (!user) {
-        // Create response that clears the invalid session cookie and redirects
         const response = redirectToAuth(
           request,
           opts.authAppUrl,
           pathname === "/" ? undefined : request.nextUrl.href
         );
-
-        // Clear the invalid session cookie
-        response.cookies.set("better-auth.session_token", "", {
-          expires: new Date(0),
-          path: "/",
-          httpOnly: true,
-          secure: process.env.NODE_ENV === "production",
-          sameSite: "lax",
-        });
-
-        return response;
+        return clearSessionCookie(response);
       }
 
       if (user.emailVerified) {
@@ -222,15 +216,11 @@ export function createAuthMiddleware(opts: Options) {
       }
     } catch (error) {
       console.error(`Auth middleware error for ${pathname}:`, error);
-
-      // Create response that clears the problematic session cookie and redirects
       const response = redirectToAuth(
         request,
         opts.authAppUrl,
         pathname === "/" ? undefined : request.nextUrl.href
       );
-
-      // Clear the problematic session cookie
       return clearSessionCookie(response);
     }
   };
@@ -242,38 +232,27 @@ export function createRoleBasedMiddleware(opts: RoleBasedOptions) {
     opts.allowedRoles ?? (opts.requireAdmin ? ["admin"] : []);
 
   return async function middleware(request: NextRequest) {
-    const { pathname, searchParams } = request.nextUrl;
+    const { pathname } = request.nextUrl;
 
-    // Skip auth check for health checks and monitoring endpoints
-    if (pathname === "/health" || pathname === "/ping") {
+    const commonResult = await handleCommonMiddlewareLogic(
+      request,
+      opts.authAppUrl
+    );
+
+    if (commonResult.type === "next") {
       return NextResponse.next();
     }
 
-    // Prevent redirect loops
-    const redirectParam = searchParams.get("redirect");
-    if (redirectParam && redirectParam.includes("redirect=")) {
-      console.warn(
-        "Detected potential redirect loop, clearing redirect parameter"
-      );
-      const cleanUrl = new URL(request.nextUrl);
-      cleanUrl.searchParams.delete("redirect");
-      return NextResponse.redirect(cleanUrl);
+    if (commonResult.type === "redirect") {
+      return NextResponse.redirect(commonResult.url);
     }
 
-    const sessionCookie = getSessionCookie(request);
-
-    if (!sessionCookie) {
-      if (pathname === "/") {
-        return redirectToAuth(request, opts.authAppUrl);
-      }
-      if (!pathname.startsWith("/_next")) {
-        return redirectToAuth(request, opts.authAppUrl, request.nextUrl.href);
-      }
-      return redirectToAuth(request, opts.authAppUrl);
+    if (commonResult.type === "auth-redirect") {
+      return redirectToAuth(request, commonResult.url, commonResult.redirect);
     }
 
     try {
-      const user = await fetchUserWithRole(sessionCookie);
+      const user = await fetchUserWithRole(commonResult.sessionCookie);
 
       if (!user) {
         const response = redirectToAuth(
@@ -406,48 +385,38 @@ export function createBasicMiddleware(
   const verifyPath = opts.verifyPath ?? "/verify-email";
 
   return async function middleware(request: NextRequest) {
-    const { pathname, searchParams } = request.nextUrl;
+    const { pathname } = request.nextUrl;
 
-    // Skip auth check for health checks and monitoring endpoints
-    if (pathname === "/health" || pathname === "/ping") {
+    const commonResult = await handleCommonMiddlewareLogic(
+      request,
+      opts.authAppUrl
+    );
+
+    if (commonResult.type === "next") {
       return NextResponse.next();
     }
 
-    // Prevent redirect loops
-    const redirectParam = searchParams.get("redirect");
-    if (redirectParam && redirectParam.includes("redirect=")) {
-      console.warn(
-        "Detected potential redirect loop, clearing redirect parameter"
-      );
-      const cleanUrl = new URL(request.nextUrl);
-      cleanUrl.searchParams.delete("redirect");
-      return NextResponse.redirect(cleanUrl);
+    if (commonResult.type === "redirect") {
+      return NextResponse.redirect(commonResult.url);
+    }
+
+    if (commonResult.type === "auth-redirect") {
+      return redirectToAuth(request, commonResult.url, commonResult.redirect);
     }
 
     // Additional safety: if we're coming from the auth app, don't redirect back immediately
     const referer = request.headers.get("referer");
-    const sessionCookie = getSessionCookie(request);
     if (
       referer &&
       referer.startsWith(opts.authAppUrl) &&
       pathname === "/" &&
-      sessionCookie
+      commonResult.sessionCookie
     ) {
       return NextResponse.next();
     }
 
-    if (!sessionCookie) {
-      if (pathname === "/") {
-        return redirectToAuth(request, opts.authAppUrl);
-      }
-      if (!pathname.startsWith("/_next")) {
-        return redirectToAuth(request, opts.authAppUrl, request.nextUrl.href);
-      }
-      return redirectToAuth(request, opts.authAppUrl);
-    }
-
     try {
-      const user = await fetchUserWithRole(sessionCookie);
+      const user = await fetchUserWithRole(commonResult.sessionCookie);
 
       if (!user) {
         const response = redirectToAuth(

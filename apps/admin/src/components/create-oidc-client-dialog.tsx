@@ -1,7 +1,14 @@
 "use client";
 
 import React, { useState, useRef, useMemo, useEffect } from "react";
-import { useForm, Controller, useFieldArray } from "react-hook-form";
+import {
+  useForm,
+  Controller,
+  useFieldArray,
+  Control,
+  FieldPath,
+  FieldValues,
+} from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { PlusIcon, LoaderIcon, TrashIcon, Check } from "lucide-react";
@@ -52,6 +59,87 @@ import { ScrollArea } from "@repo/ui/components/scroll-area";
 import { toast } from "sonner";
 
 import { authClient } from "@repo/common/lib/auth-client";
+
+// Helper functions to reduce duplication
+const getStoredClients = () => {
+  return JSON.parse(localStorage.getItem("oidc-clients") || "[]");
+};
+
+const saveClients = (clients: unknown[]) => {
+  localStorage.setItem("oidc-clients", JSON.stringify(clients));
+};
+
+const validateRedirectUrls = (redirectURLs: { url: string }[]) => {
+  const redirectUris = redirectURLs
+    .map((item) => item.url.trim())
+    .filter((uri) => uri.length > 0);
+
+  if (redirectUris.length === 0) {
+    toast.error("At least one redirect URL is required.");
+    return null;
+  }
+  return redirectUris;
+};
+
+const validateMetadata = (metadataString?: string) => {
+  if (!metadataString) return undefined;
+
+  try {
+    return JSON.parse(metadataString);
+  } catch {
+    toast.error("Metadata must be valid JSON.");
+    return null;
+  }
+};
+
+const handleAsyncOperation = async (
+  operation: () => Promise<void>,
+  setLoading: (loading: boolean) => void
+) => {
+  try {
+    setLoading(true);
+    await operation();
+  } catch (error) {
+    console.error("Operation failed:", error);
+    toast.error(
+      error instanceof Error ? error.message : "An unexpected error occurred."
+    );
+  } finally {
+    setLoading(false);
+  }
+};
+
+// Reusable form field component to reduce duplication
+const FormField = <T extends FieldValues>({
+  control,
+  name,
+  label,
+  description,
+  required = false,
+  children,
+}: {
+  control: Control<T>;
+  name: FieldPath<T>;
+  label: string;
+  description?: string;
+  required?: boolean;
+  children: (field: any, fieldState: unknown) => React.ReactNode;
+}) => (
+  <Controller
+    control={control}
+    name={name}
+    render={({ field, fieldState }) => (
+      <Field>
+        <FieldLabel>
+          {label} {required && "*"}
+        </FieldLabel>
+        {children(field, fieldState)}
+        {description && <FieldDescription>{description}</FieldDescription>}
+        {fieldState.invalid && <FieldError errors={[fieldState.error]} />}
+      </Field>
+    )}
+  />
+);
 
 // Common OAuth 2.0 / OIDC scopes
 const COMMON_SCOPES = [
@@ -232,6 +320,15 @@ export function ScopeCombobox({
             ref={triggerRef}
             className="flex min-h-10 w-full flex-wrap items-center gap-1 rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-within:ring-2 focus-within:ring-ring focus-within:ring-offset-2 cursor-text"
             onClick={() => inputRef.current?.focus()}
+            onKeyDown={(e) => {
+              if (e.key === "Enter" || e.key === " ") {
+                e.preventDefault();
+                inputRef.current?.focus();
+              }
+            }}
+            tabIndex={0}
+            role="button"
+            aria-label="Focus scope input"
           >
             <div className="flex flex-wrap items-center gap-1 w-full">
               {currentScopes.map((scope) => (
@@ -293,27 +390,27 @@ export function ScopeCombobox({
 
               <CommandGroup>
                 <ScrollArea className="h-[200px] p-1">
-                    {filteredScopes.map((scope) => {
-                      const selected = currentScopes.includes(scope.value);
-                      return (
-                        <CommandItem
-                          key={scope.value}
-                          value={scope.value}
-                          onSelect={() => handleScopeToggle(scope.value)}
-                          className="cursor-pointer"
-                        >
-                          <Check
-                            className={`mr-2 h-4 w-4 ${selected ? "opacity-100" : "opacity-0"}`}
-                          />
-                          <div className="flex flex-col">
-                            <span className="font-medium">{scope.label}</span>
-                            <span className="text-sm text-muted-foreground">
-                              {scope.description}
-                            </span>
-                          </div>
-                        </CommandItem>
-                      );
-                    })}
+                  {filteredScopes.map((scope) => {
+                    const selected = currentScopes.includes(scope.value);
+                    return (
+                      <CommandItem
+                        key={scope.value}
+                        value={scope.value}
+                        onSelect={() => handleScopeToggle(scope.value)}
+                        className="cursor-pointer"
+                      >
+                        <Check
+                          className={`mr-2 h-4 w-4 ${selected ? "opacity-100" : "opacity-0"}`}
+                        />
+                        <div className="flex flex-col">
+                          <span className="font-medium">{scope.label}</span>
+                          <span className="text-sm text-muted-foreground">
+                            {scope.description}
+                          </span>
+                        </div>
+                      </CommandItem>
+                    );
+                  })}
                 </ScrollArea>
               </CommandGroup>
             </CommandList>
@@ -379,29 +476,14 @@ export function CreateOIDCClientDialog({
   });
 
   const onSubmit = async (data: CreateClientFormData) => {
-    try {
-      setLoading(true);
+    await handleAsyncOperation(async () => {
+      // Validate redirect URLs
+      const redirectUris = validateRedirectUrls(data.redirectURLs);
+      if (!redirectUris) return;
 
-      // Extract redirect URIs from field array
-      const redirectUris = data.redirectURLs
-        .map((item) => item.url.trim())
-        .filter((uri) => uri.length > 0);
-
-      if (redirectUris.length === 0) {
-        toast.error("At least one redirect URL is required.");
-        return;
-      }
-
-      // Parse metadata if provided
-      let metadata: Record<string, unknown> | undefined;
-      if (data.metadata) {
-        try {
-          metadata = JSON.parse(data.metadata);
-        } catch {
-          toast.error("Metadata must be valid JSON.");
-          return;
-        }
-      }
+      // Validate metadata
+      const metadata = validateMetadata(data.metadata);
+      if (data.metadata && metadata === null) return;
 
       // Call the Better Auth OIDC register endpoint
       const response = await authClient.oauth2.register({
@@ -437,11 +519,9 @@ export function CreateOIDCClientDialog({
         updatedAt: new Date(),
       };
 
-      const existingClients = JSON.parse(
-        localStorage.getItem("oidc-clients") || "[]"
-      );
+      const existingClients = getStoredClients();
       existingClients.push(newClient);
-      localStorage.setItem("oidc-clients", JSON.stringify(existingClients));
+      saveClients(existingClients);
 
       toast.success(
         `Client "${data.client_name}" has been created successfully.`
@@ -450,14 +530,7 @@ export function CreateOIDCClientDialog({
       form.reset();
       setOpen(false);
       onClientCreated();
-    } catch (error) {
-      console.error("Failed to create OIDC client:", error);
-      toast.error(
-        error instanceof Error ? error.message : "An unexpected error occurred."
-      );
-    } finally {
-      setLoading(false);
-    }
+    }, setLoading);
   };
 
   return (
@@ -478,109 +551,86 @@ export function CreateOIDCClientDialog({
 
         <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <Controller
+            <FormField
               control={form.control}
               name="client_name"
-              render={({ field, fieldState }) => (
-                <Field>
-                  <FieldLabel>Client Name *</FieldLabel>
-                  <InputGroup>
-                    <InputGroupInput
-                      {...field}
-                      type="text"
-                      placeholder="My Application"
-                    />
-                  </InputGroup>
-                  <FieldDescription>
-                    A human-readable name for the client application.
-                  </FieldDescription>
-                  {fieldState.invalid && (
-                    <FieldError errors={[fieldState.error]} />
-                  )}
-                </Field>
+              label="Client Name"
+              description="A human-readable name for the client application."
+              required
+            >
+              {(field) => (
+                <InputGroup>
+                  <InputGroupInput
+                    {...field}
+                    type="text"
+                    placeholder="My Application"
+                  />
+                </InputGroup>
               )}
-            />
+            </FormField>
 
-            <Controller
+            <FormField
               control={form.control}
               name="token_endpoint_auth_method"
-              render={({ field, fieldState }) => (
-                <Field>
-                  <FieldLabel>Authentication Method</FieldLabel>
-                  <Select
-                    onValueChange={field.onChange}
-                    defaultValue={field.value}
-                  >
-                    <SelectTrigger className="w-full">
-                      <SelectValue placeholder="Select authentication method" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="client_secret_basic">
-                        Client Secret (Basic)
-                      </SelectItem>
-                      <SelectItem value="client_secret_post">
-                        Client Secret (POST)
-                      </SelectItem>
-                      <SelectItem value="none">None (Public Client)</SelectItem>
-                    </SelectContent>
-                  </Select>
-                  <FieldDescription>
-                    How the client authenticates with the token endpoint.
-                  </FieldDescription>
-                  {fieldState.invalid && (
-                    <FieldError errors={[fieldState.error]} />
-                  )}
-                </Field>
+              label="Authentication Method"
+              description="How the client authenticates with the token endpoint."
+            >
+              {(field) => (
+                <Select
+                  onValueChange={field.onChange}
+                  defaultValue={field.value}
+                >
+                  <SelectTrigger className="w-full">
+                    <SelectValue placeholder="Select authentication method" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="client_secret_basic">
+                      Client Secret (Basic)
+                    </SelectItem>
+                    <SelectItem value="client_secret_post">
+                      Client Secret (POST)
+                    </SelectItem>
+                    <SelectItem value="none">None (Public Client)</SelectItem>
+                  </SelectContent>
+                </Select>
               )}
-            />
+            </FormField>
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <Controller
+            <FormField
               control={form.control}
               name="client_uri"
-              render={({ field, fieldState }) => (
-                <Field>
-                  <FieldLabel>Client URI</FieldLabel>
-                  <InputGroup>
-                    <InputGroupInput
-                      {...field}
-                      type="url"
-                      placeholder="https://example.com"
-                    />
-                  </InputGroup>
-                  <FieldDescription>
-                    URL of the client application&apos;s homepage.
-                  </FieldDescription>
-                  {fieldState.invalid && (
-                    <FieldError errors={[fieldState.error]} />
-                  )}
-                </Field>
+              label="Client URI"
+              description="URL of the client application's homepage."
+            >
+              {(field) => (
+                <InputGroup>
+                  <InputGroupInput
+                    {...field}
+                    type="url"
+                    placeholder="https://example.com"
+                  />
+                </InputGroup>
               )}
-            />
+            </FormField>
 
-            <Controller
+            <FormField
               control={form.control}
               name="logo_uri"
-              render={({ field, fieldState }) => (
-                <Field>
-                  <FieldLabel>Logo URI</FieldLabel>
-                  <InputGroup>
-                    <InputGroupInput
-                      {...field}
-                      type="url"
-                      placeholder="https://example.com/logo.png"
-                    />
-                  </InputGroup>
-                  <FieldDescription>
-                    URL of the client application&apos;s logo image.
-                  </FieldDescription>
-                  {fieldState.invalid && (
-                    <FieldError errors={[fieldState.error]} />
-                  )}
-                </Field>
+              label="Logo URI"
+              description="URL of the client application's logo image."
+            >
+              {(field) => (
+                <InputGroup>
+                  <InputGroupInput
+                    {...field}
+                    type="url"
+                    placeholder="https://example.com/logo.png"
+                  />
+                </InputGroup>
               )}
-            />
+            </FormField>
           </div>
 
           <Field>
@@ -634,49 +684,35 @@ export function CreateOIDCClientDialog({
             </FieldDescription>
           </Field>
 
-          <Controller
+          <FormField
             control={form.control}
             name="scope"
-            render={({ field, fieldState }) => (
-              <Field>
-                <FieldLabel>Scopes</FieldLabel>
-                <ScopeCombobox
-                  value={field.value || ""}
-                  onChange={field.onChange}
-                  placeholder="openid profile email"
-                />
-                <FieldDescription>
-                  OAuth 2.0 scopes for this client. Type custom scopes and press
-                  Enter/Space to add them, or use the dropdown to select common
-                  ones. &quot;openid&quot; is required for OIDC.
-                </FieldDescription>
-                {fieldState.invalid && (
-                  <FieldError errors={[fieldState.error]} />
-                )}
-              </Field>
+            label="Scopes"
+            description='OAuth 2.0 scopes for this client. Type custom scopes and press Enter/Space to add them, or use the dropdown to select common ones. "openid" is required for OIDC.'
+          >
+            {(field) => (
+              <ScopeCombobox
+                value={field.value || ""}
+                onChange={field.onChange}
+                placeholder="openid profile email"
+              />
             )}
-          />
+          </FormField>
 
-          <Controller
+          <FormField
             control={form.control}
             name="metadata"
-            render={({ field, fieldState }) => (
-              <Field>
-                <FieldLabel>Metadata (JSON)</FieldLabel>
-                <InputGroupTextarea
-                  {...field}
-                  placeholder='{"description": "My application", "environment": "production"}'
-                  className="min-h-[80px] font-mono text-sm"
-                />
-                <FieldDescription>
-                  Optional JSON metadata for the client application.
-                </FieldDescription>
-                {fieldState.invalid && (
-                  <FieldError errors={[fieldState.error]} />
-                )}
-              </Field>
+            label="Metadata (JSON)"
+            description="Optional JSON metadata for the client application."
+          >
+            {(field) => (
+              <InputGroupTextarea
+                {...field}
+                placeholder='{"description": "My application", "environment": "production"}'
+                className="min-h-[80px] font-mono text-sm"
+              />
             )}
-          />
+          </FormField>
 
           <div className="space-y-2">
             <div className="text-sm font-medium">Grant Types</div>

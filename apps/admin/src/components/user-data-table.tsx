@@ -62,6 +62,27 @@ const multiColumnFilterFn: FilterFn<User> = (row, _columnId, filterValue) => {
   return searchableRowContent.includes(searchTerm);
 };
 
+// Helper function to determine user status
+const getUserStatus = (user: User) => {
+  const banned = user.banned;
+  const banExpires = user.banExpires;
+
+  if (!banned) return "active";
+
+  const isExpired = banExpires && new Date(banExpires) < new Date();
+  return isExpired ? "active" : "banned";
+};
+
+// Helper function to render status badge
+const renderStatusBadge = (status: string) => {
+  const variant = status === "banned" ? "destructive" : "secondary";
+  const label = status.charAt(0).toUpperCase() + status.slice(1);
+  return <Badge variant={variant}>{label}</Badge>;
+};
+
+// Helper function to render empty values consistently
+const renderEmptyValue = () => <span className="text-muted-foreground">—</span>;
+
 const rolesFilterFn: FilterFn<User> = (
   row,
   _columnId,
@@ -78,15 +99,7 @@ const statusFilterFn: FilterFn<User> = (
   filterValue: string[]
 ) => {
   if (!filterValue?.length) return true;
-  const user = row.original;
-  const banned = user.banned;
-  const banExpires = user.banExpires;
-
-  let status = "active";
-  if (banned && (!banExpires || new Date(banExpires) > new Date())) {
-    status = "banned";
-  }
-
+  const status = getUserStatus(row.original);
   return filterValue.includes(status);
 };
 
@@ -247,20 +260,8 @@ export function UserDataTable() {
         header: "Status",
         accessorKey: "banned",
         cell: ({ row }) => {
-          const user = row.original;
-          const banned = user.banned;
-          const banExpires = user.banExpires;
-
-          if (!banned) {
-            return <Badge variant="secondary">Active</Badge>;
-          }
-
-          const isExpired = banExpires && new Date(banExpires) < new Date();
-          if (isExpired) {
-            return <Badge variant="secondary">Active</Badge>;
-          }
-
-          return <Badge variant="destructive">Banned</Badge>;
+          const status = getUserStatus(row.original);
+          return renderStatusBadge(status);
         },
         size: 100,
         filterFn: statusFilterFn,
@@ -273,7 +274,7 @@ export function UserDataTable() {
           const banned = row.original.banned;
 
           if (!banned || !banReason) {
-            return <span className="text-muted-foreground">—</span>;
+            return renderEmptyValue();
           }
 
           return (
@@ -292,7 +293,7 @@ export function UserDataTable() {
           const banned = row.original.banned;
 
           if (!banned || !banExpires) {
-            return <span className="text-muted-foreground">—</span>;
+            return renderEmptyValue();
           }
 
           const expiryDate = new Date(banExpires);
@@ -381,67 +382,64 @@ export function UserDataTable() {
     },
   });
 
-  // Get unique role values
-  const roleColumn = table.getColumn("role");
+  // Helper function to get column filter data
+  const getColumnFilterData = useCallback(
+    (columnId: string) => {
+      const column = table.getColumn(columnId);
+      return {
+        column,
+        uniqueValues: column
+          ? Array.from(column.getFacetedUniqueValues().keys()).sort()
+          : [],
+        counts: column ? column.getFacetedUniqueValues() : new Map(),
+        selectedValues: (column?.getFilterValue() as string[]) ?? [],
+      };
+    },
+    [table]
+  );
 
-  const uniqueRoleValues = roleColumn
-    ? Array.from(roleColumn.getFacetedUniqueValues().keys()).sort()
-    : [];
-
-  const roleCounts = roleColumn
-    ? roleColumn.getFacetedUniqueValues()
-    : new Map();
-
-  const selectedRoles =
-    (table.getColumn("role")?.getFilterValue() as string[]) ?? [];
-
-  // Get unique status values
-  const statusColumn = table.getColumn("banned");
-
-  const statusCounts = statusColumn
-    ? statusColumn.getFacetedUniqueValues()
-    : new Map();
-
-  const selectedStatuses =
-    (table.getColumn("banned")?.getFilterValue() as string[]) ?? [];
+  const roleFilterData = getColumnFilterData("role");
+  const statusFilterData = getColumnFilterData("banned");
 
   const selectedCount = table.getSelectedRowModel().rows.length;
 
-  const handleRolesChange = (value: string, checked: boolean) => {
-    const filterValue = table.getColumn("role")?.getFilterValue() as string[];
-    const newFilterValue = filterValue ? [...filterValue] : [];
+  // Generic filter change handler to reduce duplication
+  const handleFilterChange = useCallback(
+    (columnId: string, value: string, checked: boolean) => {
+      const filterValue = table
+        .getColumn(columnId)
+        ?.getFilterValue() as string[];
+      const newFilterValue = filterValue ? [...filterValue] : [];
 
-    if (checked) {
-      newFilterValue.push(value);
-    } else {
-      const index = newFilterValue.indexOf(value);
-      if (index > -1) {
-        newFilterValue.splice(index, 1);
+      if (checked) {
+        newFilterValue.push(value);
+      } else {
+        const index = newFilterValue.indexOf(value);
+        if (index > -1) {
+          newFilterValue.splice(index, 1);
+        }
       }
-    }
 
-    table
-      .getColumn("role")
-      ?.setFilterValue(newFilterValue.length ? newFilterValue : undefined);
-  };
+      table
+        .getColumn(columnId)
+        ?.setFilterValue(newFilterValue.length ? newFilterValue : undefined);
+    },
+    [table]
+  );
 
-  const handleStatusChange = (value: string, checked: boolean) => {
-    const filterValue = table.getColumn("banned")?.getFilterValue() as string[];
-    const newFilterValue = filterValue ? [...filterValue] : [];
+  const handleRolesChange = useCallback(
+    (value: string, checked: boolean) => {
+      handleFilterChange("role", value, checked);
+    },
+    [handleFilterChange]
+  );
 
-    if (checked) {
-      newFilterValue.push(value);
-    } else {
-      const index = newFilterValue.indexOf(value);
-      if (index > -1) {
-        newFilterValue.splice(index, 1);
-      }
-    }
-
-    table
-      .getColumn("banned")
-      ?.setFilterValue(newFilterValue.length ? newFilterValue : undefined);
-  };
+  const handleStatusChange = useCallback(
+    (value: string, checked: boolean) => {
+      handleFilterChange("banned", value, checked);
+    },
+    [handleFilterChange]
+  );
 
   return (
     <div className="space-y-4">
@@ -464,14 +462,14 @@ export function UserDataTable() {
           />
           <DataTableMultiSelectFilter
             triggerLabel="Role"
-            options={uniqueRoleValues.map((value) => ({
+            options={roleFilterData.uniqueValues.map((value) => ({
               value,
               label: value.charAt(0).toUpperCase() + value.slice(1),
-              count: roleCounts.get(value),
+              count: roleFilterData.counts.get(value),
             }))}
-            selectedValues={selectedRoles}
-            onChange={(value, checked) => handleRolesChange(value, checked)}
-            onClear={() => table.getColumn("role")?.setFilterValue(undefined)}
+            selectedValues={roleFilterData.selectedValues}
+            onChange={handleRolesChange}
+            onClear={() => roleFilterData.column?.setFilterValue(undefined)}
           />
           <DataTableMultiSelectFilter
             triggerLabel="Status"
@@ -479,17 +477,17 @@ export function UserDataTable() {
               {
                 value: "active",
                 label: "Active",
-                count: statusCounts.get(false) || 0,
+                count: statusFilterData.counts.get(false) || 0,
               },
               {
                 value: "banned",
                 label: "Banned",
-                count: statusCounts.get(true) || 0,
+                count: statusFilterData.counts.get(true) || 0,
               },
             ]}
-            selectedValues={selectedStatuses}
-            onChange={(value, checked) => handleStatusChange(value, checked)}
-            onClear={() => table.getColumn("banned")?.setFilterValue(undefined)}
+            selectedValues={statusFilterData.selectedValues}
+            onChange={handleStatusChange}
+            onClear={() => statusFilterData.column?.setFilterValue(undefined)}
           />
         </div>
         <div className="flex items-center gap-3">

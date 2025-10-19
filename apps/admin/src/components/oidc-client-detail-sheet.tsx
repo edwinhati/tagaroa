@@ -92,6 +92,104 @@ interface OIDCClientDetailSheetProps {
   onClientDeleted: () => void;
 }
 
+// Helper functions to reduce duplication
+const getStoredClients = (): OIDCClient[] => {
+  return JSON.parse(localStorage.getItem("oidc-clients") || "[]");
+};
+
+const saveClients = (clients: OIDCClient[]) => {
+  localStorage.setItem("oidc-clients", JSON.stringify(clients));
+};
+
+const handleAsyncOperation = async (
+  operation: () => Promise<void>,
+  setLoading: (loading: boolean) => void,
+  successMessage?: string
+) => {
+  try {
+    setLoading(true);
+    await operation();
+    if (successMessage) {
+      toast.success(successMessage);
+    }
+  } catch (error) {
+    console.error("Operation failed:", error);
+    toast.error(
+      error instanceof Error ? error.message : "An unexpected error occurred."
+    );
+  } finally {
+    setLoading(false);
+  }
+};
+
+// Helper component for credential display
+const CredentialField = ({
+  label,
+  value,
+  copyLabel,
+  showToggle,
+  isVisible,
+  onToggleVisibility,
+}: {
+  label: string;
+  value: string;
+  copyLabel: string;
+  showToggle?: boolean;
+  isVisible?: boolean;
+  onToggleVisibility?: () => void;
+}) => (
+  <div>
+    <label className="text-sm font-medium text-muted-foreground">{label}</label>
+    <div className="flex items-center gap-2 mt-1">
+      <code className="flex-1 text-sm bg-muted px-3 py-2 rounded border">
+        {showToggle && !isVisible ? "••••••••••••••••••••••••••••••••" : value}
+      </code>
+      {showToggle && (
+        <Button size="sm" variant="outline" onClick={onToggleVisibility}>
+          {isVisible ? (
+            <EyeOffIcon className="h-4 w-4" />
+          ) : (
+            <EyeIcon className="h-4 w-4" />
+          )}
+        </Button>
+      )}
+      {(!showToggle || isVisible) && (
+        <CopyToClipboard text={value} label={copyLabel} />
+      )}
+    </div>
+  </div>
+);
+
+// Helper component for endpoint display
+const EndpointField = ({
+  label,
+  endpoint,
+  showExternalLink = false,
+}: {
+  label: string;
+  endpoint: string;
+  showExternalLink?: boolean;
+}) => (
+  <div>
+    <label className="text-sm font-medium text-muted-foreground">{label}</label>
+    <div className="flex items-center gap-2 mt-1">
+      <code className="flex-1 text-sm bg-muted px-3 py-2 rounded border">
+        {endpoint}
+      </code>
+      <CopyToClipboard text={endpoint} label={label} />
+      {showExternalLink && (
+        <Button
+          size="sm"
+          variant="outline"
+          onClick={() => window.open(endpoint, "_blank")}
+        >
+          <ExternalLinkIcon className="h-4 w-4" />
+        </Button>
+      )}
+    </div>
+  </div>
+);
+
 export function OIDCClientDetailSheet({
   client,
   open,
@@ -121,88 +219,70 @@ export function OIDCClientDetailSheet({
   });
 
   const onSubmit = async (data: UpdateClientFormData) => {
-    try {
-      setLoading(true);
+    await handleAsyncOperation(
+      async () => {
+        // Extract redirect URIs from field array
+        const redirectUris = data.redirectURLs
+          .map((item) => item.url.trim())
+          .filter((uri) => uri.length > 0);
 
-      // Extract redirect URIs from field array
-      const redirectUris = data.redirectURLs
-        .map((item) => item.url.trim())
-        .filter((uri) => uri.length > 0);
-
-      if (redirectUris.length === 0) {
-        toast.error("At least one redirect URL is required.");
-        return;
-      }
-
-      // Parse metadata if provided
-      let metadata: Record<string, unknown> | undefined;
-      if (data.metadata) {
-        try {
-          metadata = JSON.parse(data.metadata);
-        } catch {
-          toast.error("Metadata must be valid JSON.");
+        if (redirectUris.length === 0) {
+          toast.error("At least one redirect URL is required.");
           return;
         }
-      }
 
-      // Update in localStorage
-      const existingClients = JSON.parse(
-        localStorage.getItem("oidc-clients") || "[]"
-      );
-      const updatedClients = existingClients.map((c: OIDCClient) =>
-        c.id === client.id
-          ? {
-              ...c,
-              name: data.name,
-              redirectURLs: redirectUris,
-              disabled: data.disabled,
-              icon: data.logo_uri || undefined,
-              metadata: metadata || undefined,
-              updatedAt: new Date(),
-            }
-          : c
-      );
-      localStorage.setItem("oidc-clients", JSON.stringify(updatedClients));
+        // Parse metadata if provided
+        let metadata: Record<string, unknown> | undefined;
+        if (data.metadata) {
+          try {
+            metadata = JSON.parse(data.metadata);
+          } catch {
+            toast.error("Metadata must be valid JSON.");
+            return;
+          }
+        }
 
-      toast.success(`Client "${data.name}" has been updated successfully.`);
+        // Update in localStorage
+        const existingClients = getStoredClients();
+        const updatedClients = existingClients.map((c: OIDCClient) =>
+          c.id === client.id
+            ? {
+                ...c,
+                name: data.name,
+                redirectURLs: redirectUris,
+                disabled: data.disabled,
+                icon: data.logo_uri || undefined,
+                metadata: metadata || undefined,
+                updatedAt: new Date(),
+              }
+            : c
+        );
+        saveClients(updatedClients);
 
-      setIsEditing(false);
-      onClientUpdated();
-    } catch (error) {
-      console.error("Failed to update OIDC client:", error);
-      toast.error(
-        error instanceof Error ? error.message : "An unexpected error occurred."
-      );
-    } finally {
-      setLoading(false);
-    }
+        setIsEditing(false);
+        onClientUpdated();
+      },
+      setLoading,
+      `Client "${data.name}" has been updated successfully.`
+    );
   };
 
   const handleDelete = async () => {
-    try {
-      setLoading(true);
+    await handleAsyncOperation(
+      async () => {
+        // Delete from localStorage
+        const existingClients = getStoredClients();
+        const updatedClients = existingClients.filter(
+          (c: OIDCClient) => c.id !== client.id
+        );
+        saveClients(updatedClients);
 
-      // Delete from localStorage
-      const existingClients = JSON.parse(
-        localStorage.getItem("oidc-clients") || "[]"
-      );
-      const updatedClients = existingClients.filter(
-        (c: OIDCClient) => c.id !== client.id
-      );
-      localStorage.setItem("oidc-clients", JSON.stringify(updatedClients));
-
-      toast.success(`Client "${client.name}" has been deleted successfully.`);
-
-      onOpenChange(false);
-      onClientDeleted();
-    } catch (error) {
-      console.error("Failed to delete OIDC client:", error);
-      toast.error(
-        error instanceof Error ? error.message : "An unexpected error occurred."
-      );
-    } finally {
-      setLoading(false);
-    }
+        onOpenChange(false);
+        onClientDeleted();
+      },
+      setLoading,
+      `Client "${client.name}" has been deleted successfully.`
+    );
   };
 
   const typeLabels = {
@@ -453,51 +533,21 @@ export function OIDCClientDetailSheet({
                 <h3 className="text-lg font-semibold">Client Credentials</h3>
 
                 <div className="space-y-3">
-                  <div>
-                    <label className="text-sm font-medium text-muted-foreground">
-                      Client ID
-                    </label>
-                    <div className="flex items-center gap-2 mt-1">
-                      <code className="flex-1 text-sm bg-muted px-3 py-2 rounded border">
-                        {client.clientId}
-                      </code>
-                      <CopyToClipboard
-                        text={client.clientId!}
-                        label="Client ID"
-                      />
-                    </div>
-                  </div>
+                  <CredentialField
+                    label="Client ID"
+                    value={client.clientId}
+                    copyLabel="Client ID"
+                  />
 
                   {client.clientSecret && (
-                    <div>
-                      <label className="text-sm font-medium text-muted-foreground">
-                        Client Secret
-                      </label>
-                      <div className="flex items-center gap-2 mt-1">
-                        <code className="flex-1 text-sm bg-muted px-3 py-2 rounded border">
-                          {showSecret
-                            ? client.clientSecret
-                            : "••••••••••••••••••••••••••••••••"}
-                        </code>
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          onClick={() => setShowSecret(!showSecret)}
-                        >
-                          {showSecret ? (
-                            <EyeOffIcon className="h-4 w-4" />
-                          ) : (
-                            <EyeIcon className="h-4 w-4" />
-                          )}
-                        </Button>
-                        {showSecret && (
-                          <CopyToClipboard
-                            text={client.clientSecret!}
-                            label="Client Secret"
-                          />
-                        )}
-                      </div>
-                    </div>
+                    <CredentialField
+                      label="Client Secret"
+                      value={client.clientSecret}
+                      copyLabel="Client Secret"
+                      showToggle
+                      isVisible={showSecret}
+                      onToggleVisibility={() => setShowSecret(!showSecret)}
+                    />
                   )}
                 </div>
               </div>
@@ -578,78 +628,26 @@ export function OIDCClientDetailSheet({
                 </h3>
 
                 <div className="space-y-3">
-                  <div>
-                    <label className="text-sm font-medium text-muted-foreground">
-                      Authorization Endpoint
-                    </label>
-                    <div className="flex items-center gap-2 mt-1">
-                      <code className="flex-1 text-sm bg-muted px-3 py-2 rounded border">
-                        {process.env.NEXT_PUBLIC_API_URL}/oauth2/authorize
-                      </code>
-                      <CopyToClipboard
-                        text={`${process.env.NEXT_PUBLIC_API_URL}/oauth2/authorize`}
-                        label="Authorization Endpoint"
-                      />
-                    </div>
-                  </div>
+                  <EndpointField
+                    label="Authorization Endpoint"
+                    endpoint={`${process.env.NEXT_PUBLIC_API_URL}/oauth2/authorize`}
+                  />
 
-                  <div>
-                    <label className="text-sm font-medium text-muted-foreground">
-                      Token Endpoint
-                    </label>
-                    <div className="flex items-center gap-2 mt-1">
-                      <code className="flex-1 text-sm bg-muted px-3 py-2 rounded border">
-                        {process.env.NEXT_PUBLIC_API_URL}/oauth2/token
-                      </code>
-                      <CopyToClipboard
-                        text={`${process.env.NEXT_PUBLIC_API_URL}/oauth2/token`}
-                        label="Token Endpoint"
-                      />
-                    </div>
-                  </div>
+                  <EndpointField
+                    label="Token Endpoint"
+                    endpoint={`${process.env.NEXT_PUBLIC_API_URL}/oauth2/token`}
+                  />
 
-                  <div>
-                    <label className="text-sm font-medium text-muted-foreground">
-                      UserInfo Endpoint
-                    </label>
-                    <div className="flex items-center gap-2 mt-1">
-                      <code className="flex-1 text-sm bg-muted px-3 py-2 rounded border">
-                        {process.env.NEXT_PUBLIC_API_URL}/oauth2/userinfo
-                      </code>
-                      <CopyToClipboard
-                        text={`${process.env.NEXT_PUBLIC_API_URL}/oauth2/userinfo`}
-                        label="UserInfo Endpoint"
-                      />
-                    </div>
-                  </div>
+                  <EndpointField
+                    label="UserInfo Endpoint"
+                    endpoint={`${process.env.NEXT_PUBLIC_API_URL}/oauth2/userinfo`}
+                  />
 
-                  <div>
-                    <label className="text-sm font-medium text-muted-foreground">
-                      OIDC Discovery
-                    </label>
-                    <div className="flex items-center gap-2 mt-1">
-                      <code className="flex-1 text-sm bg-muted px-3 py-2 rounded border">
-                        {process.env.NEXT_PUBLIC_API_URL}
-                        /.well-known/openid-configuration
-                      </code>
-                      <CopyToClipboard
-                        text={`${process.env.NEXT_PUBLIC_API_URL}/.well-known/openid-configuration`}
-                        label="OIDC Discovery"
-                      />
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        onClick={() =>
-                          window.open(
-                            `${process.env.NEXT_PUBLIC_API_URL}/.well-known/openid-configuration`,
-                            "_blank"
-                          )
-                        }
-                      >
-                        <ExternalLinkIcon className="h-4 w-4" />
-                      </Button>
-                    </div>
-                  </div>
+                  <EndpointField
+                    label="OIDC Discovery"
+                    endpoint={`${process.env.NEXT_PUBLIC_API_URL}/.well-known/openid-configuration`}
+                    showExternalLink
+                  />
                 </div>
               </div>
 
