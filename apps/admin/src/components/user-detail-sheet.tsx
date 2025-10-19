@@ -67,10 +67,6 @@ type UpdateUserResponse = Awaited<
   ReturnType<typeof authClient.admin.updateUser>
 >;
 type UpdateUserData = NonNullable<UpdateUserResponse["data"]>;
-type SetRoleParams = Parameters<typeof authClient.admin.setRole>[0];
-type SetRoleInput = NonNullable<SetRoleParams>;
-type SetRoleResponse = Awaited<ReturnType<typeof authClient.admin.setRole>>;
-type SetRoleData = NonNullable<SetRoleResponse["data"]>;
 type BanUserParams = Parameters<typeof authClient.admin.banUser>[0];
 type BanUserInput = NonNullable<BanUserParams>;
 type BanUserResponse = Awaited<ReturnType<typeof authClient.admin.banUser>>;
@@ -723,7 +719,7 @@ export function UserDetailSheet({
                       Role Management
                     </CardTitle>
                     <CardDescription>
-                      Change the user's role and permissions
+                      Change the user&apos;s role and permissions
                     </CardDescription>
                   </div>
                   <CardAction>

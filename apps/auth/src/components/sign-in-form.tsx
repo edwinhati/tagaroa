@@ -54,6 +54,10 @@ export function SignInForm({
   const googleAuthFlagEnabled = useFeatureFlagEnabled("google-auth");
   const githubAuthFlagEnabled = useFeatureFlagEnabled("github-auth");
 
+  // Add fallback values and loading state
+  const isGoogleAuthEnabled = googleAuthFlagEnabled ?? false;
+  const isGithubAuthEnabled = githubAuthFlagEnabled ?? false;
+
   const [loading, setLoading] = useState<boolean>();
   const [authError, setAuthError] = useState<string | null>(null);
   const [showPassword, setShowPassword] = useState<boolean>(false);
@@ -99,6 +103,23 @@ export function SignInForm({
     }
   }
 
+  async function signInWithSocialProvider(provider: string) {
+    setLoading(true);
+    setAuthError(null);
+    const { data, error } = await authClient.signIn.social({
+      provider,
+    });
+
+    if (data) {
+      setLoading(false);
+      toast.success("Logged in successfully — let’s get to it 🚀");
+      router.push(redirectPath);
+    } else if (error) {
+      setLoading(false);
+      setAuthError(error?.message || "An error occurred during sign in");
+    }
+  }
+
   return (
     <div className={cn("w-full max-w-md mx-auto", className)} {...props}>
       <Card className="shadow-md">
@@ -120,13 +141,14 @@ export function SignInForm({
               {authError}
             </div>
           )}
-          {mounted && googleAuthFlagEnabled && (
+          {mounted && isGoogleAuthEnabled && (
             <div className="grid gap-4">
               <Button
                 variant="outline"
                 className="w-full flex items-center justify-center"
                 disabled={loading}
                 type="button"
+                onClick={() => signInWithSocialProvider("google")}
               >
                 <div className="flex items-center justify-center w-5 h-5 mr-2">
                   <svg
@@ -158,13 +180,14 @@ export function SignInForm({
             </div>
           )}
 
-          {mounted && githubAuthFlagEnabled && (
+          {mounted && isGithubAuthEnabled && (
             <div className="grid gap-4">
               <Button
                 variant="outline"
                 className="w-full flex items-center justify-center"
                 disabled={loading}
                 type="button"
+                onClick={() => signInWithSocialProvider("github")}
               >
                 <div className="flex items-center justify-center w-5 h-5 mr-2">
                   <svg
@@ -181,7 +204,7 @@ export function SignInForm({
             </div>
           )}
 
-          {mounted && (googleAuthFlagEnabled || githubAuthFlagEnabled) && (
+          {mounted && (isGoogleAuthEnabled || isGithubAuthEnabled) && (
             <div className="relative">
               <div className="absolute inset-0 flex items-center">
                 <Separator />
@@ -194,94 +217,99 @@ export function SignInForm({
             </div>
           )}
 
-          <FieldGroup>
-            <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
-              <Controller
-                control={form.control}
-                name="email"
-                render={({ field, fieldState }) => (
-                  <Field>
-                    <FieldLabel>Email</FieldLabel>
-                    <InputGroup>
-                      <InputGroupInput
-                        {...field}
-                        type="email"
-                        autoComplete="email"
-                        placeholder="Enter your email"
-                      />
-                    </InputGroup>
-                    {fieldState.invalid && (
-                      <FieldError errors={[fieldState.error]} />
-                    )}
-                  </Field>
-                )}
-              />
-              <Controller
-                control={form.control}
-                name="password"
-                render={({ field, fieldState }) => (
-                  <Field>
-                    <div className="flex items-center justify-between">
-                      <FieldLabel>Password</FieldLabel>
-                      <Link
-                        href="/forgot-password"
-                        className="text-xs text-primary hover:underline"
-                      >
-                        Forgot password?
-                      </Link>
-                    </div>
-                    <InputGroup className="relative">
-                      <InputGroupInput
-                        {...field}
-                        type={showPassword ? "text" : "password"}
-                        autoComplete="current-password"
-                        placeholder="••••••••"
-                      />
-                      <InputGroupAddon>
-                        <Button
-                          type="button"
-                          variant="ghost"
-                          size="sm"
-                          className="absolute right-0 top-0 h-full px-3 py-2 hover:bg-transparent"
-                          onClick={() => setShowPassword(!showPassword)}
-                          aria-label={
-                            showPassword ? "Hide password" : "Show password"
-                          }
+          {mounted && (
+            <FieldGroup>
+              <form
+                onSubmit={form.handleSubmit(onSubmit)}
+                className="space-y-4"
+              >
+                <Controller
+                  control={form.control}
+                  name="email"
+                  render={({ field, fieldState }) => (
+                    <Field>
+                      <FieldLabel>Email</FieldLabel>
+                      <InputGroup>
+                        <InputGroupInput
+                          {...field}
+                          type="email"
+                          autoComplete="email"
+                          placeholder="Enter your email"
+                        />
+                      </InputGroup>
+                      {fieldState.invalid && (
+                        <FieldError errors={[fieldState.error]} />
+                      )}
+                    </Field>
+                  )}
+                />
+                <Controller
+                  control={form.control}
+                  name="password"
+                  render={({ field, fieldState }) => (
+                    <Field>
+                      <div className="flex items-center justify-between">
+                        <FieldLabel>Password</FieldLabel>
+                        <Link
+                          href="/forgot-password"
+                          className="text-xs text-primary hover:underline"
                         >
-                          {showPassword ? (
-                            <EyeOff className="h-4 w-4 text-muted-foreground" />
-                          ) : (
-                            <Eye className="h-4 w-4 text-muted-foreground" />
-                          )}
-                        </Button>
-                      </InputGroupAddon>
-                    </InputGroup>
-                    {fieldState.invalid && (
-                      <FieldError errors={[fieldState.error]} />
-                    )}
-                  </Field>
+                          Forgot password?
+                        </Link>
+                      </div>
+                      <InputGroup className="relative">
+                        <InputGroupInput
+                          {...field}
+                          type={showPassword ? "text" : "password"}
+                          autoComplete="current-password"
+                          placeholder="••••••••"
+                        />
+                        <InputGroupAddon>
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="sm"
+                            className="absolute right-0 top-0 h-full px-3 py-2 hover:bg-transparent"
+                            onClick={() => setShowPassword(!showPassword)}
+                            aria-label={
+                              showPassword ? "Hide password" : "Show password"
+                            }
+                          >
+                            {showPassword ? (
+                              <EyeOff className="h-4 w-4 text-muted-foreground" />
+                            ) : (
+                              <Eye className="h-4 w-4 text-muted-foreground" />
+                            )}
+                          </Button>
+                        </InputGroupAddon>
+                      </InputGroup>
+                      {fieldState.invalid && (
+                        <FieldError errors={[fieldState.error]} />
+                      )}
+                    </Field>
+                  )}
+                />
+                <Button type="submit" className="w-full" disabled={loading}>
+                  {loading ? (
+                    <>
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                      Signing in...
+                    </>
+                  ) : (
+                    <>
+                      <Mail className="mr-2 h-4 w-4" />
+                      Sign in with Credentials
+                    </>
+                  )}
+                </Button>
+                {form.formState.errors.root && (
+                  <p className="text-sm text-destructive mt-2">
+                    {form.formState.errors.root.message}
+                  </p>
                 )}
-              />
-              <Button type="submit" className="w-full" disabled={loading}>
-                {loading ? (
-                  <>
-                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                    Signing in...
-                  </>
-                ) : (
-                  <>
-                    <Mail className="mr-2 h-4 w-4" />
-                    Sign in with Credentials
-                  </>
-                )}
-              </Button>
-              {form.formState.errors.root && (
-                <p className="text-sm text-destructive mt-2">
-                  {form.formState.errors.root.message}
-                </p>
-              )}
-            </form>
-          </FieldGroup>
+              </form>
+            </FieldGroup>
+          )}
         </CardContent>
       </Card>
     </div>
