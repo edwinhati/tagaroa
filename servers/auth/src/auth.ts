@@ -1,5 +1,7 @@
-import { Pool } from "pg";
+import { db } from "./db";
+import * as schema from "./db/schema";
 import { betterAuth } from "better-auth";
+import { drizzleAdapter } from "better-auth/adapters/drizzle";
 import { jwt, admin, oidcProvider, openAPI } from "better-auth/plugins";
 
 export const trustedOrigins = process.env.TRUSTED_ORIGINS
@@ -9,8 +11,10 @@ export const trustedOrigins = process.env.TRUSTED_ORIGINS
   : [];
 
 export const auth = betterAuth({
-  database: new Pool({
-    connectionString: process.env.DATABASE_URL,
+  database: drizzleAdapter(db, {
+    provider: "pg",
+    usePlural: true,
+    schema,
   }),
   emailAndPassword: {
     enabled: true,
@@ -28,7 +32,13 @@ export const auth = betterAuth({
   plugins: [
     jwt(),
     admin(),
-    oidcProvider({ loginPage: process.env.AUTH_APP_URL as string }),
+    oidcProvider({
+      useJWTPlugin: true,
+      loginPage: process.env.AUTH_APP_URL as string,
+      metadata: {
+        issuer: `${process.env.BASE_URL}/api/auth`,
+      },
+    }),
     ...(process.env.NODE_ENV !== "production" ? [openAPI()] : []),
   ],
   trustedOrigins,
