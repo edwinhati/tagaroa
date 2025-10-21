@@ -1,6 +1,9 @@
+"use client";
+
+import React from "react";
 import { UserMenu } from "@repo/common/components/user-menu";
 
-export function AdminNavbar() {
+export function AppNavbar() {
   return (
     <header className="border-b px-4 md:px-6">
       <div className="flex h-12 items-center justify-between gap-4">

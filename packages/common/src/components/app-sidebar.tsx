@@ -1,5 +1,6 @@
 "use client";
 
+import React from "react";
 import Link from "next/link";
 import {
   Sidebar,
@@ -13,16 +14,15 @@ import {
   SidebarRail,
   SidebarTrigger,
 } from "@repo/ui/components/sidebar";
-import { DoorClosedLockedIcon } from "lucide-react";
+
 import { Logo } from "@repo/common/components/logo";
 
-const nav = [
-  { name: "Authentication", icon: DoorClosedLockedIcon, href: "/auth/users" },
-];
+interface AppSidebarProps extends React.ComponentProps<typeof Sidebar> {
+  appName: string;
+  nav: Array<{ name: string; icon: React.ComponentType; href: string }>;
+}
 
-export function AdminSidebar({
-  ...props
-}: React.ComponentProps<typeof Sidebar>) {
+export function AppSidebar({ appName, nav, ...props }: AppSidebarProps) {
   return (
     <Sidebar collapsible="icon" {...props}>
       <SidebarHeader>
@@ -35,7 +35,7 @@ export function AdminSidebar({
                 </div>
                 <div className="grid flex-1 text-left text-sm leading-tight">
                   <span className="truncate font-medium">Tagaroa Capital</span>
-                  <span className="truncate text-xs">Administator</span>
+                  <span className="truncate text-xs">{appName}</span>
                 </div>
               </Link>
             </SidebarMenuButton>
