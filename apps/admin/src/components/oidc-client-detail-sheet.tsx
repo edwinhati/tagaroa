@@ -75,7 +75,7 @@ const updateClientSchema = z.object({
     .array(
       z.object({
         url: z.string().min(1, "URL is required"),
-      })
+      }),
     )
     .min(1, "At least one redirect URL is required"),
   disabled: z.boolean(),
@@ -104,7 +104,7 @@ const saveClients = (clients: OIDCClient[]) => {
 const handleAsyncOperation = async (
   operation: () => Promise<void>,
   setLoading: (loading: boolean) => void,
-  successMessage?: string
+  successMessage?: string,
 ) => {
   try {
     setLoading(true);
@@ -115,7 +115,7 @@ const handleAsyncOperation = async (
   } catch (error) {
     console.error("Operation failed:", error);
     toast.error(
-      error instanceof Error ? error.message : "An unexpected error occurred."
+      error instanceof Error ? error.message : "An unexpected error occurred.",
     );
   } finally {
     setLoading(false);
@@ -255,7 +255,7 @@ export function OIDCClientDetailSheet({
                 metadata: metadata || undefined,
                 updatedAt: new Date(),
               }
-            : c
+            : c,
         );
         saveClients(updatedClients);
 
@@ -263,7 +263,7 @@ export function OIDCClientDetailSheet({
         onClientUpdated();
       },
       setLoading,
-      `Client "${data.name}" has been updated successfully.`
+      `Client "${data.name}" has been updated successfully.`,
     );
   };
 
@@ -273,7 +273,7 @@ export function OIDCClientDetailSheet({
         // Delete from localStorage
         const existingClients = getStoredClients();
         const updatedClients = existingClients.filter(
-          (c: OIDCClient) => c.id !== client.id
+          (c: OIDCClient) => c.id !== client.id,
         );
         saveClients(updatedClients);
 
@@ -281,7 +281,7 @@ export function OIDCClientDetailSheet({
         onClientDeleted();
       },
       setLoading,
-      `Client "${client.name}" has been deleted successfully.`
+      `Client "${client.name}" has been deleted successfully.`,
     );
   };
 

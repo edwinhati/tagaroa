@@ -23,7 +23,7 @@ export default function RootTemplate({
           <AppNavbar />
           <div className="flex flex-1 flex-col">{children}</div>
         </SidebarInset>
-      </SidebarProvider>{" "}
+      </SidebarProvider>
     </AppProvider>
   );
 }

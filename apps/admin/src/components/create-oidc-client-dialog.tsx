@@ -94,7 +94,7 @@ const validateMetadata = (metadataString?: string) => {
 
 const handleAsyncOperation = async (
   operation: () => Promise<void>,
-  setLoading: (loading: boolean) => void
+  setLoading: (loading: boolean) => void,
 ) => {
   try {
     setLoading(true);
@@ -102,7 +102,7 @@ const handleAsyncOperation = async (
   } catch (error) {
     console.error("Operation failed:", error);
     toast.error(
-      error instanceof Error ? error.message : "An unexpected error occurred."
+      error instanceof Error ? error.message : "An unexpected error occurred.",
     );
   } finally {
     setLoading(false);
@@ -257,7 +257,7 @@ export function ScopeCombobox({
 
       // If the typed value exactly matches a known scope, toggle that item
       const known = COMMON_SCOPES.find(
-        (s) => s.value === trimmed || s.label === trimmed
+        (s) => s.value === trimmed || s.label === trimmed,
       );
       if (known) {
         handleScopeToggle(known.value);
@@ -308,7 +308,7 @@ export function ScopeCombobox({
       (s) =>
         s.label.toLowerCase().includes(q) ||
         s.value.toLowerCase().includes(q) ||
-        s.description.toLowerCase().includes(q)
+        s.description.toLowerCase().includes(q),
     );
   }, [inputValue]);
 
@@ -429,7 +429,7 @@ const createClientSchema = z.object({
     .array(
       z.object({
         url: z.string().min(1, "URL is required"),
-      })
+      }),
     )
     .min(1, "At least one redirect URL is required"),
   token_endpoint_auth_method: z.enum([
@@ -500,7 +500,7 @@ export function CreateOIDCClientDialog({
 
       if (response.error) {
         throw new Error(
-          response.error.message || "Failed to create OIDC client"
+          response.error.message || "Failed to create OIDC client",
         );
       }
 
@@ -524,7 +524,7 @@ export function CreateOIDCClientDialog({
       saveClients(existingClients);
 
       toast.success(
-        `Client "${data.client_name}" has been created successfully.`
+        `Client "${data.client_name}" has been created successfully.`,
       );
 
       form.reset();

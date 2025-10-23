@@ -1,6 +1,6 @@
 export function resolveSafeRedirect(
   raw: string | null | undefined,
-  dashboardBase: string
+  dashboardBase: string,
 ): string {
   const base = dashboardBase || "/";
 

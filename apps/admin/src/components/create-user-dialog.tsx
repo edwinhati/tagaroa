@@ -1,9 +1,9 @@
 "use client";
 
+import { z } from "zod";
 import { useState } from "react";
 import { useForm, Controller } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { z } from "zod";
 import { PlusIcon } from "lucide-react";
 
 import { Button } from "@repo/ui/components/button";
@@ -36,7 +36,7 @@ import { authClient } from "@repo/common/lib/auth-client";
 
 const createUserSchema = z.object({
   name: z.string().min(1, "Name is required"),
-  email: z.string().email("Invalid email address"),
+  email: z.email("Invalid email address"),
   password: z.string().min(8, "Password must be at least 8 characters"),
   role: z.enum(["user", "admin"]).default("user"),
   emailVerified: z.boolean().default(false),

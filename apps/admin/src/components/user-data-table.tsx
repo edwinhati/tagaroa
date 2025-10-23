@@ -86,7 +86,7 @@ const renderEmptyValue = () => <span className="text-muted-foreground">—</span
 const rolesFilterFn: FilterFn<User> = (
   row,
   _columnId,
-  filterValue: string[]
+  filterValue: string[],
 ) => {
   if (!filterValue?.length) return true;
   const role = row.getValue("role") as string;
@@ -96,7 +96,7 @@ const rolesFilterFn: FilterFn<User> = (
 const statusFilterFn: FilterFn<User> = (
   row,
   _columnId,
-  filterValue: string[]
+  filterValue: string[],
 ) => {
   if (!filterValue?.length) return true;
   const status = getUserStatus(row.original);
@@ -303,7 +303,7 @@ export function UserDataTable() {
             <div
               className={cn(
                 "text-sm",
-                isExpired ? "text-muted-foreground" : "text-destructive"
+                isExpired ? "text-muted-foreground" : "text-destructive",
               )}
             >
               {isExpired ? "Expired" : expiryDate.toLocaleDateString()}
@@ -320,7 +320,7 @@ export function UserDataTable() {
         enableHiding: false,
       },
     ],
-    [fetchUsers]
+    [fetchUsers],
   );
 
   const handleDeleteRows = async () => {
@@ -337,7 +337,7 @@ export function UserDataTable() {
 
       // Delete users one by one using Better Auth admin removeUser
       const deletePromises = selectedUserIds.map((userId) =>
-        authClient.admin.removeUser({ userId })
+        authClient.admin.removeUser({ userId }),
       );
 
       await Promise.all(deletePromises);
@@ -350,7 +350,7 @@ export function UserDataTable() {
     } catch (error) {
       console.error("Failed to delete users:", error);
       setError(
-        `Failed to delete ${selectedUserIds.length} selected user${selectedUserIds.length === 1 ? "" : "s"}. Please try again.`
+        `Failed to delete ${selectedUserIds.length} selected user${selectedUserIds.length === 1 ? "" : "s"}. Please try again.`,
       );
     } finally {
       setLoading(false);
@@ -395,7 +395,7 @@ export function UserDataTable() {
         selectedValues: (column?.getFilterValue() as string[]) ?? [],
       };
     },
-    [table]
+    [table],
   );
 
   const roleFilterData = getColumnFilterData("role");
@@ -424,21 +424,21 @@ export function UserDataTable() {
         .getColumn(columnId)
         ?.setFilterValue(newFilterValue.length ? newFilterValue : undefined);
     },
-    [table]
+    [table],
   );
 
   const handleRolesChange = useCallback(
     (value: string, checked: boolean) => {
       handleFilterChange("role", value, checked);
     },
-    [handleFilterChange]
+    [handleFilterChange],
   );
 
   const handleStatusChange = useCallback(
     (value: string, checked: boolean) => {
       handleFilterChange("banned", value, checked);
     },
-    [handleFilterChange]
+    [handleFilterChange],
   );
 
   return (
@@ -527,7 +527,7 @@ export function UserDataTable() {
                         <div
                           className={cn(
                             header.column.getCanSort() &&
-                              "flex h-full cursor-pointer items-center justify-between gap-2 select-none"
+                              "flex h-full cursor-pointer items-center justify-between gap-2 select-none",
                           )}
                           onClick={header.column.getToggleSortingHandler()}
                           onKeyDown={(e) => {
@@ -544,7 +544,7 @@ export function UserDataTable() {
                         >
                           {flexRender(
                             header.column.columnDef.header,
-                            header.getContext()
+                            header.getContext(),
                           )}
                           {{
                             asc: (
@@ -566,7 +566,7 @@ export function UserDataTable() {
                       ) : (
                         (flexRender(
                           header.column.columnDef.header,
-                          header.getContext()
+                          header.getContext(),
                         ) as never)
                       )}
                     </TableHead>
@@ -587,7 +587,7 @@ export function UserDataTable() {
                       {
                         flexRender(
                           cell.column.columnDef.cell,
-                          cell.getContext()
+                          cell.getContext(),
                         ) as never
                       }
                     </TableCell>

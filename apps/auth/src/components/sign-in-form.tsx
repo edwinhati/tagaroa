@@ -72,7 +72,7 @@ export function SignInForm({
   const dashboardBase = process.env.NEXT_PUBLIC_DASHBOARD_APP_URL || "/";
   const redirectPath = resolveSafeRedirect(
     searchParams.get("redirect"),
-    dashboardBase
+    dashboardBase,
   );
 
   const form = useForm<SignInFormValues>({

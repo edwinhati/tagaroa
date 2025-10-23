@@ -8,7 +8,13 @@ import { Button } from "@repo/ui/components/button";
 
 import { CopyIcon, CheckIcon } from "lucide-react";
 
-export function CopyToClipboard ({ text, label }: { text: string; label: string }) {
+export function CopyToClipboard({
+  text,
+  label,
+}: {
+  text: string;
+  label: string;
+}) {
   const [copied, setCopied] = useState(false);
 
   const handleCopy = async () => {
@@ -34,7 +40,7 @@ export function CopyToClipboard ({ text, label }: { text: string; label: string 
       <span
         className={cn(
           "absolute inset-0 flex items-center justify-center transition-opacity duration-300",
-          copied ? "opacity-0" : "opacity-100"
+          copied ? "opacity-0" : "opacity-100",
         )}
       >
         <CopyIcon className="h-3 w-3" />
@@ -42,11 +48,11 @@ export function CopyToClipboard ({ text, label }: { text: string; label: string 
       <span
         className={cn(
           "absolute inset-0 flex items-center justify-center transition-opacity duration-300",
-          copied ? "opacity-100" : "opacity-0"
+          copied ? "opacity-100" : "opacity-0",
         )}
       >
         <CheckIcon className="h-3 w-3 text-green-500" />
       </span>
     </Button>
   );
-};
+}

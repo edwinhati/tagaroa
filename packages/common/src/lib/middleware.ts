@@ -18,7 +18,7 @@ type RoleBasedOptions = {
 };
 
 async function fetchUserSession<T extends User = User>(
-  sessionCookie: string
+  sessionCookie: string,
 ): Promise<T | null> {
   try {
     const response = await fetch(
@@ -29,12 +29,12 @@ async function fetchUserSession<T extends User = User>(
         },
         // Add timeout to prevent hanging requests
         signal: AbortSignal.timeout(5000),
-      }
+      },
     );
 
     if (!response.ok) {
       console.warn(
-        `Auth session fetch failed: ${response.status} ${response.statusText}`
+        `Auth session fetch failed: ${response.status} ${response.statusText}`,
       );
       return null;
     }
@@ -58,7 +58,7 @@ async function fetchUser(sessionCookie: string): Promise<User | null> {
 }
 
 async function fetchUserWithRole(
-  sessionCookie: string
+  sessionCookie: string,
 ): Promise<UserWithRole | null> {
   return fetchUserSession<UserWithRole>(sessionCookie);
 }
@@ -66,7 +66,7 @@ async function fetchUserWithRole(
 function redirectToAuth(
   req: NextRequest,
   authAppUrl: string,
-  redirectUrl?: string
+  redirectUrl?: string,
 ) {
   const url = new URL(authAppUrl, req.nextUrl);
 
@@ -122,7 +122,7 @@ function clearSessionCookie(response: NextResponse) {
 // Shared middleware logic to reduce duplication
 async function handleCommonMiddlewareLogic(
   request: NextRequest,
-  authAppUrl: string
+  authAppUrl: string,
 ) {
   const { pathname, searchParams } = request.nextUrl;
 
@@ -135,7 +135,7 @@ async function handleCommonMiddlewareLogic(
   const redirectParam = searchParams.get("redirect");
   if (redirectParam && redirectParam.includes("redirect=")) {
     console.warn(
-      "Detected potential redirect loop, clearing redirect parameter"
+      "Detected potential redirect loop, clearing redirect parameter",
     );
     const cleanUrl = new URL(request.nextUrl);
     cleanUrl.searchParams.delete("redirect");
@@ -169,7 +169,7 @@ export function createAuthMiddleware(opts: Options) {
 
     const commonResult = await handleCommonMiddlewareLogic(
       request,
-      opts.authAppUrl
+      opts.authAppUrl,
     );
 
     if (commonResult.type === "next") {
@@ -202,7 +202,7 @@ export function createAuthMiddleware(opts: Options) {
         const response = redirectToAuth(
           request,
           opts.authAppUrl,
-          pathname === "/" ? undefined : request.nextUrl.href
+          pathname === "/" ? undefined : request.nextUrl.href,
         );
         return clearSessionCookie(response);
       }
@@ -211,7 +211,7 @@ export function createAuthMiddleware(opts: Options) {
         return NextResponse.next();
       } else {
         return NextResponse.redirect(
-          new URL(`${opts.authAppUrl}${verifyPath}`, request.nextUrl)
+          new URL(`${opts.authAppUrl}${verifyPath}`, request.nextUrl),
         );
       }
     } catch (error) {
@@ -219,7 +219,7 @@ export function createAuthMiddleware(opts: Options) {
       const response = redirectToAuth(
         request,
         opts.authAppUrl,
-        pathname === "/" ? undefined : request.nextUrl.href
+        pathname === "/" ? undefined : request.nextUrl.href,
       );
       return clearSessionCookie(response);
     }
@@ -236,7 +236,7 @@ export function createRoleBasedMiddleware(opts: RoleBasedOptions) {
 
     const commonResult = await handleCommonMiddlewareLogic(
       request,
-      opts.authAppUrl
+      opts.authAppUrl,
     );
 
     if (commonResult.type === "next") {
@@ -258,7 +258,7 @@ export function createRoleBasedMiddleware(opts: RoleBasedOptions) {
         const response = redirectToAuth(
           request,
           opts.authAppUrl,
-          pathname === "/" ? undefined : request.nextUrl.href
+          pathname === "/" ? undefined : request.nextUrl.href,
         );
         return clearSessionCookie(response);
       }
@@ -266,7 +266,7 @@ export function createRoleBasedMiddleware(opts: RoleBasedOptions) {
       // Check if user's email is verified
       if (!user.emailVerified) {
         return NextResponse.redirect(
-          new URL(`${opts.authAppUrl}${verifyPath}`, request.nextUrl)
+          new URL(`${opts.authAppUrl}${verifyPath}`, request.nextUrl),
         );
       }
 
@@ -295,7 +295,7 @@ export function createRoleBasedMiddleware(opts: RoleBasedOptions) {
       const response = redirectToAuth(
         request,
         opts.authAppUrl,
-        pathname === "/" ? undefined : request.nextUrl.href
+        pathname === "/" ? undefined : request.nextUrl.href,
       );
       return clearSessionCookie(response);
     }
@@ -304,7 +304,7 @@ export function createRoleBasedMiddleware(opts: RoleBasedOptions) {
 
 // Convenience functions for common use cases
 export function createAdminMiddleware(
-  opts: Omit<RoleBasedOptions, "requireAdmin">
+  opts: Omit<RoleBasedOptions, "requireAdmin">,
 ) {
   return createRoleBasedMiddleware({
     ...opts,
@@ -314,7 +314,7 @@ export function createAdminMiddleware(
 
 // Utility function for auth app to determine redirect based on user role
 export async function getRedirectPathForUser(
-  requestedRedirect?: string | null
+  requestedRedirect?: string | null,
 ): Promise<string> {
   try {
     // This would typically be called from the auth app after successful login
@@ -324,7 +324,7 @@ export async function getRedirectPathForUser(
       {
         credentials: "include",
         signal: AbortSignal.timeout(5000),
-      }
+      },
     );
 
     if (!response.ok) {
@@ -380,7 +380,7 @@ export async function getRedirectPathForUser(
 }
 
 export function createBasicMiddleware(
-  opts: Omit<RoleBasedOptions, "allowedRoles">
+  opts: Omit<RoleBasedOptions, "allowedRoles">,
 ) {
   const verifyPath = opts.verifyPath ?? "/verify-email";
 
@@ -389,7 +389,7 @@ export function createBasicMiddleware(
 
     const commonResult = await handleCommonMiddlewareLogic(
       request,
-      opts.authAppUrl
+      opts.authAppUrl,
     );
 
     if (commonResult.type === "next") {
@@ -422,7 +422,7 @@ export function createBasicMiddleware(
         const response = redirectToAuth(
           request,
           opts.authAppUrl,
-          pathname === "/" ? undefined : request.nextUrl.href
+          pathname === "/" ? undefined : request.nextUrl.href,
         );
         return clearSessionCookie(response);
       }
@@ -430,7 +430,7 @@ export function createBasicMiddleware(
       // Check if user's email is verified
       if (!user.emailVerified) {
         return NextResponse.redirect(
-          new URL(`${opts.authAppUrl}${verifyPath}`, request.nextUrl)
+          new URL(`${opts.authAppUrl}${verifyPath}`, request.nextUrl),
         );
       }
 
@@ -445,7 +445,7 @@ export function createBasicMiddleware(
       const response = redirectToAuth(
         request,
         opts.authAppUrl,
-        pathname === "/" ? undefined : request.nextUrl.href
+        pathname === "/" ? undefined : request.nextUrl.href,
       );
       return clearSessionCookie(response);
     }

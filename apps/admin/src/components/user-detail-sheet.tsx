@@ -105,7 +105,7 @@ type ResultWithData<T> = {
 
 const ensureResponseData = <T,>(
   result: ResultWithData<T>,
-  fallbackMessage: string
+  fallbackMessage: string,
 ): T => {
   if (!result || result.error || result.data == null) {
     const message = result?.error?.message ?? fallbackMessage;
@@ -115,7 +115,7 @@ const ensureResponseData = <T,>(
 };
 
 const ensureListUserSessionsData = (
-  result: ListUserSessionsResponse
+  result: ListUserSessionsResponse,
 ): ListUserSessionsData =>
   ensureResponseData(result, "Failed to load user sessions.");
 
@@ -194,12 +194,12 @@ export function UserDetailSheet({
       Boolean(
         currentSessionUserId &&
           localUserId &&
-          currentSessionUserId === localUserId
+          currentSessionUserId === localUserId,
       ),
-    [currentSessionUserId, localUserId]
+    [currentSessionUserId, localUserId],
   );
   const isAlreadyImpersonating = Boolean(
-    currentSession?.session?.impersonatedBy
+    currentSession?.session?.impersonatedBy,
   );
   const impersonateDisabled =
     isImpersonatingUser || isViewingCurrentUser || isAlreadyImpersonating;
@@ -272,7 +272,7 @@ export function UserDetailSheet({
         await authClient.admin.updateUser(payload);
       const updatedUser = ensureResponseData<UpdateUserData>(
         response,
-        "Failed to update user profile."
+        "Failed to update user profile.",
       );
       setLocalUser(updatedUser);
       onUserUpdated?.(updatedUser);
@@ -295,7 +295,7 @@ export function UserDetailSheet({
     const currentRole = pickPrimaryRole(localUser.role);
     const userName = localUser.name || localUser.email || "this user";
     const confirmed = window.confirm(
-      `Are you sure you want to change ${userName}'s role from "${currentRole}" to "${value}"? This will immediately affect their permissions across the system.`
+      `Are you sure you want to change ${userName}'s role from "${currentRole}" to "${value}"? This will immediately affect their permissions across the system.`,
     );
 
     if (!confirmed) {
@@ -312,7 +312,7 @@ export function UserDetailSheet({
       const response = await authClient.admin.setRole(payload);
       const { user: updatedUser } = ensureResponseData<{ user: never }>(
         response,
-        "Failed to update user role."
+        "Failed to update user role.",
       );
       setLocalUser(updatedUser);
       onUserUpdated?.(updatedUser);
@@ -343,7 +343,7 @@ export function UserDetailSheet({
       const response: BanUserResponse = await authClient.admin.banUser(payload);
       const { user: updatedUser } = ensureResponseData<BanUserData>(
         response,
-        "Failed to ban user."
+        "Failed to ban user.",
       );
       setLocalUser(updatedUser);
       onUserUpdated?.(updatedUser);
@@ -373,12 +373,12 @@ export function UserDetailSheet({
         await authClient.admin.impersonateUser(payload);
       ensureResponseData<ImpersonateUserData>(
         response,
-        "Failed to impersonate user."
+        "Failed to impersonate user.",
       );
       toast.success(
         `Impersonating ${
           localUser.name ?? localUser.email ?? "selected user"
-        }. Returning to app...`
+        }. Returning to app...`,
       );
       window.location.assign("/");
     } catch (error) {
@@ -401,7 +401,7 @@ export function UserDetailSheet({
         await authClient.admin.unbanUser(payload);
       const { user: updatedUser } = ensureResponseData<UnbanUserData>(
         response,
-        "Failed to update ban status."
+        "Failed to update ban status.",
       );
       setLocalUser(updatedUser);
       onUserUpdated?.(updatedUser);
@@ -449,7 +449,7 @@ export function UserDetailSheet({
       const payload: RevokeSessionInput = { sessionToken };
       await authClient.admin.revokeUserSession(payload);
       setSessions((prev) =>
-        prev.filter((session) => session.token !== sessionToken)
+        prev.filter((session) => session.token !== sessionToken),
       );
       toast.success("Session revoked.");
     } catch (error) {
@@ -483,7 +483,7 @@ export function UserDetailSheet({
     const confirmed = window.confirm(
       `User ${
         localUser.name ?? localUser.email
-      } will be permanently deleted. Continue?`
+      } will be permanently deleted. Continue?`,
     );
     if (!confirmed) return;
 

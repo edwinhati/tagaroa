@@ -68,7 +68,7 @@ interface OIDCClient {
 const multiColumnFilterFn: FilterFn<OIDCClient> = (
   row,
   _columnId,
-  filterValue
+  filterValue,
 ) => {
   const searchableRowContent =
     `${row.original.name} ${row.original.clientId}`.toLowerCase();
@@ -79,7 +79,7 @@ const multiColumnFilterFn: FilterFn<OIDCClient> = (
 const typeFilterFn: FilterFn<OIDCClient> = (
   row,
   _columnId,
-  filterValue: string[]
+  filterValue: string[],
 ) => {
   if (!filterValue?.length) return true;
   const type = row.getValue("type") as string;
@@ -104,7 +104,7 @@ const renderEmptyValue = () => <span className="text-muted-foreground">—</span
 const statusFilterFn: FilterFn<OIDCClient> = (
   row,
   _columnId,
-  filterValue: string[]
+  filterValue: string[],
 ) => {
   if (!filterValue?.length) return true;
   const status = getClientStatus(row.original);
@@ -148,7 +148,7 @@ export function OIDCClientDataTable() {
         setLoading(false);
       }
     },
-    []
+    [],
   );
 
   // Fetch OIDC clients - we'll need to implement this endpoint
@@ -164,7 +164,7 @@ export function OIDCClientDataTable() {
           ...client,
           createdAt: new Date(client.createdAt),
           updatedAt: new Date(client.updatedAt),
-        })
+        }),
       );
 
       setClients(clients);
@@ -334,7 +334,7 @@ export function OIDCClientDataTable() {
         enableHiding: false,
       },
     ],
-    [showSecrets, fetchClients]
+    [showSecrets, fetchClients],
   );
 
   const handleDeleteRows = async () => {
@@ -348,10 +348,10 @@ export function OIDCClientDataTable() {
     await withLoadingAndError(async () => {
       // Delete from localStorage
       const existingClients = JSON.parse(
-        localStorage.getItem("oidc-clients") || "[]"
+        localStorage.getItem("oidc-clients") || "[]",
       );
       const updatedClients = existingClients.filter(
-        (client: OIDCClient) => !selectedClientIds.includes(client.id)
+        (client: OIDCClient) => !selectedClientIds.includes(client.id),
       );
       localStorage.setItem("oidc-clients", JSON.stringify(updatedClients));
 
@@ -362,7 +362,7 @@ export function OIDCClientDataTable() {
       table.resetRowSelection();
 
       toast.success(
-        `Successfully deleted ${selectedClientIds.length} client${selectedClientIds.length === 1 ? "" : "s"}.`
+        `Successfully deleted ${selectedClientIds.length} client${selectedClientIds.length === 1 ? "" : "s"}.`,
       );
     });
   };
@@ -405,7 +405,7 @@ export function OIDCClientDataTable() {
         selectedValues: (column?.getFilterValue() as string[]) ?? [],
       };
     },
-    [table]
+    [table],
   );
 
   const typeFilterData = getColumnFilterData("type");
@@ -434,21 +434,21 @@ export function OIDCClientDataTable() {
         .getColumn(columnId)
         ?.setFilterValue(newFilterValue.length ? newFilterValue : undefined);
     },
-    [table]
+    [table],
   );
 
   const handleTypesChange = useCallback(
     (value: string, checked: boolean) => {
       handleFilterChange("type", value, checked);
     },
-    [handleFilterChange]
+    [handleFilterChange],
   );
 
   const handleStatusChange = useCallback(
     (value: string, checked: boolean) => {
       handleFilterChange("disabled", value, checked);
     },
-    [handleFilterChange]
+    [handleFilterChange],
   );
 
   return (
@@ -537,7 +537,7 @@ export function OIDCClientDataTable() {
                         <div
                           className={cn(
                             header.column.getCanSort() &&
-                              "flex h-full cursor-pointer items-center justify-between gap-2 select-none"
+                              "flex h-full cursor-pointer items-center justify-between gap-2 select-none",
                           )}
                           onClick={header.column.getToggleSortingHandler()}
                           onKeyDown={(e) => {
@@ -553,7 +553,7 @@ export function OIDCClientDataTable() {
                         >
                           {flexRender(
                             header.column.columnDef.header,
-                            header.getContext()
+                            header.getContext(),
                           )}
                           {{
                             asc: (
@@ -575,7 +575,7 @@ export function OIDCClientDataTable() {
                       ) : (
                         (flexRender(
                           header.column.columnDef.header,
-                          header.getContext()
+                          header.getContext(),
                         ) as never)
                       )}
                     </TableHead>
@@ -596,7 +596,7 @@ export function OIDCClientDataTable() {
                       {
                         flexRender(
                           cell.column.columnDef.cell,
-                          cell.getContext()
+                          cell.getContext(),
                         ) as never
                       }
                     </TableCell>
