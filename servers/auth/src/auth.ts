@@ -2,7 +2,14 @@ import { db } from "./db";
 import * as schema from "./db/schema";
 import { betterAuth } from "better-auth";
 import { drizzleAdapter } from "better-auth/adapters/drizzle";
-import { jwt, admin, oidcProvider, openAPI } from "better-auth/plugins";
+import {
+  jwt,
+  admin,
+  oidcProvider,
+  multiSession,
+  haveIBeenPwned,
+  openAPI,
+} from "better-auth/plugins";
 
 export const trustedOrigins = process.env.TRUSTED_ORIGINS
   ? process.env.TRUSTED_ORIGINS.split(",")
@@ -30,7 +37,12 @@ export const auth = betterAuth({
     },
   },
   plugins: [
-    jwt(),
+    jwt({
+      jwt: {
+        issuer: `${process.env.BASE_URL}/api/auth`,
+        audience: "UhAnFhmKOWHiBINUagjQdMfTMawmXybR",
+      },
+    }),
     admin(),
     oidcProvider({
       useJWTPlugin: true,
@@ -39,6 +51,8 @@ export const auth = betterAuth({
         issuer: `${process.env.BASE_URL}/api/auth`,
       },
     }),
+    multiSession({ maximumSessions: 3 }),
+    haveIBeenPwned(),
     ...(process.env.NODE_ENV !== "production" ? [openAPI()] : []),
   ],
   trustedOrigins,

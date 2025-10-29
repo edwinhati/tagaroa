@@ -1,15 +1,13 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState, useRef } from "react";
 import {
   ColumnDef,
   ColumnFiltersState,
-  FilterFn,
   flexRender,
   getCoreRowModel,
   getFacetedUniqueValues,
   getFilteredRowModel,
-  getPaginationRowModel,
   getSortedRowModel,
   PaginationState,
   Row,
@@ -33,6 +31,7 @@ import {
 import { Badge } from "@repo/ui/components/badge";
 import { Button } from "@repo/ui/components/button";
 import { Checkbox } from "@repo/ui/components/checkbox";
+
 import {
   Table,
   TableBody,
@@ -42,9 +41,9 @@ import {
   TableRow,
 } from "@repo/ui/components/table";
 import { DataTablePagination } from "@repo/common/components/data-table-pagination";
-import { DataTableSearchInput } from "@repo/common/components/data-table-search-input";
 import { DataTableMultiSelectFilter } from "@repo/common/components/data-table-multi-select-filter";
 import { DataTableBulkDeleteDialog } from "@repo/common/components/data-table-bulk-delete-dialog";
+import { ServerSearchInput } from "@repo/common/components/data-table-search-input";
 
 import { authClient } from "@repo/common/lib/auth-client";
 import { type UserWithRole } from "better-auth/plugins/admin";
@@ -53,14 +52,6 @@ import { CreateUserDialog } from "@/components/create-user-dialog";
 
 // Use the UserWithRole type from better-auth
 type User = UserWithRole;
-
-// Custom filter function for multi-column searching
-const multiColumnFilterFn: FilterFn<User> = (row, _columnId, filterValue) => {
-  const searchableRowContent =
-    `${row.original.name} ${row.original.email}`.toLowerCase();
-  const searchTerm = (filterValue ?? "").toLowerCase();
-  return searchableRowContent.includes(searchTerm);
-};
 
 // Helper function to determine user status
 const getUserStatus = (user: User) => {
@@ -83,27 +74,8 @@ const renderStatusBadge = (status: string) => {
 // Helper function to render empty values consistently
 const renderEmptyValue = () => <span className="text-muted-foreground">—</span>;
 
-const rolesFilterFn: FilterFn<User> = (
-  row,
-  _columnId,
-  filterValue: string[],
-) => {
-  if (!filterValue?.length) return true;
-  const role = row.getValue("role") as string;
-  return filterValue.includes(role);
-};
-
-const statusFilterFn: FilterFn<User> = (
-  row,
-  _columnId,
-  filterValue: string[],
-) => {
-  if (!filterValue?.length) return true;
-  const status = getUserStatus(row.original);
-  return filterValue.includes(status);
-};
-
 export function UserDataTable() {
+  // Client-side table state (for UI only, not filtering)
   const [columnFilters, setColumnFilters] = useState<ColumnFiltersState>([]);
   const [columnVisibility, setColumnVisibility] = useState<VisibilityState>({
     banReason: false,
@@ -117,27 +89,88 @@ export function UserDataTable() {
   const [sorting, setSorting] = useState<SortingState>([
     {
       id: "name",
-      desc: true,
+      desc: false,
     },
   ]);
+
+  // Server-side filtering and search state
+  // These states control the actual API calls to Better Auth
+  const [searchValue, setSearchValue] = useState<string>("");
+  const [debouncedSearchValue, setDebouncedSearchValue] = useState<string>("");
+  const [serverFilters, setServerFilters] = useState<{
+    role?: string[];
+    emailVerified?: boolean[];
+    banned?: boolean[];
+  }>({});
+
+  const searchTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+
+  // Debounce search value
+  useEffect(() => {
+    if (searchTimeoutRef.current) {
+      clearTimeout(searchTimeoutRef.current);
+    }
+
+    searchTimeoutRef.current = setTimeout(() => {
+      setDebouncedSearchValue(searchValue);
+    }, 300);
+
+    return () => {
+      if (searchTimeoutRef.current) {
+        clearTimeout(searchTimeoutRef.current);
+      }
+    };
+  }, [searchValue]);
 
   const [users, setUsers] = useState<User[]>([]);
   const [loading, setLoading] = useState(true);
   const [total, setTotal] = useState(0);
   const [error, setError] = useState<string | null>(null);
 
-  // Fetch users from Better Auth admin API
+  // Fetch users from Better Auth admin API with server-side filtering and sorting
   const fetchUsers = useCallback(async () => {
     try {
       setLoading(true);
       setError(null);
+
+      // Build query parameters
+      const queryParams: any = {
+        limit: pagination.pageSize,
+        offset: pagination.pageIndex * pagination.pageSize,
+        sortBy: sorting[0]?.id || "name",
+        sortDirection: sorting[0]?.desc ? "desc" : "asc",
+      };
+
+      // Add search parameters (email only)
+      if (debouncedSearchValue.trim()) {
+        queryParams.searchValue = debouncedSearchValue.trim();
+        queryParams.searchField = "email";
+        queryParams.searchOperator = "contains";
+      }
+
+      // Add role filter
+      if (serverFilters.role?.length) {
+        queryParams.filterField = "role";
+        queryParams.filterValue = serverFilters.role[0]; // Better Auth might only support single value
+        queryParams.filterOperator = "eq";
+      }
+
+      // Add email verification filter
+      if (serverFilters.emailVerified?.length) {
+        queryParams.filterField = "emailVerified";
+        queryParams.filterValue = serverFilters.emailVerified[0];
+        queryParams.filterOperator = "eq";
+      }
+
+      // Add banned status filter
+      if (serverFilters.banned?.length) {
+        queryParams.filterField = "banned";
+        queryParams.filterValue = serverFilters.banned[0];
+        queryParams.filterOperator = "eq";
+      }
+
       const response = await authClient.admin.listUsers({
-        query: {
-          limit: pagination.pageSize,
-          offset: pagination.pageIndex * pagination.pageSize,
-          sortBy: sorting[0]?.id || "createdAt",
-          sortDirection: sorting[0]?.desc ? "desc" : "asc",
-        },
+        query: queryParams,
       });
 
       if (response.data) {
@@ -150,7 +183,13 @@ export function UserDataTable() {
     } finally {
       setLoading(false);
     }
-  }, [pagination.pageSize, pagination.pageIndex, sorting]);
+  }, [
+    pagination.pageSize,
+    pagination.pageIndex,
+    sorting,
+    debouncedSearchValue,
+    serverFilters,
+  ]);
 
   useEffect(() => {
     fetchUsers();
@@ -215,7 +254,6 @@ export function UserDataTable() {
           <div className="font-medium">{row.getValue("name") || "—"}</div>
         ),
         size: 180,
-        filterFn: multiColumnFilterFn,
         enableHiding: false,
       },
       {
@@ -254,7 +292,6 @@ export function UserDataTable() {
           );
         },
         size: 100,
-        filterFn: rolesFilterFn,
       },
       {
         header: "Status",
@@ -264,7 +301,6 @@ export function UserDataTable() {
           return renderStatusBadge(status);
         },
         size: 100,
-        filterFn: statusFilterFn,
       },
       {
         header: "Ban Reason",
@@ -303,7 +339,7 @@ export function UserDataTable() {
             <div
               className={cn(
                 "text-sm",
-                isExpired ? "text-muted-foreground" : "text-destructive",
+                isExpired ? "text-muted-foreground" : "text-destructive"
               )}
             >
               {isExpired ? "Expired" : expiryDate.toLocaleDateString()}
@@ -320,7 +356,7 @@ export function UserDataTable() {
         enableHiding: false,
       },
     ],
-    [fetchUsers],
+    [fetchUsers]
   );
 
   const handleDeleteRows = async () => {
@@ -337,7 +373,7 @@ export function UserDataTable() {
 
       // Delete users one by one using Better Auth admin removeUser
       const deletePromises = selectedUserIds.map((userId) =>
-        authClient.admin.removeUser({ userId }),
+        authClient.admin.removeUser({ userId })
       );
 
       await Promise.all(deletePromises);
@@ -350,7 +386,7 @@ export function UserDataTable() {
     } catch (error) {
       console.error("Failed to delete users:", error);
       setError(
-        `Failed to delete ${selectedUserIds.length} selected user${selectedUserIds.length === 1 ? "" : "s"}. Please try again.`,
+        `Failed to delete ${selectedUserIds.length} selected user${selectedUserIds.length === 1 ? "" : "s"}. Please try again.`
       );
     } finally {
       setLoading(false);
@@ -368,7 +404,9 @@ export function UserDataTable() {
     getSortedRowModel: getSortedRowModel(),
     onSortingChange: setSorting,
     enableSortingRemoval: false,
-    getPaginationRowModel: getPaginationRowModel(),
+    // Enable server-side pagination
+    manualPagination: true,
+    pageCount: Math.ceil(total / pagination.pageSize),
     onPaginationChange: setPagination,
     onColumnFiltersChange: setColumnFilters,
     onColumnVisibilityChange: setColumnVisibility,
@@ -382,64 +420,77 @@ export function UserDataTable() {
     },
   });
 
-  // Helper function to get column filter data
-  const getColumnFilterData = useCallback(
-    (columnId: string) => {
-      const column = table.getColumn(columnId);
-      return {
-        column,
-        uniqueValues: column
-          ? Array.from(column.getFacetedUniqueValues().keys()).sort()
-          : [],
-        counts: column ? column.getFacetedUniqueValues() : new Map(),
-        selectedValues: (column?.getFilterValue() as string[]) ?? [],
-      };
-    },
-    [table],
-  );
-
-  const roleFilterData = getColumnFilterData("role");
-  const statusFilterData = getColumnFilterData("banned");
-
   const selectedCount = table.getSelectedRowModel().rows.length;
 
-  // Generic filter change handler to reduce duplication
-  const handleFilterChange = useCallback(
-    (columnId: string, value: string, checked: boolean) => {
-      const filterValue = table
-        .getColumn(columnId)
-        ?.getFilterValue() as string[];
-      const newFilterValue = filterValue ? [...filterValue] : [];
+  // Server-side filter handlers
+  const handleServerFilterChange = useCallback(
+    (
+      filterKey: keyof typeof serverFilters,
+      value: string | boolean,
+      checked: boolean
+    ) => {
+      setServerFilters((prev) => {
+        const currentValues = prev[filterKey] || [];
+        let newValues: (string | boolean)[];
 
-      if (checked) {
-        newFilterValue.push(value);
-      } else {
-        const index = newFilterValue.indexOf(value);
-        if (index > -1) {
-          newFilterValue.splice(index, 1);
+        if (checked) {
+          newValues = [...currentValues, value];
+        } else {
+          newValues = currentValues.filter((v) => v !== value);
         }
-      }
 
-      table
-        .getColumn(columnId)
-        ?.setFilterValue(newFilterValue.length ? newFilterValue : undefined);
+        const newFilters = { ...prev };
+        if (newValues.length === 0) {
+          delete newFilters[filterKey];
+        } else {
+          newFilters[filterKey] = newValues as any;
+        }
+
+        // Reset to first page when filters change
+        setPagination((prev) => ({ ...prev, pageIndex: 0 }));
+
+        return newFilters;
+      });
     },
-    [table],
+    []
   );
 
-  const handleRolesChange = useCallback(
-    (value: string, checked: boolean) => {
-      handleFilterChange("role", value, checked);
+  const handleServerFilterClear = useCallback(
+    (filterKey: keyof typeof serverFilters) => {
+      setServerFilters((prev) => {
+        const newFilters = { ...prev };
+        delete newFilters[filterKey];
+
+        // Reset to first page when filters change
+        setPagination((prev) => ({ ...prev, pageIndex: 0 }));
+
+        return newFilters;
+      });
     },
-    [handleFilterChange],
+    []
   );
 
-  const handleStatusChange = useCallback(
-    (value: string, checked: boolean) => {
-      handleFilterChange("banned", value, checked);
-    },
-    [handleFilterChange],
-  );
+  const handleSearchChange = useCallback((value: string) => {
+    setSearchValue(value);
+    // Reset to first page when search changes
+    setPagination((prev) => ({ ...prev, pageIndex: 0 }));
+  }, []);
+
+  // Static filter options (since we don't have aggregations from Better Auth)
+  const roleOptions = [
+    { value: "admin", label: "Admin", count: undefined },
+    { value: "user", label: "User", count: undefined },
+  ];
+
+  const emailVerificationOptions = [
+    { value: "true", label: "Verified", count: undefined },
+    { value: "false", label: "Unverified", count: undefined },
+  ];
+
+  const statusOptions = [
+    { value: "false", label: "Active", count: undefined },
+    { value: "true", label: "Banned", count: undefined },
+  ];
 
   return (
     <div className="space-y-4">
@@ -453,41 +504,43 @@ export function UserDataTable() {
       {/* Filters */}
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div className="flex items-center gap-3">
-          <DataTableSearchInput
-            table={table}
-            columnId="name"
-            placeholder="Filter by name or email..."
+          <ServerSearchInput
+            value={searchValue}
+            onChange={handleSearchChange}
+            placeholder="Search by email..."
             className="min-w-60"
-            aria-label="Filter by name or email"
+            aria-label="Search users by email"
           />
           <DataTableMultiSelectFilter
             triggerLabel="Role"
-            options={roleFilterData.uniqueValues.map((value) => ({
-              value,
-              label: value.charAt(0).toUpperCase() + value.slice(1),
-              count: roleFilterData.counts.get(value),
-            }))}
-            selectedValues={roleFilterData.selectedValues}
-            onChange={handleRolesChange}
-            onClear={() => roleFilterData.column?.setFilterValue(undefined)}
+            options={roleOptions}
+            selectedValues={serverFilters.role?.map(String) || []}
+            onChange={(value, checked) =>
+              handleServerFilterChange("role", value, checked)
+            }
+            onClear={() => handleServerFilterClear("role")}
+          />
+          <DataTableMultiSelectFilter
+            triggerLabel="Email Status"
+            options={emailVerificationOptions}
+            selectedValues={serverFilters.emailVerified?.map(String) || []}
+            onChange={(value, checked) =>
+              handleServerFilterChange(
+                "emailVerified",
+                value === "true",
+                checked
+              )
+            }
+            onClear={() => handleServerFilterClear("emailVerified")}
           />
           <DataTableMultiSelectFilter
             triggerLabel="Status"
-            options={[
-              {
-                value: "active",
-                label: "Active",
-                count: statusFilterData.counts.get(false) || 0,
-              },
-              {
-                value: "banned",
-                label: "Banned",
-                count: statusFilterData.counts.get(true) || 0,
-              },
-            ]}
-            selectedValues={statusFilterData.selectedValues}
-            onChange={handleStatusChange}
-            onClear={() => statusFilterData.column?.setFilterValue(undefined)}
+            options={statusOptions}
+            selectedValues={serverFilters.banned?.map(String) || []}
+            onChange={(value, checked) =>
+              handleServerFilterChange("banned", value === "true", checked)
+            }
+            onClear={() => handleServerFilterClear("banned")}
           />
         </div>
         <div className="flex items-center gap-3">
@@ -527,7 +580,7 @@ export function UserDataTable() {
                         <div
                           className={cn(
                             header.column.getCanSort() &&
-                              "flex h-full cursor-pointer items-center justify-between gap-2 select-none",
+                              "flex h-full cursor-pointer items-center justify-between gap-2 select-none"
                           )}
                           onClick={header.column.getToggleSortingHandler()}
                           onKeyDown={(e) => {
@@ -544,7 +597,7 @@ export function UserDataTable() {
                         >
                           {flexRender(
                             header.column.columnDef.header,
-                            header.getContext(),
+                            header.getContext()
                           )}
                           {{
                             asc: (
@@ -566,7 +619,7 @@ export function UserDataTable() {
                       ) : (
                         (flexRender(
                           header.column.columnDef.header,
-                          header.getContext(),
+                          header.getContext()
                         ) as never)
                       )}
                     </TableHead>
@@ -587,7 +640,7 @@ export function UserDataTable() {
                       {
                         flexRender(
                           cell.column.columnDef.cell,
-                          cell.getContext(),
+                          cell.getContext()
                         ) as never
                       }
                     </TableCell>
@@ -616,7 +669,17 @@ export function UserDataTable() {
       </div>
 
       {/* Pagination */}
-      <DataTablePagination table={table} pageSizeOptions={[5, 10, 25, 50]} />
+      <DataTablePagination
+        table={table}
+        pageSizeOptions={[5, 10, 25, 50]}
+        serverSidePagination={{
+          total: total,
+          page: pagination.pageIndex + 1,
+          totalPages: Math.ceil(total / pagination.pageSize),
+          hasNext: (pagination.pageIndex + 1) * pagination.pageSize < total,
+          hasPrev: pagination.pageIndex > 0,
+        }}
+      />
 
       {/* Total count display */}
       <div className="text-sm text-muted-foreground">Total: {total} users</div>

@@ -29,6 +29,13 @@ export type DataTablePaginationProps<TData> = {
   pageSizeOptions?: number[];
   label?: string;
   trailingContent?: ReactNode;
+  serverSidePagination?: {
+    total: number;
+    page: number;
+    totalPages: number;
+    hasNext: boolean;
+    hasPrev: boolean;
+  };
 };
 
 const DEFAULT_PAGE_SIZE_OPTIONS = [10, 20, 30, 40, 50];
@@ -41,12 +48,19 @@ export function DataTablePagination<TData>({
   pageSizeOptions = DEFAULT_PAGE_SIZE_OPTIONS,
   label = "Rows per page",
   trailingContent,
+  serverSidePagination,
 }: DataTablePaginationProps<TData>) {
   const { pageIndex, pageSize } = table.getState().pagination;
-  const rowCount = table.getRowCount();
-  const start = rowCount === 0 ? 0 : pageIndex * pageSize + 1;
-  const end =
-    rowCount === 0 ? 0 : Math.min((pageIndex + 1) * pageSize, rowCount);
+
+  // Use server-side pagination info if available, otherwise fall back to client-side
+  const rowCount = serverSidePagination?.total ?? table.getRowCount();
+  const currentPage = serverSidePagination?.page ?? pageIndex + 1;
+  const totalPages = serverSidePagination?.totalPages ?? table.getPageCount();
+  const hasNext = serverSidePagination?.hasNext ?? table.getCanNextPage();
+  const hasPrev = serverSidePagination?.hasPrev ?? table.getCanPreviousPage();
+
+  const start = rowCount === 0 ? 0 : (currentPage - 1) * pageSize + 1;
+  const end = rowCount === 0 ? 0 : Math.min(currentPage * pageSize, rowCount);
 
   return (
     <div className="flex flex-wrap items-center justify-between gap-4">
@@ -88,7 +102,7 @@ export function DataTablePagination<TData>({
                 variant="outline"
                 className="disabled:pointer-events-none disabled:opacity-50"
                 onClick={() => table.firstPage()}
-                disabled={!table.getCanPreviousPage()}
+                disabled={!hasPrev}
                 aria-label="Go to first page"
               >
                 <ChevronFirstIcon size={16} aria-hidden="true" />
@@ -100,7 +114,7 @@ export function DataTablePagination<TData>({
                 variant="outline"
                 className="disabled:pointer-events-none disabled:opacity-50"
                 onClick={() => table.previousPage()}
-                disabled={!table.getCanPreviousPage()}
+                disabled={!hasPrev}
                 aria-label="Go to previous page"
               >
                 <ChevronLeftIcon size={16} aria-hidden="true" />
@@ -112,7 +126,7 @@ export function DataTablePagination<TData>({
                 variant="outline"
                 className="disabled:pointer-events-none disabled:opacity-50"
                 onClick={() => table.nextPage()}
-                disabled={!table.getCanNextPage()}
+                disabled={!hasNext}
                 aria-label="Go to next page"
               >
                 <ChevronRightIcon size={16} aria-hidden="true" />
@@ -124,7 +138,7 @@ export function DataTablePagination<TData>({
                 variant="outline"
                 className="disabled:pointer-events-none disabled:opacity-50"
                 onClick={() => table.lastPage()}
-                disabled={!table.getCanNextPage()}
+                disabled={!hasNext}
                 aria-label="Go to last page"
               >
                 <ChevronLastIcon size={16} aria-hidden="true" />
