@@ -67,7 +67,7 @@ USER nextjs
 # Copy build output
 COPY --from=installer --chown=nextjs:nodejs /app/apps/admin/.next/standalone ./
 COPY --from=installer --chown=nextjs:nodejs /app/apps/admin/.next/static ./apps/admin/.next/static
-COPY --from=installer --chown=nextjs:nodejs /app/apps/admin/public ./apps/admin/public
+# COPY --from=installer --chown=nextjs:nodejs /app/apps/admin/public ./apps/admin/public
 
 # Start the server
 CMD ["bun", "apps/admin/server.js"]

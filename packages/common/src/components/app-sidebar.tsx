@@ -13,9 +13,11 @@ import {
   SidebarMenuItem,
   SidebarRail,
   SidebarTrigger,
+  useSidebar,
 } from "@repo/ui/components/sidebar";
 
 import { Logo } from "@repo/common/components/logo";
+import { ThemeSwitcher } from "@repo/common/components/theme-switcher";
 
 interface AppSidebarProps extends React.ComponentProps<typeof Sidebar> {
   appName: string;
@@ -23,8 +25,9 @@ interface AppSidebarProps extends React.ComponentProps<typeof Sidebar> {
 }
 
 export function AppSidebar({ appName, nav, ...props }: AppSidebarProps) {
+  const { open } = useSidebar();
   return (
-    <Sidebar collapsible="icon" {...props}>
+    <Sidebar variant="floating" collapsible="icon" {...props}>
       <SidebarHeader>
         <SidebarMenu>
           <SidebarMenuItem>
@@ -59,7 +62,17 @@ export function AppSidebar({ appName, nav, ...props }: AppSidebarProps) {
         </SidebarGroup>{" "}
       </SidebarContent>
       <SidebarFooter>
-        <SidebarTrigger />
+        {open ? (
+          <div className="flex justify-between">
+            <SidebarTrigger variant="outline" className="w-9 h-9" />
+            <ThemeSwitcher />
+          </div>
+        ) : (
+          <div className="space-y-2">
+            <ThemeSwitcher />
+            <SidebarTrigger variant="outline" className="w-9 h-9" />
+          </div>
+        )}
       </SidebarFooter>
       <SidebarRail />
     </Sidebar>

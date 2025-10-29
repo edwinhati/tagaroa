@@ -27,6 +27,8 @@ export type DataTableMultiSelectFilterProps = {
   emptyLabel?: string;
   popoverLabel?: string;
   buttonClassName?: string;
+  open?: boolean;
+  onOpenChange?: (open: boolean) => void;
 };
 
 /**
@@ -41,11 +43,13 @@ export function DataTableMultiSelectFilter({
   emptyLabel = "No results",
   popoverLabel = "Filters",
   buttonClassName,
+  open,
+  onOpenChange,
 }: DataTableMultiSelectFilterProps) {
   const idPrefix = useId();
 
   return (
-    <Popover>
+    <Popover open={open} onOpenChange={onOpenChange}>
       <PopoverTrigger asChild>
         <Button variant="outline" className={buttonClassName}>
           <FilterIcon

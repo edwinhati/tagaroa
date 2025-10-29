@@ -18,10 +18,21 @@ export function LayoutShell({
   return (
     <html lang={lang} suppressHydrationWarning>
       <body
-        className={`${geistSans.variable} ${geistMono.variable} antialiased ${bodyClassName}`}
+        className={`${geistSans.variable} ${geistMono.variable} antialiased ${bodyClassName} mr-1`}
       >
         <AppProvider>
-          <Suspense fallback={<Loading />}>{children}</Suspense>
+          <Suspense
+            fallback={
+              <div
+                className="fixed inset-0 flex items-center justify-center"
+                style={{ height: "100vh", width: "100vw" }}
+              >
+                <Loading />
+              </div>
+            }
+          >
+            {children}
+          </Suspense>
         </AppProvider>
       </body>
     </html>

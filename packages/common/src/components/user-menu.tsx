@@ -8,7 +8,6 @@ import {
   Layers2Icon,
   LogOutIcon,
   PinIcon,
-  SunMoonIcon,
   UserPenIcon,
   UserXIcon,
 } from "lucide-react";
@@ -27,14 +26,9 @@ import {
   DropdownMenuGroup,
   DropdownMenuItem,
   DropdownMenuLabel,
-  DropdownMenuPortal,
   DropdownMenuSeparator,
-  DropdownMenuSub,
-  DropdownMenuSubContent,
-  DropdownMenuSubTrigger,
   DropdownMenuTrigger,
 } from "@repo/ui/components/dropdown-menu";
-import { ThemeSwitcher } from "@repo/common/components/theme-switcher";
 
 import { authClient } from "@repo/common/lib/auth-client";
 
@@ -44,7 +38,7 @@ export function UserMenu() {
   const [isStoppingImpersonation, setIsStoppingImpersonation] = useState(false);
   const [isLoggingOut, setIsLoggingOut] = useState(false);
   const isImpersonating = Boolean(
-    (session?.session as SessionWithImpersonatedBy)?.impersonatedBy,
+    (session?.session as SessionWithImpersonatedBy)?.impersonatedBy
   );
 
   const handleStopImpersonating = async () => {
@@ -53,7 +47,7 @@ export function UserMenu() {
       const response = await authClient.admin.stopImpersonating();
       if (response?.error) {
         throw new Error(
-          response.error.message ?? "Failed to stop impersonating.",
+          response.error.message ?? "Failed to stop impersonating."
         );
       }
       toast.success("Impersonation session ended.");
@@ -95,24 +89,6 @@ export function UserMenu() {
             </span>
           ) : null}
         </DropdownMenuLabel>
-        <DropdownMenuSeparator />
-        <DropdownMenuGroup>
-          <DropdownMenuSub>
-            <DropdownMenuSubTrigger>
-              <SunMoonIcon
-                size={16}
-                className="opacity-60"
-                aria-hidden="true"
-              />
-              Theme
-            </DropdownMenuSubTrigger>
-            <DropdownMenuPortal>
-              <DropdownMenuSubContent className="p-5">
-                <ThemeSwitcher />
-              </DropdownMenuSubContent>
-            </DropdownMenuPortal>
-          </DropdownMenuSub>
-        </DropdownMenuGroup>
         <DropdownMenuSeparator />
         <DropdownMenuGroup>
           <DropdownMenuItem>
