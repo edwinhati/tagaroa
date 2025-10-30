@@ -7,12 +7,15 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
+	"strings"
 	"syscall"
 	"time"
 
+	"golang.org/x/time/rate"
+
 	"github.com/edwinhati/tagaroa/packages/shared/go/client"
-	"github.com/edwinhati/tagaroa/packages/shared/go/middleware"
 	httputil "github.com/edwinhati/tagaroa/packages/shared/go/transport/http"
+	"github.com/edwinhati/tagaroa/packages/shared/go/util"
 	"github.com/edwinhati/tagaroa/servers/finance/internal/config"
 	"github.com/edwinhati/tagaroa/servers/finance/internal/repository"
 	"github.com/edwinhati/tagaroa/servers/finance/internal/service"
@@ -32,9 +35,24 @@ func main() {
 		log.Fatalf("Failed to load configuration: %v", err)
 	}
 
-	log.Printf("🚀 Starting Finance Server on %s", cfg.Server.Port)
+	// Initialize allowed origins for CORS
+	var allowedOrigins []string
+
+	// Add production origins if configured
+	if trustedOrigins := cfg.Server.TrustedOrigins; trustedOrigins != "" {
+		origins := strings.SplitSeq(trustedOrigins, ",")
+		for origin := range origins {
+			if trimmed := strings.TrimSpace(origin); trimmed != "" {
+				allowedOrigins = append(allowedOrigins, trimmed)
+			}
+		}
+	}
+
+	log.Printf("🚀 Starting Finance Server on port %s", cfg.Server.Port)
 	log.Printf("Environment: %s", cfg.Server.Env)
 	log.Printf("Log level: %s", cfg.Log.Level)
+	log.Printf("OIDC Issuer: %s", cfg.OIDC.IssuerURL())
+	log.Printf("Allowed CORS origins: %v", allowedOrigins)
 
 	if cfg.Sentry.DSN != "" {
 		log.Printf("Sentry enabled with sample rate: %.2f", cfg.Sentry.TracesSampleRate)
@@ -81,15 +99,29 @@ func main() {
 	// Initialize HTTP router
 	router := httputil.NewRouter()
 
-	// middleware
-	corsMiddleware := middleware.CORS(middleware.DefaultCORSConfig())
-
-	// Initialize HTTP handlers (without CORS middleware at route level)
+	// Initialize HTTP handlers
 	httphandler.NewAccountHandler(oidcClient, accountService).SetupRoutes(router)
 
-	// Apply CORS middleware globally to the entire router
+	// Create rate limiter (100 requests per minute per IP)
+	rateLimiter := util.NewRateLimiter(rate.Every(time.Minute/100), 10)
+
 	var handler http.Handler = router
-	handler = corsMiddleware(handler)
+	handler = util.RequestID(handler)
+	handler = util.SecurityHeaders(handler)
+	handler = util.CORS(allowedOrigins)(handler)
+	handler = rateLimiter.RateLimit(handler)
+
+	// Add health check endpoint
+	http.HandleFunc("/health", func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusOK)
+		w.Write([]byte(`{
+			"status": "ok",
+			"timestamp": "` + time.Now().Format(time.RFC3339) + `",
+			"service": "finance-server",
+			"version": "1.0.0"
+		}`))
+	})
 
 	// Create HTTP server
 	server := &http.Server{

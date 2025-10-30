@@ -9,41 +9,42 @@ import (
 
 // Config represents the complete application configuration
 type Config struct {
-	Server   ServerConfig   `yaml:"server"`
-	Log      LogConfig      `yaml:"log"`
-	Database DatabaseConfig `yaml:"database"`
-	OIDC     OIDCConfig     `yaml:"oidc"`
-	Sentry   SentryConfig   `yaml:"sentry"`
+	Server   ServerConfig
+	Log      LogConfig
+	Database DatabaseConfig
+	OIDC     OIDCConfig
+	Sentry   SentryConfig
 }
 
 // ServerConfig holds server-related configuration
 type ServerConfig struct {
-	Env  string `yaml:"env"`
-	Port string `yaml:"port"`
+	Env            string
+	Port           string
+	TrustedOrigins string
 }
 
 // LogConfig holds logging configuration
 type LogConfig struct {
-	Level     string `yaml:"level"`
-	Format    string `yaml:"format"`
-	AddSource bool   `yaml:"add_source"`
+	Level     string
+	Format    string
+	AddSource bool
 }
 
 // DatabaseConfig holds database connection settings
 type DatabaseConfig struct {
-	Host          string        `yaml:"host"`
-	Port          string        `yaml:"port"`
-	User          string        `yaml:"user"`
-	Password      string        `yaml:"password"`
-	Name          string        `yaml:"name"`
-	SlowThreshold time.Duration `yaml:"slow_threshold"`
+	Host          string
+	Port          string
+	User          string
+	Password      string
+	Name          string
+	SlowThreshold time.Duration
 }
 
 // OIDCConfig holds OpenID Connect integration settings
 type OIDCConfig struct {
-	BaseURL      string `yaml:"base_url"`
-	ClientID     string `yaml:"client_id"`
-	ClientSecret string `yaml:"client_secret"`
+	BaseURL      string
+	ClientID     string
+	ClientSecret string
 }
 
 func (c OIDCConfig) IssuerURL() string {
@@ -52,8 +53,8 @@ func (c OIDCConfig) IssuerURL() string {
 
 // SentryConfig holds Sentry configuration for error tracking
 type SentryConfig struct {
-	DSN              string  `yaml:"dsn"`
-	TracesSampleRate float64 `yaml:"traces_sample_rate"`
+	DSN              string
+	TracesSampleRate float64
 }
 
 // LoadFromEnv loads configuration from environment variables
@@ -64,6 +65,9 @@ func (c *Config) LoadFromEnv() error {
 	}
 	if port := os.Getenv("PORT"); port != "" {
 		c.Server.Port = port
+	}
+	if trustedOrigins := os.Getenv("TRUSTED_ORIGINS"); trustedOrigins != "" {
+		c.Server.TrustedOrigins = trustedOrigins
 	}
 
 	// Log config
