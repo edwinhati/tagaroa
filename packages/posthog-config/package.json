@@ -11,8 +11,8 @@
     "./instrumentation-client.ts": "./instrumentation-client.ts"
   },
   "dependencies": {
-    "posthog-js": "^1.276.0",
-    "posthog-node": "^5.10.0"
+    "posthog-js": "^1.282.0",
+    "posthog-node": "^5.10.4"
   },
   "devDependencies": {
     "@types/node": "^24.8.1"
