@@ -38,7 +38,7 @@ export function DataTableSearchInput<TData>({
   const internalId = useId();
   const inputId = useMemo(
     () => providedId ?? `${internalId}-search`,
-    [providedId, internalId]
+    [providedId, internalId],
   );
   const column = table.getColumn(columnId);
   const value = (column?.getFilterValue() ?? "") as string;
@@ -95,7 +95,7 @@ export function ServerSearchInput({
   const internalId = useId();
   const inputId = useMemo(
     () => providedId ?? `${internalId}-server-search`,
-    [providedId, internalId]
+    [providedId, internalId],
   );
 
   const handleClear = () => {

@@ -38,7 +38,7 @@ export function UserMenu() {
   const [isStoppingImpersonation, setIsStoppingImpersonation] = useState(false);
   const [isLoggingOut, setIsLoggingOut] = useState(false);
   const isImpersonating = Boolean(
-    (session?.session as SessionWithImpersonatedBy)?.impersonatedBy
+    (session?.session as SessionWithImpersonatedBy)?.impersonatedBy,
   );
 
   const handleStopImpersonating = async () => {
@@ -47,7 +47,7 @@ export function UserMenu() {
       const response = await authClient.admin.stopImpersonating();
       if (response?.error) {
         throw new Error(
-          response.error.message ?? "Failed to stop impersonating."
+          response.error.message ?? "Failed to stop impersonating.",
         );
       }
       toast.success("Impersonation session ended.");

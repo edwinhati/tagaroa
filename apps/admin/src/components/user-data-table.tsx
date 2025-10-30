@@ -339,7 +339,7 @@ export function UserDataTable() {
             <div
               className={cn(
                 "text-sm",
-                isExpired ? "text-muted-foreground" : "text-destructive"
+                isExpired ? "text-muted-foreground" : "text-destructive",
               )}
             >
               {isExpired ? "Expired" : expiryDate.toLocaleDateString()}
@@ -356,7 +356,7 @@ export function UserDataTable() {
         enableHiding: false,
       },
     ],
-    [fetchUsers]
+    [fetchUsers],
   );
 
   const handleDeleteRows = async () => {
@@ -373,7 +373,7 @@ export function UserDataTable() {
 
       // Delete users one by one using Better Auth admin removeUser
       const deletePromises = selectedUserIds.map((userId) =>
-        authClient.admin.removeUser({ userId })
+        authClient.admin.removeUser({ userId }),
       );
 
       await Promise.all(deletePromises);
@@ -386,7 +386,7 @@ export function UserDataTable() {
     } catch (error) {
       console.error("Failed to delete users:", error);
       setError(
-        `Failed to delete ${selectedUserIds.length} selected user${selectedUserIds.length === 1 ? "" : "s"}. Please try again.`
+        `Failed to delete ${selectedUserIds.length} selected user${selectedUserIds.length === 1 ? "" : "s"}. Please try again.`,
       );
     } finally {
       setLoading(false);
@@ -427,7 +427,7 @@ export function UserDataTable() {
     (
       filterKey: keyof typeof serverFilters,
       value: string | boolean,
-      checked: boolean
+      checked: boolean,
     ) => {
       setServerFilters((prev) => {
         const currentValues = prev[filterKey] || [];
@@ -452,7 +452,7 @@ export function UserDataTable() {
         return newFilters;
       });
     },
-    []
+    [],
   );
 
   const handleServerFilterClear = useCallback(
@@ -467,7 +467,7 @@ export function UserDataTable() {
         return newFilters;
       });
     },
-    []
+    [],
   );
 
   const handleSearchChange = useCallback((value: string) => {
@@ -528,7 +528,7 @@ export function UserDataTable() {
               handleServerFilterChange(
                 "emailVerified",
                 value === "true",
-                checked
+                checked,
               )
             }
             onClear={() => handleServerFilterClear("emailVerified")}
@@ -580,7 +580,7 @@ export function UserDataTable() {
                         <div
                           className={cn(
                             header.column.getCanSort() &&
-                              "flex h-full cursor-pointer items-center justify-between gap-2 select-none"
+                              "flex h-full cursor-pointer items-center justify-between gap-2 select-none",
                           )}
                           onClick={header.column.getToggleSortingHandler()}
                           onKeyDown={(e) => {
@@ -597,7 +597,7 @@ export function UserDataTable() {
                         >
                           {flexRender(
                             header.column.columnDef.header,
-                            header.getContext()
+                            header.getContext(),
                           )}
                           {{
                             asc: (
@@ -619,7 +619,7 @@ export function UserDataTable() {
                       ) : (
                         (flexRender(
                           header.column.columnDef.header,
-                          header.getContext()
+                          header.getContext(),
                         ) as never)
                       )}
                     </TableHead>
@@ -640,7 +640,7 @@ export function UserDataTable() {
                       {
                         flexRender(
                           cell.column.columnDef.cell,
-                          cell.getContext()
+                          cell.getContext(),
                         ) as never
                       }
                     </TableCell>
