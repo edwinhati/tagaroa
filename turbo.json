@@ -8,6 +8,12 @@
       "outputs": [".next/**", "!.next/cache/**"],
       "env": ["NODE_ENV"]
     },
+    "finance-server#build": {
+      "dependsOn": ["^build"],
+      "inputs": ["$TURBO_DEFAULT$", ".env*"],
+      "outputs": ["finance-server"],
+      "env": ["NODE_ENV"]
+    },
     "lint": {
       "dependsOn": ["^lint"]
     },

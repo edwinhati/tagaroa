@@ -1,0 +1,8 @@
+{
+  "name": "finance-server",
+  "scripts": {
+    "dev": "go run ./cmd/main.go",
+    "build": "go build -o finance-server ./cmd/main.go",
+    "start": "./finance-server"
+  }
+}
