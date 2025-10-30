@@ -1,15 +1,14 @@
-import { createBasicMiddleware } from "@repo/common/lib/middleware";
+import { createAdminProxy } from "@repo/common/lib/proxy";
 
-const middleware = createBasicMiddleware({
+const proxy = createAdminProxy({
   authAppUrl: process.env.NEXT_PUBLIC_AUTH_APP_URL!,
   verifyPath: "/verify-email",
   redirectUrl:
     process.env.NEXT_PUBLIC_DASHBOARD_URL ||
     process.env.NEXT_PUBLIC_MAIN_APP_URL,
-  requireAdmin: false,
 }) as unknown;
 
-export default middleware;
+export default proxy;
 
 export const config = {
   matcher: [

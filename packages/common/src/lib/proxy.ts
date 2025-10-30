@@ -18,7 +18,7 @@ type RoleBasedOptions = {
 };
 
 async function fetchUserSession<T extends User = User>(
-  sessionCookie: string,
+  sessionCookie: string
 ): Promise<T | null> {
   try {
     const response = await fetch(
@@ -29,12 +29,12 @@ async function fetchUserSession<T extends User = User>(
         },
         // Add timeout to prevent hanging requests
         signal: AbortSignal.timeout(5000),
-      },
+      }
     );
 
     if (!response.ok) {
       console.warn(
-        `Auth session fetch failed: ${response.status} ${response.statusText}`,
+        `Auth session fetch failed: ${response.status} ${response.statusText}`
       );
       return null;
     }
@@ -58,7 +58,7 @@ async function fetchUser(sessionCookie: string): Promise<User | null> {
 }
 
 async function fetchUserWithRole(
-  sessionCookie: string,
+  sessionCookie: string
 ): Promise<UserWithRole | null> {
   return fetchUserSession<UserWithRole>(sessionCookie);
 }
@@ -66,7 +66,7 @@ async function fetchUserWithRole(
 function redirectToAuth(
   req: NextRequest,
   authAppUrl: string,
-  redirectUrl?: string,
+  redirectUrl?: string
 ) {
   const url = new URL(authAppUrl, req.nextUrl);
 
@@ -119,10 +119,10 @@ function clearSessionCookie(response: NextResponse) {
   return response;
 }
 
-// Shared middleware logic to reduce duplication
-async function handleCommonMiddlewareLogic(
+// Shared proxy logic to reduce duplication
+async function handleCommonProxyLogic(
   request: NextRequest,
-  authAppUrl: string,
+  authAppUrl: string
 ) {
   const { pathname, searchParams } = request.nextUrl;
 
@@ -135,7 +135,7 @@ async function handleCommonMiddlewareLogic(
   const redirectParam = searchParams.get("redirect");
   if (redirectParam && redirectParam.includes("redirect=")) {
     console.warn(
-      "Detected potential redirect loop, clearing redirect parameter",
+      "Detected potential redirect loop, clearing redirect parameter"
     );
     const cleanUrl = new URL(request.nextUrl);
     cleanUrl.searchParams.delete("redirect");
@@ -161,16 +161,13 @@ async function handleCommonMiddlewareLogic(
   return { type: "continue" as const, sessionCookie };
 }
 
-export function createAuthMiddleware(opts: Options) {
+export function createAuthProxy(opts: Options) {
   const verifyPath = opts.verifyPath ?? "/verify-email";
 
-  return async function middleware(request: NextRequest) {
+  return async function proxy(request: NextRequest) {
     const { pathname } = request.nextUrl;
 
-    const commonResult = await handleCommonMiddlewareLogic(
-      request,
-      opts.authAppUrl,
-    );
+    const commonResult = await handleCommonProxyLogic(request, opts.authAppUrl);
 
     if (commonResult.type === "next") {
       return NextResponse.next();
@@ -202,7 +199,7 @@ export function createAuthMiddleware(opts: Options) {
         const response = redirectToAuth(
           request,
           opts.authAppUrl,
-          pathname === "/" ? undefined : request.nextUrl.href,
+          pathname === "/" ? undefined : request.nextUrl.href
         );
         return clearSessionCookie(response);
       }
@@ -211,33 +208,30 @@ export function createAuthMiddleware(opts: Options) {
         return NextResponse.next();
       } else {
         return NextResponse.redirect(
-          new URL(`${opts.authAppUrl}${verifyPath}`, request.nextUrl),
+          new URL(`${opts.authAppUrl}${verifyPath}`, request.nextUrl)
         );
       }
     } catch (error) {
-      console.error(`Auth middleware error for ${pathname}:`, error);
+      console.error(`Auth proxy error for ${pathname}:`, error);
       const response = redirectToAuth(
         request,
         opts.authAppUrl,
-        pathname === "/" ? undefined : request.nextUrl.href,
+        pathname === "/" ? undefined : request.nextUrl.href
       );
       return clearSessionCookie(response);
     }
   };
 }
 
-export function createRoleBasedMiddleware(opts: RoleBasedOptions) {
+export function createRoleBasedProxy(opts: RoleBasedOptions) {
   const verifyPath = opts.verifyPath ?? "/verify-email";
   const allowedRoles =
     opts.allowedRoles ?? (opts.requireAdmin ? ["admin"] : []);
 
-  return async function middleware(request: NextRequest) {
+  return async function proxy(request: NextRequest) {
     const { pathname } = request.nextUrl;
 
-    const commonResult = await handleCommonMiddlewareLogic(
-      request,
-      opts.authAppUrl,
-    );
+    const commonResult = await handleCommonProxyLogic(request, opts.authAppUrl);
 
     if (commonResult.type === "next") {
       return NextResponse.next();
@@ -258,7 +252,7 @@ export function createRoleBasedMiddleware(opts: RoleBasedOptions) {
         const response = redirectToAuth(
           request,
           opts.authAppUrl,
-          pathname === "/" ? undefined : request.nextUrl.href,
+          pathname === "/" ? undefined : request.nextUrl.href
         );
         return clearSessionCookie(response);
       }
@@ -266,7 +260,7 @@ export function createRoleBasedMiddleware(opts: RoleBasedOptions) {
       // Check if user's email is verified
       if (!user.emailVerified) {
         return NextResponse.redirect(
-          new URL(`${opts.authAppUrl}${verifyPath}`, request.nextUrl),
+          new URL(`${opts.authAppUrl}${verifyPath}`, request.nextUrl)
         );
       }
 
@@ -291,11 +285,11 @@ export function createRoleBasedMiddleware(opts: RoleBasedOptions) {
       // User is authorized, allow access
       return NextResponse.next();
     } catch (error) {
-      console.error(`Role-based middleware error for ${pathname}:`, error);
+      console.error(`Role-based proxy error for ${pathname}:`, error);
       const response = redirectToAuth(
         request,
         opts.authAppUrl,
-        pathname === "/" ? undefined : request.nextUrl.href,
+        pathname === "/" ? undefined : request.nextUrl.href
       );
       return clearSessionCookie(response);
     }
@@ -303,10 +297,8 @@ export function createRoleBasedMiddleware(opts: RoleBasedOptions) {
 }
 
 // Convenience functions for common use cases
-export function createAdminMiddleware(
-  opts: Omit<RoleBasedOptions, "requireAdmin">,
-) {
-  return createRoleBasedMiddleware({
+export function createAdminProxy(opts: Omit<RoleBasedOptions, "requireAdmin">) {
+  return createRoleBasedProxy({
     ...opts,
     requireAdmin: true,
   });
@@ -314,7 +306,7 @@ export function createAdminMiddleware(
 
 // Utility function for auth app to determine redirect based on user role
 export async function getRedirectPathForUser(
-  requestedRedirect?: string | null,
+  requestedRedirect?: string | null
 ): Promise<string> {
   try {
     // This would typically be called from the auth app after successful login
@@ -324,7 +316,7 @@ export async function getRedirectPathForUser(
       {
         credentials: "include",
         signal: AbortSignal.timeout(5000),
-      },
+      }
     );
 
     if (!response.ok) {
@@ -379,18 +371,13 @@ export async function getRedirectPathForUser(
   }
 }
 
-export function createBasicMiddleware(
-  opts: Omit<RoleBasedOptions, "allowedRoles">,
-) {
+export function createBasicProxy(opts: Omit<RoleBasedOptions, "allowedRoles">) {
   const verifyPath = opts.verifyPath ?? "/verify-email";
 
-  return async function middleware(request: NextRequest) {
+  return async function proxy(request: NextRequest) {
     const { pathname } = request.nextUrl;
 
-    const commonResult = await handleCommonMiddlewareLogic(
-      request,
-      opts.authAppUrl,
-    );
+    const commonResult = await handleCommonProxyLogic(request, opts.authAppUrl);
 
     if (commonResult.type === "next") {
       return NextResponse.next();
@@ -422,7 +409,7 @@ export function createBasicMiddleware(
         const response = redirectToAuth(
           request,
           opts.authAppUrl,
-          pathname === "/" ? undefined : request.nextUrl.href,
+          pathname === "/" ? undefined : request.nextUrl.href
         );
         return clearSessionCookie(response);
       }
@@ -430,7 +417,7 @@ export function createBasicMiddleware(
       // Check if user's email is verified
       if (!user.emailVerified) {
         return NextResponse.redirect(
-          new URL(`${opts.authAppUrl}${verifyPath}`, request.nextUrl),
+          new URL(`${opts.authAppUrl}${verifyPath}`, request.nextUrl)
         );
       }
 
@@ -441,11 +428,11 @@ export function createBasicMiddleware(
       }
       return NextResponse.next();
     } catch (error) {
-      console.error(`Dashboard middleware error for ${pathname}:`, error);
+      console.error(`Dashboard proxy error for ${pathname}:`, error);
       const response = redirectToAuth(
         request,
         opts.authAppUrl,
-        pathname === "/" ? undefined : request.nextUrl.href,
+        pathname === "/" ? undefined : request.nextUrl.href
       );
       return clearSessionCookie(response);
     }

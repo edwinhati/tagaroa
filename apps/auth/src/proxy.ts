@@ -32,7 +32,7 @@ async function fetchUser(sessionCookie: string): Promise<User | null> {
         headers: {
           Cookie: `better-auth.session_token=${sessionCookie}`,
         },
-      },
+      }
     );
 
     if (!response.ok) {
@@ -55,12 +55,12 @@ async function fetchUser(sessionCookie: string): Promise<User | null> {
 function handleVerificationRedirects(
   request: NextRequest,
   pathname: string,
-  isVerified: boolean,
+  isVerified: boolean
 ): NextResponse {
   // Allow verification-related routes regardless of verification status
   const verificationRoutes = ["/verify-email", "/verify-email/callback"];
   const isVerificationRoute = verificationRoutes.some((route) =>
-    pathname.startsWith(route),
+    pathname.startsWith(route)
   );
 
   if (!isVerified) {
@@ -112,9 +112,9 @@ function handleVerificationRedirects(
 }
 
 /**
- * Main middleware function
+ * Main proxy function
  */
-export async function middleware(request: NextRequest): Promise<NextResponse> {
+export async function proxy(request: NextRequest): Promise<NextResponse> {
   const { pathname, searchParams } = request.nextUrl;
   const rawRedirect = searchParams.get("redirect");
 
@@ -138,8 +138,8 @@ export async function middleware(request: NextRequest): Promise<NextResponse> {
       return NextResponse.redirect(
         new URL(
           `/sign-in?redirect=${encodeURIComponent(safeRedirect)}`,
-          request.url,
-        ),
+          request.url
+        )
       );
     }
     return NextResponse.next();
@@ -166,8 +166,8 @@ export async function middleware(request: NextRequest): Promise<NextResponse> {
       return NextResponse.redirect(
         new URL(
           `/sign-in?redirect=${encodeURIComponent(safeRedirect)}`,
-          request.url,
-        ),
+          request.url
+        )
       );
     }
 
@@ -178,7 +178,7 @@ export async function middleware(request: NextRequest): Promise<NextResponse> {
   return handleVerificationRedirects(request, pathname, profile.emailVerified);
 }
 
-// Middleware Config
+// proxy Config
 export const config = {
   matcher: ["/((?!api|_next/static|_next/image|favicon.ico|.*\\.png$).*)"],
 };
