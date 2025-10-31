@@ -40,8 +40,8 @@ func main() {
 
 	// Add production origins if configured
 	if trustedOrigins := cfg.Server.TrustedOrigins; trustedOrigins != "" {
-		origins := strings.SplitSeq(trustedOrigins, ",")
-		for origin := range origins {
+		origins := strings.Split(trustedOrigins, ",")
+		for _, origin := range origins {
 			if trimmed := strings.TrimSpace(origin); trimmed != "" {
 				allowedOrigins = append(allowedOrigins, trimmed)
 			}
