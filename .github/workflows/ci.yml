@@ -201,7 +201,8 @@ jobs:
           name: build-artifacts
           path: |
             build/
-            apps/*/.next/
+            apps/*/.next/standalone/
+            apps/*/.next/static/
             apps/*/dist/
             packages/*/dist/
           retention-days: 1
@@ -240,6 +241,7 @@ jobs:
         uses: actions/download-artifact@v4
         with:
           name: build-artifacts
+          path: .
 
       - name: Generate image tags
         id: meta
