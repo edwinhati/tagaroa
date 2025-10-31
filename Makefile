@@ -8,7 +8,7 @@
 # Project Configuration
 PROJECT_NAME := registry.gitlab.com/tagaroa
 DOCKER_REGISTRY := registry.gitlab.com/tagaroa
-GO_VERSION := 1.25.0
+GO_VERSION := 1.23.0
 
 # Package Managers
 NODE_PKG_MANAGER := bun
