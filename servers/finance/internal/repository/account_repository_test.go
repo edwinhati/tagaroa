@@ -1236,3 +1236,243 @@ func TestAccountRepository_GetCurrencyAggregations_WithStringField(t *testing.T)
 	assert.Contains(t, aggregations, "USD")
 	assert.NoError(t, mock.ExpectationsWereMet())
 }
+
+// Test for unknown field handling in FindMany
+func TestAccountRepository_FindMany_WithUnknownField(t *testing.T) {
+	db, mock, repo := setupMockDB(t)
+	defer db.Close()
+
+	ctx := context.Background()
+	userID := uuid.New()
+
+	params := util.FindManyParams{
+		Where: map[string]any{
+			"user_id":       userID,
+			"unknown_field": "test_value",
+		},
+	}
+
+	rows := sqlmock.NewRows([]string{
+		"id", "name", "type", "balance", "user_id", "currency", "notes", "is_deleted", "created_at", "updated_at",
+	}).AddRow(
+		uuid.New(), "Test Account", "bank", 1000.0, userID, "USD", "Test notes", false, time.Now(), time.Now(),
+	)
+
+	mock.ExpectQuery(`SELECT id, name, type, balance, user_id, currency, notes, is_deleted, created_at, updated_at FROM accounts WHERE is_deleted = false AND user_id = \$1 AND unknown_field = \$2 ORDER BY created_at DESC`).
+		WithArgs(userID, "test_value").
+		WillReturnRows(rows)
+
+	accounts, err := repo.FindMany(ctx, params)
+
+	assert.NoError(t, err)
+	assert.Len(t, accounts, 1)
+	assert.NoError(t, mock.ExpectationsWereMet())
+}
+
+// Test for unknown field handling in Count
+func TestAccountRepository_Count_WithUnknownField(t *testing.T) {
+	db, mock, repo := setupMockDB(t)
+	defer db.Close()
+
+	ctx := context.Background()
+	userID := uuid.New()
+
+	where := map[string]any{
+		"user_id":       userID,
+		"unknown_field": "test_value",
+	}
+
+	rows := sqlmock.NewRows([]string{"count"}).AddRow(1)
+
+	mock.ExpectQuery(`SELECT COUNT\(\*\) FROM accounts WHERE is_deleted = false AND user_id = \$1 AND unknown_field = \$2`).
+		WithArgs(userID, "test_value").
+		WillReturnRows(rows)
+
+	count, err := repo.Count(ctx, where)
+
+	assert.NoError(t, err)
+	assert.Equal(t, 1, count)
+	assert.NoError(t, mock.ExpectationsWereMet())
+}
+
+// Test for unknown field handling in GetTypeAggregations
+func TestAccountRepository_GetTypeAggregations_WithUnknownField(t *testing.T) {
+	db, mock, repo := setupMockDB(t)
+	defer db.Close()
+
+	ctx := context.Background()
+	userID := uuid.New()
+
+	where := map[string]any{
+		"user_id":       userID,
+		"unknown_field": "test_value",
+	}
+
+	rows := sqlmock.NewRows([]string{
+		"key", "count", "min_balance", "max_balance", "avg_balance", "sum_balance",
+	}).AddRow(
+		"bank", 2, 500.0, 1500.0, 1000.0, 2000.0,
+	)
+
+	mock.ExpectQuery(`SELECT type as key, COUNT\(\*\) as count, COALESCE\(MIN\(balance\), 0\) as min_balance, COALESCE\(MAX\(balance\), 0\) as max_balance, COALESCE\(AVG\(balance\), 0\) as avg_balance, COALESCE\(SUM\(balance\), 0\) as sum_balance FROM accounts WHERE is_deleted = false AND user_id = \$1 AND unknown_field = \$2 GROUP BY type ORDER BY type`).
+		WithArgs(userID, "test_value").
+		WillReturnRows(rows)
+
+	aggregations, err := repo.GetTypeAggregations(ctx, where)
+
+	assert.NoError(t, err)
+	assert.Len(t, aggregations, 1)
+	assert.Contains(t, aggregations, "bank")
+	assert.NoError(t, mock.ExpectationsWereMet())
+}
+
+// Test for unknown field handling in GetCurrencyAggregations
+func TestAccountRepository_GetCurrencyAggregations_WithUnknownField(t *testing.T) {
+	db, mock, repo := setupMockDB(t)
+	defer db.Close()
+
+	ctx := context.Background()
+	userID := uuid.New()
+
+	where := map[string]any{
+		"user_id":       userID,
+		"unknown_field": "test_value",
+	}
+
+	rows := sqlmock.NewRows([]string{
+		"key", "count", "min_balance", "max_balance", "avg_balance", "sum_balance",
+	}).AddRow(
+		"USD", 2, 500.0, 1500.0, 1000.0, 2000.0,
+	)
+
+	mock.ExpectQuery(`SELECT currency as key, COUNT\(\*\) as count, COALESCE\(MIN\(balance\), 0\) as min_balance, COALESCE\(MAX\(balance\), 0\) as max_balance, COALESCE\(AVG\(balance\), 0\) as avg_balance, COALESCE\(SUM\(balance\), 0\) as sum_balance FROM accounts WHERE is_deleted = false AND user_id = \$1 AND unknown_field = \$2 GROUP BY currency ORDER BY currency`).
+		WithArgs(userID, "test_value").
+		WillReturnRows(rows)
+
+	aggregations, err := repo.GetCurrencyAggregations(ctx, where)
+
+	assert.NoError(t, err)
+	assert.Len(t, aggregations, 1)
+	assert.Contains(t, aggregations, "USD")
+	assert.NoError(t, mock.ExpectationsWereMet())
+}
+
+// Test for slice field handling in unknown fields for Count
+func TestAccountRepository_Count_WithUnknownSliceField(t *testing.T) {
+	db, mock, repo := setupMockDB(t)
+	defer db.Close()
+
+	ctx := context.Background()
+	userID := uuid.New()
+
+	where := map[string]any{
+		"user_id":       userID,
+		"unknown_slice": []string{"value1", "value2"},
+	}
+
+	rows := sqlmock.NewRows([]string{"count"}).AddRow(2)
+
+	mock.ExpectQuery(`SELECT COUNT\(\*\) FROM accounts WHERE is_deleted = false AND user_id = \$1 AND unknown_slice IN \(\$2,\$3\)`).
+		WithArgs(userID, "value1", "value2").
+		WillReturnRows(rows)
+
+	count, err := repo.Count(ctx, where)
+
+	assert.NoError(t, err)
+	assert.Equal(t, 2, count)
+	assert.NoError(t, mock.ExpectationsWereMet())
+}
+
+// Test for slice field handling in unknown fields for FindMany
+func TestAccountRepository_FindMany_WithUnknownSliceField(t *testing.T) {
+	db, mock, repo := setupMockDB(t)
+	defer db.Close()
+
+	ctx := context.Background()
+	userID := uuid.New()
+
+	params := util.FindManyParams{
+		Where: map[string]any{
+			"user_id":       userID,
+			"unknown_slice": []string{"value1", "value2"},
+		},
+	}
+
+	rows := sqlmock.NewRows([]string{
+		"id", "name", "type", "balance", "user_id", "currency", "notes", "is_deleted", "created_at", "updated_at",
+	}).AddRow(
+		uuid.New(), "Test Account", "bank", 1000.0, userID, "USD", "Test notes", false, time.Now(), time.Now(),
+	)
+
+	mock.ExpectQuery(`SELECT id, name, type, balance, user_id, currency, notes, is_deleted, created_at, updated_at FROM accounts WHERE is_deleted = false AND user_id = \$1 AND unknown_slice IN \(\$2,\$3\) ORDER BY created_at DESC`).
+		WithArgs(userID, "value1", "value2").
+		WillReturnRows(rows)
+
+	accounts, err := repo.FindMany(ctx, params)
+
+	assert.NoError(t, err)
+	assert.Len(t, accounts, 1)
+	assert.NoError(t, mock.ExpectationsWereMet())
+}
+
+// Test for slice field handling in unknown fields for GetTypeAggregations
+func TestAccountRepository_GetTypeAggregations_WithUnknownSliceField(t *testing.T) {
+	db, mock, repo := setupMockDB(t)
+	defer db.Close()
+
+	ctx := context.Background()
+	userID := uuid.New()
+
+	where := map[string]any{
+		"user_id":       userID,
+		"unknown_slice": []string{"value1", "value2"},
+	}
+
+	rows := sqlmock.NewRows([]string{
+		"key", "count", "min_balance", "max_balance", "avg_balance", "sum_balance",
+	}).AddRow(
+		"bank", 2, 500.0, 1500.0, 1000.0, 2000.0,
+	)
+
+	mock.ExpectQuery(`SELECT type as key, COUNT\(\*\) as count, COALESCE\(MIN\(balance\), 0\) as min_balance, COALESCE\(MAX\(balance\), 0\) as max_balance, COALESCE\(AVG\(balance\), 0\) as avg_balance, COALESCE\(SUM\(balance\), 0\) as sum_balance FROM accounts WHERE is_deleted = false AND user_id = \$1 AND unknown_slice IN \(\$2,\$3\) GROUP BY type ORDER BY type`).
+		WithArgs(userID, "value1", "value2").
+		WillReturnRows(rows)
+
+	aggregations, err := repo.GetTypeAggregations(ctx, where)
+
+	assert.NoError(t, err)
+	assert.Len(t, aggregations, 1)
+	assert.Contains(t, aggregations, "bank")
+	assert.NoError(t, mock.ExpectationsWereMet())
+}
+
+// Test for slice field handling in unknown fields for GetCurrencyAggregations
+func TestAccountRepository_GetCurrencyAggregations_WithUnknownSliceField(t *testing.T) {
+	db, mock, repo := setupMockDB(t)
+	defer db.Close()
+
+	ctx := context.Background()
+	userID := uuid.New()
+
+	where := map[string]any{
+		"user_id":       userID,
+		"unknown_slice": []string{"value1", "value2"},
+	}
+
+	rows := sqlmock.NewRows([]string{
+		"key", "count", "min_balance", "max_balance", "avg_balance", "sum_balance",
+	}).AddRow(
+		"USD", 2, 500.0, 1500.0, 1000.0, 2000.0,
+	)
+
+	mock.ExpectQuery(`SELECT currency as key, COUNT\(\*\) as count, COALESCE\(MIN\(balance\), 0\) as min_balance, COALESCE\(MAX\(balance\), 0\) as max_balance, COALESCE\(AVG\(balance\), 0\) as avg_balance, COALESCE\(SUM\(balance\), 0\) as sum_balance FROM accounts WHERE is_deleted = false AND user_id = \$1 AND unknown_slice IN \(\$2,\$3\) GROUP BY currency ORDER BY currency`).
+		WithArgs(userID, "value1", "value2").
+		WillReturnRows(rows)
+
+	aggregations, err := repo.GetCurrencyAggregations(ctx, where)
+
+	assert.NoError(t, err)
+	assert.Len(t, aggregations, 1)
+	assert.Contains(t, aggregations, "USD")
+	assert.NoError(t, mock.ExpectationsWereMet())
+}

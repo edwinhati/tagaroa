@@ -45,6 +45,7 @@ func TestConfig_LoadFromEnv(t *testing.T) {
 	originalEnvs := map[string]string{
 		"ENV":                       os.Getenv("ENV"),
 		"PORT":                      os.Getenv("PORT"),
+		"TRUSTED_ORIGINS":           os.Getenv("TRUSTED_ORIGINS"),
 		"LOG_LEVEL":                 os.Getenv("LOG_LEVEL"),
 		"LOG_FORMAT":                os.Getenv("LOG_FORMAT"),
 		"LOG_ADD_SOURCE":            os.Getenv("LOG_ADD_SOURCE"),
@@ -76,6 +77,7 @@ func TestConfig_LoadFromEnv(t *testing.T) {
 	testEnvs := map[string]string{
 		"ENV":                       "test",
 		"PORT":                      "8080",
+		"TRUSTED_ORIGINS":           "http://localhost:3000,https://app.example.com",
 		"LOG_LEVEL":                 "debug",
 		"LOG_FORMAT":                "json",
 		"LOG_ADD_SOURCE":            "true",
@@ -104,6 +106,7 @@ func TestConfig_LoadFromEnv(t *testing.T) {
 	// Test server config
 	assert.Equal(t, "test", config.Server.Env)
 	assert.Equal(t, "8080", config.Server.Port)
+	assert.Equal(t, "http://localhost:3000,https://app.example.com", config.Server.TrustedOrigins)
 
 	// Test log config
 	assert.Equal(t, "debug", config.Log.Level)
@@ -165,7 +168,7 @@ func TestConfig_LoadFromEnv_InvalidValues(t *testing.T) {
 func TestConfig_LoadFromEnv_EmptyValues(t *testing.T) {
 	// Ensure all env vars are unset
 	envVars := []string{
-		"ENV", "PORT", "LOG_LEVEL", "LOG_FORMAT", "LOG_ADD_SOURCE",
+		"ENV", "PORT", "TRUSTED_ORIGINS", "LOG_LEVEL", "LOG_FORMAT", "LOG_ADD_SOURCE",
 		"DB_HOST", "DB_PORT", "DB_USER", "DB_PASSWORD", "DB_NAME", "DB_SLOW_THRESHOLD",
 		"OIDC_BASE_URL", "OIDC_CLIENT_ID", "OIDC_CLIENT_SECRET",
 		"SENTRY_DSN", "SENTRY_TRACES_SAMPLE_RATE",
@@ -195,6 +198,7 @@ func TestConfig_LoadFromEnv_EmptyValues(t *testing.T) {
 	// All values should remain at their zero values
 	assert.Empty(t, config.Server.Env)
 	assert.Empty(t, config.Server.Port)
+	assert.Empty(t, config.Server.TrustedOrigins)
 	assert.Empty(t, config.Log.Level)
 	assert.Empty(t, config.Log.Format)
 	assert.False(t, config.Log.AddSource)
