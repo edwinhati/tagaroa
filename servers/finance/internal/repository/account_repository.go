@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
+	"slices"
 	"strings"
 	"time"
 
@@ -109,9 +110,18 @@ func (r *accountRepository) FindMany(ctx context.Context, params util.FindManyPa
 	// Always filter out deleted records
 	conditions = append(conditions, "is_deleted = false")
 
-	// Apply dynamic where conditions
+	// Apply dynamic where conditions in a deterministic order
 	if params.Where != nil {
-		for field, value := range params.Where {
+		// Process fields in a specific order to ensure consistent SQL generation
+		fieldOrder := []string{"user_id", "search", "type", "currency"}
+
+		// First, process known fields in order
+		for _, field := range fieldOrder {
+			value, exists := params.Where[field]
+			if !exists {
+				continue
+			}
+
 			if field == "search" {
 				// Handle search across name and notes fields
 				searchTerm := fmt.Sprintf("%%%s%%", value)
@@ -119,6 +129,35 @@ func (r *accountRepository) FindMany(ctx context.Context, params util.FindManyPa
 				args = append(args, searchTerm)
 				argIndex++
 			} else if slice, ok := value.([]string); ok && len(slice) > 0 {
+				placeholders := make([]string, len(slice))
+				for i, v := range slice {
+					placeholders[i] = fmt.Sprintf("$%d", argIndex)
+					args = append(args, v)
+					argIndex++
+				}
+				conditions = append(conditions, fmt.Sprintf("%s IN (%s)", field, strings.Join(placeholders, ",")))
+			} else {
+				conditions = append(conditions, fmt.Sprintf("%s = $%d", field, argIndex))
+				args = append(args, value)
+				argIndex++
+			}
+		}
+
+		// Then process any remaining fields not in the known order
+		for field, value := range params.Where {
+			// Skip if already processed
+			skip := false
+			for _, knownField := range fieldOrder {
+				if field == knownField {
+					skip = true
+					break
+				}
+			}
+			if skip {
+				continue
+			}
+
+			if slice, ok := value.([]string); ok && len(slice) > 0 {
 				placeholders := make([]string, len(slice))
 				for i, v := range slice {
 					placeholders[i] = fmt.Sprintf("$%d", argIndex)
@@ -195,8 +234,17 @@ func (r *accountRepository) Count(ctx context.Context, where map[string]any) (in
 	// Always filter out deleted records
 	conditions = append(conditions, "is_deleted = false")
 
-	// Apply dynamic where conditions
-	for field, value := range where {
+	// Apply dynamic where conditions in a deterministic order
+	// Process fields in a specific order to ensure consistent SQL generation
+	fieldOrder := []string{"user_id", "search", "type", "currency"}
+
+	// First, process known fields in order
+	for _, field := range fieldOrder {
+		value, exists := where[field]
+		if !exists {
+			continue
+		}
+
 		if field == "search" {
 			// Handle search across name and notes fields
 			searchTerm := fmt.Sprintf("%%%s%%", value)
@@ -204,6 +252,29 @@ func (r *accountRepository) Count(ctx context.Context, where map[string]any) (in
 			args = append(args, searchTerm)
 			argIndex++
 		} else if slice, ok := value.([]string); ok && len(slice) > 0 {
+			placeholders := make([]string, len(slice))
+			for i, v := range slice {
+				placeholders[i] = fmt.Sprintf("$%d", argIndex)
+				args = append(args, v)
+				argIndex++
+			}
+			conditions = append(conditions, fmt.Sprintf("%s IN (%s)", field, strings.Join(placeholders, ",")))
+		} else {
+			conditions = append(conditions, fmt.Sprintf("%s = $%d", field, argIndex))
+			args = append(args, value)
+			argIndex++
+		}
+	}
+
+	// Then process any remaining fields not in the known order
+	for field, value := range where {
+		// Skip if already processed
+		skip := slices.Contains(fieldOrder, field)
+		if skip {
+			continue
+		}
+
+		if slice, ok := value.([]string); ok && len(slice) > 0 {
 			placeholders := make([]string, len(slice))
 			for i, v := range slice {
 				placeholders[i] = fmt.Sprintf("$%d", argIndex)
@@ -260,11 +331,17 @@ func (r *accountRepository) GetTypeAggregations(ctx context.Context, where map[s
 	// Always filter out deleted records
 	conditions = append(conditions, "is_deleted = false")
 
-	// Apply dynamic where conditions (excluding type field for type aggregations)
-	for field, value := range where {
-		if field == "type" {
+	// Apply dynamic where conditions in a deterministic order (excluding type field for type aggregations)
+	// Process fields in a specific order to ensure consistent SQL generation
+	fieldOrder := []string{"user_id", "search", "currency"}
+
+	// First, process known fields in order
+	for _, field := range fieldOrder {
+		value, exists := where[field]
+		if !exists || field == "type" {
 			continue // Skip type filtering for type aggregations
 		}
+
 		if field == "search" {
 			// Handle search across name and notes fields
 			searchTerm := fmt.Sprintf("%%%s%%", value)
@@ -272,6 +349,33 @@ func (r *accountRepository) GetTypeAggregations(ctx context.Context, where map[s
 			args = append(args, searchTerm)
 			argIndex++
 		} else if slice, ok := value.([]string); ok && len(slice) > 0 {
+			placeholders := make([]string, len(slice))
+			for i, v := range slice {
+				placeholders[i] = fmt.Sprintf("$%d", argIndex)
+				args = append(args, v)
+				argIndex++
+			}
+			conditions = append(conditions, fmt.Sprintf("%s IN (%s)", field, strings.Join(placeholders, ",")))
+		} else {
+			conditions = append(conditions, fmt.Sprintf("%s = $%d", field, argIndex))
+			args = append(args, value)
+			argIndex++
+		}
+	}
+
+	// Then process any remaining fields not in the known order
+	for field, value := range where {
+		if field == "type" {
+			continue // Skip type filtering for type aggregations
+		}
+
+		// Skip if already processed
+		skip := slices.Contains(fieldOrder, field)
+		if skip {
+			continue
+		}
+
+		if slice, ok := value.([]string); ok && len(slice) > 0 {
 			placeholders := make([]string, len(slice))
 			for i, v := range slice {
 				placeholders[i] = fmt.Sprintf("$%d", argIndex)
@@ -339,11 +443,17 @@ func (r *accountRepository) GetCurrencyAggregations(ctx context.Context, where m
 	// Always filter out deleted records
 	conditions = append(conditions, "is_deleted = false")
 
-	// Apply dynamic where conditions (excluding currency field for currency aggregations)
-	for field, value := range where {
-		if field == "currency" {
+	// Apply dynamic where conditions in a deterministic order (excluding currency field for currency aggregations)
+	// Process fields in a specific order to ensure consistent SQL generation
+	fieldOrder := []string{"user_id", "search", "type"}
+
+	// First, process known fields in order
+	for _, field := range fieldOrder {
+		value, exists := where[field]
+		if !exists || field == "currency" {
 			continue // Skip currency filtering for currency aggregations
 		}
+
 		if field == "search" {
 			// Handle search across name and notes fields
 			searchTerm := fmt.Sprintf("%%%s%%", value)
@@ -351,6 +461,33 @@ func (r *accountRepository) GetCurrencyAggregations(ctx context.Context, where m
 			args = append(args, searchTerm)
 			argIndex++
 		} else if slice, ok := value.([]string); ok && len(slice) > 0 {
+			placeholders := make([]string, len(slice))
+			for i, v := range slice {
+				placeholders[i] = fmt.Sprintf("$%d", argIndex)
+				args = append(args, v)
+				argIndex++
+			}
+			conditions = append(conditions, fmt.Sprintf("%s IN (%s)", field, strings.Join(placeholders, ",")))
+		} else {
+			conditions = append(conditions, fmt.Sprintf("%s = $%d", field, argIndex))
+			args = append(args, value)
+			argIndex++
+		}
+	}
+
+	// Then process any remaining fields not in the known order
+	for field, value := range where {
+		if field == "currency" {
+			continue // Skip currency filtering for currency aggregations
+		}
+
+		// Skip if already processed
+		skip := slices.Contains(fieldOrder, field)
+		if skip {
+			continue
+		}
+
+		if slice, ok := value.([]string); ok && len(slice) > 0 {
 			placeholders := make([]string, len(slice))
 			for i, v := range slice {
 				placeholders[i] = fmt.Sprintf("$%d", argIndex)

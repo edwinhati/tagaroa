@@ -150,7 +150,7 @@ func (h *AccountHandler) GetAccounts(w http.ResponseWriter, r *http.Request) {
 	if typeParams := r.URL.Query()["type"]; len(typeParams) > 0 {
 		for _, typeParam := range typeParams {
 			// Split comma-separated values
-			for t := range strings.SplitSeq(typeParam, ",") {
+			for _, t := range strings.Split(typeParam, ",") {
 				if trimmed := strings.TrimSpace(t); trimmed != "" {
 					accountTypes = append(accountTypes, trimmed)
 				}
@@ -163,7 +163,7 @@ func (h *AccountHandler) GetAccounts(w http.ResponseWriter, r *http.Request) {
 	if currencyParams := r.URL.Query()["currency"]; len(currencyParams) > 0 {
 		for _, currencyParam := range currencyParams {
 			// Split comma-separated values
-			for c := range strings.SplitSeq(currencyParam, ",") {
+			for _, c := range strings.Split(currencyParam, ",") {
 				if trimmed := strings.TrimSpace(c); trimmed != "" {
 					accountCurrencies = append(accountCurrencies, trimmed)
 				}

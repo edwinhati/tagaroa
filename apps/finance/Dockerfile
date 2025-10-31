@@ -50,8 +50,8 @@ ENV NODE_ENV=production
 # Build the project using turbo
 COPY --from=base /app/out/full/ .
 RUN apk add --no-cache libc6-compat
-# Build auth app using bun
-RUN cd apps/auth && bun run build
+# Build finance app using bun
+RUN cd apps/finance && bun run build
 
 # Runner stage
 FROM oven/bun:alpine AS runner

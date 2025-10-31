@@ -1,0 +1,280 @@
+name: CI/CD Pipeline
+
+on:
+  push:
+    branches: [main, develop, "feature/**", "hotfix/**"]
+  pull_request:
+    branches: [main, develop]
+
+env:
+  REGISTRY: registry.gitlab.com/tagaroa
+  NODE_VERSION: "18"
+  GO_VERSION: "1.23.4"
+  BUN_VERSION: "1.3.1"
+
+jobs:
+  # =============================================================================
+  # QUALITY CHECKS (PARALLEL)
+  # =============================================================================
+  test:
+    name: Run Tests
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: ${{ env.GO_VERSION }}
+
+      - name: Cache Go modules
+        uses: actions/cache@v4
+        with:
+          path: ~/go/pkg/mod
+          key: go-mod-${{ runner.os }}-${{ hashFiles('**/go.sum') }}
+          restore-keys: go-mod-${{ runner.os }}-
+
+      - name: Download Go dependencies
+        run: |
+          for server in servers/*/; do
+            if [ -f "$server/go.mod" ]; then
+              cd "$server" && go mod download && cd - > /dev/null
+            fi
+          done
+          for pkg in packages/*/go/; do
+            if [ -f "$pkg/go.mod" ]; then
+              cd "$pkg" && go mod download && cd - > /dev/null
+            fi
+          done
+
+      - name: Run Go tests
+        run: make test-servers
+
+  lint:
+    name: Lint & Type Check
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: ${{ env.BUN_VERSION }}
+
+      - name: Cache Bun dependencies
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.bun/install/cache
+            node_modules
+          key: bun-${{ runner.os }}-${{ hashFiles('**/bun.lock') }}
+          restore-keys: bun-${{ runner.os }}-
+
+      - name: Install dependencies
+        run: bun install
+
+      - name: Run linting
+        run: |
+          if [ "${{ github.event_name }}" = "pull_request" ]; then
+            bunx turbo run lint --affected
+          else
+            bunx turbo run lint
+          fi
+        env:
+          TURBO_TOKEN: ${{ secrets.TURBO_TOKEN }}
+          TURBO_TEAM: ${{ vars.TURBO_TEAM }}
+
+      - name: Run type checking
+        run: |
+          if [ "${{ github.event_name }}" = "pull_request" ]; then
+            bunx turbo run check-types --affected
+          else
+            bunx turbo run check-types
+          fi
+        env:
+          TURBO_TOKEN: ${{ secrets.TURBO_TOKEN }}
+          TURBO_TEAM: ${{ vars.TURBO_TEAM }}
+
+  # =============================================================================
+  # BUILD & DOCKER (OPTIMIZED)
+  # =============================================================================
+  build-and-docker:
+    name: Build & Docker
+    runs-on: ubuntu-latest
+    needs: [test, lint]
+    if: github.event_name == 'push' || github.event_name == 'pull_request'
+    strategy:
+      matrix:
+        include:
+          - component: auth-app
+            dockerfile: apps/auth/Dockerfile
+            build_cmd: "cd apps/auth && bun run build"
+          - component: admin-app
+            dockerfile: apps/admin/Dockerfile
+            build_cmd: "cd apps/admin && bun run build"
+          - component: finance-app
+            dockerfile: apps/finance/Dockerfile
+            build_cmd: "cd apps/finance && bun run build"
+          - component: auth-server
+            dockerfile: servers/auth/Dockerfile
+            build_cmd: "make build-auth-server"
+          - component: finance-server
+            dockerfile: servers/finance/Dockerfile
+            build_cmd: "make build-finance-server"
+    environment:
+      name: ${{ github.event_name == 'pull_request' && 'staging' || (github.ref == 'refs/heads/main' && 'production' || 'development') }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: ${{ env.BUN_VERSION }}
+        if: contains(matrix.component, '-app')
+
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: ${{ env.GO_VERSION }}
+        if: contains(matrix.component, '-server')
+
+      - name: Cache dependencies
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.bun/install/cache
+            ~/go/pkg/mod
+            node_modules
+          key: ${{ contains(matrix.component, '-app') && format('bun-{0}-{1}', runner.os, hashFiles('**/bun.lock')) || format('go-{0}-{1}', runner.os, hashFiles('**/go.sum')) }}
+          restore-keys: |
+            ${{ contains(matrix.component, '-app') && format('bun-{0}-', runner.os) || format('go-{0}-', runner.os) }}
+
+      - name: Install dependencies
+        run: bun install
+        if: contains(matrix.component, '-app')
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Generate image tags
+        id: meta
+        run: |
+          COMPONENT="${{ matrix.component }}"
+          if [ "${{ github.event_name }}" = "pull_request" ]; then
+            TAG_SUFFIX="beta"
+          elif [ "${{ github.ref }}" = "refs/heads/main" ]; then
+            TAG_SUFFIX="latest"
+          else
+            TAG_SUFFIX="alpha"
+          fi
+          echo "image-tag=${REGISTRY}/${COMPONENT}:${TAG_SUFFIX}" >> $GITHUB_OUTPUT
+          echo "image-tag-sha=${REGISTRY}/${COMPONENT}:${TAG_SUFFIX}-${GITHUB_SHA::8}" >> $GITHUB_OUTPUT
+
+      - name: Log in to GitLab Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ secrets.GITLAB_USERNAME }}
+          password: ${{ secrets.GITLAB_TOKEN }}
+
+      - name: Prepare build args for Next.js apps
+        id: build-args
+        run: |
+          COMPONENT="${{ matrix.component }}"
+          BUILD_ARGS=""
+          if [[ $COMPONENT == *"-app" ]]; then
+            APP_NAME=${COMPONENT%-app}
+            case $APP_NAME in
+              "auth")
+                BUILD_ARGS="NEXT_PUBLIC_API_URL=${{ vars.NEXT_PUBLIC_API_URL }}"$'\n'
+                BUILD_ARGS="${BUILD_ARGS}NEXT_PUBLIC_DASHBOARD_APP_URL=${{ vars.NEXT_PUBLIC_DASHBOARD_APP_URL }}"$'\n'
+                BUILD_ARGS="${BUILD_ARGS}NEXT_PUBLIC_ALLOWED_REDIRECT_ORIGINS=${{ vars.NEXT_PUBLIC_ALLOWED_REDIRECT_ORIGINS }}"$'\n'
+                BUILD_ARGS="${BUILD_ARGS}NEXT_PUBLIC_POSTHOG_KEY=${{ vars.NEXT_PUBLIC_POSTHOG_KEY }}"$'\n'
+                BUILD_ARGS="${BUILD_ARGS}NEXT_PUBLIC_POSTHOG_HOST=${{ vars.NEXT_PUBLIC_POSTHOG_HOST }}"$'\n'
+                ;;
+              "admin")
+                BUILD_ARGS="NEXT_PUBLIC_API_URL=${{ vars.NEXT_PUBLIC_API_URL }}"$'\n'
+                BUILD_ARGS="${BUILD_ARGS}NEXT_PUBLIC_AUTH_APP_URL=${{ vars.NEXT_PUBLIC_AUTH_APP_URL }}"$'\n'
+                BUILD_ARGS="${BUILD_ARGS}NEXT_PUBLIC_DASHBOARD_APP_URL=${{ vars.NEXT_PUBLIC_DASHBOARD_APP_URL }}"$'\n'
+                BUILD_ARGS="${BUILD_ARGS}NEXT_PUBLIC_POSTHOG_KEY=${{ vars.NEXT_PUBLIC_POSTHOG_KEY }}"$'\n'
+                BUILD_ARGS="${BUILD_ARGS}NEXT_PUBLIC_POSTHOG_HOST=${{ vars.NEXT_PUBLIC_POSTHOG_HOST }}"$'\n'
+                ;;
+              "finance")
+                BUILD_ARGS="NEXT_PUBLIC_API_URL=${{ vars.NEXT_PUBLIC_API_URL }}"$'\n'
+                BUILD_ARGS="${BUILD_ARGS}NEXT_PUBLIC_MAIN_APP_URL=${{ vars.NEXT_PUBLIC_MAIN_APP_URL }}"$'\n'
+                BUILD_ARGS="${BUILD_ARGS}NEXT_PUBLIC_AUTH_APP_URL=${{ vars.NEXT_PUBLIC_AUTH_APP_URL }}"$'\n'
+                BUILD_ARGS="${BUILD_ARGS}NEXT_PUBLIC_POSTHOG_KEY=${{ vars.NEXT_PUBLIC_POSTHOG_KEY }}"$'\n'
+                BUILD_ARGS="${BUILD_ARGS}NEXT_PUBLIC_POSTHOG_HOST=${{ vars.NEXT_PUBLIC_POSTHOG_HOST }}"$'\n'
+                ;;
+            esac
+          fi
+          echo "build-args<<EOF" >> $GITHUB_OUTPUT
+          echo "$BUILD_ARGS" >> $GITHUB_OUTPUT
+          echo "EOF" >> $GITHUB_OUTPUT
+
+      - name: Build and push Docker image
+        uses: docker/build-push-action@v5
+        timeout-minutes: 15
+        with:
+          context: .
+          file: ${{ matrix.dockerfile }}
+          push: true
+          tags: |
+            ${{ steps.meta.outputs.image-tag }}
+            ${{ steps.meta.outputs.image-tag-sha }}
+          build-args: ${{ steps.build-args.outputs.build-args }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+          platforms: linux/amd64
+
+  # =============================================================================
+  # RELEASE
+  # =============================================================================
+  release:
+    name: Create Release
+    runs-on: ubuntu-latest
+    needs: [build-and-docker]
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    outputs:
+      version: ${{ steps.semantic-release.outputs.version }}
+      released: ${{ steps.semantic-release.outputs.released }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+
+      - name: Install semantic-release
+        run: |
+          npm install -g semantic-release @semantic-release/changelog @semantic-release/git @semantic-release/github
+
+      - name: Create semantic release
+        id: semantic-release
+        run: |
+          npx semantic-release
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  # =============================================================================
+  # CLEANUP
+  # =============================================================================
+  cleanup:
+    name: Cleanup Artifacts
+    runs-on: ubuntu-latest
+    needs: [build-and-docker, release]
+    if: always()
+    steps:
+      - name: Delete artifacts
+        uses: geekyeggo/delete-artifact@v5
+        with:
+          name: |
+            build-artifacts
