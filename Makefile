@@ -8,7 +8,7 @@
 # Project Configuration
 PROJECT_NAME := registry.gitlab.com/tagaroa
 DOCKER_REGISTRY := registry.gitlab.com/tagaroa
-GO_VERSION := 1.23.0
+GO_VERSION := 1.23.4
 
 # Package Managers
 NODE_PKG_MANAGER := bun
@@ -22,7 +22,7 @@ BUILD_DIR := build
 BIN_DIR := $(BUILD_DIR)/bin
 
 # Node.js Apps
-NODE_APPS := auth admin
+NODE_APPS := auth admin finance
 NODE_SERVERS := auth
 
 # Go Servers

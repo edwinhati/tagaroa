@@ -221,10 +221,14 @@ jobs:
             dockerfile: apps/auth/Dockerfile
           - component: admin-app
             dockerfile: apps/admin/Dockerfile
+          - component: finance-app
+            dockerfile: apps/finance/Dockerfile
           - component: auth-server
             dockerfile: servers/auth/Dockerfile
           - component: finance-server
             dockerfile: servers/finance/Dockerfile
+    environment:
+      name: ${{ github.event_name == 'pull_request' && 'staging' || (github.ref == 'refs/heads/main' && 'production' || 'development') }}
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -236,13 +240,6 @@ jobs:
         uses: actions/download-artifact@v4
         with:
           name: build-artifacts
-
-      - name: List downloaded artifacts
-        run: |
-          echo "Current directory contents:"
-          ls -la
-          echo "Build directory contents:"
-          ls -la build/ || echo "No build directory found"
 
       - name: Generate image tags
         id: meta
@@ -256,7 +253,7 @@ jobs:
             ENVIRONMENT="production"
             TAG_SUFFIX="latest"
           else
-            ENVIRONMENT="dev"
+            ENVIRONMENT="development"
             TAG_SUFFIX="alpha"
           fi
 
@@ -271,12 +268,47 @@ jobs:
           username: ${{ secrets.GITLAB_USERNAME }}
           password: ${{ secrets.GITLAB_TOKEN }}
 
-      - name: Check Dockerfile exists
+      - name: Prepare build args for Next.js apps
+        id: build-args
         run: |
-          echo "Checking if Dockerfile exists: ${{ matrix.dockerfile }}"
-          ls -la ${{ matrix.dockerfile }}
-          echo "Dockerfile content:"
-          head -20 ${{ matrix.dockerfile }}
+          COMPONENT="${{ matrix.component }}"
+          BUILD_ARGS=""
+
+          # Check if this is a Next.js app (ends with -app)
+          if [[ $COMPONENT == *"-app" ]]; then
+            APP_NAME=${COMPONENT%-app}
+            echo "Preparing build args for $APP_NAME app in ${{ steps.meta.outputs.environment }} environment"
+            
+            # Set environment variables from GitHub Environment variables
+            case $APP_NAME in
+              "auth")
+                BUILD_ARGS="NEXT_PUBLIC_API_URL=${{ vars.NEXT_PUBLIC_API_URL }}"$'\n'
+                BUILD_ARGS="${BUILD_ARGS}NEXT_PUBLIC_DASHBOARD_APP_URL=${{ vars.NEXT_PUBLIC_DASHBOARD_APP_URL }}"$'\n'
+                BUILD_ARGS="${BUILD_ARGS}NEXT_PUBLIC_ALLOWED_REDIRECT_ORIGINS=${{ vars.NEXT_PUBLIC_ALLOWED_REDIRECT_ORIGINS }}"$'\n'
+                BUILD_ARGS="${BUILD_ARGS}NEXT_PUBLIC_POSTHOG_KEY=${{ vars.NEXT_PUBLIC_POSTHOG_KEY }}"$'\n'
+                BUILD_ARGS="${BUILD_ARGS}NEXT_PUBLIC_POSTHOG_HOST=${{ vars.NEXT_PUBLIC_POSTHOG_HOST }}"$'\n'
+                ;;
+              "admin")
+                BUILD_ARGS="NEXT_PUBLIC_API_URL=${{ vars.NEXT_PUBLIC_API_URL }}"$'\n'
+                BUILD_ARGS="${BUILD_ARGS}NEXT_PUBLIC_AUTH_APP_URL=${{ vars.NEXT_PUBLIC_AUTH_APP_URL }}"$'\n'
+                BUILD_ARGS="${BUILD_ARGS}NEXT_PUBLIC_DASHBOARD_APP_URL=${{ vars.NEXT_PUBLIC_DASHBOARD_APP_URL }}"$'\n'
+                BUILD_ARGS="${BUILD_ARGS}NEXT_PUBLIC_POSTHOG_KEY=${{ vars.NEXT_PUBLIC_POSTHOG_KEY }}"$'\n'
+                BUILD_ARGS="${BUILD_ARGS}NEXT_PUBLIC_POSTHOG_HOST=${{ vars.NEXT_PUBLIC_POSTHOG_HOST }}"$'\n'
+                ;;
+              "finance")
+                BUILD_ARGS="NEXT_PUBLIC_API_URL=${{ vars.NEXT_PUBLIC_API_URL }}"$'\n'
+                BUILD_ARGS="${BUILD_ARGS}NEXT_PUBLIC_MAIN_APP_URL=${{ vars.NEXT_PUBLIC_MAIN_APP_URL }}"$'\n'
+                BUILD_ARGS="${BUILD_ARGS}NEXT_PUBLIC_AUTH_APP_URL=${{ vars.NEXT_PUBLIC_AUTH_APP_URL }}"$'\n'
+                BUILD_ARGS="${BUILD_ARGS}NEXT_PUBLIC_POSTHOG_KEY=${{ vars.NEXT_PUBLIC_POSTHOG_KEY }}"$'\n'
+                BUILD_ARGS="${BUILD_ARGS}NEXT_PUBLIC_POSTHOG_HOST=${{ vars.NEXT_PUBLIC_POSTHOG_HOST }}"$'\n'
+                ;;
+            esac
+          fi
+
+          # Save build args to output
+          echo "build-args<<EOF" >> $GITHUB_OUTPUT
+          echo "$BUILD_ARGS" >> $GITHUB_OUTPUT
+          echo "EOF" >> $GITHUB_OUTPUT
 
       - name: Build and push Docker image
         uses: docker/build-push-action@v5
@@ -288,6 +320,7 @@ jobs:
           tags: |
             ${{ steps.meta.outputs.image-tag }}
             ${{ steps.meta.outputs.image-tag-sha }}
+          build-args: ${{ steps.build-args.outputs.build-args }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
           platforms: linux/amd64
