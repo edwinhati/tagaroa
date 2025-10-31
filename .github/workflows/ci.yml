@@ -14,54 +14,11 @@ env:
 
 jobs:
   # =============================================================================
-  # SETUP & CACHE
-  # =============================================================================
-  setup:
-    name: Setup Dependencies
-    runs-on: ubuntu-latest
-    outputs:
-      cache-key: ${{ steps.cache-keys.outputs.cache-key }}
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
-      - name: Setup Bun
-        uses: oven-sh/setup-bun@v2
-        with:
-          bun-version: ${{ env.BUN_VERSION }}
-
-      - name: Setup Go
-        uses: actions/setup-go@v5
-        with:
-          go-version: ${{ env.GO_VERSION }}
-
-      - name: Generate cache keys
-        id: cache-keys
-        run: |
-          echo "cache-key=deps-${{ runner.os }}-bun-${{ hashFiles('**/bun.lock') }}-go-${{ hashFiles('servers/**/go.sum', 'packages/**/go.sum') }}" >> $GITHUB_OUTPUT
-
-      - name: Cache dependencies
-        uses: actions/cache@v4
-        with:
-          path: |
-            ~/.bun/install/cache
-            ~/go/pkg/mod
-            node_modules
-          key: ${{ steps.cache-keys.outputs.cache-key }}
-          restore-keys: |
-            deps-${{ runner.os }}-bun-
-            deps-${{ runner.os }}-
-
-      - name: Install dependencies
-        run: bun install
-
-  # =============================================================================
-  # TESTING
+  # QUALITY CHECKS (PARALLEL)
   # =============================================================================
   test:
     name: Run Tests
     runs-on: ubuntu-latest
-    needs: setup
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -71,27 +28,22 @@ jobs:
         with:
           go-version: ${{ env.GO_VERSION }}
 
-      - name: Restore dependencies cache
+      - name: Cache Go modules
         uses: actions/cache@v4
         with:
-          path: |
-            ~/go/pkg/mod
-          key: ${{ needs.setup.outputs.cache-key }}
-          restore-keys: |
-            deps-${{ runner.os }}-bun-
-            deps-${{ runner.os }}-
+          path: ~/go/pkg/mod
+          key: go-mod-${{ runner.os }}-${{ hashFiles('**/go.sum') }}
+          restore-keys: go-mod-${{ runner.os }}-
 
       - name: Download Go dependencies
         run: |
           for server in servers/*/; do
             if [ -f "$server/go.mod" ]; then
-              echo "Downloading dependencies for $server"
               cd "$server" && go mod download && cd - > /dev/null
             fi
           done
           for pkg in packages/*/go/; do
             if [ -f "$pkg/go.mod" ]; then
-              echo "Downloading dependencies for $pkg"
               cd "$pkg" && go mod download && cd - > /dev/null
             fi
           done
@@ -99,13 +51,9 @@ jobs:
       - name: Run Go tests
         run: make test-servers
 
-  # =============================================================================
-  # LINTING & TYPE CHECKING
-  # =============================================================================
   lint:
     name: Lint & Type Check
     runs-on: ubuntu-latest
-    needs: setup
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -115,13 +63,14 @@ jobs:
         with:
           bun-version: ${{ env.BUN_VERSION }}
 
-      - name: Restore dependencies cache
+      - name: Cache Bun dependencies
         uses: actions/cache@v4
         with:
           path: |
             ~/.bun/install/cache
             node_modules
-          key: ${{ needs.setup.outputs.cache-key }}
+          key: bun-${{ runner.os }}-${{ hashFiles('**/bun.lock') }}
+          restore-keys: bun-${{ runner.os }}-
 
       - name: Install dependencies
         run: bun install
@@ -149,12 +98,33 @@ jobs:
           TURBO_TEAM: ${{ vars.TURBO_TEAM }}
 
   # =============================================================================
-  # BUILD
+  # BUILD & DOCKER (OPTIMIZED)
   # =============================================================================
-  build:
-    name: Build Applications
+  build-and-docker:
+    name: Build & Docker
     runs-on: ubuntu-latest
-    needs: [setup, test, lint]
+    needs: [test, lint]
+    if: github.event_name == 'push' || github.event_name == 'pull_request'
+    strategy:
+      matrix:
+        include:
+          - component: auth-app
+            dockerfile: apps/auth/Dockerfile
+            build_cmd: "cd apps/auth && bun run build"
+          - component: admin-app
+            dockerfile: apps/admin/Dockerfile
+            build_cmd: "cd apps/admin && bun run build"
+          - component: finance-app
+            dockerfile: apps/finance/Dockerfile
+            build_cmd: "cd apps/finance && bun run build"
+          - component: auth-server
+            dockerfile: servers/auth/Dockerfile
+            build_cmd: "make build-auth-server"
+          - component: finance-server
+            dockerfile: servers/finance/Dockerfile
+            build_cmd: "make build-finance-server"
+    environment:
+      name: ${{ github.event_name == 'pull_request' && 'staging' || (github.ref == 'refs/heads/main' && 'production' || 'development') }}
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -163,112 +133,43 @@ jobs:
         uses: oven-sh/setup-bun@v2
         with:
           bun-version: ${{ env.BUN_VERSION }}
+        if: contains(matrix.component, '-app')
 
       - name: Setup Go
         uses: actions/setup-go@v5
         with:
           go-version: ${{ env.GO_VERSION }}
+        if: contains(matrix.component, '-server')
 
-      - name: Restore dependencies cache
+      - name: Cache dependencies
         uses: actions/cache@v4
         with:
           path: |
             ~/.bun/install/cache
             ~/go/pkg/mod
             node_modules
-          key: ${{ needs.setup.outputs.cache-key }}
+          key: ${{ contains(matrix.component, '-app') && format('bun-{0}-{1}', runner.os, hashFiles('**/bun.lock')) || format('go-{0}-{1}', runner.os, hashFiles('**/go.sum')) }}
+          restore-keys: |
+            ${{ contains(matrix.component, '-app') && format('bun-{0}-', runner.os) || format('go-{0}-', runner.os) }}
 
       - name: Install dependencies
         run: bun install
-
-      - name: Build applications
-        run: |
-          if [ "${{ github.event_name }}" = "pull_request" ]; then
-            bunx turbo run build --affected
-          else
-            bunx turbo run build
-          fi
-        env:
-          TURBO_TOKEN: ${{ secrets.TURBO_TOKEN }}
-          TURBO_TEAM: ${{ vars.TURBO_TEAM }}
-
-      - name: Build Go servers
-        run: make build-servers
-
-      - name: List build outputs for debugging
-        run: |
-          echo "=== Build outputs ==="
-          find apps -name ".next" -type d -exec ls -la {} \; || true
-          find apps -name "dist" -type d -exec ls -la {} \; || true
-          find build -type f || true
-
-      - name: Upload build artifacts
-        uses: actions/upload-artifact@v4
-        with:
-          name: build-artifacts
-          path: |
-            build/
-            apps/admin/.next/
-            apps/auth/.next/
-            apps/finance/.next/
-            apps/*/dist/
-            packages/*/dist/
-          retention-days: 1
-          if-no-files-found: warn
-
-  # =============================================================================
-  # DOCKER BUILD
-  # =============================================================================
-  docker-build:
-    name: Build Docker Images
-    runs-on: ubuntu-latest
-    needs: [build]
-    if: github.event_name == 'push' || github.event_name == 'pull_request'
-    strategy:
-      matrix:
-        include:
-          - component: auth-app
-            dockerfile: apps/auth/Dockerfile
-          - component: admin-app
-            dockerfile: apps/admin/Dockerfile
-          - component: finance-app
-            dockerfile: apps/finance/Dockerfile
-          - component: auth-server
-            dockerfile: servers/auth/Dockerfile
-          - component: finance-server
-            dockerfile: servers/finance/Dockerfile
-    environment:
-      name: ${{ github.event_name == 'pull_request' && 'staging' || (github.ref == 'refs/heads/main' && 'production' || 'development') }}
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
+        if: contains(matrix.component, '-app')
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
-
-      - name: Download build artifacts
-        uses: actions/download-artifact@v4
-        with:
-          name: build-artifacts
-          path: .
 
       - name: Generate image tags
         id: meta
         run: |
           COMPONENT="${{ matrix.component }}"
-
           if [ "${{ github.event_name }}" = "pull_request" ]; then
-            ENVIRONMENT="staging"
             TAG_SUFFIX="beta"
           elif [ "${{ github.ref }}" = "refs/heads/main" ]; then
-            ENVIRONMENT="production"
             TAG_SUFFIX="latest"
           else
-            ENVIRONMENT="development"
             TAG_SUFFIX="alpha"
           fi
-
-          echo "environment=${ENVIRONMENT}" >> $GITHUB_OUTPUT
           echo "image-tag=${REGISTRY}/${COMPONENT}:${TAG_SUFFIX}" >> $GITHUB_OUTPUT
           echo "image-tag-sha=${REGISTRY}/${COMPONENT}:${TAG_SUFFIX}-${GITHUB_SHA::8}" >> $GITHUB_OUTPUT
 
@@ -284,13 +185,8 @@ jobs:
         run: |
           COMPONENT="${{ matrix.component }}"
           BUILD_ARGS=""
-
-          # Check if this is a Next.js app (ends with -app)
           if [[ $COMPONENT == *"-app" ]]; then
             APP_NAME=${COMPONENT%-app}
-            echo "Preparing build args for $APP_NAME app in ${{ steps.meta.outputs.environment }} environment"
-            
-            # Set environment variables from GitHub Environment variables
             case $APP_NAME in
               "auth")
                 BUILD_ARGS="NEXT_PUBLIC_API_URL=${{ vars.NEXT_PUBLIC_API_URL }}"$'\n'
@@ -315,8 +211,6 @@ jobs:
                 ;;
             esac
           fi
-
-          # Save build args to output
           echo "build-args<<EOF" >> $GITHUB_OUTPUT
           echo "$BUILD_ARGS" >> $GITHUB_OUTPUT
           echo "EOF" >> $GITHUB_OUTPUT
@@ -342,7 +236,7 @@ jobs:
   release:
     name: Create Release
     runs-on: ubuntu-latest
-    needs: [docker-build]
+    needs: [build-and-docker]
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
     outputs:
       version: ${{ steps.semantic-release.outputs.version }}
@@ -376,7 +270,7 @@ jobs:
   cleanup:
     name: Cleanup Artifacts
     runs-on: ubuntu-latest
-    needs: [docker-build, release]
+    needs: [build-and-docker, release]
     if: always()
     steps:
       - name: Delete artifacts
