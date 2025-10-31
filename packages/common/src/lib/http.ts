@@ -47,13 +47,11 @@ export async function apiRequest<T = unknown>(
   // Attach Authorization header by default
   if (init.auth !== false) {
     try {
-      // First try to get JWT token for Go services that expect OIDC JWT tokens
       const { data: jwtData, error } = await authClient.token();
       if (jwtData?.token) {
         headers["Authorization"] = `Bearer ${jwtData.token}`;
       } else {
         console.warn("Failed to get JWT token:", error);
-        // Fallback to session token for non-Go services
         const { data: session } = await authClient.getSession();
         const sessionToken = session?.session.token;
         if (sessionToken) {

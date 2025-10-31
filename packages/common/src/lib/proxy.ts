@@ -18,7 +18,7 @@ type RoleBasedOptions = {
 };
 
 async function fetchUserSession<T extends User = User>(
-  sessionCookie: string
+  sessionCookie: string,
 ): Promise<T | null> {
   try {
     const response = await fetch(
@@ -29,12 +29,12 @@ async function fetchUserSession<T extends User = User>(
         },
         // Add timeout to prevent hanging requests
         signal: AbortSignal.timeout(5000),
-      }
+      },
     );
 
     if (!response.ok) {
       console.warn(
-        `Auth session fetch failed: ${response.status} ${response.statusText}`
+        `Auth session fetch failed: ${response.status} ${response.statusText}`,
       );
       return null;
     }
@@ -58,7 +58,7 @@ async function fetchUser(sessionCookie: string): Promise<User | null> {
 }
 
 async function fetchUserWithRole(
-  sessionCookie: string
+  sessionCookie: string,
 ): Promise<UserWithRole | null> {
   return fetchUserSession<UserWithRole>(sessionCookie);
 }
@@ -66,7 +66,7 @@ async function fetchUserWithRole(
 function redirectToAuth(
   req: NextRequest,
   authAppUrl: string,
-  redirectUrl?: string
+  redirectUrl?: string,
 ) {
   const url = new URL(authAppUrl, req.nextUrl);
 
@@ -122,7 +122,7 @@ function clearSessionCookie(response: NextResponse) {
 // Shared proxy logic to reduce duplication
 async function handleCommonProxyLogic(
   request: NextRequest,
-  authAppUrl: string
+  authAppUrl: string,
 ) {
   const { pathname, searchParams } = request.nextUrl;
 
@@ -135,7 +135,7 @@ async function handleCommonProxyLogic(
   const redirectParam = searchParams.get("redirect");
   if (redirectParam && redirectParam.includes("redirect=")) {
     console.warn(
-      "Detected potential redirect loop, clearing redirect parameter"
+      "Detected potential redirect loop, clearing redirect parameter",
     );
     const cleanUrl = new URL(request.nextUrl);
     cleanUrl.searchParams.delete("redirect");
@@ -199,7 +199,7 @@ export function createAuthProxy(opts: Options) {
         const response = redirectToAuth(
           request,
           opts.authAppUrl,
-          pathname === "/" ? undefined : request.nextUrl.href
+          pathname === "/" ? undefined : request.nextUrl.href,
         );
         return clearSessionCookie(response);
       }
@@ -208,7 +208,7 @@ export function createAuthProxy(opts: Options) {
         return NextResponse.next();
       } else {
         return NextResponse.redirect(
-          new URL(`${opts.authAppUrl}${verifyPath}`, request.nextUrl)
+          new URL(`${opts.authAppUrl}${verifyPath}`, request.nextUrl),
         );
       }
     } catch (error) {
@@ -216,7 +216,7 @@ export function createAuthProxy(opts: Options) {
       const response = redirectToAuth(
         request,
         opts.authAppUrl,
-        pathname === "/" ? undefined : request.nextUrl.href
+        pathname === "/" ? undefined : request.nextUrl.href,
       );
       return clearSessionCookie(response);
     }
@@ -252,7 +252,7 @@ export function createRoleBasedProxy(opts: RoleBasedOptions) {
         const response = redirectToAuth(
           request,
           opts.authAppUrl,
-          pathname === "/" ? undefined : request.nextUrl.href
+          pathname === "/" ? undefined : request.nextUrl.href,
         );
         return clearSessionCookie(response);
       }
@@ -260,7 +260,7 @@ export function createRoleBasedProxy(opts: RoleBasedOptions) {
       // Check if user's email is verified
       if (!user.emailVerified) {
         return NextResponse.redirect(
-          new URL(`${opts.authAppUrl}${verifyPath}`, request.nextUrl)
+          new URL(`${opts.authAppUrl}${verifyPath}`, request.nextUrl),
         );
       }
 
@@ -289,7 +289,7 @@ export function createRoleBasedProxy(opts: RoleBasedOptions) {
       const response = redirectToAuth(
         request,
         opts.authAppUrl,
-        pathname === "/" ? undefined : request.nextUrl.href
+        pathname === "/" ? undefined : request.nextUrl.href,
       );
       return clearSessionCookie(response);
     }
@@ -306,7 +306,7 @@ export function createAdminProxy(opts: Omit<RoleBasedOptions, "requireAdmin">) {
 
 // Utility function for auth app to determine redirect based on user role
 export async function getRedirectPathForUser(
-  requestedRedirect?: string | null
+  requestedRedirect?: string | null,
 ): Promise<string> {
   try {
     // This would typically be called from the auth app after successful login
@@ -316,7 +316,7 @@ export async function getRedirectPathForUser(
       {
         credentials: "include",
         signal: AbortSignal.timeout(5000),
-      }
+      },
     );
 
     if (!response.ok) {
@@ -409,7 +409,7 @@ export function createBasicProxy(opts: Omit<RoleBasedOptions, "allowedRoles">) {
         const response = redirectToAuth(
           request,
           opts.authAppUrl,
-          pathname === "/" ? undefined : request.nextUrl.href
+          pathname === "/" ? undefined : request.nextUrl.href,
         );
         return clearSessionCookie(response);
       }
@@ -417,7 +417,7 @@ export function createBasicProxy(opts: Omit<RoleBasedOptions, "allowedRoles">) {
       // Check if user's email is verified
       if (!user.emailVerified) {
         return NextResponse.redirect(
-          new URL(`${opts.authAppUrl}${verifyPath}`, request.nextUrl)
+          new URL(`${opts.authAppUrl}${verifyPath}`, request.nextUrl),
         );
       }
 
@@ -432,7 +432,7 @@ export function createBasicProxy(opts: Omit<RoleBasedOptions, "allowedRoles">) {
       const response = redirectToAuth(
         request,
         opts.authAppUrl,
-        pathname === "/" ? undefined : request.nextUrl.href
+        pathname === "/" ? undefined : request.nextUrl.href,
       );
       return clearSessionCookie(response);
     }
