@@ -1,0 +1,84 @@
+name: Manual Deployment
+
+on:
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: "Environment to deploy to"
+        required: true
+        default: "development"
+        type: choice
+        options:
+          - development
+          - staging
+          - production
+      component:
+        description: "Component to deploy (leave empty for all)"
+        required: false
+        type: choice
+        options:
+          - ""
+          - auth-app
+          - admin-app
+          - auth-server
+          - finance-server
+      version:
+        description: "Version/tag to deploy (leave empty for latest)"
+        required: false
+        type: string
+
+env:
+  REGISTRY: registry.gitlab.com/tagaroa
+
+jobs:
+  manual-deploy:
+    name: Manual Deploy to ${{ inputs.environment }}
+    runs-on: ubuntu-latest
+    environment:
+      name: ${{ inputs.environment }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set deployment variables
+        id: vars
+        run: |
+          VERSION="${{ inputs.version }}"
+          if [ -z "$VERSION" ]; then
+            case "${{ inputs.environment }}" in
+              "development") VERSION="alpha" ;;
+              "staging") VERSION="beta" ;;
+              "production") VERSION="latest" ;;
+            esac
+          fi
+          echo "version=${VERSION}" >> $GITHUB_OUTPUT
+
+          COMPONENT="${{ inputs.component }}"
+          if [ -z "$COMPONENT" ]; then
+            echo "components=auth-app,admin-app,auth-server,finance-server" >> $GITHUB_OUTPUT
+          else
+            echo "components=${COMPONENT}" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Deploy components
+        run: |
+          echo "🚀 Manual deployment initiated"
+          echo "Environment: ${{ inputs.environment }}"
+          echo "Components: ${{ steps.vars.outputs.components }}"
+          echo "Version: ${{ steps.vars.outputs.version }}"
+          echo "Triggered by: ${{ github.actor }}"
+
+          # Add your deployment logic here
+          IFS=',' read -ra COMPONENTS <<< "${{ steps.vars.outputs.components }}"
+          for component in "${COMPONENTS[@]}"; do
+            echo "Deploying ${component}:${{ steps.vars.outputs.version }}"
+            # Example deployment commands:
+            # docker pull ${REGISTRY}/${component}:${{ steps.vars.outputs.version }}
+            # kubectl set image deployment/${component} ${component}=${REGISTRY}/${component}:${{ steps.vars.outputs.version }}
+          done
+
+      - name: Notify deployment
+        run: |
+          echo "✅ Deployment completed successfully"
+          echo "Environment: ${{ inputs.environment }}"
+          echo "Version: ${{ steps.vars.outputs.version }}"

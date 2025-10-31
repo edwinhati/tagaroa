@@ -1,0 +1,450 @@
+name: CI/CD Pipeline
+
+on:
+  push:
+    branches: [main, develop, "feature/**", "hotfix/**"]
+  pull_request:
+    branches: [main, develop]
+
+env:
+  REGISTRY: registry.gitlab.com/tagaroa
+  NODE_VERSION: "18"
+  GO_VERSION: "1.25.0"
+  BUN_VERSION: "1.3.1"
+
+jobs:
+  # =============================================================================
+  # SETUP & CACHE
+  # =============================================================================
+  setup:
+    name: Setup Dependencies
+    runs-on: ubuntu-latest
+    outputs:
+      cache-key: ${{ steps.cache-keys.outputs.cache-key }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: ${{ env.BUN_VERSION }}
+
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: ${{ env.GO_VERSION }}
+
+      - name: Generate cache keys
+        id: cache-keys
+        run: |
+          echo "cache-key=deps-${{ runner.os }}-bun-${{ hashFiles('**/bun.lock') }}-go-${{ hashFiles('**/go.sum') }}" >> $GITHUB_OUTPUT
+
+      - name: Cache dependencies
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.bun/install/cache
+            ~/go/pkg/mod
+            node_modules
+          key: ${{ steps.cache-keys.outputs.cache-key }}
+          restore-keys: |
+            deps-${{ runner.os }}-bun-
+            deps-${{ runner.os }}-
+
+      - name: Install dependencies
+        run: bun install
+
+  # =============================================================================
+  # TESTING
+  # =============================================================================
+  test:
+    name: Run Tests
+    runs-on: ubuntu-latest
+    needs: setup
+    strategy:
+      matrix:
+        test-group: [node, go]
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Bun
+        if: matrix.test-group == 'node'
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: ${{ env.BUN_VERSION }}
+
+      - name: Setup Go
+        if: matrix.test-group == 'go'
+        uses: actions/setup-go@v5
+        with:
+          go-version: ${{ env.GO_VERSION }}
+
+      - name: Restore dependencies cache
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.bun/install/cache
+            ~/go/pkg/mod
+            node_modules
+          key: ${{ needs.setup.outputs.cache-key }}
+
+      - name: Install dependencies
+        if: matrix.test-group == 'node'
+        run: bun install
+
+      - name: Run Node.js tests
+        if: matrix.test-group == 'node'
+        run: |
+          # Run turbo tests with affected flag for PRs
+          if [ "${{ github.event_name }}" = "pull_request" ]; then
+            bunx turbo run test --affected
+          else
+            bunx turbo run test
+          fi
+        env:
+          TURBO_TOKEN: ${{ secrets.TURBO_TOKEN }}
+          TURBO_TEAM: ${{ vars.TURBO_TEAM }}
+
+      - name: Run Go tests
+        if: matrix.test-group == 'go'
+        run: make test-servers
+
+  # =============================================================================
+  # LINTING & TYPE CHECKING
+  # =============================================================================
+  lint:
+    name: Lint & Type Check
+    runs-on: ubuntu-latest
+    needs: setup
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: ${{ env.BUN_VERSION }}
+
+      - name: Restore dependencies cache
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.bun/install/cache
+            node_modules
+          key: ${{ needs.setup.outputs.cache-key }}
+
+      - name: Install dependencies
+        run: bun install
+
+      - name: Run linting
+        run: |
+          if [ "${{ github.event_name }}" = "pull_request" ]; then
+            bunx turbo run lint --affected
+          else
+            bunx turbo run lint
+          fi
+        env:
+          TURBO_TOKEN: ${{ secrets.TURBO_TOKEN }}
+          TURBO_TEAM: ${{ vars.TURBO_TEAM }}
+
+      - name: Run type checking
+        run: |
+          if [ "${{ github.event_name }}" = "pull_request" ]; then
+            bunx turbo run check-types --affected
+          else
+            bunx turbo run check-types
+          fi
+        env:
+          TURBO_TOKEN: ${{ secrets.TURBO_TOKEN }}
+          TURBO_TEAM: ${{ vars.TURBO_TEAM }}
+
+  # =============================================================================
+  # BUILD
+  # =============================================================================
+  build:
+    name: Build Applications
+    runs-on: ubuntu-latest
+    needs: [setup, test, lint]
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: ${{ env.BUN_VERSION }}
+
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: ${{ env.GO_VERSION }}
+
+      - name: Restore dependencies cache
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.bun/install/cache
+            ~/go/pkg/mod
+            node_modules
+          key: ${{ needs.setup.outputs.cache-key }}
+
+      - name: Install dependencies
+        run: bun install
+
+      - name: Build applications
+        run: |
+          if [ "${{ github.event_name }}" = "pull_request" ]; then
+            bunx turbo run build --affected
+          else
+            bunx turbo run build
+          fi
+        env:
+          TURBO_TOKEN: ${{ secrets.TURBO_TOKEN }}
+          TURBO_TEAM: ${{ vars.TURBO_TEAM }}
+
+      - name: Build Go servers
+        run: make build-servers
+
+      - name: Upload build artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: build-artifacts
+          path: |
+            build/
+            apps/*/.next/
+            apps/*/dist/
+            packages/*/dist/
+          retention-days: 1
+
+  # =============================================================================
+  # DOCKER BUILD
+  # =============================================================================
+  docker-build:
+    name: Build Docker Images
+    runs-on: ubuntu-latest
+    needs: [build]
+    if: github.event_name == 'push' || github.event_name == 'pull_request'
+    strategy:
+      matrix:
+        include:
+          - component: auth-app
+            dockerfile: apps/auth/Dockerfile
+          - component: admin-app
+            dockerfile: apps/admin/Dockerfile
+          - component: auth-server
+            dockerfile: servers/auth/Dockerfile
+          - component: finance-server
+            dockerfile: servers/finance/Dockerfile
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Download build artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: build-artifacts
+
+      - name: Generate image tags
+        id: meta
+        run: |
+          COMPONENT="${{ matrix.component }}"
+
+          if [ "${{ github.event_name }}" = "pull_request" ]; then
+            ENVIRONMENT="staging"
+            TAG_SUFFIX="beta"
+          elif [ "${{ github.ref }}" = "refs/heads/main" ]; then
+            ENVIRONMENT="production"
+            TAG_SUFFIX="latest"
+          else
+            ENVIRONMENT="dev"
+            TAG_SUFFIX="alpha"
+          fi
+
+          echo "environment=${ENVIRONMENT}" >> $GITHUB_OUTPUT
+          echo "image-tag=${REGISTRY}/${COMPONENT}:${TAG_SUFFIX}" >> $GITHUB_OUTPUT
+          echo "image-tag-sha=${REGISTRY}/${COMPONENT}:${TAG_SUFFIX}-${GITHUB_SHA::8}" >> $GITHUB_OUTPUT
+
+      - name: Build Docker image
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          file: ${{ matrix.dockerfile }}
+          push: false
+          tags: |
+            ${{ steps.meta.outputs.image-tag }}
+            ${{ steps.meta.outputs.image-tag-sha }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+          outputs: type=docker,dest=/tmp/${{ matrix.component }}.tar
+
+      - name: Upload Docker image
+        uses: actions/upload-artifact@v4
+        with:
+          name: docker-${{ matrix.component }}
+          path: /tmp/${{ matrix.component }}.tar
+          retention-days: 1
+
+  # =============================================================================
+  # DEVELOPMENT DEPLOYMENT (Alpha)
+  # =============================================================================
+  deploy-dev:
+    name: Deploy to Development (Alpha)
+    runs-on: ubuntu-latest
+    needs: [docker-build]
+    if: github.event_name == 'push' && github.ref != 'refs/heads/main'
+    environment:
+      name: development
+      url: https://dev.tagaroa.com
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Download Docker images
+        uses: actions/download-artifact@v4
+        with:
+          pattern: docker-*
+          merge-multiple: true
+
+      - name: Load Docker images
+        run: |
+          for image in *.tar; do
+            docker load -i $image
+          done
+
+      - name: Deploy to development
+        run: |
+          echo "🚀 Deploying to development environment..."
+          echo "Environment: Alpha"
+          echo "Branch: ${{ github.ref_name }}"
+          echo "Commit: ${{ github.sha }}"
+          # Add your deployment commands here
+          # Example: kubectl apply -f k8s/dev/ or docker-compose up -d
+
+  # =============================================================================
+  # STAGING DEPLOYMENT (Beta)
+  # =============================================================================
+  deploy-staging:
+    name: Deploy to Staging (Beta)
+    runs-on: ubuntu-latest
+    needs: [docker-build]
+    if: github.event_name == 'pull_request' && github.base_ref == 'main'
+    environment:
+      name: staging
+      url: https://staging.tagaroa.com
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Download Docker images
+        uses: actions/download-artifact@v4
+        with:
+          pattern: docker-*
+          merge-multiple: true
+
+      - name: Load Docker images
+        run: |
+          for image in *.tar; do
+            docker load -i $image
+          done
+
+      - name: Deploy to staging
+        run: |
+          echo "🚀 Deploying to staging environment..."
+          echo "Environment: Beta"
+          echo "PR: #${{ github.event.number }}"
+          echo "Branch: ${{ github.head_ref }}"
+          echo "Commit: ${{ github.sha }}"
+          # Add your deployment commands here
+          # Example: kubectl apply -f k8s/staging/ or docker-compose -f docker-compose.staging.yml up -d
+
+  # =============================================================================
+  # PRODUCTION DEPLOYMENT & RELEASE
+  # =============================================================================
+  release:
+    name: Create Release
+    runs-on: ubuntu-latest
+    needs: [docker-build]
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    outputs:
+      version: ${{ steps.semantic-release.outputs.version }}
+      released: ${{ steps.semantic-release.outputs.released }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+
+      - name: Install semantic-release
+        run: |
+          npm install -g semantic-release @semantic-release/changelog @semantic-release/git @semantic-release/github
+
+      - name: Create semantic release
+        id: semantic-release
+        run: |
+          npx semantic-release
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  deploy-production:
+    name: Deploy to Production
+    runs-on: ubuntu-latest
+    needs: [release]
+    if: needs.release.outputs.released == 'true'
+    environment:
+      name: production
+      url: https://tagaroa.com
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Download Docker images
+        uses: actions/download-artifact@v4
+        with:
+          pattern: docker-*
+          merge-multiple: true
+
+      - name: Load and tag Docker images for production
+        run: |
+          for image in *.tar; do
+            docker load -i $image
+            # Re-tag images with version from release
+            component=$(basename $image .tar | sed 's/docker-//')
+            docker tag ${REGISTRY}/${component}:latest ${REGISTRY}/${component}:${{ needs.release.outputs.version }}
+          done
+
+      - name: Deploy to production
+        run: |
+          echo "🚀 Deploying to production environment..."
+          echo "Environment: Production"
+          echo "Version: ${{ needs.release.outputs.version }}"
+          echo "Branch: ${{ github.ref_name }}"
+          echo "Commit: ${{ github.sha }}"
+          # Add your production deployment commands here
+          # Example: kubectl apply -f k8s/prod/ or docker-compose -f docker-compose.prod.yml up -d
+
+  # =============================================================================
+  # CLEANUP
+  # =============================================================================
+  cleanup:
+    name: Cleanup Artifacts
+    runs-on: ubuntu-latest
+    needs: [deploy-dev, deploy-staging, deploy-production]
+    if: always()
+    steps:
+      - name: Delete artifacts
+        uses: geekyeggo/delete-artifact@v5
+        with:
+          name: |
+            build-artifacts
+            docker-*
