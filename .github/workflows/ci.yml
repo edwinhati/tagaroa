@@ -195,17 +195,26 @@ jobs:
       - name: Build Go servers
         run: make build-servers
 
+      - name: List build outputs for debugging
+        run: |
+          echo "=== Build outputs ==="
+          find apps -name ".next" -type d -exec ls -la {} \; || true
+          find apps -name "dist" -type d -exec ls -la {} \; || true
+          find build -type f || true
+
       - name: Upload build artifacts
         uses: actions/upload-artifact@v4
         with:
           name: build-artifacts
           path: |
             build/
-            apps/*/.next/standalone/
-            apps/*/.next/static/
+            apps/admin/.next/
+            apps/auth/.next/
+            apps/finance/.next/
             apps/*/dist/
             packages/*/dist/
           retention-days: 1
+          if-no-files-found: warn
 
   # =============================================================================
   # DOCKER BUILD
