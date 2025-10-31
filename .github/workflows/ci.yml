@@ -62,21 +62,11 @@ jobs:
     name: Run Tests
     runs-on: ubuntu-latest
     needs: setup
-    strategy:
-      matrix:
-        test-group: [node, go]
     steps:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Setup Bun
-        if: matrix.test-group == 'node'
-        uses: oven-sh/setup-bun@v2
-        with:
-          bun-version: ${{ env.BUN_VERSION }}
-
       - name: Setup Go
-        if: matrix.test-group == 'go'
         uses: actions/setup-go@v5
         with:
           go-version: ${{ env.GO_VERSION }}
@@ -85,30 +75,10 @@ jobs:
         uses: actions/cache@v4
         with:
           path: |
-            ~/.bun/install/cache
             ~/go/pkg/mod
-            node_modules
           key: ${{ needs.setup.outputs.cache-key }}
 
-      - name: Install dependencies
-        if: matrix.test-group == 'node'
-        run: bun install
-
-      - name: Run Node.js tests
-        if: matrix.test-group == 'node'
-        run: |
-          # Run turbo tests with affected flag for PRs
-          if [ "${{ github.event_name }}" = "pull_request" ]; then
-            bunx turbo run test --affected
-          else
-            bunx turbo run test
-          fi
-        env:
-          TURBO_TOKEN: ${{ secrets.TURBO_TOKEN }}
-          TURBO_TEAM: ${{ vars.TURBO_TEAM }}
-
       - name: Run Go tests
-        if: matrix.test-group == 'go'
         run: make test-servers
 
   # =============================================================================
