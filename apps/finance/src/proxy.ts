@@ -3,9 +3,7 @@ import { createBasicProxy } from "@repo/common/lib/proxy";
 const proxy = createBasicProxy({
   authAppUrl: process.env.NEXT_PUBLIC_AUTH_APP_URL!,
   verifyPath: "/verify-email",
-  redirectUrl:
-    process.env.NEXT_PUBLIC_DASHBOARD_URL ||
-    process.env.NEXT_PUBLIC_MAIN_APP_URL,
+  redirectUrl: process.env.NEXT_PUBLIC_MAIN_APP_URL,
   requireAdmin: false,
 }) as unknown;
 
