@@ -1,3 +1,10 @@
+# [1.1.0](https://github.com/edwinhati/tagaroa/compare/v1.0.0...v1.1.0) (2025-11-01)
+
+
+### Features
+
+* **auth:** improve auth server and CI/CD pipeline ([d365f48](https://github.com/edwinhati/tagaroa/commit/d365f48d64f297ee03e1238aa0778fe54c919721))
+
 # 1.0.0 (2025-10-31)
 
 
