@@ -6,7 +6,7 @@ import { ContentPanel } from "@repo/common/components/content-panel";
 export default function AuthTemplate({
   children,
 }: {
-  children: React.ReactNode;
+  readonly children: React.ReactNode;
 }) {
   const menu = [
     {

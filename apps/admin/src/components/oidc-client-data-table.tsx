@@ -339,7 +339,11 @@ export function OIDCClientDataTable() {
 
   const handleDeleteRows = async () => {
     const selectedRows = table.getSelectedRowModel().rows;
-    const selectedClientIds = selectedRows.map((row) => row.original.id);
+    const selectedClientIds: string[] = [];
+
+    for (const row of selectedRows) {
+      selectedClientIds.push(row.original.id);
+    }
 
     if (selectedClientIds.length === 0) {
       return;
@@ -399,7 +403,9 @@ export function OIDCClientDataTable() {
       return {
         column,
         uniqueValues: column
-          ? Array.from(column.getFacetedUniqueValues().keys()).sort()
+          ? Array.from(column.getFacetedUniqueValues().keys()).sort((a, b) =>
+              a.key.localeCompare(b.key),
+            )
           : [],
         counts: column ? column.getFacetedUniqueValues() : new Map(),
         selectedValues: (column?.getFilterValue() as string[]) ?? [],

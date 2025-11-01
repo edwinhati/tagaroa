@@ -1,27 +1,31 @@
-import { Hono } from "hono";
-import { cors } from "hono/cors";
+import { createApp } from "./app";
+import { config } from "./config";
 import { serve } from "@hono/node-server";
-import { auth, trustedOrigins } from "./auth";
 
-const app = new Hono();
+async function startServer() {
+  const { app, logger } = createApp();
 
-app.use(
-  "/api/auth/*",
-  cors({
-    origin: trustedOrigins,
-    allowHeaders: ["Content-Type", "Authorization"],
-    allowMethods: ["GET", "POST", "OPTIONS"],
-    exposeHeaders: ["Content-Length"],
-    maxAge: 600,
-    credentials: true,
-  }),
-);
+  serve({
+    fetch: app.fetch,
+    port: config.port,
+  });
 
-app.on(["POST", "GET"], "/api/auth/*", (c) => {
-  return auth.handler(c.req.raw);
+  logger.log(`Auth server listening on port ${config.port}`, "Bootstrap");
+  logger.log(`Environment: ${config.nodeEnv}`, "Bootstrap");
+}
+
+// Handle graceful shutdown
+process.on("SIGINT", () => {
+  console.log("Received SIGINT, shutting down gracefully");
+  process.exit(0);
 });
 
-serve({
-  fetch: app.fetch,
-  port: process.env.PORT ? parseInt(process.env.PORT, 10) : 8080,
+process.on("SIGTERM", () => {
+  console.log("Received SIGTERM, shutting down gracefully");
+  process.exit(0);
+});
+
+startServer().catch((error) => {
+  console.error("Failed to start server:", error);
+  process.exit(1);
 });

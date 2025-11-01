@@ -98,13 +98,97 @@ jobs:
           TURBO_TEAM: ${{ vars.TURBO_TEAM }}
 
   # =============================================================================
-  # BUILD & DOCKER (OPTIMIZED)
+  # VERSIONING
   # =============================================================================
-  build-and-docker:
-    name: Build & Docker
+  release:
+    name: Create Release
     runs-on: ubuntu-latest
     needs: [test, lint]
-    if: github.event_name == 'push' || github.event_name == 'pull_request'
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    outputs:
+      version: ${{ steps.semantic-release.outputs.version }}
+      released: ${{ steps.semantic-release.outputs.released }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+
+      - name: Install semantic-release
+        run: |
+          npm install -g semantic-release @semantic-release/changelog @semantic-release/git @semantic-release/github
+
+      - name: Create semantic release
+        id: semantic-release
+        run: |
+          npx semantic-release
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  pre-release-version:
+    name: Generate Pre-release Version
+    runs-on: ubuntu-latest
+    needs: [test, lint]
+    if: (github.event_name == 'push' && github.ref != 'refs/heads/main') || github.event_name == 'pull_request'
+    outputs:
+      version: ${{ steps.version.outputs.version }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+
+      - name: Generate pre-release version
+        id: version
+        run: |
+          # Get the latest tag from git, fallback to 0.1.0 if no tags exist
+          LATEST_TAG=$(git describe --tags --abbrev=0 2>/dev/null || echo "v0.1.0")
+          echo "Latest tag found: ${LATEST_TAG}"
+
+          # Remove 'v' prefix if present
+          LATEST_VERSION=${LATEST_TAG#v}
+
+          # Parse version components, handle cases where version might not be semantic
+          if [[ $LATEST_VERSION =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+            IFS='.' read -r MAJOR MINOR PATCH <<< "$LATEST_VERSION"
+          else
+            # If no valid semantic version found, start with 0.1.0
+            MAJOR=0
+            MINOR=1
+            PATCH=0
+          fi
+
+          # Calculate next version - increment minor for pre-releases
+          NEXT_MINOR=$((MINOR + 1))
+          NEXT_VERSION="${MAJOR}.${NEXT_MINOR}.0"
+
+          if [ "${{ github.event_name }}" = "pull_request" ]; then
+            # For PRs: 1.2.0-beta.pr123.abc1234
+            PR_NUMBER="${{ github.event.pull_request.number }}"
+            VERSION="${NEXT_VERSION}-beta.pr${PR_NUMBER}.${GITHUB_SHA::8}"
+          else
+            # For other branches: 1.2.0-alpha.feature-branch.abc1234
+            BRANCH_NAME=$(echo "${{ github.ref_name }}" | sed 's/[^a-zA-Z0-9]/-/g' | tr '[:upper:]' '[:lower:]')
+            VERSION="${NEXT_VERSION}-alpha.${BRANCH_NAME}.${GITHUB_SHA::8}"
+          fi
+
+          echo "version=${VERSION}" >> $GITHUB_OUTPUT
+          echo "Generated pre-release version: ${VERSION}"
+
+  # =============================================================================
+  # BUILD & DOCKER (OPTIMIZED)
+  # =============================================================================
+  build-and-docker-main:
+    name: Build & Docker (Main)
+    runs-on: ubuntu-latest
+    needs: [test, lint, release]
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
     strategy:
       matrix:
         include:
@@ -124,7 +208,7 @@ jobs:
             dockerfile: servers/finance/Dockerfile
             build_cmd: "make build-finance-server"
     environment:
-      name: ${{ github.event_name == 'pull_request' && 'staging' || (github.ref == 'refs/heads/main' && 'production' || 'development') }}
+      name: production
     steps:
       - name: Checkout
         uses: actions/checkout@v5
@@ -163,15 +247,20 @@ jobs:
         id: meta
         run: |
           COMPONENT="${{ matrix.component }}"
-          if [ "${{ github.event_name }}" = "pull_request" ]; then
-            TAG_SUFFIX="beta"
-          elif [ "${{ github.ref }}" = "refs/heads/main" ]; then
-            TAG_SUFFIX="latest"
+          SEMANTIC_VERSION="${{ needs.release.outputs.version }}"
+
+          if [ -n "$SEMANTIC_VERSION" ] && [ "$SEMANTIC_VERSION" != "null" ]; then
+            # Use semantic version for main branch
+            TAGS="${REGISTRY}/${COMPONENT}:${SEMANTIC_VERSION}"
+            TAGS="${TAGS},${{ env.REGISTRY }}/${COMPONENT}:latest"
+            TAGS="${TAGS},${{ env.REGISTRY }}/${COMPONENT}:${SEMANTIC_VERSION}-${GITHUB_SHA::8}"
           else
-            TAG_SUFFIX="alpha"
+            # Fallback to latest if no semantic version
+            TAGS="${REGISTRY}/${COMPONENT}:latest"
+            TAGS="${TAGS},${{ env.REGISTRY }}/${COMPONENT}:latest-${GITHUB_SHA::8}"
           fi
-          echo "image-tag=${REGISTRY}/${COMPONENT}:${TAG_SUFFIX}" >> $GITHUB_OUTPUT
-          echo "image-tag-sha=${REGISTRY}/${COMPONENT}:${TAG_SUFFIX}-${GITHUB_SHA::8}" >> $GITHUB_OUTPUT
+
+          echo "image-tags=${TAGS}" >> $GITHUB_OUTPUT
 
       - name: Log in to GitLab Container Registry
         uses: docker/login-action@v3
@@ -222,47 +311,156 @@ jobs:
           context: .
           file: ${{ matrix.dockerfile }}
           push: true
-          tags: |
-            ${{ steps.meta.outputs.image-tag }}
-            ${{ steps.meta.outputs.image-tag-sha }}
+          tags: ${{ steps.meta.outputs.image-tags }}
           build-args: ${{ steps.build-args.outputs.build-args }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
           platforms: linux/amd64
 
-  # =============================================================================
-  # RELEASE
-  # =============================================================================
-  release:
-    name: Create Release
+  build-and-docker-other:
+    name: Build & Docker (Other Branches)
     runs-on: ubuntu-latest
-    needs: [build-and-docker]
-    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
-    outputs:
-      version: ${{ steps.semantic-release.outputs.version }}
-      released: ${{ steps.semantic-release.outputs.released }}
+    needs: [test, lint, pre-release-version]
+    if: (github.event_name == 'push' && github.ref != 'refs/heads/main') || github.event_name == 'pull_request'
+    strategy:
+      matrix:
+        include:
+          - component: auth-app
+            dockerfile: apps/auth/Dockerfile
+            build_cmd: "cd apps/auth && bun run build"
+          - component: admin-app
+            dockerfile: apps/admin/Dockerfile
+            build_cmd: "cd apps/admin && bun run build"
+          - component: finance-app
+            dockerfile: apps/finance/Dockerfile
+            build_cmd: "cd apps/finance && bun run build"
+          - component: auth-server
+            dockerfile: servers/auth/Dockerfile
+            build_cmd: "make build-auth-server"
+          - component: finance-server
+            dockerfile: servers/finance/Dockerfile
+            build_cmd: "make build-finance-server"
+    environment:
+      name: ${{ github.event_name == 'pull_request' && 'staging' || 'development' }}
     steps:
       - name: Checkout
         uses: actions/checkout@v5
+
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v2
         with:
-          fetch-depth: 0
-          token: ${{ secrets.GITHUB_TOKEN }}
+          bun-version: ${{ env.BUN_VERSION }}
+        if: contains(matrix.component, '-app')
 
-      - name: Setup Node.js
-        uses: actions/setup-node@v6
+      - name: Setup Go
+        uses: actions/setup-go@v6
         with:
-          node-version: ${{ env.NODE_VERSION }}
+          go-version: ${{ env.GO_VERSION }}
+        if: contains(matrix.component, '-server')
 
-      - name: Install semantic-release
-        run: |
-          npm install -g semantic-release @semantic-release/changelog @semantic-release/git @semantic-release/github
+      - name: Cache dependencies
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.bun/install/cache
+            ~/go/pkg/mod
+            node_modules
+          key: ${{ contains(matrix.component, '-app') && format('bun-{0}-{1}', runner.os, hashFiles('**/bun.lock')) || format('go-{0}-{1}', runner.os, hashFiles('**/go.sum')) }}
+          restore-keys: |
+            ${{ contains(matrix.component, '-app') && format('bun-{0}-', runner.os) || format('go-{0}-', runner.os) }}
 
-      - name: Create semantic release
-        id: semantic-release
+      - name: Install dependencies
+        run: bun install
+        if: contains(matrix.component, '-app')
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Generate image tags
+        id: meta
         run: |
-          npx semantic-release
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          COMPONENT="${{ matrix.component }}"
+          PRE_RELEASE_VERSION="${{ needs.pre-release-version.outputs.version }}"
+
+          if [ -n "$PRE_RELEASE_VERSION" ] && [ "$PRE_RELEASE_VERSION" != "null" ]; then
+            # Use semantic pre-release version
+            TAGS="${REGISTRY}/${COMPONENT}:${PRE_RELEASE_VERSION}"
+            
+            # Also add traditional tags for backward compatibility
+            if [ "${{ github.event_name }}" = "pull_request" ]; then
+              TAGS="${TAGS},${{ env.REGISTRY }}/${COMPONENT}:beta"
+              TAGS="${TAGS},${{ env.REGISTRY }}/${COMPONENT}:beta-${GITHUB_SHA::8}"
+            else
+              TAGS="${TAGS},${{ env.REGISTRY }}/${COMPONENT}:alpha"
+              TAGS="${TAGS},${{ env.REGISTRY }}/${COMPONENT}:alpha-${GITHUB_SHA::8}"
+            fi
+          else
+            # Fallback to traditional tags
+            if [ "${{ github.event_name }}" = "pull_request" ]; then
+              TAG_SUFFIX="beta"
+            else
+              TAG_SUFFIX="alpha"
+            fi
+            TAGS="${REGISTRY}/${COMPONENT}:${TAG_SUFFIX}"
+            TAGS="${TAGS},${{ env.REGISTRY }}/${COMPONENT}:${TAG_SUFFIX}-${GITHUB_SHA::8}"
+          fi
+
+          echo "image-tags=${TAGS}" >> $GITHUB_OUTPUT
+
+      - name: Log in to GitLab Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ secrets.GITLAB_USERNAME }}
+          password: ${{ secrets.GITLAB_TOKEN }}
+
+      - name: Prepare build args for Next.js apps
+        id: build-args
+        run: |
+          COMPONENT="${{ matrix.component }}"
+          BUILD_ARGS=""
+          if [[ $COMPONENT == *"-app" ]]; then
+            APP_NAME=${COMPONENT%-app}
+            case $APP_NAME in
+              "auth")
+                BUILD_ARGS="NEXT_PUBLIC_API_URL=${{ vars.NEXT_PUBLIC_API_URL }}"$'\n'
+                BUILD_ARGS="${BUILD_ARGS}NEXT_PUBLIC_DASHBOARD_APP_URL=${{ vars.NEXT_PUBLIC_DASHBOARD_APP_URL }}"$'\n'
+                BUILD_ARGS="${BUILD_ARGS}NEXT_PUBLIC_ALLOWED_REDIRECT_ORIGINS=${{ vars.NEXT_PUBLIC_ALLOWED_REDIRECT_ORIGINS }}"$'\n'
+                BUILD_ARGS="${BUILD_ARGS}NEXT_PUBLIC_POSTHOG_KEY=${{ vars.NEXT_PUBLIC_POSTHOG_KEY }}"$'\n'
+                BUILD_ARGS="${BUILD_ARGS}NEXT_PUBLIC_POSTHOG_HOST=${{ vars.NEXT_PUBLIC_POSTHOG_HOST }}"$'\n'
+                ;;
+              "admin")
+                BUILD_ARGS="NEXT_PUBLIC_API_URL=${{ vars.NEXT_PUBLIC_API_URL }}"$'\n'
+                BUILD_ARGS="${BUILD_ARGS}NEXT_PUBLIC_AUTH_APP_URL=${{ vars.NEXT_PUBLIC_AUTH_APP_URL }}"$'\n'
+                BUILD_ARGS="${BUILD_ARGS}NEXT_PUBLIC_DASHBOARD_APP_URL=${{ vars.NEXT_PUBLIC_DASHBOARD_APP_URL }}"$'\n'
+                BUILD_ARGS="${BUILD_ARGS}NEXT_PUBLIC_POSTHOG_KEY=${{ vars.NEXT_PUBLIC_POSTHOG_KEY }}"$'\n'
+                BUILD_ARGS="${BUILD_ARGS}NEXT_PUBLIC_POSTHOG_HOST=${{ vars.NEXT_PUBLIC_POSTHOG_HOST }}"$'\n'
+                ;;
+              "finance")
+                BUILD_ARGS="NEXT_PUBLIC_API_URL=${{ vars.NEXT_PUBLIC_API_URL }}"$'\n'
+                BUILD_ARGS="${BUILD_ARGS}NEXT_PUBLIC_MAIN_APP_URL=${{ vars.NEXT_PUBLIC_MAIN_APP_URL }}"$'\n'
+                BUILD_ARGS="${BUILD_ARGS}NEXT_PUBLIC_AUTH_APP_URL=${{ vars.NEXT_PUBLIC_AUTH_APP_URL }}"$'\n'
+                BUILD_ARGS="${BUILD_ARGS}NEXT_PUBLIC_POSTHOG_KEY=${{ vars.NEXT_PUBLIC_POSTHOG_KEY }}"$'\n'
+                BUILD_ARGS="${BUILD_ARGS}NEXT_PUBLIC_POSTHOG_HOST=${{ vars.NEXT_PUBLIC_POSTHOG_HOST }}"$'\n'
+                ;;
+            esac
+          fi
+          echo "build-args<<EOF" >> $GITHUB_OUTPUT
+          echo "$BUILD_ARGS" >> $GITHUB_OUTPUT
+          echo "EOF" >> $GITHUB_OUTPUT
+
+      - name: Build and push Docker image
+        uses: docker/build-push-action@v6
+        timeout-minutes: 15
+        with:
+          context: .
+          file: ${{ matrix.dockerfile }}
+          push: true
+          tags: ${{ steps.meta.outputs.image-tags }}
+          build-args: ${{ steps.build-args.outputs.build-args }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+          platforms: linux/amd64
 
   # =============================================================================
   # CLEANUP
@@ -270,7 +468,13 @@ jobs:
   cleanup:
     name: Cleanup Artifacts
     runs-on: ubuntu-latest
-    needs: [build-and-docker, release]
+    needs:
+      [
+        build-and-docker-main,
+        build-and-docker-other,
+        release,
+        pre-release-version,
+      ]
     if: always()
     steps:
       - name: Delete artifacts

@@ -1,5 +1,5 @@
-import React, { Suspense } from "react";
 import "@repo/ui/styles/globals.css";
+import React, { Suspense } from "react";
 import { Loading } from "@repo/common/components/loading";
 import { geistMono, geistSans } from "@repo/common/lib/fonts";
 import { AppProvider } from "@repo/common/providers/app-provider";
@@ -14,7 +14,7 @@ export function LayoutShell({
   children,
   lang = "en",
   bodyClassName = "",
-}: LayoutShellProps) {
+}: Readonly<LayoutShellProps>) {
   return (
     <html lang={lang} suppressHydrationWarning>
       <body

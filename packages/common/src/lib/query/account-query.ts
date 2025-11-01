@@ -137,7 +137,7 @@ export const useGetAccounts = (
     Error,
     PaginatedAccountsResult,
     any
-  >
+  >,
 ) => {
   return useQuery({
     queryKey: ["accounts", params],
@@ -148,7 +148,7 @@ export const useGetAccounts = (
 
 // Hook: Fetch account types
 export const useGetAccountTypes = (
-  options?: UseQueryOptions<string[], Error, string[], any>
+  options?: UseQueryOptions<string[], Error, string[], any>,
 ) => {
   return useQuery({
     queryKey: ["accountTypes"],
@@ -164,7 +164,7 @@ export const useMutateAccount = (
     Error,
     Account,
     { previousAccounts?: Account[] }
-  >
+  >,
 ) => {
   const queryClient = useQueryClient();
 
@@ -177,6 +177,6 @@ export const useMutateAccount = (
         queryClient.invalidateQueries({ queryKey: ["accounts-legacy"] });
       },
       ...options,
-    }
+    },
   );
 };

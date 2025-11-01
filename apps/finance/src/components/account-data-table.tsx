@@ -68,7 +68,7 @@ import { Account } from "@repo/common/types/account";
 const multiColumnFilterFn: FilterFn<Account> = (
   row,
   _columnId,
-  filterValue
+  filterValue,
 ) => {
   const searchableRowContent =
     `${row.original.name} ${row.original.type}`.toLowerCase();
@@ -121,7 +121,7 @@ const columns: ColumnDef<Account>[] = [
     header: "Type",
     accessorKey: "type",
     cell: ({ row }) => {
-      const typeValue = row.getValue("type")?.toString().replace(/_/g, "-");
+      const typeValue = row.getValue("type")?.toString().replaceAll(/_/g, "-");
       return <Badge variant="outline">{typeValue}</Badge>;
     },
     size: 100,
@@ -131,13 +131,13 @@ const columns: ColumnDef<Account>[] = [
     header: "Balance",
     accessorKey: "balance",
     cell: ({ row }) => {
-      const amount = parseFloat(row.getValue("balance"));
+      const amount = Number.parseFloat(row.getValue("balance"));
       const formatted = new Intl.NumberFormat(
         row.original.currency === "IDR" ? "id-ID" : "en-US",
         {
           style: "currency",
           currency: row.original.currency,
-        }
+        },
       ).format(amount);
       return formatted;
     },
@@ -180,7 +180,7 @@ function AccountDataTableContent() {
     pageSize: 5,
   });
   const [serverFilters, setServerFilters] = useState<Record<string, string[]>>(
-    {}
+    {},
   );
   const [searchQuery, setSearchQuery] = useState<string>("");
   const [openPopovers, setOpenPopovers] = useState<Record<string, boolean>>({});
@@ -196,11 +196,7 @@ function AccountDataTableContent() {
   const [sorting, setSorting] = useState<SortingState>([]);
 
   const { mutate } = useMutateAccount({});
-  const {
-    data: accountsResponse,
-    isLoading,
-    error,
-  } = useGetAccounts({
+  const { data: accountsResponse, error } = useGetAccounts({
     page: pagination.pageIndex + 1,
     limit: pagination.pageSize,
     filters: serverFilters,
@@ -236,12 +232,15 @@ function AccountDataTableContent() {
   const hasTotalData = paginationInfo?.total > 0;
 
   const handleDeleteRows = () => {
-    table.getSelectedRowModel().rows.map((row) => {
+    const selectedRows = table.getSelectedRowModel().rows;
+
+    for (const row of selectedRows) {
       mutate({
         ...row.original,
         isDeleted: true,
       });
-    });
+    }
+
     table.resetRowSelection();
   };
 
@@ -253,21 +252,24 @@ function AccountDataTableContent() {
     > = {};
 
     // Sort aggregation keys for consistent order
-    const sortedAggregationKeys = Object.keys(aggregations).sort();
+    const sortedAggregationKeys = Object.keys(aggregations).sort((a, b) =>
+      a.localeCompare(b),
+    );
 
-    sortedAggregationKeys.forEach((filterKey) => {
+    for (const filterKey of sortedAggregationKeys) {
       const aggregationItems = aggregations[filterKey] || [];
+
       // Sort items by key for consistent order
       const sortedItems = [...aggregationItems].sort((a, b) =>
-        a.key.localeCompare(b.key)
+        a.key.localeCompare(b.key),
       );
 
       options[filterKey] = sortedItems.map((item) => ({
         value: item.key,
-        label: item.key.replace(/_/g, "-"),
+        label: item.key.replaceAll(/_/g, "-"),
         count: item.count,
       }));
-    });
+    }
 
     return options;
   }, [aggregations]);
@@ -301,7 +303,7 @@ function AccountDataTableContent() {
   const handleServerFilterChange = (
     filterKey: string,
     value: string,
-    checked: boolean
+    checked: boolean,
   ) => {
     // Keep the popover open during filter changes
     setOpenPopovers((prev) => ({ ...prev, [filterKey]: true }));
@@ -429,7 +431,7 @@ function AccountDataTableContent() {
                         <div
                           className={cn(
                             header.column.getCanSort() &&
-                              "flex h-full cursor-pointer items-center justify-between gap-2 select-none"
+                              "flex h-full cursor-pointer items-center justify-between gap-2 select-none",
                           )}
                           onClick={header.column.getToggleSortingHandler()}
                           onKeyDown={(e) => {
@@ -447,7 +449,7 @@ function AccountDataTableContent() {
                           <>
                             {flexRender(
                               header.column.columnDef.header,
-                              header.getContext()
+                              header.getContext(),
                             )}
                           </>
                           {header.column.getIsSorted() === "asc" && (
@@ -469,7 +471,7 @@ function AccountDataTableContent() {
                         <>
                           {flexRender(
                             header.column.columnDef.header,
-                            header.getContext()
+                            header.getContext(),
                           )}
                         </>
                       )}
@@ -510,7 +512,7 @@ function AccountDataTableContent() {
                       <>
                         {flexRender(
                           cell.column.columnDef.cell,
-                          cell.getContext()
+                          cell.getContext(),
                         )}
                       </>
                     </TableCell>
