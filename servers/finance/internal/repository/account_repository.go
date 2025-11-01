@@ -37,6 +37,25 @@ const accountSelectCols = `
 	id, name, type, balance, user_id, currency, notes, is_deleted, created_at, updated_at
 `
 
+// Allowlisted columns for ORDER BY to prevent SQL injection
+var allowedOrderByColumns = map[string]bool{
+	"id":         true,
+	"name":       true,
+	"type":       true,
+	"balance":    true,
+	"user_id":    true,
+	"currency":   true,
+	"notes":      true,
+	"created_at": true,
+	"updated_at": true,
+}
+
+// Allowlisted columns for GROUP BY aggregations to prevent SQL injection
+var allowedGroupByColumns = map[string]bool{
+	"type":     true,
+	"currency": true,
+}
+
 type whereBuildOpts struct {
 	fieldOrder     []string // known fields in deterministic order
 	skipField      string   // exclude this field from filtering (for aggregations)
@@ -132,6 +151,45 @@ func addOffsetLimit(sb *strings.Builder, offset, limit int, currArgIdx int, args
 	return currArgIdx, args
 }
 
+// validateOrderBy validates and sanitizes ORDER BY clause to prevent SQL injection
+func validateOrderBy(orderBy string) (string, error) {
+	if orderBy == "" {
+		return "created_at DESC", nil
+	}
+
+	// Parse ORDER BY clause (column [ASC|DESC])
+	parts := strings.Fields(strings.TrimSpace(orderBy))
+	if len(parts) == 0 {
+		return "created_at DESC", nil
+	}
+
+	column := parts[0]
+	if !allowedOrderByColumns[column] {
+		return "", fmt.Errorf("invalid ORDER BY column: %s", column)
+	}
+
+	// Default to ASC if no direction specified
+	direction := "ASC"
+	if len(parts) > 1 {
+		dir := strings.ToUpper(parts[1])
+		if dir == "DESC" || dir == "ASC" {
+			direction = dir
+		} else {
+			return "", fmt.Errorf("invalid ORDER BY direction: %s", parts[1])
+		}
+	}
+
+	return fmt.Sprintf("%s %s", column, direction), nil
+}
+
+// validateGroupByColumn validates GROUP BY column to prevent SQL injection
+func validateGroupByColumn(column string) error {
+	if !allowedGroupByColumns[column] {
+		return fmt.Errorf("invalid GROUP BY column: %s", column)
+	}
+	return nil
+}
+
 /* ----------------------------- CRUD ops ------------------------------ */
 
 func (r *accountRepository) Create(ctx context.Context, account *model.Account) error {
@@ -163,8 +221,8 @@ func (r *accountRepository) FindUnique(ctx context.Context, params util.FindUniq
 
 	whereClause, args := buildWhere(params.Where, whereBuildOpts{
 		fieldOrder:     []string{"user_id", "search", "type", "currency"},
-		skipField:      "",    // no skip
-		excludeDeleted: true,  // always exclude deleted
+		skipField:      "",   // no skip
+		excludeDeleted: true, // always exclude deleted
 	})
 	sb.WriteString(whereClause)
 	sb.WriteString(" LIMIT 1")
@@ -197,12 +255,12 @@ func (r *accountRepository) FindMany(ctx context.Context, params util.FindManyPa
 	})
 	sb.WriteString(whereClause)
 
-	// ORDER BY
-	if params.OrderBy != "" {
-		sb.WriteString(" ORDER BY " + params.OrderBy)
-	} else {
-		sb.WriteString(" ORDER BY created_at DESC")
+	// ORDER BY - validate to prevent SQL injection
+	orderBy, err := validateOrderBy(params.OrderBy)
+	if err != nil {
+		return nil, fmt.Errorf("invalid ORDER BY clause: %w", err)
 	}
+	sb.WriteString(" ORDER BY " + orderBy)
 
 	// Pagination (placeholders after WHERE args)
 	currIdx := len(args) + 1
@@ -285,6 +343,11 @@ func (r *accountRepository) getAggregations(
 	fieldOrder []string,
 	where map[string]any,
 ) (map[string]util.AggregationResult, error) {
+
+	// Validate GROUP BY column to prevent SQL injection
+	if err := validateGroupByColumn(groupBy); err != nil {
+		return nil, fmt.Errorf("invalid aggregation groupBy: %w", err)
+	}
 
 	aggs := make(map[string]util.AggregationResult)
 
