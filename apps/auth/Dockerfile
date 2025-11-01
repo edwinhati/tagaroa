@@ -59,12 +59,17 @@ WORKDIR /app
 
 # Set non-root user
 RUN addgroup -S nodejs && adduser -S nextjs -G nodejs
-USER nextjs
 
 # Copy build output
 COPY --from=installer --chown=nextjs:nodejs /app/apps/auth/.next/standalone ./
 COPY --from=installer --chown=nextjs:nodejs /app/apps/auth/.next/static ./apps/auth/.next/static
 # COPY --from=installer --chown=nextjs:nodejs /app/apps/auth/public ./apps/auth/public
+
+# Remove write permissions from copied resources for security (run as root)
+RUN chmod -R 555 /app
+
+# Switch to non-root user
+USER nextjs
 
 # Start the server
 CMD ["bun", "apps/auth/server.js"]
