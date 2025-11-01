@@ -28,16 +28,116 @@ type accountRepository struct {
 }
 
 func NewAccountRepository(db *sql.DB) AccountRepository {
-	return &accountRepository{
-		db: db,
-	}
+	return &accountRepository{db: db}
 }
+
+/* ----------------------------- Utilities ----------------------------- */
+
+const accountSelectCols = `
+	id, name, type, balance, user_id, currency, notes, is_deleted, created_at, updated_at
+`
+
+type whereBuildOpts struct {
+	fieldOrder     []string // known fields in deterministic order
+	skipField      string   // exclude this field from filtering (for aggregations)
+	excludeDeleted bool     // always enforce is_deleted=false
+}
+
+// buildWhere constructs a WHERE clause and args with:
+// - deterministic processing order
+// - special handling for "search" across (name, notes) with LOWER/COALESCE
+// - slice values → IN (...)
+// - ability to skip a field (e.g., skip "type" when aggregating by type)
+func buildWhere(where map[string]any, opts whereBuildOpts) (clause string, args []any) {
+	var conditions []string
+	argIndex := 1
+
+	if opts.excludeDeleted {
+		conditions = append(conditions, "is_deleted = false")
+	}
+
+	if where == nil {
+		if len(conditions) > 0 {
+			return " WHERE " + strings.Join(conditions, " AND "), nil
+		}
+		return "", nil
+	}
+
+	processed := map[string]struct{}{}
+
+	processField := func(field string, value any) {
+		if field == opts.skipField {
+			return // skip filtering on the field we aggregate by
+		}
+
+		switch field {
+		case "search":
+			searchTerm := fmt.Sprintf("%%%v%%", value)
+			conditions = append(conditions,
+				fmt.Sprintf("(LOWER(name) LIKE LOWER($%d) OR LOWER(COALESCE(notes, '')) LIKE LOWER($%d))", argIndex, argIndex),
+			)
+			args = append(args, searchTerm)
+			argIndex++
+		default:
+			// []string → IN (...)
+			if slice, ok := value.([]string); ok && len(slice) > 0 {
+				placeholders := make([]string, len(slice))
+				for i := range slice {
+					placeholders[i] = fmt.Sprintf("$%d", argIndex)
+					args = append(args, slice[i])
+					argIndex++
+				}
+				conditions = append(conditions, fmt.Sprintf("%s IN (%s)", field, strings.Join(placeholders, ",")))
+			} else {
+				conditions = append(conditions, fmt.Sprintf("%s = $%d", field, argIndex))
+				args = append(args, value)
+				argIndex++
+			}
+		}
+	}
+
+	// First: known fields in stable order
+	for _, field := range opts.fieldOrder {
+		if value, ok := where[field]; ok {
+			processField(field, value)
+			processed[field] = struct{}{}
+		}
+	}
+	// Then: any remaining fields
+	for field, value := range where {
+		if field == opts.skipField || slices.Contains(opts.fieldOrder, field) {
+			continue
+		}
+		processField(field, value)
+	}
+
+	if len(conditions) == 0 {
+		return "", args
+	}
+	return " WHERE " + strings.Join(conditions, " AND "), args
+}
+
+// addOffsetLimit appends OFFSET/LIMIT placeholders preserving correct arg indexes.
+func addOffsetLimit(sb *strings.Builder, offset, limit int, currArgIdx int, args []any) (int, []any) {
+	if offset > 0 {
+		sb.WriteString(fmt.Sprintf(" OFFSET $%d", currArgIdx))
+		args = append(args, offset)
+		currArgIdx++
+	}
+	if limit > 0 {
+		sb.WriteString(fmt.Sprintf(" LIMIT $%d", currArgIdx))
+		args = append(args, limit)
+		currArgIdx++
+	}
+	return currArgIdx, args
+}
+
+/* ----------------------------- CRUD ops ------------------------------ */
 
 func (r *accountRepository) Create(ctx context.Context, account *model.Account) error {
 	if account.ID == uuid.Nil {
 		account.ID = uuid.New()
 	}
-
 	now := time.Now()
 	account.CreatedAt = now
 	account.UpdatedAt = now
@@ -52,152 +152,63 @@ func (r *accountRepository) Create(ctx context.Context, account *model.Account) 
 		account.UserID, account.Currency, account.Notes, account.IsDeleted,
 		account.CreatedAt, account.UpdatedAt,
 	)
-
 	return err
 }
 
 func (r *accountRepository) FindUnique(ctx context.Context, params util.FindUniqueParams) (*model.Account, error) {
-	// Build the base query
-	query := `SELECT id, name, type, balance, user_id, currency, notes, is_deleted, created_at, updated_at FROM accounts`
-	var conditions []string
-	var args []any
-	argIndex := 1
+	var sb strings.Builder
+	sb.WriteString("SELECT ")
+	sb.WriteString(strings.TrimSpace(accountSelectCols))
+	sb.WriteString(" FROM accounts")
 
-	// Always filter out deleted records
-	conditions = append(conditions, "is_deleted = false")
-
-	// Apply dynamic where conditions
-	if params.Where != nil {
-		for field, value := range params.Where {
-			conditions = append(conditions, fmt.Sprintf("%s = $%d", field, argIndex))
-			args = append(args, value)
-			argIndex++
-		}
-	}
-
-	// Add WHERE clause
-	if len(conditions) > 0 {
-		query += " WHERE " + strings.Join(conditions, " AND ")
-	}
-
-	// Add LIMIT 1 for unique result
-	query += " LIMIT 1"
+	whereClause, args := buildWhere(params.Where, whereBuildOpts{
+		fieldOrder:     []string{"user_id", "search", "type", "currency"},
+		skipField:      "",    // no skip
+		excludeDeleted: true,  // always exclude deleted
+	})
+	sb.WriteString(whereClause)
+	sb.WriteString(" LIMIT 1")
 
 	var account model.Account
-	err := r.db.QueryRowContext(ctx, query, args...).Scan(
+	err := r.db.QueryRowContext(ctx, sb.String(), args...).Scan(
 		&account.ID, &account.Name, &account.Type, &account.Balance,
 		&account.UserID, &account.Currency, &account.Notes, &account.IsDeleted,
 		&account.CreatedAt, &account.UpdatedAt,
 	)
-
 	if err != nil {
 		if err == sql.ErrNoRows {
 			return nil, nil
 		}
 		return nil, err
 	}
-
 	return &account, nil
 }
 
 func (r *accountRepository) FindMany(ctx context.Context, params util.FindManyParams) ([]*model.Account, error) {
-	// Build the base query
-	query := `SELECT id, name, type, balance, user_id, currency, notes, is_deleted, created_at, updated_at FROM accounts`
-	var conditions []string
-	var args []any
-	argIndex := 1
+	var sb strings.Builder
+	sb.WriteString("SELECT ")
+	sb.WriteString(strings.TrimSpace(accountSelectCols))
+	sb.WriteString(" FROM accounts")
 
-	// Always filter out deleted records
-	conditions = append(conditions, "is_deleted = false")
+	whereClause, args := buildWhere(params.Where, whereBuildOpts{
+		fieldOrder:     []string{"user_id", "search", "type", "currency"},
+		skipField:      "",   // normal filtering
+		excludeDeleted: true, // always exclude deleted
+	})
+	sb.WriteString(whereClause)
 
-	// Apply dynamic where conditions in a deterministic order
-	if params.Where != nil {
-		// Process fields in a specific order to ensure consistent SQL generation
-		fieldOrder := []string{"user_id", "search", "type", "currency"}
-
-		// First, process known fields in order
-		for _, field := range fieldOrder {
-			value, exists := params.Where[field]
-			if !exists {
-				continue
-			}
-
-			if field == "search" {
-				// Handle search across name and notes fields
-				searchTerm := fmt.Sprintf("%%%s%%", value)
-				conditions = append(conditions, fmt.Sprintf("(LOWER(name) LIKE LOWER($%d) OR LOWER(COALESCE(notes, '')) LIKE LOWER($%d))", argIndex, argIndex))
-				args = append(args, searchTerm)
-				argIndex++
-			} else if slice, ok := value.([]string); ok && len(slice) > 0 {
-				placeholders := make([]string, len(slice))
-				for i, v := range slice {
-					placeholders[i] = fmt.Sprintf("$%d", argIndex)
-					args = append(args, v)
-					argIndex++
-				}
-				conditions = append(conditions, fmt.Sprintf("%s IN (%s)", field, strings.Join(placeholders, ",")))
-			} else {
-				conditions = append(conditions, fmt.Sprintf("%s = $%d", field, argIndex))
-				args = append(args, value)
-				argIndex++
-			}
-		}
-
-		// Then process any remaining fields not in the known order
-		for field, value := range params.Where {
-			// Skip if already processed
-			skip := false
-			for _, knownField := range fieldOrder {
-				if field == knownField {
-					skip = true
-					break
-				}
-			}
-			if skip {
-				continue
-			}
-
-			if slice, ok := value.([]string); ok && len(slice) > 0 {
-				placeholders := make([]string, len(slice))
-				for i, v := range slice {
-					placeholders[i] = fmt.Sprintf("$%d", argIndex)
-					args = append(args, v)
-					argIndex++
-				}
-				conditions = append(conditions, fmt.Sprintf("%s IN (%s)", field, strings.Join(placeholders, ",")))
-			} else {
-				conditions = append(conditions, fmt.Sprintf("%s = $%d", field, argIndex))
-				args = append(args, value)
-				argIndex++
-			}
-		}
-	}
-
-	// Add WHERE clause if we have conditions
-	if len(conditions) > 0 {
-		query += " WHERE " + strings.Join(conditions, " AND ")
-	}
-
-	// Apply ordering
+	// ORDER BY
 	if params.OrderBy != "" {
-		query += " ORDER BY " + params.OrderBy
+		sb.WriteString(" ORDER BY " + params.OrderBy)
 	} else {
-		query += " ORDER BY created_at DESC" // Default ordering
+		sb.WriteString(" ORDER BY created_at DESC")
 	}
 
-	// Apply pagination
-	if params.Offset > 0 {
-		query += fmt.Sprintf(" OFFSET $%d", argIndex)
-		args = append(args, params.Offset)
-		argIndex++
-	}
-	if params.Limit > 0 {
-		query += fmt.Sprintf(" LIMIT $%d", argIndex)
-		args = append(args, params.Limit)
-		argIndex++
-	}
+	// Pagination (placeholders after WHERE args)
+	currIdx := len(args) + 1
+	currIdx, args = addOffsetLimit(&sb, params.Offset, params.Limit, currIdx, args)
 
-	rows, err := r.db.QueryContext(ctx, query, args...)
+	rows, err := r.db.QueryContext(ctx, sb.String(), args...)
 	if err != nil {
 		return nil, err
 	}
@@ -205,101 +216,37 @@ func (r *accountRepository) FindMany(ctx context.Context, params util.FindManyPa
 
 	var accounts []*model.Account
 	for rows.Next() {
-		var account model.Account
-		err := rows.Scan(
-			&account.ID, &account.Name, &account.Type, &account.Balance,
-			&account.UserID, &account.Currency, &account.Notes, &account.IsDeleted,
-			&account.CreatedAt, &account.UpdatedAt,
-		)
-		if err != nil {
+		var a model.Account
+		if err := rows.Scan(
+			&a.ID, &a.Name, &a.Type, &a.Balance,
+			&a.UserID, &a.Currency, &a.Notes, &a.IsDeleted,
+			&a.CreatedAt, &a.UpdatedAt,
+		); err != nil {
 			return nil, err
 		}
-		accounts = append(accounts, &account)
+		accounts = append(accounts, &a)
 	}
-
-	if err = rows.Err(); err != nil {
+	if err := rows.Err(); err != nil {
 		return nil, err
 	}
-
 	return accounts, nil
 }
 
 func (r *accountRepository) Count(ctx context.Context, where map[string]any) (int, error) {
-	// Build the base query
-	query := `SELECT COUNT(*) FROM accounts`
-	var conditions []string
-	var args []any
-	argIndex := 1
+	var sb strings.Builder
+	sb.WriteString("SELECT COUNT(*) FROM accounts")
 
-	// Always filter out deleted records
-	conditions = append(conditions, "is_deleted = false")
-
-	// Apply dynamic where conditions in a deterministic order
-	// Process fields in a specific order to ensure consistent SQL generation
-	fieldOrder := []string{"user_id", "search", "type", "currency"}
-
-	// First, process known fields in order
-	for _, field := range fieldOrder {
-		value, exists := where[field]
-		if !exists {
-			continue
-		}
-
-		if field == "search" {
-			// Handle search across name and notes fields
-			searchTerm := fmt.Sprintf("%%%s%%", value)
-			conditions = append(conditions, fmt.Sprintf("(LOWER(name) LIKE LOWER($%d) OR LOWER(COALESCE(notes, '')) LIKE LOWER($%d))", argIndex, argIndex))
-			args = append(args, searchTerm)
-			argIndex++
-		} else if slice, ok := value.([]string); ok && len(slice) > 0 {
-			placeholders := make([]string, len(slice))
-			for i, v := range slice {
-				placeholders[i] = fmt.Sprintf("$%d", argIndex)
-				args = append(args, v)
-				argIndex++
-			}
-			conditions = append(conditions, fmt.Sprintf("%s IN (%s)", field, strings.Join(placeholders, ",")))
-		} else {
-			conditions = append(conditions, fmt.Sprintf("%s = $%d", field, argIndex))
-			args = append(args, value)
-			argIndex++
-		}
-	}
-
-	// Then process any remaining fields not in the known order
-	for field, value := range where {
-		// Skip if already processed
-		skip := slices.Contains(fieldOrder, field)
-		if skip {
-			continue
-		}
-
-		if slice, ok := value.([]string); ok && len(slice) > 0 {
-			placeholders := make([]string, len(slice))
-			for i, v := range slice {
-				placeholders[i] = fmt.Sprintf("$%d", argIndex)
-				args = append(args, v)
-				argIndex++
-			}
-			conditions = append(conditions, fmt.Sprintf("%s IN (%s)", field, strings.Join(placeholders, ",")))
-		} else {
-			conditions = append(conditions, fmt.Sprintf("%s = $%d", field, argIndex))
-			args = append(args, value)
-			argIndex++
-		}
-	}
-
-	// Add WHERE clause if we have conditions
-	if len(conditions) > 0 {
-		query += " WHERE " + strings.Join(conditions, " AND ")
-	}
+	whereClause, args := buildWhere(where, whereBuildOpts{
+		fieldOrder:     []string{"user_id", "search", "type", "currency"},
+		skipField:      "",   // count respects all filters
+		excludeDeleted: true, // exclude deleted
+	})
+	sb.WriteString(whereClause)
 
 	var count int
-	err := r.db.QueryRowContext(ctx, query, args...).Scan(&count)
-	if err != nil {
+	if err := r.db.QueryRowContext(ctx, sb.String(), args...).Scan(&count); err != nil {
 		return 0, err
 	}
-
 	return count, nil
 }
 
@@ -316,230 +263,69 @@ func (r *accountRepository) Update(ctx context.Context, account *model.Account) 
 		account.ID, account.Name, account.Type, account.Balance,
 		account.Currency, account.Notes, account.IsDeleted, account.UpdatedAt,
 	)
-
 	return err
 }
 
+/* --------------------------- Aggregations ---------------------------- */
+
 func (r *accountRepository) GetTypeAggregations(ctx context.Context, where map[string]any) (map[string]util.AggregationResult, error) {
-	aggregations := make(map[string]util.AggregationResult)
-
-	// Base conditions
-	var conditions []string
-	var args []any
-	argIndex := 1
-
-	// Always filter out deleted records
-	conditions = append(conditions, "is_deleted = false")
-
-	// Apply dynamic where conditions in a deterministic order (excluding type field for type aggregations)
-	// Process fields in a specific order to ensure consistent SQL generation
-	fieldOrder := []string{"user_id", "search", "currency"}
-
-	// First, process known fields in order
-	for _, field := range fieldOrder {
-		value, exists := where[field]
-		if !exists || field == "type" {
-			continue // Skip type filtering for type aggregations
-		}
-
-		if field == "search" {
-			// Handle search across name and notes fields
-			searchTerm := fmt.Sprintf("%%%s%%", value)
-			conditions = append(conditions, fmt.Sprintf("(LOWER(name) LIKE LOWER($%d) OR LOWER(COALESCE(notes, '')) LIKE LOWER($%d))", argIndex, argIndex))
-			args = append(args, searchTerm)
-			argIndex++
-		} else if slice, ok := value.([]string); ok && len(slice) > 0 {
-			placeholders := make([]string, len(slice))
-			for i, v := range slice {
-				placeholders[i] = fmt.Sprintf("$%d", argIndex)
-				args = append(args, v)
-				argIndex++
-			}
-			conditions = append(conditions, fmt.Sprintf("%s IN (%s)", field, strings.Join(placeholders, ",")))
-		} else {
-			conditions = append(conditions, fmt.Sprintf("%s = $%d", field, argIndex))
-			args = append(args, value)
-			argIndex++
-		}
-	}
-
-	// Then process any remaining fields not in the known order
-	for field, value := range where {
-		if field == "type" {
-			continue // Skip type filtering for type aggregations
-		}
-
-		// Skip if already processed
-		skip := slices.Contains(fieldOrder, field)
-		if skip {
-			continue
-		}
-
-		if slice, ok := value.([]string); ok && len(slice) > 0 {
-			placeholders := make([]string, len(slice))
-			for i, v := range slice {
-				placeholders[i] = fmt.Sprintf("$%d", argIndex)
-				args = append(args, v)
-				argIndex++
-			}
-			conditions = append(conditions, fmt.Sprintf("%s IN (%s)", field, strings.Join(placeholders, ",")))
-		} else {
-			conditions = append(conditions, fmt.Sprintf("%s = $%d", field, argIndex))
-			args = append(args, value)
-			argIndex++
-		}
-	}
-
-	whereClause := ""
-	if len(conditions) > 0 {
-		whereClause = " WHERE " + strings.Join(conditions, " AND ")
-	}
-
-	// Aggregate by account type
-	typeQuery := `
-		SELECT
-			type as key,
-			COUNT(*) as count,
-			COALESCE(MIN(balance), 0) as min_balance,
-			COALESCE(MAX(balance), 0) as max_balance,
-			COALESCE(AVG(balance), 0) as avg_balance,
-			COALESCE(SUM(balance), 0) as sum_balance
-		FROM accounts` + whereClause + `
-		GROUP BY type
-		ORDER BY type
-	`
-
-	typeRows, err := r.db.QueryContext(ctx, typeQuery, args...)
-	if err != nil {
-		return nil, fmt.Errorf("failed to get type aggregations: %w", err)
-	}
-	defer typeRows.Close()
-
-	for typeRows.Next() {
-		var key string
-		var result util.AggregationResult
-		err := typeRows.Scan(&key, &result.Count, &result.Min, &result.Max, &result.Avg, &result.Sum)
-		if err != nil {
-			return nil, fmt.Errorf("failed to scan type aggregation: %w", err)
-		}
-		aggregations[key] = result
-	}
-
-	if err = typeRows.Err(); err != nil {
-		return nil, fmt.Errorf("error iterating type aggregations: %w", err)
-	}
-
-	return aggregations, nil
+	// Skip filtering by "type" while grouping by it
+	return r.getAggregations(ctx, "type", "type", []string{"user_id", "search", "currency"}, where)
 }
 
 func (r *accountRepository) GetCurrencyAggregations(ctx context.Context, where map[string]any) (map[string]util.AggregationResult, error) {
-	aggregations := make(map[string]util.AggregationResult)
+	// Skip filtering by "currency" while grouping by it
+	return r.getAggregations(ctx, "currency", "currency", []string{"user_id", "search", "type"}, where)
+}
 
-	// Base conditions
-	var conditions []string
-	var args []any
-	argIndex := 1
+func (r *accountRepository) getAggregations(
+	ctx context.Context,
+	groupBy string,
+	skipFilter string,
+	fieldOrder []string,
+	where map[string]any,
+) (map[string]util.AggregationResult, error) {
 
-	// Always filter out deleted records
-	conditions = append(conditions, "is_deleted = false")
+	aggs := make(map[string]util.AggregationResult)
 
-	// Apply dynamic where conditions in a deterministic order (excluding currency field for currency aggregations)
-	// Process fields in a specific order to ensure consistent SQL generation
-	fieldOrder := []string{"user_id", "search", "type"}
-
-	// First, process known fields in order
-	for _, field := range fieldOrder {
-		value, exists := where[field]
-		if !exists || field == "currency" {
-			continue // Skip currency filtering for currency aggregations
-		}
-
-		if field == "search" {
-			// Handle search across name and notes fields
-			searchTerm := fmt.Sprintf("%%%s%%", value)
-			conditions = append(conditions, fmt.Sprintf("(LOWER(name) LIKE LOWER($%d) OR LOWER(COALESCE(notes, '')) LIKE LOWER($%d))", argIndex, argIndex))
-			args = append(args, searchTerm)
-			argIndex++
-		} else if slice, ok := value.([]string); ok && len(slice) > 0 {
-			placeholders := make([]string, len(slice))
-			for i, v := range slice {
-				placeholders[i] = fmt.Sprintf("$%d", argIndex)
-				args = append(args, v)
-				argIndex++
-			}
-			conditions = append(conditions, fmt.Sprintf("%s IN (%s)", field, strings.Join(placeholders, ",")))
-		} else {
-			conditions = append(conditions, fmt.Sprintf("%s = $%d", field, argIndex))
-			args = append(args, value)
-			argIndex++
-		}
-	}
-
-	// Then process any remaining fields not in the known order
-	for field, value := range where {
-		if field == "currency" {
-			continue // Skip currency filtering for currency aggregations
-		}
-
-		// Skip if already processed
-		skip := slices.Contains(fieldOrder, field)
-		if skip {
-			continue
-		}
-
-		if slice, ok := value.([]string); ok && len(slice) > 0 {
-			placeholders := make([]string, len(slice))
-			for i, v := range slice {
-				placeholders[i] = fmt.Sprintf("$%d", argIndex)
-				args = append(args, v)
-				argIndex++
-			}
-			conditions = append(conditions, fmt.Sprintf("%s IN (%s)", field, strings.Join(placeholders, ",")))
-		} else {
-			conditions = append(conditions, fmt.Sprintf("%s = $%d", field, argIndex))
-			args = append(args, value)
-			argIndex++
-		}
-	}
-
-	whereClause := ""
-	if len(conditions) > 0 {
-		whereClause = " WHERE " + strings.Join(conditions, " AND ")
-	}
-
-	// Aggregate by account currency
-	currencyQuery := `
+	var sb strings.Builder
+	sb.WriteString(`
 		SELECT
-			currency as key,
+			` + groupBy + ` as key,
 			COUNT(*) as count,
 			COALESCE(MIN(balance), 0) as min_balance,
 			COALESCE(MAX(balance), 0) as max_balance,
 			COALESCE(AVG(balance), 0) as avg_balance,
 			COALESCE(SUM(balance), 0) as sum_balance
-		FROM accounts` + whereClause + `
-		GROUP BY currency
-		ORDER BY currency
-	`
+		FROM accounts`)
 
-	currencyRows, err := r.db.QueryContext(ctx, currencyQuery, args...)
+	whereClause, args := buildWhere(where, whereBuildOpts{
+		fieldOrder:     fieldOrder,
+		skipField:      skipFilter, // do not filter on the grouping field
+		excludeDeleted: true,
+	})
+	sb.WriteString(whereClause)
+	sb.WriteString(`
+		GROUP BY ` + groupBy + `
+		ORDER BY ` + groupBy + `
+	`)
+
+	rows, err := r.db.QueryContext(ctx, sb.String(), args...)
 	if err != nil {
-		return nil, fmt.Errorf("failed to get currency aggregations: %w", err)
+		return nil, fmt.Errorf("failed to get %s aggregations: %w", groupBy, err)
 	}
-	defer currencyRows.Close()
+	defer rows.Close()
 
-	for currencyRows.Next() {
+	for rows.Next() {
 		var key string
-		var result util.AggregationResult
-		err := currencyRows.Scan(&key, &result.Count, &result.Min, &result.Max, &result.Avg, &result.Sum)
-		if err != nil {
-			return nil, fmt.Errorf("failed to scan currency aggregation: %w", err)
+		var res util.AggregationResult
+		if err := rows.Scan(&key, &res.Count, &res.Min, &res.Max, &res.Avg, &res.Sum); err != nil {
+			return nil, fmt.Errorf("failed to scan %s aggregation: %w", groupBy, err)
 		}
-		aggregations[key] = result
+		aggs[key] = res
 	}
-
-	if err = currencyRows.Err(); err != nil {
-		return nil, fmt.Errorf("error iterating currency aggregations: %w", err)
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("error iterating %s aggregations: %w", groupBy, err)
 	}
-
-	return aggregations, nil
+	return aggs, nil
 }

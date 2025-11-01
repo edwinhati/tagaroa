@@ -48,11 +48,10 @@ func main() {
 		}
 	}
 
-	log.Printf("🚀 Starting Finance Server on port %s", cfg.Server.Port)
+	log.Printf("🚀 Starting Finance Server")
 	log.Printf("Environment: %s", cfg.Server.Env)
 	log.Printf("Log level: %s", cfg.Log.Level)
 	log.Printf("OIDC Issuer: %s", cfg.OIDC.IssuerURL())
-	log.Printf("Allowed CORS origins: %v", allowedOrigins)
 
 	if cfg.Sentry.DSN != "" {
 		log.Printf("Sentry enabled with sample rate: %.2f", cfg.Sentry.TracesSampleRate)
@@ -129,7 +128,6 @@ func main() {
 		Handler: handler,
 	}
 	// Start server
-	log.Printf("🌐 Server starting on %s", cfg.Server.Port)
 	go func() {
 		if err := server.ListenAndServe(); err != nil && err != http.ErrServerClosed {
 			log.Fatalf("Failed to start server: %v", err)

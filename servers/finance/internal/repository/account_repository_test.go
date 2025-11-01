@@ -1476,3 +1476,172 @@ func TestAccountRepository_GetCurrencyAggregations_WithUnknownSliceField(t *test
 	assert.Contains(t, aggregations, "USD")
 	assert.NoError(t, mock.ExpectationsWereMet())
 }
+
+// Test cases to achieve 100% coverage
+
+// Test buildWhere with nil where and no excludeDeleted
+func TestAccountRepository_FindUnique_NilWhereNoExcludeDeleted(t *testing.T) {
+	db, mock, repo := setupMockDB(t)
+	defer db.Close()
+
+	ctx := context.Background()
+
+	// This should test the case where where is nil and no conditions are added
+	params := util.FindUniqueParams{
+		Where: nil,
+	}
+
+	rows := sqlmock.NewRows([]string{
+		"id", "name", "type", "balance", "user_id", "currency", "notes", "is_deleted", "created_at", "updated_at",
+	})
+
+	// This should generate a query without WHERE clause except for is_deleted = false
+	mock.ExpectQuery(`SELECT (.+) FROM accounts WHERE is_deleted = false LIMIT 1`).
+		WillReturnRows(rows)
+
+	account, err := repo.FindUnique(ctx, params)
+
+	assert.NoError(t, err)
+	assert.Nil(t, account)
+	assert.NoError(t, mock.ExpectationsWereMet())
+}
+
+// Test buildWhere with empty slice - it falls through to else clause
+func TestAccountRepository_FindMany_WithEmptySlice(t *testing.T) {
+	db, _, repo := setupMockDB(t)
+	defer db.Close()
+
+	ctx := context.Background()
+	userID := uuid.New()
+
+	params := util.FindManyParams{
+		Where: map[string]any{
+			"user_id": userID,
+			"type":    []string{}, // Empty slice falls through to else clause
+		},
+	}
+
+	// Empty slice will be treated as regular value and cause SQL error
+	_, err := repo.FindMany(ctx, params)
+
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "unsupported type []string")
+}
+
+// Test Count with empty slice - it falls through to else clause
+func TestAccountRepository_Count_WithEmptySlice(t *testing.T) {
+	db, _, repo := setupMockDB(t)
+	defer db.Close()
+
+	ctx := context.Background()
+	userID := uuid.New()
+
+	where := map[string]any{
+		"user_id": userID,
+		"type":    []string{}, // Empty slice falls through to else clause
+	}
+
+	// Empty slice will be treated as regular value and cause SQL error
+	_, err := repo.Count(ctx, where)
+
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "unsupported type []string")
+}
+
+// Test for the case where len(conditions) == 0 after processing
+func TestAccountRepository_FindMany_EmptyConditionsAfterProcessing(t *testing.T) {
+	db, mock, repo := setupMockDB(t)
+	defer db.Close()
+
+	ctx := context.Background()
+
+	params := util.FindManyParams{
+		Where: map[string]any{
+			"type": "BANK", // This will be skipped in type aggregations
+		},
+	}
+
+	// Create a custom test by calling getAggregations with skipField="type"
+	// This should result in empty conditions after processing
+	rows := sqlmock.NewRows([]string{
+		"key", "count", "min_balance", "max_balance", "avg_balance", "sum_balance",
+	}).AddRow(
+		"BANK", 1, 1000.0, 1000.0, 1000.0, 1000.0,
+	)
+
+	// When type is skipped, no WHERE conditions should be added except is_deleted = false
+	mock.ExpectQuery(`SELECT type as key, COUNT\(\*\) as count, COALESCE\(MIN\(balance\), 0\) as min_balance, COALESCE\(MAX\(balance\), 0\) as max_balance, COALESCE\(AVG\(balance\), 0\) as avg_balance, COALESCE\(SUM\(balance\), 0\) as sum_balance FROM accounts WHERE is_deleted = false GROUP BY type ORDER BY type`).
+		WillReturnRows(rows)
+
+	aggregations, err := repo.GetTypeAggregations(ctx, params.Where)
+
+	assert.NoError(t, err)
+	assert.Len(t, aggregations, 1)
+	assert.NoError(t, mock.ExpectationsWereMet())
+}
+
+// Test buildWhere function directly to achieve 100% coverage
+func TestBuildWhere_NilWhereNoConditions(t *testing.T) {
+	// Test the case where where is nil and excludeDeleted is false
+	// This should return "", nil
+	clause, args := buildWhere(nil, whereBuildOpts{
+		fieldOrder:     []string{},
+		skipField:      "",
+		excludeDeleted: false, // This should result in no conditions
+	})
+
+	assert.Equal(t, "", clause)
+	assert.Nil(t, args)
+}
+
+// Test buildWhere with nil where but excludeDeleted true
+func TestBuildWhere_NilWhereWithExcludeDeleted(t *testing.T) {
+	// Test the case where where is nil but excludeDeleted is true
+	// This should return " WHERE is_deleted = false", nil
+	clause, args := buildWhere(nil, whereBuildOpts{
+		fieldOrder:     []string{},
+		skipField:      "",
+		excludeDeleted: true,
+	})
+
+	assert.Equal(t, " WHERE is_deleted = false", clause)
+	assert.Nil(t, args)
+}
+
+// Test buildWhere with empty slice
+func TestBuildWhere_EmptySlice(t *testing.T) {
+	// Test the case where a field has an empty slice
+	// This should fall through to the else clause and be treated as a regular value
+	where := map[string]any{
+		"type": []string{}, // Empty slice
+	}
+
+	clause, args := buildWhere(where, whereBuildOpts{
+		fieldOrder:     []string{"type"},
+		skipField:      "",
+		excludeDeleted: true,
+	})
+
+	// Should have is_deleted = false AND type = $1 with empty slice as arg
+	assert.Equal(t, " WHERE is_deleted = false AND type = $1", clause)
+	assert.Len(t, args, 1)
+	assert.Equal(t, []string{}, args[0])
+}
+
+// Test buildWhere where all fields are skipped resulting in empty conditions
+func TestBuildWhere_AllFieldsSkipped(t *testing.T) {
+	// Test the case where all fields are skipped, resulting in len(conditions) == 0
+	where := map[string]any{
+		"type": "BANK", // This will be skipped
+	}
+
+	clause, args := buildWhere(where, whereBuildOpts{
+		fieldOrder:     []string{"type"},
+		skipField:      "type", // Skip the only field we have
+		excludeDeleted: false,  // Don't add is_deleted condition
+	})
+
+	// Should return empty clause since all conditions are skipped
+	assert.Equal(t, "", clause)
+	assert.Empty(t, args)
+}

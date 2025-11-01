@@ -13,7 +13,7 @@ const nav = [
 export default function RootTemplate({
   children,
 }: {
-  children: React.ReactNode;
+  readonly children: React.ReactNode;
 }) {
   return (
     <AppProvider>

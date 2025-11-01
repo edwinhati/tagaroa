@@ -18,7 +18,7 @@ type RoleBasedOptions = {
 };
 
 async function fetchUserSession<T extends User = User>(
-  sessionCookie: string,
+  sessionCookie: string
 ): Promise<T | null> {
   try {
     const response = await fetch(
@@ -27,14 +27,14 @@ async function fetchUserSession<T extends User = User>(
         headers: {
           Cookie: `better-auth.session_token=${sessionCookie}`,
         },
-        // Add timeout to prevent hanging requests
+        // timeout to prevent hanging requests
         signal: AbortSignal.timeout(5000),
-      },
+      }
     );
 
     if (!response.ok) {
       console.warn(
-        `Auth session fetch failed: ${response.status} ${response.statusText}`,
+        `Auth session fetch failed: ${response.status} ${response.statusText}`
       );
       return null;
     }
@@ -42,7 +42,7 @@ async function fetchUserSession<T extends User = User>(
     const data = await response.json();
 
     // Extract user from the response structure
-    return data.user || null;
+    return (data.user as T) || null;
   } catch (error) {
     if (error instanceof Error && error.name === "TimeoutError") {
       console.error("Auth session fetch timeout");
@@ -58,7 +58,7 @@ async function fetchUser(sessionCookie: string): Promise<User | null> {
 }
 
 async function fetchUserWithRole(
-  sessionCookie: string,
+  sessionCookie: string
 ): Promise<UserWithRole | null> {
   return fetchUserSession<UserWithRole>(sessionCookie);
 }
@@ -66,7 +66,7 @@ async function fetchUserWithRole(
 function redirectToAuth(
   req: NextRequest,
   authAppUrl: string,
-  redirectUrl?: string,
+  redirectUrl?: string
 ) {
   const url = new URL(authAppUrl, req.nextUrl);
 
@@ -97,10 +97,7 @@ function redirectToApp(req: NextRequest, appUrl: string) {
 
 function hasRole(user: UserWithRole, allowedRoles: string[]): boolean {
   if (!user.role || allowedRoles.length === 0) return false;
-
-  // Handle both string and array roles
   const userRoles = Array.isArray(user.role) ? user.role : [user.role];
-
   return allowedRoles.some((role) => userRoles.includes(role));
 }
 
@@ -119,10 +116,10 @@ function clearSessionCookie(response: NextResponse) {
   return response;
 }
 
-// Shared proxy logic to reduce duplication
+// Shared proxy pre-checks
 async function handleCommonProxyLogic(
   request: NextRequest,
-  authAppUrl: string,
+  authAppUrl: string
 ) {
   const { pathname, searchParams } = request.nextUrl;
 
@@ -135,7 +132,7 @@ async function handleCommonProxyLogic(
   const redirectParam = searchParams.get("redirect");
   if (redirectParam && redirectParam.includes("redirect=")) {
     console.warn(
-      "Detected potential redirect loop, clearing redirect parameter",
+      "Detected potential redirect loop, clearing redirect parameter"
     );
     const cleanUrl = new URL(request.nextUrl);
     cleanUrl.searchParams.delete("redirect");
@@ -161,65 +158,162 @@ async function handleCommonProxyLogic(
   return { type: "continue" as const, sessionCookie };
 }
 
+/* ----------------------- Dedup helpers & core ------------------------ */
+
+function redirectAndClear(
+  req: NextRequest,
+  authAppUrl: string,
+  redirect?: string
+) {
+  const res = redirectToAuth(req, authAppUrl, redirect);
+  return clearSessionCookie(res);
+}
+
+function isFromAuthAppRoot(
+  req: NextRequest,
+  authAppUrl: string,
+  sessionCookie?: string
+) {
+  const { pathname } = req.nextUrl;
+  const referer = req.headers.get("referer");
+  return (
+    !!sessionCookie &&
+    pathname === "/" &&
+    !!referer &&
+    referer.startsWith(authAppUrl)
+  );
+}
+
+type ProxyCommonOpts<UserT extends User | UserWithRole> = {
+  authAppUrl: string;
+  verifyPath?: string;
+  requireVerified?: boolean;
+
+  // supply how to fetch the user (plain or with role)
+  fetchUser: (sessionCookie: string) => Promise<UserT | null>;
+
+  // role options (ignored if not provided)
+  allowedRoles?: string[];
+  requireAdmin?: boolean;
+  redirectUrl?: string;
+
+  // optional custom behavior after user is authorized
+  onAuthorized?(
+    user: UserT,
+    req: NextRequest
+  ): NextResponse | null | undefined | Promise<NextResponse | null | undefined>;
+
+  // whether to apply the "auth referer on /" pass-through
+  honorAuthRefererOnRoot?: boolean;
+};
+
+async function proxyCommon<UserT extends User | UserWithRole>(
+  request: NextRequest,
+  opts: ProxyCommonOpts<UserT>
+) {
+  const {
+    authAppUrl,
+    verifyPath = "/verify-email",
+    requireVerified,
+    fetchUser,
+    allowedRoles,
+    requireAdmin,
+    redirectUrl,
+    onAuthorized,
+    honorAuthRefererOnRoot,
+  } = opts;
+
+  const { pathname } = request.nextUrl;
+  const commonResult = await handleCommonProxyLogic(request, authAppUrl);
+
+  if (commonResult.type === "next") return NextResponse.next();
+  if (commonResult.type === "redirect")
+    return NextResponse.redirect(commonResult.url);
+  if (commonResult.type === "auth-redirect")
+    return redirectToAuth(request, commonResult.url, commonResult.redirect);
+
+  // Safety: if we just came from the auth app and we're on "/", let it pass
+  if (
+    honorAuthRefererOnRoot &&
+    isFromAuthAppRoot(request, authAppUrl, commonResult.sessionCookie)
+  ) {
+    return NextResponse.next();
+  }
+
+  try {
+    const user = await fetchUser(commonResult.sessionCookie);
+
+    if (!user) {
+      return redirectAndClear(
+        request,
+        authAppUrl,
+        pathname === "/" ? undefined : request.nextUrl.href
+      );
+    }
+
+    if (requireVerified && !user.emailVerified) {
+      return NextResponse.redirect(
+        new URL(`${authAppUrl}${verifyPath}`, request.nextUrl)
+      );
+    }
+
+    // Role policy (only if options provided)
+    const needAdmin = !!requireAdmin;
+    const hasAllowed =
+      Array.isArray(allowedRoles) && allowedRoles.length > 0
+        ? hasRole(user as UserWithRole, allowedRoles)
+        : true;
+    const isUserAdmin = "role" in user ? isAdmin(user as UserWithRole) : false;
+
+    if ((needAdmin && !isUserAdmin) || !hasAllowed) {
+      // custom redirect override
+      if (redirectUrl) {
+        return redirectToApp(request, redirectUrl);
+      }
+
+      // default role-aware redirect
+      if (isUserAdmin) {
+        const adminUrl = process.env.NEXT_PUBLIC_ADMIN_APP_URL as string;
+        return redirectToApp(request, adminUrl);
+      } else {
+        const dashboardUrl =
+          process.env.NEXT_PUBLIC_DASHBOARD_URL ||
+          (process.env.NEXT_PUBLIC_MAIN_APP_URL as string);
+        return redirectToApp(request, dashboardUrl);
+      }
+    }
+
+    // Custom post-authorization behavior (e.g., send admins to admin app)
+    if (onAuthorized) {
+      const maybe = await onAuthorized(user, request);
+      if (maybe) return maybe;
+    }
+
+    return NextResponse.next();
+  } catch (error) {
+    console.error(`Proxy error for ${pathname}:`, error);
+    return redirectAndClear(
+      request,
+      authAppUrl,
+      pathname === "/" ? undefined : request.nextUrl.href
+    );
+  }
+}
+
+/* --------------------------- Public creators ------------------------- */
+
 export function createAuthProxy(opts: Options) {
   const verifyPath = opts.verifyPath ?? "/verify-email";
 
   return async function proxy(request: NextRequest) {
-    const { pathname } = request.nextUrl;
-
-    const commonResult = await handleCommonProxyLogic(request, opts.authAppUrl);
-
-    if (commonResult.type === "next") {
-      return NextResponse.next();
-    }
-
-    if (commonResult.type === "redirect") {
-      return NextResponse.redirect(commonResult.url);
-    }
-
-    if (commonResult.type === "auth-redirect") {
-      return redirectToAuth(request, commonResult.url, commonResult.redirect);
-    }
-
-    // Additional safety: if we're coming from the auth app, don't redirect back immediately
-    const referer = request.headers.get("referer");
-    if (
-      referer &&
-      referer.startsWith(opts.authAppUrl) &&
-      pathname === "/" &&
-      commonResult.sessionCookie
-    ) {
-      return NextResponse.next();
-    }
-
-    try {
-      const user = await fetchUser(commonResult.sessionCookie);
-
-      if (!user) {
-        const response = redirectToAuth(
-          request,
-          opts.authAppUrl,
-          pathname === "/" ? undefined : request.nextUrl.href,
-        );
-        return clearSessionCookie(response);
-      }
-
-      if (user.emailVerified) {
-        return NextResponse.next();
-      } else {
-        return NextResponse.redirect(
-          new URL(`${opts.authAppUrl}${verifyPath}`, request.nextUrl),
-        );
-      }
-    } catch (error) {
-      console.error(`Auth proxy error for ${pathname}:`, error);
-      const response = redirectToAuth(
-        request,
-        opts.authAppUrl,
-        pathname === "/" ? undefined : request.nextUrl.href,
-      );
-      return clearSessionCookie(response);
-    }
+    return proxyCommon<User>(request, {
+      authAppUrl: opts.authAppUrl,
+      verifyPath,
+      requireVerified: true,
+      fetchUser,
+      // Additional safety to avoid loop on "/" after coming from auth
+      honorAuthRefererOnRoot: true,
+    });
   };
 }
 
@@ -229,74 +323,18 @@ export function createRoleBasedProxy(opts: RoleBasedOptions) {
     opts.allowedRoles ?? (opts.requireAdmin ? ["admin"] : []);
 
   return async function proxy(request: NextRequest) {
-    const { pathname } = request.nextUrl;
-
-    const commonResult = await handleCommonProxyLogic(request, opts.authAppUrl);
-
-    if (commonResult.type === "next") {
-      return NextResponse.next();
-    }
-
-    if (commonResult.type === "redirect") {
-      return NextResponse.redirect(commonResult.url);
-    }
-
-    if (commonResult.type === "auth-redirect") {
-      return redirectToAuth(request, commonResult.url, commonResult.redirect);
-    }
-
-    try {
-      const user = await fetchUserWithRole(commonResult.sessionCookie);
-
-      if (!user) {
-        const response = redirectToAuth(
-          request,
-          opts.authAppUrl,
-          pathname === "/" ? undefined : request.nextUrl.href,
-        );
-        return clearSessionCookie(response);
-      }
-
-      // Check if user's email is verified
-      if (!user.emailVerified) {
-        return NextResponse.redirect(
-          new URL(`${opts.authAppUrl}${verifyPath}`, request.nextUrl),
-        );
-      }
-
-      // Check role-based access
-      if (allowedRoles.length > 0 && !hasRole(user, allowedRoles)) {
-        if (opts.redirectUrl) {
-          return redirectToApp(request, opts.redirectUrl);
-        }
-
-        // Default redirect logic based on role
-        if (isAdmin(user)) {
-          const adminUrl = process.env.NEXT_PUBLIC_ADMIN_APP_URL as string;
-          return redirectToApp(request, adminUrl);
-        } else {
-          const dashboardUrl =
-            process.env.NEXT_PUBLIC_DASHBOARD_URL ||
-            (process.env.NEXT_PUBLIC_MAIN_APP_URL as string);
-          return redirectToApp(request, dashboardUrl);
-        }
-      }
-
-      // User is authorized, allow access
-      return NextResponse.next();
-    } catch (error) {
-      console.error(`Role-based proxy error for ${pathname}:`, error);
-      const response = redirectToAuth(
-        request,
-        opts.authAppUrl,
-        pathname === "/" ? undefined : request.nextUrl.href,
-      );
-      return clearSessionCookie(response);
-    }
+    return proxyCommon<UserWithRole>(request, {
+      authAppUrl: opts.authAppUrl,
+      verifyPath,
+      requireVerified: true,
+      fetchUser: fetchUserWithRole,
+      allowedRoles,
+      requireAdmin: opts.requireAdmin,
+      redirectUrl: opts.redirectUrl,
+    });
   };
 }
 
-// Convenience functions for common use cases
 export function createAdminProxy(opts: Omit<RoleBasedOptions, "requireAdmin">) {
   return createRoleBasedProxy({
     ...opts,
@@ -304,9 +342,33 @@ export function createAdminProxy(opts: Omit<RoleBasedOptions, "requireAdmin">) {
   });
 }
 
+export function createBasicProxy(opts: Omit<RoleBasedOptions, "allowedRoles">) {
+  const verifyPath = opts.verifyPath ?? "/verify-email";
+
+  return async function proxy(request: NextRequest) {
+    return proxyCommon<UserWithRole>(request, {
+      authAppUrl: opts.authAppUrl,
+      verifyPath,
+      requireVerified: true,
+      fetchUser: fetchUserWithRole,
+      honorAuthRefererOnRoot: true,
+      // If user is admin, send to admin app; otherwise proceed
+      onAuthorized: async (user) => {
+        if (isAdmin(user)) {
+          const adminUrl = process.env.NEXT_PUBLIC_ADMIN_APP_URL as string;
+          return redirectToApp(request, adminUrl);
+        }
+        return null;
+      },
+    });
+  };
+}
+
+/* ------------------------ Redirect utility API ----------------------- */
+
 // Utility function for auth app to determine redirect based on user role
 export async function getRedirectPathForUser(
-  requestedRedirect?: string | null,
+  requestedRedirect?: string | null
 ): Promise<string> {
   try {
     // This would typically be called from the auth app after successful login
@@ -316,7 +378,7 @@ export async function getRedirectPathForUser(
       {
         credentials: "include",
         signal: AbortSignal.timeout(5000),
-      },
+      }
     );
 
     if (!response.ok) {
@@ -369,72 +431,4 @@ export async function getRedirectPathForUser(
     // Fallback to dashboard
     return process.env.NEXT_PUBLIC_DASHBOARD_APP_URL as string;
   }
-}
-
-export function createBasicProxy(opts: Omit<RoleBasedOptions, "allowedRoles">) {
-  const verifyPath = opts.verifyPath ?? "/verify-email";
-
-  return async function proxy(request: NextRequest) {
-    const { pathname } = request.nextUrl;
-
-    const commonResult = await handleCommonProxyLogic(request, opts.authAppUrl);
-
-    if (commonResult.type === "next") {
-      return NextResponse.next();
-    }
-
-    if (commonResult.type === "redirect") {
-      return NextResponse.redirect(commonResult.url);
-    }
-
-    if (commonResult.type === "auth-redirect") {
-      return redirectToAuth(request, commonResult.url, commonResult.redirect);
-    }
-
-    // Additional safety: if we're coming from the auth app, don't redirect back immediately
-    const referer = request.headers.get("referer");
-    if (
-      referer &&
-      referer.startsWith(opts.authAppUrl) &&
-      pathname === "/" &&
-      commonResult.sessionCookie
-    ) {
-      return NextResponse.next();
-    }
-
-    try {
-      const user = await fetchUserWithRole(commonResult.sessionCookie);
-
-      if (!user) {
-        const response = redirectToAuth(
-          request,
-          opts.authAppUrl,
-          pathname === "/" ? undefined : request.nextUrl.href,
-        );
-        return clearSessionCookie(response);
-      }
-
-      // Check if user's email is verified
-      if (!user.emailVerified) {
-        return NextResponse.redirect(
-          new URL(`${opts.authAppUrl}${verifyPath}`, request.nextUrl),
-        );
-      }
-
-      // Check if user is admin - redirect to admin app
-      if (isAdmin(user)) {
-        const adminUrl = process.env.NEXT_PUBLIC_ADMIN_APP_URL as string;
-        return redirectToApp(request, adminUrl);
-      }
-      return NextResponse.next();
-    } catch (error) {
-      console.error(`Dashboard proxy error for ${pathname}:`, error);
-      const response = redirectToAuth(
-        request,
-        opts.authAppUrl,
-        pathname === "/" ? undefined : request.nextUrl.href,
-      );
-      return clearSessionCookie(response);
-    }
-  };
 }
