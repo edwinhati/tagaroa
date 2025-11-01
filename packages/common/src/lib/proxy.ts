@@ -18,7 +18,7 @@ type RoleBasedOptions = {
 };
 
 async function fetchUserSession<T extends User = User>(
-  sessionCookie: string
+  sessionCookie: string,
 ): Promise<T | null> {
   try {
     const response = await fetch(
@@ -29,12 +29,12 @@ async function fetchUserSession<T extends User = User>(
         },
         // timeout to prevent hanging requests
         signal: AbortSignal.timeout(5000),
-      }
+      },
     );
 
     if (!response.ok) {
       console.warn(
-        `Auth session fetch failed: ${response.status} ${response.statusText}`
+        `Auth session fetch failed: ${response.status} ${response.statusText}`,
       );
       return null;
     }
@@ -58,7 +58,7 @@ async function fetchUser(sessionCookie: string): Promise<User | null> {
 }
 
 async function fetchUserWithRole(
-  sessionCookie: string
+  sessionCookie: string,
 ): Promise<UserWithRole | null> {
   return fetchUserSession<UserWithRole>(sessionCookie);
 }
@@ -66,7 +66,7 @@ async function fetchUserWithRole(
 function redirectToAuth(
   req: NextRequest,
   authAppUrl: string,
-  redirectUrl?: string
+  redirectUrl?: string,
 ) {
   const url = new URL(authAppUrl, req.nextUrl);
 
@@ -119,7 +119,7 @@ function clearSessionCookie(response: NextResponse) {
 // Shared proxy pre-checks
 async function handleCommonProxyLogic(
   request: NextRequest,
-  authAppUrl: string
+  authAppUrl: string,
 ) {
   const { pathname, searchParams } = request.nextUrl;
 
@@ -132,7 +132,7 @@ async function handleCommonProxyLogic(
   const redirectParam = searchParams.get("redirect");
   if (redirectParam && redirectParam.includes("redirect=")) {
     console.warn(
-      "Detected potential redirect loop, clearing redirect parameter"
+      "Detected potential redirect loop, clearing redirect parameter",
     );
     const cleanUrl = new URL(request.nextUrl);
     cleanUrl.searchParams.delete("redirect");
@@ -163,7 +163,7 @@ async function handleCommonProxyLogic(
 function redirectAndClear(
   req: NextRequest,
   authAppUrl: string,
-  redirect?: string
+  redirect?: string,
 ) {
   const res = redirectToAuth(req, authAppUrl, redirect);
   return clearSessionCookie(res);
@@ -172,7 +172,7 @@ function redirectAndClear(
 function isFromAuthAppRoot(
   req: NextRequest,
   authAppUrl: string,
-  sessionCookie?: string
+  sessionCookie?: string,
 ) {
   const { pathname } = req.nextUrl;
   const referer = req.headers.get("referer");
@@ -200,7 +200,7 @@ type ProxyCommonOpts<UserT extends User | UserWithRole> = {
   // optional custom behavior after user is authorized
   onAuthorized?(
     user: UserT,
-    req: NextRequest
+    req: NextRequest,
   ): NextResponse | null | undefined | Promise<NextResponse | null | undefined>;
 
   // whether to apply the "auth referer on /" pass-through
@@ -209,7 +209,7 @@ type ProxyCommonOpts<UserT extends User | UserWithRole> = {
 
 async function proxyCommon<UserT extends User | UserWithRole>(
   request: NextRequest,
-  opts: ProxyCommonOpts<UserT>
+  opts: ProxyCommonOpts<UserT>,
 ) {
   const {
     authAppUrl,
@@ -247,13 +247,13 @@ async function proxyCommon<UserT extends User | UserWithRole>(
       return redirectAndClear(
         request,
         authAppUrl,
-        pathname === "/" ? undefined : request.nextUrl.href
+        pathname === "/" ? undefined : request.nextUrl.href,
       );
     }
 
     if (requireVerified && !user.emailVerified) {
       return NextResponse.redirect(
-        new URL(`${authAppUrl}${verifyPath}`, request.nextUrl)
+        new URL(`${authAppUrl}${verifyPath}`, request.nextUrl),
       );
     }
 
@@ -295,7 +295,7 @@ async function proxyCommon<UserT extends User | UserWithRole>(
     return redirectAndClear(
       request,
       authAppUrl,
-      pathname === "/" ? undefined : request.nextUrl.href
+      pathname === "/" ? undefined : request.nextUrl.href,
     );
   }
 }
@@ -368,7 +368,7 @@ export function createBasicProxy(opts: Omit<RoleBasedOptions, "allowedRoles">) {
 
 // Utility function for auth app to determine redirect based on user role
 export async function getRedirectPathForUser(
-  requestedRedirect?: string | null
+  requestedRedirect?: string | null,
 ): Promise<string> {
   try {
     // This would typically be called from the auth app after successful login
@@ -378,7 +378,7 @@ export async function getRedirectPathForUser(
       {
         credentials: "include",
         signal: AbortSignal.timeout(5000),
-      }
+      },
     );
 
     if (!response.ok) {

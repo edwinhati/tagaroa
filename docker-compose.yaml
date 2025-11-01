@@ -1,0 +1,82 @@
+services:
+  postgres:
+    image: postgres:alpine
+    container_name: postgres
+    restart: always
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: postgres
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+
+  minio:
+    image: minio/minio:latest
+    container_name: minio
+    restart: unless-stopped
+    ports:
+      - "9000:9000" # S3 API
+      - "9001:9001" # Console
+    environment:
+      MINIO_ROOT_USER: minioadmin
+      MINIO_ROOT_PASSWORD: minioadmin
+    command: server /data --console-address ":9001"
+    volumes:
+      - minio_data:/data
+
+  traefik:
+    image: traefik:latest
+    container_name: traefik
+    ports:
+      - "8080:80"
+      - "8000:8080" # Dashboard and API
+    command:
+      - "--entrypoints.web.address=:80"
+      - "--api.dashboard=true"
+      - "--api.insecure=true"
+      - "--providers.docker=true"
+      - "--providers.docker.exposedbydefault=false"
+    volumes:
+      - "/var/run/docker.sock:/var/run/docker.sock:ro"
+
+  auth-proxy:
+    image: alpine
+    command: ["sleep", "infinity"]
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.auth.rule=PathPrefix(`/api/auth`)"
+      - "traefik.http.routers.auth.entrypoints=web"
+      - "traefik.http.routers.auth.server=auth-server"
+      - "traefik.http.routers.auth.priority=100"
+      - "traefik.http.services.auth-server.loadbalancer.server.url=http://host.docker.internal:8081"
+
+  finance-proxy:
+    image: alpine
+    command: ["sleep", "infinity"]
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.finance.rule=PathPrefix(`/api/finance`)"
+      - "traefik.http.routers.finance.entrypoints=web"
+      - "traefik.http.routers.finance.server=finance-server"
+      - "traefik.http.services.finance-server.loadbalancer.server.url=http://host.docker.internal:8082"
+      - "traefik.http.middlewares.finance-stripprefix.stripprefix.prefixes=/api/finance"
+      - "traefik.http.routers.finance.middlewares=finance-stripprefix"
+
+  storage-proxy:
+    image: alpine
+    command: ["sleep", "infinity"]
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.storage.rule=PathPrefix(`/api/storage`)"
+      - "traefik.http.routers.storage.entrypoints=web"
+      - "traefik.http.routers.storage.server=storage-server"
+      - "traefik.http.services.storage-server.loadbalancer.server.url=http://host.docker.internal:8083"
+      - "traefik.http.middlewares.storage-stripprefix.stripprefix.prefixes=/api/storage"
+      - "traefik.http.routers.storage.middlewares=storage-stripprefix"
+
+volumes:
+  postgres_data:
+  minio_data:
+  traefik_data:

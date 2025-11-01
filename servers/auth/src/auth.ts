@@ -137,7 +137,7 @@ export const auth = betterAuth({
       getAdditionalUserInfoClaim: (
         user: any,
         scopes: string[],
-        client: any
+        client: any,
       ) => {
         const claims: Record<string, any> = {};
 
@@ -178,7 +178,7 @@ export const auth = betterAuth({
       const timestamp = new Date().toISOString();
       console.log(
         `[${timestamp}] [${level.toUpperCase()}] ${message}`,
-        ...args
+        ...args,
       );
     },
   },

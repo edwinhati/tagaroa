@@ -110,7 +110,7 @@ export function createLogger(context?: string): Logger {
     level: LogLevel,
     message: any,
     context?: string,
-    stack?: string
+    stack?: string,
   ) => {
     if (!shouldLog(level)) return;
 
@@ -219,7 +219,7 @@ export const httpMiddleware = (logger: Logger): MiddlewareHandler =>
     // Log request start
     logger.log(
       `${reqInfo.method} ${reqInfo.path} - ${reqInfo.ip || "unknown"}`,
-      "HTTP"
+      "HTTP",
     );
 
     try {
@@ -240,7 +240,7 @@ export const httpMiddleware = (logger: Logger): MiddlewareHandler =>
             : colors.green;
       logger.log(
         `${reqInfo.method} ${reqInfo.path} ${statusColor}${status}${colors.reset} - ${ms}ms`,
-        "HTTP"
+        "HTTP",
       );
     } catch (err) {
       const ms = Math.round(performance.now() - start);
@@ -253,7 +253,7 @@ export const httpMiddleware = (logger: Logger): MiddlewareHandler =>
       logger.error(
         `${reqInfo.method} ${reqInfo.path} - ${error.message} - ${ms}ms`,
         config.isDevelopment ? error.stack : undefined,
-        "HTTP"
+        "HTTP",
       );
 
       throw err; // Let Hono handle the actual response
