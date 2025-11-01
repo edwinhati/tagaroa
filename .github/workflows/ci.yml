@@ -144,27 +144,36 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: Setup Node.js
-        uses: actions/setup-node@v6
-        with:
-          node-version: ${{ env.NODE_VERSION }}
-
-      - name: Install semantic-release
-        run: |
-          npm install -g semantic-release @semantic-release/changelog @semantic-release/git @semantic-release/github
-
       - name: Generate pre-release version
         id: version
         run: |
-          # Get the next version without releasing
-          NEXT_VERSION=$(npx semantic-release --dry-run --no-ci | grep -oP 'The next release version is \K[0-9]+\.[0-9]+\.[0-9]+' || echo "0.0.0")
+          # Get the latest tag from git, fallback to 0.1.0 if no tags exist
+          LATEST_TAG=$(git describe --tags --abbrev=0 2>/dev/null || echo "v0.1.0")
+          echo "Latest tag found: ${LATEST_TAG}"
+
+          # Remove 'v' prefix if present
+          LATEST_VERSION=${LATEST_TAG#v}
+
+          # Parse version components, handle cases where version might not be semantic
+          if [[ $LATEST_VERSION =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+            IFS='.' read -r MAJOR MINOR PATCH <<< "$LATEST_VERSION"
+          else
+            # If no valid semantic version found, start with 0.1.0
+            MAJOR=0
+            MINOR=1
+            PATCH=0
+          fi
+
+          # Calculate next version - increment minor for pre-releases
+          NEXT_MINOR=$((MINOR + 1))
+          NEXT_VERSION="${MAJOR}.${NEXT_MINOR}.0"
 
           if [ "${{ github.event_name }}" = "pull_request" ]; then
-            # For PRs: v1.2.3-beta.pr123.abc1234
+            # For PRs: 1.2.0-beta.pr123.abc1234
             PR_NUMBER="${{ github.event.pull_request.number }}"
             VERSION="${NEXT_VERSION}-beta.pr${PR_NUMBER}.${GITHUB_SHA::8}"
           else
-            # For other branches: v1.2.3-alpha.feature-branch.abc1234
+            # For other branches: 1.2.0-alpha.feature-branch.abc1234
             BRANCH_NAME=$(echo "${{ github.ref_name }}" | sed 's/[^a-zA-Z0-9]/-/g' | tr '[:upper:]' '[:lower:]')
             VERSION="${NEXT_VERSION}-alpha.${BRANCH_NAME}.${GITHUB_SHA::8}"
           fi
