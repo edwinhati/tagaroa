@@ -1,4 +1,5 @@
 {
+  "tagFormat": "v${version}",
   "branches": [
     "main",
     {
