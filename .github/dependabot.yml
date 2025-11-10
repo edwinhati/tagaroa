@@ -3,7 +3,7 @@
 
 version: 2
 updates:
-  # Root package.json
+  # Root package.json (using Bun)
   - package-ecosystem: "npm"
     directory: "/"
     schedule:
@@ -77,7 +77,7 @@ updates:
       interval: "weekly"
     open-pull-requests-limit: 5
 
-  - package-ecosystem: "npm"
+  - package-ecosystem: "gomod"
     directory: "/servers/finance"
     schedule:
       interval: "weekly"
@@ -85,6 +85,13 @@ updates:
 
   - package-ecosystem: "npm"
     directory: "/servers/storage"
+    schedule:
+      interval: "weekly"
+    open-pull-requests-limit: 5
+
+  # Go packages
+  - package-ecosystem: "gomod"
+    directory: "/packages/shared/go"
     schedule:
       interval: "weekly"
     open-pull-requests-limit: 5
