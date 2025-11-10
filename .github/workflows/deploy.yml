@@ -33,6 +33,8 @@ jobs:
       fail-fast: false
       matrix:
         include:
+          - component: web-app
+            dockerfile: apps/web/Dockerfile
           - component: auth-app
             dockerfile: apps/auth/Dockerfile
             runtime: bun

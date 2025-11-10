@@ -11,7 +11,9 @@ export default function SignInPage() {
           className="flex items-center gap-2 self-center font-medium"
         >
           <Logo />
-          Tagaroa Capital
+          <span className="text-3xl font-semibold leading-tight tracking-tight">
+            Tagaroa
+          </span>
         </Link>
         <SignInForm />
       </div>
