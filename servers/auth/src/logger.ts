@@ -213,6 +213,7 @@ export const httpMiddleware = (logger: Logger): MiddlewareHandler =>
 
     // Make it available downstream
     c.set("requestId", requestId);
+    c.set("logger", logger);
 
     const reqInfo = buildRequestInfo(c, requestId);
 
@@ -246,16 +247,32 @@ export const httpMiddleware = (logger: Logger): MiddlewareHandler =>
       const ms = Math.round(performance.now() - start);
       const error = err as Error;
 
-      // Ensure header even on error paths
-      c.res?.headers?.set?.("x-request-id", requestId);
-
-      // Log error
+      // Log error with full stack in development
       logger.error(
         `${reqInfo.method} ${reqInfo.path} - ${error.message} - ${ms}ms`,
         config.isDevelopment ? error.stack : undefined,
         "HTTP",
       );
 
-      throw err; // Let Hono handle the actual response
+      const headers = new Headers(c.res?.headers ?? undefined);
+      headers.set("x-request-id", requestId);
+
+      if (config.isDevelopment) {
+        headers.set("content-type", "application/json");
+      }
+
+      const responseBody =
+        config.isDevelopment && error instanceof Error
+          ? JSON.stringify({
+              error: "Internal Server Error",
+              message: error.message,
+              requestId,
+            })
+          : null;
+
+      return new Response(responseBody, {
+        status: 500,
+        headers,
+      });
     }
   });
