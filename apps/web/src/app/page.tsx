@@ -1,6 +1,12 @@
 import { HeroSection } from "@/components/hero-section";
-import { HeaderSection } from "@/components/header-section";
 import { FooterSection } from "@/components/footer-section";
+import dynamic from "next/dynamic";
+
+const HeaderSection = dynamic(
+  () =>
+    import("@/components/header-section").then((mod) => mod.HeaderSection),
+  { ssr: false },
+);
 
 export default function HomePage() {
   return (
