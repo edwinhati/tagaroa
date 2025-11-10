@@ -49,7 +49,7 @@ jobs:
         run: bun install
 
       - name: Run Bun tests
-        run: bun run test
+        run: bun test
 
       - name: Run Go tests
         run: |
