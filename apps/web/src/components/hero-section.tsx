@@ -174,7 +174,9 @@ const AppComponent = () => {
               <span className="text-foreground align-baseline text-xl font-medium">
                 +18.2%
               </span>
-              <span className="text-muted-foreground text-xs">Annual Return</span>
+              <span className="text-muted-foreground text-xs">
+                Annual Return
+              </span>
             </div>
             <div className="flex h-5 items-center rounded bg-gradient-to-l from-emerald-400 to-indigo-600 px-2 text-xs text-white">
               2024
@@ -185,7 +187,9 @@ const AppComponent = () => {
               <span className="text-foreground align-baseline text-xl font-medium">
                 +12.4%
               </span>
-              <span className="text-muted-foreground text-xs">Annual Return</span>
+              <span className="text-muted-foreground text-xs">
+                Annual Return
+              </span>
             </div>
             <div className="text-foreground bg-muted flex h-5 w-2/3 items-center rounded px-2 text-xs dark:bg-white/20">
               2023
