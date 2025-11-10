@@ -5,6 +5,9 @@ import { TextEffect } from "@repo/ui/components/text-effect";
 import { AnimatedGroup } from "@repo/ui/components/animated-group";
 import { Mail, SendHorizonal } from "lucide-react";
 
+import { HeaderSection } from "@/components/header-section";
+import { FooterSection } from "@/components/footer-section";
+
 const transitionVariants = {
   item: {
     hidden: {
@@ -28,6 +31,7 @@ const transitionVariants = {
 export function HeroSection() {
   return (
     <>
+      <HeaderSection />
       <main className="overflow-hidden [--color-primary-foreground:var(--color-white)] [--color-primary:var(--color-green-600)]">
         <section>
           <div className="relative mx-auto max-w-6xl px-6 pb-20 pt-32 lg:pt-48">
@@ -114,6 +118,7 @@ export function HeroSection() {
           </div>
         </section>
       </main>
+      <FooterSection />
     </>
   );
 }
