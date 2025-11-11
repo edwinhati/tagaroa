@@ -7,7 +7,7 @@ require (
 	github.com/edwinhati/tagaroa/packages/shared/go v0.0.0
 	github.com/google/uuid v1.6.0
 	github.com/joho/godotenv v1.5.1
-	github.com/stretchr/testify v1.10.0
+	github.com/stretchr/testify v1.11.1
 	golang.org/x/time v0.5.0
 )
 
