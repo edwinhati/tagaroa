@@ -193,9 +193,7 @@ const getStatusBadge = (user?: UserWithRole | null) => {
   return <Badge variant="secondary">Active</Badge>;
 };
 
-export function UserDetailSheet(
-  props: Readonly<UserDetailSheetProps>,
-) {
+export function UserDetailSheet(props: Readonly<UserDetailSheetProps>) {
   const { user, open, onOpenChange, onUserUpdated, onUserDeleted } = props;
   const {
     localUser,
@@ -240,9 +238,6 @@ export function UserDetailSheet(
   const isAlreadyImpersonating = Boolean(
     currentSession?.session?.impersonatedBy,
   );
-  const impersonateDisabled =
-    isImpersonatingUser || isViewingCurrentUser || isAlreadyImpersonating;
-
   const {
     isSavingProfile,
     isUpdatingRole,
@@ -280,9 +275,8 @@ export function UserDetailSheet(
 
   const impersonateDisabled =
     isImpersonatingUser || isViewingCurrentUser || isAlreadyImpersonating;
-
   const currentRoleBadge = roleBadgeConfig[roleValue] ?? roleBadgeConfig.user;
-  const RoleBadgeIcon = currentRoleBadge.Icon;
+  const RoleBadgeIcon = currentRoleBadge?.Icon;
 
   const renderSessions = () => {
     if (sessionsLoading) {
@@ -301,7 +295,9 @@ export function UserDetailSheet(
       );
     }
     if (sessions.length === 0) {
-      return <p className="text-xs text-muted-foreground">No active sessions.</p>;
+      return (
+        <p className="text-xs text-muted-foreground">No active sessions.</p>
+      );
     }
     return (
       <div className="space-y-3">
@@ -565,7 +561,7 @@ export function UserDetailSheet(
                   </div>
                   <CardAction>
                     <Badge
-                      variant={currentRoleBadge.variant}
+                      variant={currentRoleBadge?.variant ?? "secondary"}
                       className="capitalize flex items-center gap-1"
                     >
                       {RoleBadgeIcon ? (
@@ -824,10 +820,7 @@ function useLocalUserFormState(user: UserWithRole | null) {
   };
 }
 
-function useUserSessionsManager(
-  localUser: UserWithRole | null,
-  open: boolean,
-) {
+function useUserSessionsManager(localUser: UserWithRole | null, open: boolean) {
   const [sessions, setSessions] = useState<SessionWithImpersonatedBy[]>([]);
   const [sessionsLoading, setSessionsLoading] = useState(false);
   const [sessionsError, setSessionsError] = useState<string | null>(null);
@@ -1043,7 +1036,9 @@ function useUserDetailActions({
         toast.success("User role updated.");
       } catch (error) {
         const message =
-          error instanceof Error ? error.message : "Failed to update user role.";
+          error instanceof Error
+            ? error.message
+            : "Failed to update user role.";
         toast.error(message);
       } finally {
         setIsUpdatingRole(false);
@@ -1128,9 +1123,7 @@ function useUserDetailActions({
       navigateTo("/dashboard");
     } catch (error) {
       const message =
-        error instanceof Error
-          ? error.message
-          : "Failed to impersonate user.";
+        error instanceof Error ? error.message : "Failed to impersonate user.";
       toast.error(message);
     } finally {
       setIsImpersonatingUser(false);

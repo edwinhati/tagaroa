@@ -272,8 +272,7 @@ async function proxyCommon<UserT extends User | UserWithRole>(
   return NextResponse.next();
 }
 
-type CommonResult =
-  Awaited<ReturnType<typeof handleCommonProxyLogic>>;
+type CommonResult = Awaited<ReturnType<typeof handleCommonProxyLogic>>;
 
 type ContinuationResult =
   | { kind: "response"; response: NextResponse }
@@ -310,9 +309,7 @@ function evaluateCommonResult(
   }
 }
 
-type FetchUserOutcome<UserT> =
-  | { user: UserT }
-  | { response: NextResponse };
+type FetchUserOutcome<UserT> = { user: UserT } | { response: NextResponse };
 
 async function fetchUserOrRedirect<UserT extends User | UserWithRole>(
   request: NextRequest,
@@ -358,7 +355,9 @@ function enforceVerificationRequirement(
   if (!requireVerified || user.emailVerified) {
     return null;
   }
-  return NextResponse.redirect(new URL(`${authAppUrl}${verifyPath}`, request.nextUrl));
+  return NextResponse.redirect(
+    new URL(`${authAppUrl}${verifyPath}`, request.nextUrl),
+  );
 }
 
 type RolePolicyOptions = Pick<
@@ -391,7 +390,10 @@ function enforceRolePolicy(
     if (redirectUrl) {
       return redirectToApp(request, redirectUrl);
     }
-    return redirectToApp(request, resolveDefaultRoleRedirect(isUserAdmin, authAppUrl));
+    return redirectToApp(
+      request,
+      resolveDefaultRoleRedirect(isUserAdmin, authAppUrl),
+    );
   }
 
   return null;

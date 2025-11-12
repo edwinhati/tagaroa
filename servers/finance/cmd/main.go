@@ -24,7 +24,23 @@ import (
 	"github.com/joho/godotenv"
 )
 
+var (
+	mustLoadConfigFn      = config.LoadConfig
+	mustConnectDatabaseFn = client.ConnectDatabase
+	mustInitOIDCClientFn  = client.NewOIDCClient
+	startServerFn         = func(server *http.Server) error { return server.ListenAndServe() }
+	logFatalfFn           = log.Fatalf
+)
+
+var runFn = run
+
 func main() {
+	if err := runFn(); err != nil {
+		logFatalfFn("Application error: %v", err)
+	}
+}
+
+func run() error {
 	loadEnvFile()
 
 	cfg := mustLoadConfig()
@@ -46,6 +62,7 @@ func main() {
 
 	<-ctx.Done()
 	gracefulShutdown(server)
+	return nil
 }
 
 func loadEnvFile() {

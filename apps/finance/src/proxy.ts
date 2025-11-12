@@ -19,6 +19,6 @@ export const config = {
      * - favicon.ico (favicon file)
      * - public folder files (images, etc.)
      */
-    String.raw`/((?!api|_next/static|_next/image|favicon.ico|.*\.png$|.*\.jpg$|.*\.jpeg$|.*\.gif$|.*\.svg$|.*\.ico$).*)`,
+    "/((?!api|_next/static|_next/image|favicon\\.ico|.*\\.png$|.*\\.jpg$|.*\\.jpeg$|.*\\.gif$|.*\\.svg$|.*\\.ico$).*)",
   ],
 };

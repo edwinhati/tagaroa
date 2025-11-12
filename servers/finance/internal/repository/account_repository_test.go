@@ -1636,6 +1636,32 @@ func TestBuildWhereEmptySlice(t *testing.T) {
 	assert.Equal(t, []string{}, args[0])
 }
 
+func TestWhereBuilderAddSliceConditionEmptySlice(t *testing.T) {
+	builder := newWhereBuilder(whereBuildOpts{
+		excludeDeleted: false,
+	})
+
+	builder.addSliceCondition("type", []string{})
+
+	assert.Empty(t, builder.conditions)
+	assert.Empty(t, builder.args)
+	assert.Equal(t, 1, builder.argIndex) // arg index should remain untouched
+}
+
+func TestWhereBuilderAddSliceConditionPopulatesPlaceholders(t *testing.T) {
+	builder := newWhereBuilder(whereBuildOpts{
+		excludeDeleted: true,
+	})
+
+	builder.addSliceCondition("type", []string{"BANK", "CASH"})
+
+	require.Len(t, builder.conditions, 2) // includes is_deleted condition + IN clause
+	assert.Equal(t, isDeletedCondition, builder.conditions[0])
+	assert.Equal(t, "type IN ($1,$2)", builder.conditions[1])
+	assert.Equal(t, []any{"BANK", "CASH"}, builder.args)
+	assert.Equal(t, 3, builder.argIndex) // two values consumed
+}
+
 // Test buildWhere where all fields are skipped resulting in empty conditions
 func TestBuildWhereAllFieldsSkipped(t *testing.T) {
 	// Test the case where all fields are skipped, resulting in len(conditions) == 0

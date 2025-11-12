@@ -87,17 +87,18 @@ function formatTimestamp(): string {
   });
 }
 
-function formatMessage(message: any): string {
+const formatMessage = (message: any): string => {
   if (typeof message === "string") return message;
   if (typeof message === "object") return JSON.stringify(message, null, 2);
   return String(message);
-}
+};
+const [CONTEXT_PREFIX, CONTEXT_SUFFIX] = (() => {
+  const prefix = `${colors.yellow}[`;
+  const suffix = `]${colors.reset} `;
+  return [prefix, suffix] as const;
+})();
 
-function formatContext(context?: string): string {
-  return context ? `${colors.yellow}[${context}]${colors.reset} ` : "";
-}
-
-export function createLogger(context?: string): Logger {
+export const createLogger = (context?: string): Logger => {
   const minLevel = parseLogLevel(config.logLevel);
   let currentContext = context || "";
 
@@ -115,7 +116,10 @@ export function createLogger(context?: string): Logger {
     const timestamp = formatTimestamp();
     const levelColor = levelColors[level];
     const levelLabel = levelLabels[level];
-    const contextStr = formatContext(context || currentContext);
+    const resolvedContext = context || currentContext;
+    const contextStr = resolvedContext
+      ? `${CONTEXT_PREFIX}${resolvedContext}${CONTEXT_SUFFIX}`
+      : "";
     const messageStr = formatMessage(message);
 
     const logLine = `${colors.green}[Auth Server] ${process.pid}${colors.reset}  - ${colors.dim}${timestamp}${colors.reset}     ${levelColor}${levelLabel}${colors.reset} ${contextStr}${messageStr}`;
@@ -170,7 +174,7 @@ export function createLogger(context?: string): Logger {
   };
 
   return logger;
-}
+};
 
 interface RequestInfo {
   requestId: string;

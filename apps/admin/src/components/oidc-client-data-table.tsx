@@ -564,7 +564,11 @@ export function OIDCClientDataTable() {
 
                   if (header.isPlaceholder) {
                     return (
-                      <TableHead key={header.id} style={widthStyle} className="h-11" />
+                      <TableHead
+                        key={header.id}
+                        style={widthStyle}
+                        className="h-11"
+                      />
                     );
                   }
 
@@ -578,7 +582,8 @@ export function OIDCClientDataTable() {
                   let headerContent = headerLabel;
 
                   if (canSort) {
-                    const toggleSorting = header.column.getToggleSortingHandler();
+                    const toggleSorting =
+                      header.column.getToggleSortingHandler();
                     headerContent = (
                       <button
                         type="button"
@@ -608,7 +613,11 @@ export function OIDCClientDataTable() {
                   }
 
                   return (
-                    <TableHead key={header.id} style={widthStyle} className="h-11">
+                    <TableHead
+                      key={header.id}
+                      style={widthStyle}
+                      className="h-11"
+                    >
                       {headerContent}
                     </TableHead>
                   );

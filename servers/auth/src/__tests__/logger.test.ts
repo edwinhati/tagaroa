@@ -74,6 +74,22 @@ describe("createLogger", () => {
     expect(payload.message).toBe("trace test");
   });
 
+  test("supports info alias", () => {
+    configMock.logLevel = "info";
+    const logger = createLogger();
+    const { calls, restore } = captureConsole();
+
+    try {
+      logger.debug("should not log");
+      logger.log("should log");
+    } finally {
+      restore();
+    }
+
+    expect(calls.length).toBe(1);
+    expect(String(calls[0][0])).toContain("should log");
+  });
+
   test("falls back to info when log level is unknown", () => {
     configMock.logLevel = "unknown-level";
     const logger = createLogger();
@@ -198,6 +214,95 @@ describe("httpMiddleware", () => {
       .filter((line): line is string => line !== null);
     expect(errorLines).toEqual(
       expect.arrayContaining([expect.stringContaining("middleware failure")]),
+    );
+  });
+
+  test("logs success and handles various ip headers", async () => {
+    const logger = createLogger("HTTP");
+    const { calls, restore } = captureConsole();
+    const setMock = mock(() => {});
+
+    const middleware = httpMiddleware(logger);
+
+    const run = async (headers: Record<string, string>) => {
+      const request = new Request("http://example.com/success", {
+        method: "GET",
+        headers,
+      });
+      const context: any = {
+        req: {
+          raw: request,
+          url: request.url,
+          method: request.method,
+          header: (name: string) => request.headers.get(name),
+        },
+        res: { status: 200, headers: new Headers() },
+        set: setMock,
+      };
+      await middleware(context, async () => {});
+    };
+
+    await run({ "x-forwarded-for": "x-forwarded-for-ip" });
+    await run({ "cf-connecting-ip": "cf-connecting-ip-ip" });
+    await run({ "x-real-ip": "x-real-ip-ip" });
+    // No request id
+    await run({});
+
+    restore();
+
+    const logLines = calls
+      .map(([line]) =>
+        typeof line === "string"
+          ? line.replaceAll(ansiEscapePattern, "")
+          : null,
+      )
+      .filter((line): line is string => line !== null);
+
+    expect(logLines).toEqual(
+      expect.arrayContaining([
+        expect.stringContaining("GET /success - x-forwarded-for-ip"),
+        expect.stringContaining("GET /success 200"),
+        expect.stringContaining("GET /success - cf-connecting-ip-ip"),
+        expect.stringContaining("GET /success - x-real-ip-ip"),
+        expect.stringContaining("GET /success - unknown"),
+      ]),
+    );
+  });
+
+  test("logs 3xx and 4xx status codes with correct colors", async () => {
+    const logger = createLogger("HTTP");
+    const { calls, restore } = captureConsole();
+    const setMock = mock(() => {});
+    const middleware = httpMiddleware(logger);
+
+    const run = async (status: number) => {
+      const request = new Request(`http://example.com/${status}`);
+      const context: any = {
+        req: {
+          raw: request,
+          url: request.url,
+          method: "GET",
+          header: (name: string) => request.headers.get(name),
+        },
+        res: { status, headers: new Headers() },
+        set: setMock,
+      };
+      await middleware(context, async () => {});
+    };
+
+    await run(302);
+    await run(404);
+
+    restore();
+
+    const logLines = calls.map(([line]) => line);
+    expect(logLines).toEqual(
+      expect.arrayContaining([
+        // 302 should have yellow color
+        expect.stringContaining("\x1b[33m302\x1b[0m"),
+        // 404 should have red color
+        expect.stringContaining("\x1b[31m404\x1b[0m"),
+      ]),
     );
   });
 });

@@ -18,6 +18,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
+	"github.com/stretchr/testify/require"
 )
 
 const (
@@ -415,6 +416,7 @@ func TestAccountHandlerUpdateAccountVariants(t *testing.T) {
 			name: "success",
 			req:  authedReq("PUT", accountPathWithID(accountID), body, userID),
 			setup: func() {
+				updateInput := updateInputFromRequest(body)
 				mockSvc.
 					On("UpdateAccount", mock.Anything, accountID, updateInput, userID).
 					Return(okAccount, nil).Once()
@@ -446,6 +448,7 @@ func TestAccountHandlerUpdateAccountVariants(t *testing.T) {
 			name: "not found",
 			req:  authedReq("PUT", accountPathWithID(accountID), body, userID),
 			setup: func() {
+				updateInput := updateInputFromRequest(body)
 				mockSvc.
 					On("UpdateAccount", mock.Anything, accountID, updateInput, userID).
 					Return(nil, service.ErrAccountNotFound).Once()
@@ -456,6 +459,7 @@ func TestAccountHandlerUpdateAccountVariants(t *testing.T) {
 			name: "access denied",
 			req:  authedReq("PUT", accountPathWithID(accountID), body, userID),
 			setup: func() {
+				updateInput := updateInputFromRequest(body)
 				mockSvc.
 					On("UpdateAccount", mock.Anything, accountID, updateInput, userID).
 					Return(nil, service.ErrAccessDenied).Once()
@@ -466,6 +470,7 @@ func TestAccountHandlerUpdateAccountVariants(t *testing.T) {
 			name: serviceErrorCaseName,
 			req:  authedReq("PUT", accountPathWithID(accountID), body, userID),
 			setup: func() {
+				updateInput := updateInputFromRequest(body)
 				mockSvc.
 					On("UpdateAccount", mock.Anything, accountID, updateInput, userID).
 					Return(nil, fmt.Errorf("boom")).Once()
@@ -523,6 +528,66 @@ func TestNewAccountHandler(t *testing.T) {
 	assert.NotNil(t, h)
 	assert.Equal(t, oidc, h.oidcClient)
 	assert.Equal(t, svc, h.accountService)
+}
+
+func TestClampLimit(t *testing.T) {
+	tests := []struct {
+		name     string
+		value    int
+		expected int
+	}{
+		{"zero defaults to min", 0, minQueryLimit},
+		{"negative defaults to min", -10, minQueryLimit},
+		{"below min clamps up", minQueryLimit - 2, minQueryLimit},
+		{"within range stays same", 20, 20},
+		{"above max clamps down", maxQueryLimit + 5, maxQueryLimit},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			assert.Equal(t, tt.expected, clampLimit(tt.value))
+		})
+	}
+}
+
+func TestConvertAggregations(t *testing.T) {
+	t.Run("nil result returns nil", func(t *testing.T) {
+		assert.Nil(t, convertAggregations(nil))
+	})
+
+	t.Run("empty aggregations return nil", func(t *testing.T) {
+		result := &service.GetAccountsResult{}
+		assert.Nil(t, convertAggregations(result))
+	})
+
+	t.Run("populates aggregation buckets", func(t *testing.T) {
+		result := &service.GetAccountsResult{
+			TypeAggregations: map[string]util.AggregationResult{
+				"BANK": {Count: 2, Sum: 200},
+			},
+			CurrencyAggregations: map[string]util.AggregationResult{
+				"USD": {Count: 3, Sum: 300},
+			},
+		}
+
+		got := convertAggregations(result)
+		require.NotNil(t, got)
+		assert.Len(t, *got, 2)
+
+		typeBuckets, ok := (*got)["type"]
+		require.True(t, ok)
+		assert.Len(t, typeBuckets, 1)
+		assert.Equal(t, "BANK", typeBuckets[0].Key)
+		assert.Equal(t, int64(2), typeBuckets[0].Count)
+		assert.Equal(t, 200.0, typeBuckets[0].Sum)
+
+		currencyBuckets, ok := (*got)["currency"]
+		require.True(t, ok)
+		assert.Len(t, currencyBuckets, 1)
+		assert.Equal(t, "USD", currencyBuckets[0].Key)
+		assert.Equal(t, int64(3), currencyBuckets[0].Count)
+		assert.Equal(t, 300.0, currencyBuckets[0].Sum)
+	})
 }
 
 /* ------------------------------- utils -------------------------------- */

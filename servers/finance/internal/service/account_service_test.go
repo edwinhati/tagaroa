@@ -54,14 +54,11 @@ func (m *MockAccountRepository) Update(ctx context.Context, account *model.Accou
 }
 
 func (m *MockAccountRepository) GetTypeAggregations(ctx context.Context, where map[string]any) (map[string]util.AggregationResult, error) {
-	return m.callAggregation(ctx, where)
+	args := m.Called(ctx, where)
+	return parseAggregationArgs(args)
 }
 
 func (m *MockAccountRepository) GetCurrencyAggregations(ctx context.Context, where map[string]any) (map[string]util.AggregationResult, error) {
-	return m.callAggregation(ctx, where)
-}
-
-func (m *MockAccountRepository) callAggregation(ctx context.Context, where map[string]any) (map[string]util.AggregationResult, error) {
 	args := m.Called(ctx, where)
 	return parseAggregationArgs(args)
 }
@@ -244,7 +241,7 @@ func TestAccountServiceUpdateAccount(t *testing.T) {
 	mockRepo.On("FindUnique", ctx, params).Return(existingAccount, nil)
 	mockRepo.On("Update", ctx, mock.AnythingOfType(mockModelAccountType)).Return(nil)
 
-	account, err := service.UpdateAccount(ctx, accountID, service.UpdateAccountInput{
+	account, err := service.UpdateAccount(ctx, accountID, UpdateAccountInput{
 		Name:    &newName,
 		Balance: &newBalance,
 	}, userID)
@@ -275,7 +272,7 @@ func TestAccountServiceUpdateAccountNotFound(t *testing.T) {
 	mockRepo.On("FindUnique", ctx, params).Return(nil, nil)
 
 	newName := updatedAccountName
-	account, err := service.UpdateAccount(ctx, accountID, service.UpdateAccountInput{
+	account, err := service.UpdateAccount(ctx, accountID, UpdateAccountInput{
 		Name: &newName,
 	}, userID)
 
@@ -319,7 +316,7 @@ func TestAccountServiceUpdateAccountAllFields(t *testing.T) {
 	mockRepo.On("FindUnique", ctx, params).Return(existingAccount, nil)
 	mockRepo.On("Update", ctx, mock.AnythingOfType(mockModelAccountType)).Return(nil)
 
-	account, err := service.UpdateAccount(ctx, accountID, service.UpdateAccountInput{
+	account, err := service.UpdateAccount(ctx, accountID, UpdateAccountInput{
 		Name:      &newName,
 		Currency:  &newCurrency,
 		Notes:     &newNotes,
@@ -602,7 +599,7 @@ func TestAccountServiceUpdateAccountRepositoryError(t *testing.T) {
 	mockRepo.On("FindUnique", ctx, params).Return(existingAccount, nil)
 	mockRepo.On("Update", ctx, mock.AnythingOfType(mockModelAccountType)).Return(fmt.Errorf(databaseErrorMsg))
 
-	account, err := service.UpdateAccount(ctx, accountID, service.UpdateAccountInput{
+	account, err := service.UpdateAccount(ctx, accountID, UpdateAccountInput{
 		Name: &newName,
 	}, userID)
 
@@ -776,7 +773,7 @@ func TestAccountServiceUpdateAccountFindUniqueError(t *testing.T) {
 	mockRepo.On("FindUnique", ctx, params).Return(nil, fmt.Errorf(databaseErrorMsg))
 
 	newName := updatedAccountName
-	account, err := service.UpdateAccount(ctx, accountID, service.UpdateAccountInput{
+	account, err := service.UpdateAccount(ctx, accountID, UpdateAccountInput{
 		Name: &newName,
 	}, userID)
 
@@ -816,7 +813,7 @@ func TestAccountServiceUpdateAccountIsDeletedFalse(t *testing.T) {
 	mockRepo.On("FindUnique", ctx, params).Return(existingAccount, nil)
 	mockRepo.On("Update", ctx, mock.AnythingOfType(mockModelAccountType)).Return(nil)
 
-	account, err := service.UpdateAccount(ctx, accountID, service.UpdateAccountInput{
+	account, err := service.UpdateAccount(ctx, accountID, UpdateAccountInput{
 		IsDeleted: &isDeleted,
 	}, userID)
 

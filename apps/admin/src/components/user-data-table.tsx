@@ -583,7 +583,11 @@ export function UserDataTable() {
 
                   if (header.isPlaceholder) {
                     return (
-                      <TableHead key={header.id} style={widthStyle} className="h-11" />
+                      <TableHead
+                        key={header.id}
+                        style={widthStyle}
+                        className="h-11"
+                      />
                     );
                   }
 
@@ -597,7 +601,8 @@ export function UserDataTable() {
                   let headerContent = headerLabel;
 
                   if (canSort) {
-                    const toggleSorting = header.column.getToggleSortingHandler();
+                    const toggleSorting =
+                      header.column.getToggleSortingHandler();
                     headerContent = (
                       <button
                         type="button"
@@ -627,7 +632,11 @@ export function UserDataTable() {
                   }
 
                   return (
-                    <TableHead key={header.id} style={widthStyle} className="h-11">
+                    <TableHead
+                      key={header.id}
+                      style={widthStyle}
+                      className="h-11"
+                    >
                       {headerContent}
                     </TableHead>
                   );

@@ -82,7 +82,9 @@ export const fileApi = {
   },
 };
 
-async function buildHeaders(init: ApiRequestInit): Promise<Record<string, string>> {
+async function buildHeaders(
+  init: ApiRequestInit,
+): Promise<Record<string, string>> {
   const headers: Record<string, string> = {
     ...(init.headers ?? {}),
   };
@@ -95,7 +97,9 @@ async function buildHeaders(init: ApiRequestInit): Promise<Record<string, string
   return headers;
 }
 
-async function resolveAuthHeader(authEnabled?: boolean): Promise<string | undefined> {
+async function resolveAuthHeader(
+  authEnabled?: boolean,
+): Promise<string | undefined> {
   if (authEnabled === false) {
     return undefined;
   }
@@ -121,7 +125,10 @@ async function fetchAccessToken(): Promise<string | undefined> {
   return session?.session.token;
 }
 
-function buildBody(init: ApiRequestInit, headers: Record<string, string>): BodyInit | undefined {
+function buildBody(
+  init: ApiRequestInit,
+  headers: Record<string, string>,
+): BodyInit | undefined {
   if (init.formData) {
     return init.formData;
   }
@@ -132,7 +139,9 @@ function buildBody(init: ApiRequestInit, headers: Record<string, string>): BodyI
   return undefined;
 }
 
-async function parseJsonResponse<T>(response: Response): Promise<JsonEnvelope<T> | undefined> {
+async function parseJsonResponse<T>(
+  response: Response,
+): Promise<JsonEnvelope<T> | undefined> {
   try {
     return (await response.json()) as JsonEnvelope<T>;
   } catch {
@@ -144,7 +153,12 @@ function extractErrorMessage<T>(
   response: Response,
   parsed?: JsonEnvelope<T>,
 ): string {
-  if (parsed && typeof parsed === "object" && "error" in parsed && parsed.error) {
+  if (
+    parsed &&
+    typeof parsed === "object" &&
+    "error" in parsed &&
+    parsed.error
+  ) {
     return parsed.error;
   }
   return response.statusText || "Request failed";

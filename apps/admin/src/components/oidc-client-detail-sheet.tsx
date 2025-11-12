@@ -659,18 +659,18 @@ export function OIDCClientDetailSheet({
 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div>
-                      <p className="text-sm font-medium text-muted-foreground">
-                        Created
-                      </p>
+                    <p className="text-sm font-medium text-muted-foreground">
+                      Created
+                    </p>
                     <div className="mt-1 text-sm">
                       {client.createdAt.toLocaleString()}
                     </div>
                   </div>
 
                   <div>
-                      <p className="text-sm font-medium text-muted-foreground">
-                        Last Updated
-                      </p>
+                    <p className="text-sm font-medium text-muted-foreground">
+                      Last Updated
+                    </p>
                     <div className="mt-1 text-sm">
                       {client.updatedAt.toLocaleString()}
                     </div>

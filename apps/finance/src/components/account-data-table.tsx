@@ -153,6 +153,23 @@ const columns: ColumnDef<Account>[] = [
   },
 ];
 
+const resolveColumnKey = (
+  column: ColumnDef<Account>,
+  fallbackIndex: number,
+) => {
+  if (column.id) {
+    return column.id;
+  }
+  if ("accessorKey" in column) {
+    const accessorKey = (column as { accessorKey?: string | number })
+      .accessorKey;
+    if (accessorKey !== undefined) {
+      return accessorKey.toString();
+    }
+  }
+  return `col-${fallbackIndex}`;
+};
+
 export function AccountDataTable() {
   const [isMounted, setIsMounted] = useState(false);
 
@@ -433,7 +450,11 @@ function AccountDataTableContent() {
 
                   if (header.isPlaceholder) {
                     return (
-                      <TableHead key={header.id} style={widthStyle} className="h-11" />
+                      <TableHead
+                        key={header.id}
+                        style={widthStyle}
+                        className="h-11"
+                      />
                     );
                   }
 
@@ -446,7 +467,8 @@ function AccountDataTableContent() {
                   let headerContent = headerLabel;
 
                   if (canSort) {
-                    const toggleSorting = header.column.getToggleSortingHandler();
+                    const toggleSorting =
+                      header.column.getToggleSortingHandler();
                     headerContent = (
                       <button
                         type="button"
@@ -476,7 +498,11 @@ function AccountDataTableContent() {
                   }
 
                   return (
-                    <TableHead key={header.id} style={widthStyle} className="h-11">
+                    <TableHead
+                      key={header.id}
+                      style={widthStyle}
+                      className="h-11"
+                    >
                       {headerContent}
                     </TableHead>
                   );
@@ -490,9 +516,7 @@ function AccountDataTableContent() {
                 return skeletonRowKeys.map((rowKey) => (
                   <TableRow key={rowKey} className="pointer-events-none">
                     {columns.map((column, cellIndex) => {
-                      const columnKey = String(
-                        column.id ?? column.accessorKey ?? cellIndex,
-                      );
+                      const columnKey = resolveColumnKey(column, cellIndex);
                       return (
                         <TableCell key={`${columnKey}-${rowKey}`}>
                           <Skeleton

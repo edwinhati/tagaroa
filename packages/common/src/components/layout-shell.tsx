@@ -1,7 +1,6 @@
 import "@repo/ui/styles/globals.css";
 import React, { Suspense } from "react";
 import { Loading } from "@repo/common/components/loading";
-import { geistMono, geistSans } from "@repo/common/lib/fonts";
 import { AppProvider } from "@repo/common/providers/app-provider";
 
 type LayoutShellProps = {
@@ -17,9 +16,7 @@ export function LayoutShell({
 }: Readonly<LayoutShellProps>) {
   return (
     <html lang={lang} suppressHydrationWarning>
-      <body
-        className={`${geistSans.variable} ${geistMono.variable} antialiased ${bodyClassName} mr-1`}
-      >
+      <body className={`antialiased ${bodyClassName} mr-1`}>
         <AppProvider>
           <Suspense
             fallback={
