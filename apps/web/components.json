@@ -5,20 +5,18 @@
   "tsx": true,
   "tailwind": {
     "config": "",
-    "css": "src/styles/globals.css",
+    "css": "../../packages/ui/src/styles/globals.css",
     "baseColor": "neutral",
     "cssVariables": true,
     "prefix": ""
   },
   "iconLibrary": "lucide",
   "aliases": {
-    "components": "@repo/ui/components",
+    "components": "@/components",
     "utils": "@repo/ui/lib/utils",
     "ui": "@repo/ui/components",
-    "lib": "@repo/ui/lib",
-    "hooks": "@repo/ui/hooks"
+    "lib": "@/lib",
+    "hooks": "@/hooks"
   },
-  "registries": {
-    "@tailark": "https://tailark.com/r/{name}.json"
-  }
+  "registries": {}
 }

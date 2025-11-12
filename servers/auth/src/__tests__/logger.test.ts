@@ -85,9 +85,7 @@ describe("createLogger", () => {
     }
 
     expect(calls.length).toBe(1);
-    expect(
-      String(calls[0][0]).includes("should log"),
-    ).toBeTruthy();
+    expect(String(calls[0][0]).includes("should log")).toBeTruthy();
   });
 
   test("formats context, objects and stack traces in development", () => {
@@ -115,19 +113,30 @@ describe("createLogger", () => {
     );
 
     expect(
-      strippedCalls.some((line) => typeof line === "string" && line.includes("[Ctx]")),
+      strippedCalls.some(
+        (line) => typeof line === "string" && line.includes("[Ctx]"),
+      ),
     ).toBeTruthy();
     expect(
-      strippedCalls.some((line) => typeof line === "string" && line.includes('"message": "test"')),
+      strippedCalls.some(
+        (line) =>
+          typeof line === "string" && line.includes('"message": "test"'),
+      ),
     ).toBeTruthy();
     expect(
-      strippedCalls.some((line) => typeof line === "string" && line.includes("42")),
+      strippedCalls.some(
+        (line) => typeof line === "string" && line.includes("42"),
+      ),
     ).toBeTruthy();
     expect(
-      strippedCalls.some((line) => typeof line === "string" && line.includes("stack-trace")),
+      strippedCalls.some(
+        (line) => typeof line === "string" && line.includes("stack-trace"),
+      ),
     ).toBeTruthy();
     expect(
-      strippedCalls.some((line) => typeof line === "string" && line.includes("hono message")),
+      strippedCalls.some(
+        (line) => typeof line === "string" && line.includes("hono message"),
+      ),
     ).toBeTruthy();
   });
 
@@ -145,9 +154,7 @@ describe("createLogger", () => {
     }
 
     expect(calls.length).toBe(1);
-    expect(
-      String(calls[0][0]).includes("should appear"),
-    ).toBeTruthy();
+    expect(String(calls[0][0]).includes("should appear")).toBeTruthy();
   });
 });
 
@@ -193,7 +200,10 @@ describe("httpMiddleware", () => {
     expect(setMock).toHaveBeenCalledWith("requestId", "middleware-test");
     expect(setMock).toHaveBeenCalledWith("logger", logger);
     expect(
-      calls.some(([line]) => typeof line === "string" && line.includes("middleware failure")),
+      calls.some(
+        ([line]) =>
+          typeof line === "string" && line.includes("middleware failure"),
+      ),
     ).toBeTruthy();
   });
 });

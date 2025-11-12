@@ -1,4 +1,12 @@
-import { beforeAll, afterAll, beforeEach, describe, expect, test, mock } from "bun:test";
+import {
+  beforeAll,
+  afterAll,
+  beforeEach,
+  describe,
+  expect,
+  test,
+  mock,
+} from "bun:test";
 import { config } from "../config";
 
 const handlerMock = mock(async () => new Response("handled"));
@@ -38,7 +46,9 @@ const { createApp } = await import("../app");
 describe("auth server app", () => {
   beforeEach(() => {
     handlerMock.mockReset();
-    handlerMock.mockImplementation(async () => new Response("handled", { status: 200 }));
+    handlerMock.mockImplementation(
+      async () => new Response("handled", { status: 200 }),
+    );
   });
 
   test("routes auth requests through the better-auth handler", async () => {
@@ -53,7 +63,9 @@ describe("auth server app", () => {
   });
 
   test("generates a request id when one is not provided", async () => {
-    handlerMock.mockImplementation(async () => new Response(null, { status: 204 }));
+    handlerMock.mockImplementation(
+      async () => new Response(null, { status: 204 }),
+    );
     const { app } = createApp();
     const response = await app.request("/api/auth/ping", { method: "GET" });
 
