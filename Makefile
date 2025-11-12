@@ -8,7 +8,7 @@
 # Project Configuration
 PROJECT_NAME := registry.gitlab.com/tagaroa
 DOCKER_REGISTRY := registry.gitlab.com/tagaroa
-GO_VERSION := 1.23.4
+GO_VERSION := 1.24.0
 
 # Package Managers
 NODE_PKG_MANAGER := bun
@@ -22,7 +22,7 @@ BUILD_DIR := build
 BIN_DIR := $(BUILD_DIR)/bin
 
 # Node.js Apps
-NODE_APPS := auth admin finance
+NODE_APPS := web auth admin finance
 NODE_SERVERS := auth
 
 # Go Servers
@@ -162,6 +162,32 @@ clean: ## Clean all build artifacts
 	@echo "$(GREEN)All build artifacts cleaned!$(NC)"
 
 # =============================================================================
+# QUALITY COMMANDS
+# =============================================================================
+
+.PHONY: lint
+lint: lint-node lint-go ## Run all lint checks
+	@echo "$(GREEN)All lint checks passed!$(NC)"
+
+.PHONY: lint-node
+lint-node: ## Run lint checks for Node.js workspaces
+	@echo "$(BLUE)Running Node.js lint checks...$(NC)"
+	@$(NODE_PKG_MANAGER) run lint
+	@echo "$(GREEN)Node.js lint checks passed!$(NC)"
+
+.PHONY: lint-go
+lint-go: ## Run lint checks for Go servers
+	@echo "$(BLUE)Running Go lint checks...$(NC)"
+	@for server in $(GO_SERVERS); do \
+		if [ -d "servers/$$server" ]; then \
+			echo "$(YELLOW)Linting Go server: $$server$(NC)"; \
+			cd servers/$$server && \
+			$(GO_CMD) vet ./...; \
+		fi; \
+	done
+	@echo "$(GREEN)Go lint checks passed!$(NC)"
+
+# =============================================================================
 # TEST COMMANDS
 # =============================================================================
 
@@ -177,6 +203,9 @@ test-apps: ## Run tests for Node.js apps
 .PHONY: test-servers
 test-servers: ## Run tests for all servers
 	@echo "$(BLUE)Running server tests...$(NC)"
+	@for server in $(NODE_SERVERS); do \
+		$(MAKE) test-server SERVER=$$server; \
+	done
 	@for server in $(GO_SERVERS); do \
 		$(MAKE) test-server SERVER=$$server; \
 	done
@@ -197,8 +226,12 @@ test-server: ## Run tests for specific server (SERVER=name)
 		cd servers/$(SERVER) && \
 		$(GO_CMD) test -v ./...; \
 		echo "$(GREEN)Go server $(SERVER) tests completed!$(NC)"; \
+	elif [ -f "servers/$(SERVER)/package.json" ]; then \
+		cd servers/$(SERVER) && \
+		$(NODE_PKG_MANAGER) test; \
+		echo "$(GREEN)Node server $(SERVER) tests completed!$(NC)"; \
 	else \
-		echo "$(YELLOW)Skipping $(SERVER) - not a Go server$(NC)"; \
+		echo "$(YELLOW)Skipping $(SERVER) - no recognizable test target$(NC)"; \
 	fi
 
 .PHONY: test-watch
@@ -320,11 +353,11 @@ db-init: ## Initialize databases
 	@echo "$(BLUE)Initializing databases...$(NC)"
 	@docker-compose up -d postgres
 	@sleep 5
-	@for db in auth finance file; do \
+	@for db in auth finance storage n8n; do \
 		docker-compose exec postgres psql -U postgres -tAc "SELECT 1 FROM pg_database WHERE datname='$$db'" | grep -q 1 || \
 		docker-compose exec postgres psql -U postgres -c "CREATE DATABASE $$db;"; \
 	done
-	@for user in auth finance file; do \
+	@for user in auth finance storage n8n; do \
 		if ! docker-compose exec postgres psql -U postgres -tAc "SELECT 1 FROM pg_roles WHERE rolname='$$user'" | grep -q 1; then \
 			docker-compose exec postgres psql -U postgres -c "CREATE USER $$user WITH PASSWORD '$$user';"; \
 		fi; \
