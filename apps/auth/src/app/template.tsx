@@ -2,10 +2,8 @@
 
 import { AppProvider } from "@repo/common/providers/app-provider";
 
-export default function RootTemplate({
-  children,
-}: {
-  children: React.ReactNode;
-}) {
+type RootTemplateProps = Readonly<{ children: React.ReactNode }>;
+
+export default function RootTemplate({ children }: RootTemplateProps) {
   return <AppProvider>{children}</AppProvider>;
 }

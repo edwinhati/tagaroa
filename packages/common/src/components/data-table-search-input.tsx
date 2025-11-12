@@ -2,30 +2,30 @@
 
 import { Table } from "@tanstack/react-table";
 import { CircleXIcon, ListFilterIcon, SearchIcon } from "lucide-react";
-import React, { useCallback, useId, useMemo, useRef } from "react";
+import { useCallback, useId, useMemo, useRef } from "react";
 
 import { cn } from "@repo/ui/lib/utils";
 import { Input } from "@repo/ui/components/input";
 
 // Client-side (table-based) search props
-export type DataTableSearchInputProps<TData> = {
+export type DataTableSearchInputProps<TData> = Readonly<{
   table: Table<TData>;
   columnId: string;
   placeholder?: string;
   className?: string;
   "aria-label"?: string;
   id?: string;
-};
+}>;
 
 // Server-side (value/onChange) search props
-export type ServerSearchInputProps = {
+export type ServerSearchInputProps = Readonly<{
   value: string;
   onChange: (value: string) => void;
   placeholder?: string;
   className?: string;
   "aria-label"?: string;
   id?: string;
-};
+}>;
 
 export function DataTableSearchInput<TData>({
   table,

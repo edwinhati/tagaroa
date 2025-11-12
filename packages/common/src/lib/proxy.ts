@@ -130,7 +130,7 @@ async function handleCommonProxyLogic(
 
   // Prevent redirect loops
   const redirectParam = searchParams.get("redirect");
-  if (redirectParam && redirectParam.includes("redirect=")) {
+  if (redirectParam?.includes("redirect=")) {
     console.warn(
       "Detected potential redirect loop, clearing redirect parameter",
     );

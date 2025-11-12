@@ -1,3 +1,5 @@
+version: "3.8"
+
 services:
   postgres:
     image: postgres:alpine
@@ -26,6 +28,27 @@ services:
     volumes:
       - minio_data:/data
 
+  n8n:
+    image: n8nio/n8n:latest
+    container_name: n8n
+    restart: unless-stopped
+    ports:
+      - "5678:5678"
+    environment:
+      - DB_TYPE=postgresdb
+      - DB_POSTGRESDB_HOST=postgres
+      - DB_POSTGRESDB_PORT=5432
+      - DB_POSTGRESDB_DATABASE=n8n
+      - DB_POSTGRESDB_USER=postgres
+      - DB_POSTGRESDB_PASSWORD=postgres
+      - N8N_BASIC_AUTH_ACTIVE=true
+      - N8N_BASIC_AUTH_USER=admin
+      - N8N_BASIC_AUTH_PASSWORD=admin
+    volumes:
+      - n8n_data:/home/node/.n8n
+    depends_on:
+      - postgres
+
   traefik:
     image: traefik:latest
     container_name: traefik
@@ -48,9 +71,9 @@ services:
       - "traefik.enable=true"
       - "traefik.http.routers.auth.rule=PathPrefix(`/api/auth`)"
       - "traefik.http.routers.auth.entrypoints=web"
-      - "traefik.http.routers.auth.server=auth-server"
       - "traefik.http.routers.auth.priority=100"
       - "traefik.http.services.auth-server.loadbalancer.server.url=http://host.docker.internal:8081"
+      - "traefik.http.routers.auth.service=auth-server"
 
   finance-proxy:
     image: alpine
@@ -59,24 +82,13 @@ services:
       - "traefik.enable=true"
       - "traefik.http.routers.finance.rule=PathPrefix(`/api/finance`)"
       - "traefik.http.routers.finance.entrypoints=web"
-      - "traefik.http.routers.finance.server=finance-server"
       - "traefik.http.services.finance-server.loadbalancer.server.url=http://host.docker.internal:8082"
       - "traefik.http.middlewares.finance-stripprefix.stripprefix.prefixes=/api/finance"
       - "traefik.http.routers.finance.middlewares=finance-stripprefix"
-
-  storage-proxy:
-    image: alpine
-    command: ["sleep", "infinity"]
-    labels:
-      - "traefik.enable=true"
-      - "traefik.http.routers.storage.rule=PathPrefix(`/api/storage`)"
-      - "traefik.http.routers.storage.entrypoints=web"
-      - "traefik.http.routers.storage.server=storage-server"
-      - "traefik.http.services.storage-server.loadbalancer.server.url=http://host.docker.internal:8083"
-      - "traefik.http.middlewares.storage-stripprefix.stripprefix.prefixes=/api/storage"
-      - "traefik.http.routers.storage.middlewares=storage-stripprefix"
+      - "traefik.http.routers.finance.service=finance-server"
 
 volumes:
   postgres_data:
   minio_data:
   traefik_data:
+  n8n_data:

@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useId } from "react";
+import { useId } from "react";
 import { FilterIcon } from "lucide-react";
 
 import {
@@ -12,13 +12,13 @@ import { Label } from "@repo/ui/components/label";
 import { Button } from "@repo/ui/components/button";
 import { Checkbox } from "@repo/ui/components/checkbox";
 
-export type DataTableMultiSelectOption = {
+export type DataTableMultiSelectOption = Readonly<{
   value: string;
   label: string;
   count?: number | string;
-};
+}>;
 
-export type DataTableMultiSelectFilterProps = {
+export type DataTableMultiSelectFilterProps = Readonly<{
   triggerLabel: string;
   options: DataTableMultiSelectOption[];
   selectedValues: string[];
@@ -29,7 +29,7 @@ export type DataTableMultiSelectFilterProps = {
   buttonClassName?: string;
   open?: boolean;
   onOpenChange?: (open: boolean) => void;
-};
+}>;
 
 /**
  * Popover-driven multi-select filter used by multiple tables.

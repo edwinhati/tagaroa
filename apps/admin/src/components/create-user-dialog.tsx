@@ -44,9 +44,9 @@ const createUserSchema = z.object({
 
 type CreateUserFormData = z.infer<typeof createUserSchema>;
 
-interface CreateUserDialogProps {
+type CreateUserDialogProps = Readonly<{
   onUserCreated?: () => void;
-}
+}>;
 
 export function CreateUserDialog({ onUserCreated }: CreateUserDialogProps) {
   const [open, setOpen] = useState(false);

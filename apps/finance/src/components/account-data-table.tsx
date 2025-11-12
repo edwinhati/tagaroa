@@ -121,7 +121,7 @@ const columns: ColumnDef<Account>[] = [
     header: "Type",
     accessorKey: "type",
     cell: ({ row }) => {
-      const typeValue = row.getValue("type")?.toString().replaceAll(/_/g, "-");
+      const typeValue = row.getValue("type")?.toString().replaceAll("_", "-");
       return <Badge variant="outline">{typeValue}</Badge>;
     },
     size: 100,
@@ -223,6 +223,13 @@ function AccountDataTableContent() {
   const paginationInfo = stableData?.pagination;
   const aggregations = stableData?.aggregations || {};
   const showLoadingState = isInitialLoading;
+  const skeletonRowKeys = useMemo(
+    () =>
+      Array.from({ length: pagination.pageSize }, (_, index) => {
+        return `accounts-loading-${pagination.pageIndex}-${index}`;
+      }),
+    [pagination.pageIndex, pagination.pageSize],
+  );
 
   // Check if there are any active filters or search
   const hasActiveFilters =
@@ -266,7 +273,7 @@ function AccountDataTableContent() {
 
       options[filterKey] = sortedItems.map((item) => ({
         value: item.key,
-        label: item.key.replaceAll(/_/g, "-"),
+        label: item.key.replaceAll("_", "-"),
         count: item.count,
       }));
     }
@@ -297,6 +304,7 @@ function AccountDataTableContent() {
     },
   });
 
+  const hasRows = table.getRowModel().rows.length > 0;
   const selectedCount = table.getSelectedRowModel().rows.length;
 
   // Handle server-side filter changes
@@ -421,60 +429,55 @@ function AccountDataTableContent() {
             {table.getHeaderGroups().map((headerGroup) => (
               <TableRow key={headerGroup.id} className="hover:bg-transparent">
                 {headerGroup.headers.map((header) => {
+                  const widthStyle = { width: `${header.getSize()}px` };
+
+                  if (header.isPlaceholder) {
+                    return (
+                      <TableHead key={header.id} style={widthStyle} className="h-11" />
+                    );
+                  }
+
+                  const canSort = header.column.getCanSort();
+                  const sortState = header.column.getIsSorted();
+                  const headerLabel = flexRender(
+                    header.column.columnDef.header,
+                    header.getContext(),
+                  );
+                  let headerContent = headerLabel;
+
+                  if (canSort) {
+                    const toggleSorting = header.column.getToggleSortingHandler();
+                    headerContent = (
+                      <button
+                        type="button"
+                        className={cn(
+                          "flex h-full items-center justify-between gap-2 select-none",
+                          "cursor-pointer",
+                        )}
+                        onClick={toggleSorting}
+                      >
+                        {headerLabel}
+                        {sortState === "asc" && (
+                          <ChevronUpIcon
+                            className="shrink-0 opacity-60"
+                            size={16}
+                            aria-hidden="true"
+                          />
+                        )}
+                        {sortState === "desc" && (
+                          <ChevronDownIcon
+                            className="shrink-0 opacity-60"
+                            size={16}
+                            aria-hidden="true"
+                          />
+                        )}
+                      </button>
+                    );
+                  }
+
                   return (
-                    <TableHead
-                      key={header.id}
-                      style={{ width: `${header.getSize()}px` }}
-                      className="h-11"
-                    >
-                      {header.isPlaceholder ? null : header.column.getCanSort() ? (
-                        <div
-                          className={cn(
-                            header.column.getCanSort() &&
-                              "flex h-full cursor-pointer items-center justify-between gap-2 select-none",
-                          )}
-                          onClick={header.column.getToggleSortingHandler()}
-                          onKeyDown={(e) => {
-                            // Enhanced keyboard handling for sorting
-                            if (
-                              header.column.getCanSort() &&
-                              (e.key === "Enter" || e.key === " ")
-                            ) {
-                              e.preventDefault();
-                              header.column.getToggleSortingHandler()?.(e);
-                            }
-                          }}
-                          tabIndex={header.column.getCanSort() ? 0 : undefined}
-                        >
-                          <>
-                            {flexRender(
-                              header.column.columnDef.header,
-                              header.getContext(),
-                            )}
-                          </>
-                          {header.column.getIsSorted() === "asc" && (
-                            <ChevronUpIcon
-                              className="shrink-0 opacity-60"
-                              size={16}
-                              aria-hidden="true"
-                            />
-                          )}
-                          {header.column.getIsSorted() === "desc" && (
-                            <ChevronDownIcon
-                              className="shrink-0 opacity-60"
-                              size={16}
-                              aria-hidden="true"
-                            />
-                          )}
-                        </div>
-                      ) : (
-                        <>
-                          {flexRender(
-                            header.column.columnDef.header,
-                            header.getContext(),
-                          )}
-                        </>
-                      )}
+                    <TableHead key={header.id} style={widthStyle} className="h-11">
+                      {headerContent}
                     </TableHead>
                   );
                 })}
@@ -482,89 +485,93 @@ function AccountDataTableContent() {
             ))}
           </TableHeader>
           <TableBody>
-            {showLoadingState ? (
-              Array.from({ length: pagination.pageSize }).map((_, rowIndex) => (
-                <TableRow
-                  key={`accounts-loading-${rowIndex}`}
-                  className="pointer-events-none"
-                >
-                  {columns.map((column, cellIndex) => (
-                    <TableCell
-                      key={`${column.id ?? cellIndex}-loading-${rowIndex}`}
-                    >
-                      <Skeleton
-                        className={
-                          cellIndex === 0 ? "h-4 w-4 rounded" : "h-5 w-full"
-                        }
-                      />
-                    </TableCell>
-                  ))}
-                </TableRow>
-              ))
-            ) : table.getRowModel().rows?.length ? (
-              table.getRowModel().rows.map((row) => (
-                <TableRow
-                  key={row.id}
-                  data-state={row.getIsSelected() && "selected"}
-                >
-                  {row.getVisibleCells().map((cell) => (
-                    <TableCell key={cell.id} className="last:py-0">
-                      <>
+            {(() => {
+              if (showLoadingState) {
+                return skeletonRowKeys.map((rowKey) => (
+                  <TableRow key={rowKey} className="pointer-events-none">
+                    {columns.map((column, cellIndex) => {
+                      const columnKey = String(
+                        column.id ?? column.accessorKey ?? cellIndex,
+                      );
+                      return (
+                        <TableCell key={`${columnKey}-${rowKey}`}>
+                          <Skeleton
+                            className={
+                              cellIndex === 0 ? "h-4 w-4 rounded" : "h-5 w-full"
+                            }
+                          />
+                        </TableCell>
+                      );
+                    })}
+                  </TableRow>
+                ));
+              }
+
+              if (hasRows) {
+                return table.getRowModel().rows.map((row) => (
+                  <TableRow
+                    key={row.id}
+                    data-state={row.getIsSelected() ? "selected" : undefined}
+                  >
+                    {row.getVisibleCells().map((cell) => (
+                      <TableCell key={cell.id} className="last:py-0">
                         {flexRender(
                           cell.column.columnDef.cell,
                           cell.getContext(),
                         )}
-                      </>
-                    </TableCell>
-                  ))}
-                </TableRow>
-              ))
-            ) : (
-              <TableRow>
-                <TableCell colSpan={columns.length} className="h-96">
-                  <div className="flex h-full">
-                    {!hasTotalData && !hasActiveFilters ? (
-                      // Show empty component only when user has no accounts at all
-                      <Empty>
-                        <EmptyHeader>
-                          <EmptyTitle>No Accounts Yet</EmptyTitle>
-                          <EmptyDescription>
-                            You haven&apos;t added any accounts yet. Get started
-                            by adding your first account to track your finances.
-                          </EmptyDescription>
-                        </EmptyHeader>
-                        <EmptyContent>
-                          <AccountFormDialog
-                            trigger={
-                              <Button size="sm">
-                                <PlusIcon
-                                  className="-ms-1 opacity-60"
-                                  size={16}
-                                  aria-hidden="true"
-                                />
-                                Add account
-                              </Button>
-                            }
-                          />
-                        </EmptyContent>
-                      </Empty>
-                    ) : (
-                      // Show "no results found" when search/filter returns no results
-                      <div className="flex flex-col items-center justify-center text-center h-full w-full">
-                        <div className="text-muted-foreground">
-                          <h3 className="text-lg font-medium">
-                            No results found
-                          </h3>
-                          <p className="text-sm mt-1">
-                            Try adjusting your search or filter criteria
-                          </p>
+                      </TableCell>
+                    ))}
+                  </TableRow>
+                ));
+              }
+
+              const renderEmptyState = !hasTotalData && !hasActiveFilters;
+              return (
+                <TableRow>
+                  <TableCell colSpan={columns.length} className="h-96">
+                    <div className="flex h-full">
+                      {renderEmptyState ? (
+                        <Empty>
+                          <EmptyHeader>
+                            <EmptyTitle>No Accounts Yet</EmptyTitle>
+                            <EmptyDescription>
+                              You haven&apos;t added any accounts yet. Get
+                              started by adding your first account to track your
+                              finances.
+                            </EmptyDescription>
+                          </EmptyHeader>
+                          <EmptyContent>
+                            <AccountFormDialog
+                              trigger={
+                                <Button size="sm">
+                                  <PlusIcon
+                                    className="-ms-1 opacity-60"
+                                    size={16}
+                                    aria-hidden="true"
+                                  />
+                                  Add account
+                                </Button>
+                              }
+                            />
+                          </EmptyContent>
+                        </Empty>
+                      ) : (
+                        <div className="flex h-full w-full flex-col items-center justify-center text-center">
+                          <div className="text-muted-foreground">
+                            <h3 className="text-lg font-medium">
+                              No results found
+                            </h3>
+                            <p className="mt-1 text-sm">
+                              Try adjusting your search or filter criteria
+                            </p>
+                          </div>
                         </div>
-                      </div>
-                    )}
-                  </div>
-                </TableCell>
-              </TableRow>
-            )}
+                      )}
+                    </div>
+                  </TableCell>
+                </TableRow>
+              );
+            })()}
           </TableBody>
         </Table>
       </div>
@@ -589,7 +596,9 @@ function AccountDataTableContent() {
   );
 }
 
-function RowActions({ row }: { row: Row<Account> }) {
+type RowActionsProps = Readonly<{ row: Row<Account> }>;
+
+function RowActions({ row }: RowActionsProps) {
   const { mutate } = useMutateAccount({});
   return (
     <DropdownMenu>

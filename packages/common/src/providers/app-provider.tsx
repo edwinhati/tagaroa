@@ -9,11 +9,16 @@ import posthog from "posthog-js";
 import { PostHogProvider } from "posthog-js/react";
 
 const queryClient = new QueryClient();
+type AppProviderProps = Readonly<{ children: React.ReactNode }>;
 
-export function AppProvider({ children }: { children: React.ReactNode }) {
+export function AppProvider({ children }: AppProviderProps) {
   useEffect(() => {
     // Initialize PostHog if not already initialized
-    if (typeof window !== "undefined" && !posthog.__loaded) {
+    const hasWindow =
+      typeof globalThis !== "undefined" &&
+      typeof (globalThis as { window?: Window }).window !== "undefined";
+
+    if (hasWindow && !posthog.__loaded) {
       const key = process.env.NEXT_PUBLIC_POSTHOG_KEY;
       const host = process.env.NEXT_PUBLIC_POSTHOG_HOST;
 

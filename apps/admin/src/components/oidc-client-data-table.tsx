@@ -111,6 +111,168 @@ const statusFilterFn: FilterFn<OIDCClient> = (
   return filterValue.includes(status);
 };
 
+type OIDCColumnFactoryParams = {
+  showSecrets: Record<string, boolean>;
+  onToggleSecretVisibility: (clientId: string) => void;
+  onRefresh: () => void;
+};
+
+function createOIDCColumns({
+  showSecrets,
+  onToggleSecretVisibility,
+  onRefresh,
+}: OIDCColumnFactoryParams): ColumnDef<OIDCClient>[] {
+  return [
+    {
+      id: "select",
+      header: ({ table }) => (
+        <Checkbox
+          checked={
+            table.getIsAllPageRowsSelected() ||
+            (table.getIsSomePageRowsSelected() && "indeterminate")
+          }
+          onCheckedChange={(value) => table.toggleAllPageRowsSelected(!!value)}
+          aria-label="Select all"
+        />
+      ),
+      cell: ({ row }) => (
+        <Checkbox
+          checked={row.getIsSelected()}
+          onCheckedChange={(value) => row.toggleSelected(!!value)}
+          aria-label="Select row"
+        />
+      ),
+      size: 28,
+      enableSorting: false,
+      enableHiding: false,
+    },
+    {
+      header: "Name",
+      accessorKey: "name",
+      cell: ({ row }) => (
+        <div className="font-medium">{row.getValue("name")}</div>
+      ),
+      size: 200,
+      filterFn: multiColumnFilterFn,
+      enableHiding: false,
+    },
+    {
+      header: "Client ID",
+      accessorKey: "clientId",
+      cell: ({ row }) => {
+        const clientId = row.getValue("clientId") as string;
+        return (
+          <div className="flex items-center gap-2">
+            <code className="text-sm bg-muted px-2 py-1 rounded">
+              {clientId}
+            </code>
+            <CopyToClipboard text={clientId} label="Client ID" />
+          </div>
+        );
+      },
+      size: 250,
+    },
+    {
+      header: "Client Secret",
+      accessorKey: "clientSecret",
+      cell: ({ row }) => {
+        const client = row.original;
+        const clientSecret = client.clientSecret;
+        const isVisible = showSecrets[client.clientId];
+
+        if (!clientSecret) {
+          return renderEmptyValue();
+        }
+
+        return (
+          <div className="flex items-center gap-2">
+            <code className="text-sm bg-muted px-2 py-1 rounded">
+              {isVisible ? clientSecret : "••••••••••••••••"}
+            </code>
+            <Button
+              size="icon"
+              variant="ghost"
+              className="h-6 w-6"
+              onClick={() => onToggleSecretVisibility(client.clientId)}
+            >
+              {isVisible ? (
+                <EyeOffIcon className="h-3 w-3" />
+              ) : (
+                <EyeIcon className="h-3 w-3" />
+              )}
+            </Button>
+            {isVisible && (
+              <CopyToClipboard text={clientSecret} label="Client Secret" />
+            )}
+          </div>
+        );
+      },
+      size: 250,
+    },
+    {
+      header: "Type",
+      accessorKey: "type",
+      cell: ({ row }) => {
+        const type = row.getValue("type") as string;
+        const typeLabels = {
+          web: "Web Application",
+          native: "Native App",
+          "user-agent-based": "SPA",
+          public: "Public Client",
+        };
+
+        return (
+          <Badge variant="secondary" className="capitalize">
+            {typeLabels[type as keyof typeof typeLabels] || type}
+          </Badge>
+        );
+      },
+      size: 120,
+      filterFn: typeFilterFn,
+    },
+    {
+      header: "Status",
+      accessorKey: "disabled",
+      cell: ({ row }) => {
+        const status = getClientStatus(row.original);
+        return renderStatusBadge(status);
+      },
+      size: 100,
+      filterFn: statusFilterFn,
+    },
+    {
+      header: "Redirect URLs",
+      accessorKey: "redirectURLs",
+      cell: ({ row }) => {
+        const redirectURLs = row.getValue("redirectURLs") as string[];
+        const displayUrl = redirectURLs[0];
+        const hasMore = redirectURLs.length > 1;
+
+        return (
+          <div className="max-w-[200px]">
+            <div className="truncate text-sm" title={displayUrl}>
+              {displayUrl}
+            </div>
+            {hasMore && (
+              <div className="text-xs text-muted-foreground">
+                +{redirectURLs.length - 1} more
+              </div>
+            )}
+          </div>
+        );
+      },
+      size: 200,
+    },
+    {
+      id: "actions",
+      header: () => <span className="sr-only">Actions</span>,
+      cell: ({ row }) => <RowActions row={row} onRefresh={onRefresh} />,
+      size: 60,
+      enableHiding: false,
+    },
+  ];
+}
+
 export function OIDCClientDataTable() {
   const [columnFilters, setColumnFilters] = useState<ColumnFiltersState>([]);
   const [columnVisibility, setColumnVisibility] = useState<VisibilityState>({
@@ -175,166 +337,21 @@ export function OIDCClientDataTable() {
     fetchClients();
   }, [fetchClients]);
 
-  const toggleSecretVisibility = (clientId: string) => {
+  const toggleSecretVisibility = useCallback((clientId: string) => {
     setShowSecrets((prev) => ({
       ...prev,
       [clientId]: !prev[clientId],
     }));
-  };
+  }, []);
 
-  const columns: ColumnDef<OIDCClient>[] = useMemo(
-    () => [
-      {
-        id: "select",
-        header: ({ table }) => (
-          <Checkbox
-            checked={
-              table.getIsAllPageRowsSelected() ||
-              (table.getIsSomePageRowsSelected() && "indeterminate")
-            }
-            onCheckedChange={(value) =>
-              table.toggleAllPageRowsSelected(!!value)
-            }
-            aria-label="Select all"
-          />
-        ),
-        cell: ({ row }) => (
-          <Checkbox
-            checked={row.getIsSelected()}
-            onCheckedChange={(value) => row.toggleSelected(!!value)}
-            aria-label="Select row"
-          />
-        ),
-        size: 28,
-        enableSorting: false,
-        enableHiding: false,
-      },
-      {
-        header: "Name",
-        accessorKey: "name",
-        cell: ({ row }) => (
-          <div className="font-medium">{row.getValue("name")}</div>
-        ),
-        size: 200,
-        filterFn: multiColumnFilterFn,
-        enableHiding: false,
-      },
-      {
-        header: "Client ID",
-        accessorKey: "clientId",
-        cell: ({ row }) => {
-          const clientId = row.getValue("clientId") as string;
-          return (
-            <div className="flex items-center gap-2">
-              <code className="text-sm bg-muted px-2 py-1 rounded">
-                {clientId}
-              </code>
-              <CopyToClipboard text={clientId} label="Client ID" />
-            </div>
-          );
-        },
-        size: 250,
-      },
-      {
-        header: "Client Secret",
-        accessorKey: "clientSecret",
-        cell: ({ row }) => {
-          const client = row.original;
-          const clientSecret = client.clientSecret;
-          const isVisible = showSecrets[client.clientId];
-
-          if (!clientSecret) {
-            return renderEmptyValue();
-          }
-
-          return (
-            <div className="flex items-center gap-2">
-              <code className="text-sm bg-muted px-2 py-1 rounded">
-                {isVisible ? clientSecret : "••••••••••••••••"}
-              </code>
-              <Button
-                size="icon"
-                variant="ghost"
-                className="h-6 w-6"
-                onClick={() => toggleSecretVisibility(client.clientId)}
-              >
-                {isVisible ? (
-                  <EyeOffIcon className="h-3 w-3" />
-                ) : (
-                  <EyeIcon className="h-3 w-3" />
-                )}
-              </Button>
-              {isVisible && (
-                <CopyToClipboard text={clientSecret} label="Client Secret" />
-              )}
-            </div>
-          );
-        },
-        size: 250,
-      },
-      {
-        header: "Type",
-        accessorKey: "type",
-        cell: ({ row }) => {
-          const type = row.getValue("type") as string;
-          const typeLabels = {
-            web: "Web Application",
-            native: "Native App",
-            "user-agent-based": "SPA",
-            public: "Public Client",
-          };
-
-          return (
-            <Badge variant="secondary" className="capitalize">
-              {typeLabels[type as keyof typeof typeLabels] || type}
-            </Badge>
-          );
-        },
-        size: 120,
-        filterFn: typeFilterFn,
-      },
-      {
-        header: "Status",
-        accessorKey: "disabled",
-        cell: ({ row }) => {
-          const status = getClientStatus(row.original);
-          return renderStatusBadge(status);
-        },
-        size: 100,
-        filterFn: statusFilterFn,
-      },
-      {
-        header: "Redirect URLs",
-        accessorKey: "redirectURLs",
-        cell: ({ row }) => {
-          const redirectURLs = row.getValue("redirectURLs") as string[];
-          const displayUrl = redirectURLs[0];
-          const hasMore = redirectURLs.length > 1;
-
-          return (
-            <div className="max-w-[200px]">
-              <div className="truncate text-sm" title={displayUrl}>
-                {displayUrl}
-              </div>
-              {hasMore && (
-                <div className="text-xs text-muted-foreground">
-                  +{redirectURLs.length - 1} more
-                </div>
-              )}
-            </div>
-          );
-        },
-        size: 200,
-      },
-      {
-        id: "actions",
-        header: () => <span className="sr-only">Actions</span>,
-        cell: ({ row }) => <RowActions row={row} onRefresh={fetchClients} />,
-        size: 60,
-        enableHiding: false,
-      },
-    ],
-    [showSecrets, fetchClients],
+  const columns = useMemo(
+    () =>
+      createOIDCColumns({
+        showSecrets,
+        onToggleSecretVisibility: toggleSecretVisibility,
+        onRefresh: fetchClients,
+      }),
+    [showSecrets, toggleSecretVisibility, fetchClients],
   );
 
   const handleDeleteRows = async () => {
@@ -417,7 +434,17 @@ export function OIDCClientDataTable() {
   const typeFilterData = getColumnFilterData("type");
   const statusFilterData = getColumnFilterData("disabled");
 
+  const tableRows = table.getRowModel().rows;
+  const hasRows = tableRows.length > 0;
   const selectedCount = table.getSelectedRowModel().rows.length;
+  const emptyStateContent = loading ? (
+    <Button variant="outline" disabled>
+      <LoaderIcon size="16" className="animate-spin" />
+      Loading
+    </Button>
+  ) : (
+    "No OIDC clients found."
+  );
 
   // Generic filter change handler to reduce duplication
   const handleFilterChange = useCallback(
@@ -533,57 +560,56 @@ export function OIDCClientDataTable() {
             {table.getHeaderGroups().map((headerGroup) => (
               <TableRow key={headerGroup.id} className="hover:bg-transparent">
                 {headerGroup.headers.map((header) => {
+                  const widthStyle = { width: `${header.getSize()}px` };
+
+                  if (header.isPlaceholder) {
+                    return (
+                      <TableHead key={header.id} style={widthStyle} className="h-11" />
+                    );
+                  }
+
+                  const canSort = header.column.getCanSort();
+                  const sortState = header.column.getIsSorted();
+                  const headerLabel = flexRender(
+                    header.column.columnDef.header,
+                    header.getContext(),
+                  );
+
+                  let headerContent = headerLabel;
+
+                  if (canSort) {
+                    const toggleSorting = header.column.getToggleSortingHandler();
+                    headerContent = (
+                      <button
+                        type="button"
+                        className={cn(
+                          "flex h-full select-none items-center justify-between gap-2",
+                          "cursor-pointer",
+                        )}
+                        onClick={toggleSorting}
+                      >
+                        {headerLabel}
+                        {sortState === "asc" && (
+                          <ChevronUpIcon
+                            className="shrink-0 opacity-60"
+                            size={16}
+                            aria-hidden="true"
+                          />
+                        )}
+                        {sortState === "desc" && (
+                          <ChevronDownIcon
+                            className="shrink-0 opacity-60"
+                            size={16}
+                            aria-hidden="true"
+                          />
+                        )}
+                      </button>
+                    );
+                  }
+
                   return (
-                    <TableHead
-                      key={header.id}
-                      style={{ width: `${header.getSize()}px` }}
-                      className="h-11"
-                    >
-                      {header.isPlaceholder ? null : header.column.getCanSort() ? (
-                        <div
-                          className={cn(
-                            header.column.getCanSort() &&
-                              "flex h-full cursor-pointer items-center justify-between gap-2 select-none",
-                          )}
-                          onClick={header.column.getToggleSortingHandler()}
-                          onKeyDown={(e) => {
-                            if (
-                              header.column.getCanSort() &&
-                              (e.key === "Enter" || e.key === " ")
-                            ) {
-                              e.preventDefault();
-                              header.column.getToggleSortingHandler()?.(e);
-                            }
-                          }}
-                          tabIndex={header.column.getCanSort() ? 0 : undefined}
-                        >
-                          {flexRender(
-                            header.column.columnDef.header,
-                            header.getContext(),
-                          )}
-                          {{
-                            asc: (
-                              <ChevronUpIcon
-                                className="shrink-0 opacity-60"
-                                size={16}
-                                aria-hidden="true"
-                              />
-                            ),
-                            desc: (
-                              <ChevronDownIcon
-                                className="shrink-0 opacity-60"
-                                size={16}
-                                aria-hidden="true"
-                              />
-                            ),
-                          }[header.column.getIsSorted() as string] ?? null}
-                        </div>
-                      ) : (
-                        (flexRender(
-                          header.column.columnDef.header,
-                          header.getContext(),
-                        ) as never)
-                      )}
+                    <TableHead key={header.id} style={widthStyle} className="h-11">
+                      {headerContent}
                     </TableHead>
                   );
                 })}
@@ -591,11 +617,11 @@ export function OIDCClientDataTable() {
             ))}
           </TableHeader>
           <TableBody>
-            {table.getRowModel().rows?.length ? (
-              table.getRowModel().rows.map((row) => (
+            {hasRows ? (
+              tableRows.map((row) => (
                 <TableRow
                   key={row.id}
-                  data-state={row.getIsSelected() && "selected"}
+                  data-state={row.getIsSelected() ? "selected" : undefined}
                 >
                   {row.getVisibleCells().map((cell) => (
                     <TableCell key={cell.id} className="last:py-0">
@@ -615,14 +641,7 @@ export function OIDCClientDataTable() {
                   colSpan={columns.length}
                   className="h-24 text-center"
                 >
-                  {loading ? (
-                    <Button variant="outline" disabled>
-                      <LoaderIcon size="16" className="animate-spin" />
-                      Loading
-                    </Button>
-                  ) : (
-                    "No OIDC clients found."
-                  )}
+                  {emptyStateContent}
                 </TableCell>
               </TableRow>
             )}
@@ -641,13 +660,12 @@ export function OIDCClientDataTable() {
   );
 }
 
-function RowActions({
-  row,
-  onRefresh,
-}: {
+type OIDCRowActionsProps = Readonly<{
   row: Row<OIDCClient>;
   onRefresh: () => void;
-}) {
+}>;
+
+function RowActions({ row, onRefresh }: OIDCRowActionsProps) {
   const [open, setOpen] = useState(false);
   const client = row.original;
 

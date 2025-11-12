@@ -1,6 +1,6 @@
 "use client";
 
-import React from "react";
+import { type ComponentType, type ReactNode } from "react";
 import Link from "next/link";
 import {
   ResizablePanelGroup,
@@ -19,12 +19,18 @@ import {
   SidebarMenuButton,
 } from "@repo/ui/components/sidebar";
 
-interface ContentPanelProps {
+type ContentPanelMenuItem = {
+  name: string;
+  icon?: ComponentType;
+  href: string;
+};
+
+type ContentPanelProps = Readonly<{
   contentTitle: string;
   contentLabel: string;
-  children: React.ReactNode;
-  menu: Array<{ name: string; icon?: React.ComponentType; href: string }>;
-}
+  children: ReactNode;
+  menu: ContentPanelMenuItem[];
+}>;
 
 export function ContentPanel({
   contentTitle,
@@ -47,8 +53,8 @@ export function ContentPanel({
             <SidebarGroupLabel>{contentLabel}</SidebarGroupLabel>
             <SidebarGroupContent className="flex flex-col">
               <SidebarMenu>
-                {menu.map((item, index) => (
-                  <SidebarMenuItem key={index}>
+                {menu.map((item) => (
+                  <SidebarMenuItem key={item.href}>
                     <Link href={item.href}>
                       <SidebarMenuButton>
                         {item.icon && <item.icon />}

@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from "react";
+import { useState } from "react";
 import { cn } from "@repo/ui/lib/utils";
 
 import { toast } from "sonner";
@@ -8,13 +8,12 @@ import { Button } from "@repo/ui/components/button";
 
 import { CopyIcon, CheckIcon } from "lucide-react";
 
-export function CopyToClipboard({
-  text,
-  label,
-}: {
+type CopyToClipboardProps = Readonly<{
   text: string;
   label: string;
-}) {
+}>;
+
+export function CopyToClipboard({ text, label }: CopyToClipboardProps) {
   const [copied, setCopied] = useState(false);
 
   const handleCopy = async () => {

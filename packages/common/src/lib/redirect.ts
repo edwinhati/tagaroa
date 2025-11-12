@@ -8,9 +8,9 @@ const localDevHosts = new Set(["localhost", "127.0.0.1"]);
 
 export function resolveSafeRedirect(
   raw: string | null | undefined,
-  dashboardBase: string,
+  dashboardBase = "/",
 ): string {
-  const base = dashboardBase || "/";
+  const base = dashboardBase.length > 0 ? dashboardBase : "/";
   const fallback = getFallback(base);
   const allowedOrigins = buildAllowedOrigins(base);
 

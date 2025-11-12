@@ -25,7 +25,7 @@ COPY servers/finance/ ./
 RUN CGO_ENABLED=0 GOOS=linux go build -v -a -installsuffix cgo -o finance-server ./cmd/main.go
 
 # Runtime stage
-FROM alpine:latest AS runner
+FROM alpine:3.19 AS runner
 
 # Install ca-certificates for HTTPS requests
 RUN apk --no-cache add ca-certificates

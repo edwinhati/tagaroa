@@ -48,13 +48,15 @@ const currencies = [
   { value: "SGD", label: "Singapore Dollar (SGD)" },
 ];
 
+type AccountFormDialogProps = Readonly<{
+  initialData?: Account;
+  trigger?: React.ReactElement;
+}>;
+
 export function AccountFormDialog({
   initialData,
   trigger,
-}: {
-  initialData?: Account;
-  trigger?: React.ReactElement;
-}) {
+}: AccountFormDialogProps) {
   const [open, setOpen] = useState(false);
 
   const form = useForm<Account>({
@@ -109,6 +111,13 @@ export function AccountFormDialog({
   };
 
   const { data: accountTypes } = useGetAccountTypes();
+  let submitLabel = "Add Account";
+  if (initialData) {
+    submitLabel = "Update Account";
+  }
+  if (isPending) {
+    submitLabel = "Saving...";
+  }
 
   return (
     <Dialog open={open} onOpenChange={handleOpenChange}>
@@ -319,11 +328,7 @@ export function AccountFormDialog({
               Cancel
             </Button>
             <Button type="submit" disabled={isPending} className="flex-1">
-              {isPending
-                ? "Saving..."
-                : initialData
-                  ? "Update Account"
-                  : "Add Account"}
+              {submitLabel}
             </Button>
           </div>
         </form>

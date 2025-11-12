@@ -74,6 +74,167 @@ const renderStatusBadge = (status: string) => {
 // Helper function to render empty values consistently
 const renderEmptyValue = () => <span className="text-muted-foreground">—</span>;
 
+function createUserColumns(onRefresh: () => void): ColumnDef<User>[] {
+  return [
+    {
+      id: "select",
+      header: ({ table }) => (
+        <Checkbox
+          checked={
+            table.getIsAllPageRowsSelected() ||
+            (table.getIsSomePageRowsSelected() && "indeterminate")
+          }
+          onCheckedChange={(value) => table.toggleAllPageRowsSelected(!!value)}
+          aria-label="Select all"
+        />
+      ),
+      cell: ({ row }) => (
+        <Checkbox
+          checked={row.getIsSelected()}
+          onCheckedChange={(value) => row.toggleSelected(!!value)}
+          aria-label="Select row"
+        />
+      ),
+      size: 28,
+      enableSorting: false,
+      enableHiding: false,
+    },
+    {
+      header: "Avatar",
+      accessorKey: "image",
+      cell: ({ row }) => {
+        const user = row.original;
+        const name = user.name || user.email;
+        const initials = name
+          ? name
+              .split(" ")
+              .map((n) => n[0])
+              .join("")
+              .toUpperCase()
+              .slice(0, 2)
+          : "U";
+
+        return (
+          <Avatar className="h-8 w-8">
+            <AvatarImage src={user.image || ""} alt={name} />
+            <AvatarFallback className="text-xs">{initials}</AvatarFallback>
+          </Avatar>
+        );
+      },
+      size: 60,
+      enableSorting: false,
+    },
+    {
+      header: "Name",
+      accessorKey: "name",
+      cell: ({ row }) => (
+        <div className="font-medium">{row.getValue("name") || "—"}</div>
+      ),
+      size: 180,
+      enableHiding: false,
+    },
+    {
+      header: "Email",
+      accessorKey: "email",
+      cell: ({ row }) => (
+        <div className="text-muted-foreground">{row.getValue("email")}</div>
+      ),
+      size: 200,
+    },
+    {
+      header: "Email Status",
+      accessorKey: "emailVerified",
+      cell: ({ row }) => {
+        const verified = row.getValue("emailVerified") as boolean;
+        return (
+          <Badge variant={verified ? "default" : "destructive"}>
+            {verified ? "Verified" : "Unverified"}
+          </Badge>
+        );
+      },
+      size: 120,
+    },
+    {
+      header: "Role",
+      accessorKey: "role",
+      cell: ({ row }) => {
+        const role = row.getValue("role") as string;
+        return (
+          <Badge
+            className="capitalize"
+            variant={role === "admin" ? "default" : "secondary"}
+          >
+            {role || "user"}
+          </Badge>
+        );
+      },
+      size: 100,
+    },
+    {
+      header: "Status",
+      accessorKey: "banned",
+      cell: ({ row }) => {
+        const status = getUserStatus(row.original);
+        return renderStatusBadge(status);
+      },
+      size: 100,
+    },
+    {
+      header: "Ban Reason",
+      accessorKey: "banReason",
+      cell: ({ row }) => {
+        const banReason = row.getValue("banReason") as string | null;
+        const banned = row.original.banned;
+
+        if (!banned || !banReason) {
+          return renderEmptyValue();
+        }
+
+        return (
+          <div className="max-w-[200px] truncate text-sm" title={banReason}>
+            {banReason}
+          </div>
+        );
+      },
+      size: 200,
+    },
+    {
+      header: "Ban Expires",
+      accessorKey: "banExpires",
+      cell: ({ row }) => {
+        const banExpires = row.getValue("banExpires") as Date | string | null;
+        const banned = row.original.banned;
+
+        if (!banned || !banExpires) {
+          return renderEmptyValue();
+        }
+
+        const expiryDate = new Date(banExpires);
+        const isExpired = expiryDate < new Date();
+
+        return (
+          <div
+            className={cn(
+              "text-sm",
+              isExpired ? "text-muted-foreground" : "text-destructive",
+            )}
+          >
+            {isExpired ? "Expired" : expiryDate.toLocaleDateString()}
+          </div>
+        );
+      },
+      size: 120,
+    },
+    {
+      id: "actions",
+      header: () => <span className="sr-only">Actions</span>,
+      cell: ({ row }) => <RowActions row={row} onRefresh={onRefresh} />,
+      size: 60,
+      enableHiding: false,
+    },
+  ];
+}
+
 export function UserDataTable() {
   // Client-side table state (for UI only, not filtering)
   const [columnFilters, setColumnFilters] = useState<ColumnFiltersState>([]);
@@ -195,169 +356,7 @@ export function UserDataTable() {
     fetchUsers();
   }, [fetchUsers]);
 
-  const columns: ColumnDef<User>[] = useMemo(
-    () => [
-      {
-        id: "select",
-        header: ({ table }) => (
-          <Checkbox
-            checked={
-              table.getIsAllPageRowsSelected() ||
-              (table.getIsSomePageRowsSelected() && "indeterminate")
-            }
-            onCheckedChange={(value) =>
-              table.toggleAllPageRowsSelected(!!value)
-            }
-            aria-label="Select all"
-          />
-        ),
-        cell: ({ row }) => (
-          <Checkbox
-            checked={row.getIsSelected()}
-            onCheckedChange={(value) => row.toggleSelected(!!value)}
-            aria-label="Select row"
-          />
-        ),
-        size: 28,
-        enableSorting: false,
-        enableHiding: false,
-      },
-      {
-        header: "Avatar",
-        accessorKey: "image",
-        cell: ({ row }) => {
-          const user = row.original;
-          const name = user.name || user.email;
-          const initials = name
-            ? name
-                .split(" ")
-                .map((n) => n[0])
-                .join("")
-                .toUpperCase()
-                .slice(0, 2)
-            : "U";
-
-          return (
-            <Avatar className="h-8 w-8">
-              <AvatarImage src={user.image || ""} alt={name} />
-              <AvatarFallback className="text-xs">{initials}</AvatarFallback>
-            </Avatar>
-          );
-        },
-        size: 60,
-        enableSorting: false,
-      },
-      {
-        header: "Name",
-        accessorKey: "name",
-        cell: ({ row }) => (
-          <div className="font-medium">{row.getValue("name") || "—"}</div>
-        ),
-        size: 180,
-        enableHiding: false,
-      },
-      {
-        header: "Email",
-        accessorKey: "email",
-        cell: ({ row }) => (
-          <div className="text-muted-foreground">{row.getValue("email")}</div>
-        ),
-        size: 200,
-      },
-      {
-        header: "Email Status",
-        accessorKey: "emailVerified",
-        cell: ({ row }) => {
-          const verified = row.getValue("emailVerified") as boolean;
-          return (
-            <Badge variant={verified ? "default" : "destructive"}>
-              {verified ? "Verified" : "Unverified"}
-            </Badge>
-          );
-        },
-        size: 120,
-      },
-      {
-        header: "Role",
-        accessorKey: "role",
-        cell: ({ row }) => {
-          const role = row.getValue("role") as string;
-          return (
-            <Badge
-              className="capitalize"
-              variant={role === "admin" ? "default" : "secondary"}
-            >
-              {role || "user"}
-            </Badge>
-          );
-        },
-        size: 100,
-      },
-      {
-        header: "Status",
-        accessorKey: "banned",
-        cell: ({ row }) => {
-          const status = getUserStatus(row.original);
-          return renderStatusBadge(status);
-        },
-        size: 100,
-      },
-      {
-        header: "Ban Reason",
-        accessorKey: "banReason",
-        cell: ({ row }) => {
-          const banReason = row.getValue("banReason") as string | null;
-          const banned = row.original.banned;
-
-          if (!banned || !banReason) {
-            return renderEmptyValue();
-          }
-
-          return (
-            <div className="max-w-[200px] truncate text-sm" title={banReason}>
-              {banReason}
-            </div>
-          );
-        },
-        size: 200,
-      },
-      {
-        header: "Ban Expires",
-        accessorKey: "banExpires",
-        cell: ({ row }) => {
-          const banExpires = row.getValue("banExpires") as Date | string | null;
-          const banned = row.original.banned;
-
-          if (!banned || !banExpires) {
-            return renderEmptyValue();
-          }
-
-          const expiryDate = new Date(banExpires);
-          const isExpired = expiryDate < new Date();
-
-          return (
-            <div
-              className={cn(
-                "text-sm",
-                isExpired ? "text-muted-foreground" : "text-destructive",
-              )}
-            >
-              {isExpired ? "Expired" : expiryDate.toLocaleDateString()}
-            </div>
-          );
-        },
-        size: 120,
-      },
-      {
-        id: "actions",
-        header: () => <span className="sr-only">Actions</span>,
-        cell: ({ row }) => <RowActions row={row} onRefresh={fetchUsers} />,
-        size: 60,
-        enableHiding: false,
-      },
-    ],
-    [fetchUsers],
-  );
+  const columns = useMemo(() => createUserColumns(fetchUsers), [fetchUsers]);
 
   const handleDeleteRows = async () => {
     const selectedRows = table.getSelectedRowModel().rows;
@@ -420,7 +419,17 @@ export function UserDataTable() {
     },
   });
 
+  const tableRows = table.getRowModel().rows;
+  const hasRows = tableRows.length > 0;
   const selectedCount = table.getSelectedRowModel().rows.length;
+  const emptyStateContent = loading ? (
+    <Button variant="outline" disabled>
+      <LoaderIcon size="16" className="animate-spin" />
+      Loading
+    </Button>
+  ) : (
+    "No results."
+  );
 
   // Server-side filter handlers
   const handleServerFilterChange = useCallback(
@@ -570,58 +579,56 @@ export function UserDataTable() {
             {table.getHeaderGroups().map((headerGroup) => (
               <TableRow key={headerGroup.id} className="hover:bg-transparent">
                 {headerGroup.headers.map((header) => {
+                  const widthStyle = { width: `${header.getSize()}px` };
+
+                  if (header.isPlaceholder) {
+                    return (
+                      <TableHead key={header.id} style={widthStyle} className="h-11" />
+                    );
+                  }
+
+                  const canSort = header.column.getCanSort();
+                  const sortState = header.column.getIsSorted();
+                  const headerLabel = flexRender(
+                    header.column.columnDef.header,
+                    header.getContext(),
+                  );
+
+                  let headerContent = headerLabel;
+
+                  if (canSort) {
+                    const toggleSorting = header.column.getToggleSortingHandler();
+                    headerContent = (
+                      <button
+                        type="button"
+                        className={cn(
+                          "flex h-full select-none items-center justify-between gap-2",
+                          "cursor-pointer",
+                        )}
+                        onClick={toggleSorting}
+                      >
+                        {headerLabel}
+                        {sortState === "asc" && (
+                          <ChevronUpIcon
+                            className="shrink-0 opacity-60"
+                            size={16}
+                            aria-hidden="true"
+                          />
+                        )}
+                        {sortState === "desc" && (
+                          <ChevronDownIcon
+                            className="shrink-0 opacity-60"
+                            size={16}
+                            aria-hidden="true"
+                          />
+                        )}
+                      </button>
+                    );
+                  }
+
                   return (
-                    <TableHead
-                      key={header.id}
-                      style={{ width: `${header.getSize()}px` }}
-                      className="h-11"
-                    >
-                      {header.isPlaceholder ? null : header.column.getCanSort() ? (
-                        <div
-                          className={cn(
-                            header.column.getCanSort() &&
-                              "flex h-full cursor-pointer items-center justify-between gap-2 select-none",
-                          )}
-                          onClick={header.column.getToggleSortingHandler()}
-                          onKeyDown={(e) => {
-                            // Enhanced keyboard handling for sorting
-                            if (
-                              header.column.getCanSort() &&
-                              (e.key === "Enter" || e.key === " ")
-                            ) {
-                              e.preventDefault();
-                              header.column.getToggleSortingHandler()?.(e);
-                            }
-                          }}
-                          tabIndex={header.column.getCanSort() ? 0 : undefined}
-                        >
-                          {flexRender(
-                            header.column.columnDef.header,
-                            header.getContext(),
-                          )}
-                          {{
-                            asc: (
-                              <ChevronUpIcon
-                                className="shrink-0 opacity-60"
-                                size={16}
-                                aria-hidden="true"
-                              />
-                            ),
-                            desc: (
-                              <ChevronDownIcon
-                                className="shrink-0 opacity-60"
-                                size={16}
-                                aria-hidden="true"
-                              />
-                            ),
-                          }[header.column.getIsSorted() as string] ?? null}
-                        </div>
-                      ) : (
-                        (flexRender(
-                          header.column.columnDef.header,
-                          header.getContext(),
-                        ) as never)
-                      )}
+                    <TableHead key={header.id} style={widthStyle} className="h-11">
+                      {headerContent}
                     </TableHead>
                   );
                 })}
@@ -629,11 +636,11 @@ export function UserDataTable() {
             ))}
           </TableHeader>
           <TableBody>
-            {table.getRowModel().rows?.length ? (
-              table.getRowModel().rows.map((row) => (
+            {hasRows ? (
+              tableRows.map((row) => (
                 <TableRow
                   key={row.id}
-                  data-state={row.getIsSelected() && "selected"}
+                  data-state={row.getIsSelected() ? "selected" : undefined}
                 >
                   {row.getVisibleCells().map((cell) => (
                     <TableCell key={cell.id} className="last:py-0">
@@ -653,14 +660,7 @@ export function UserDataTable() {
                   colSpan={columns.length}
                   className="h-24 text-center"
                 >
-                  {loading ? (
-                    <Button variant="outline" disabled>
-                      <LoaderIcon size="16" className="animate-spin" />
-                      Loading
-                    </Button>
-                  ) : (
-                    "No results."
-                  )}
+                  {emptyStateContent}
                 </TableCell>
               </TableRow>
             )}
@@ -687,13 +687,12 @@ export function UserDataTable() {
   );
 }
 
-function RowActions({
-  row,
-  onRefresh,
-}: {
+type RowActionsProps = Readonly<{
   row: Row<User>;
   onRefresh: () => void;
-}) {
+}>;
+
+function RowActions({ row, onRefresh }: RowActionsProps) {
   const [open, setOpen] = useState(false);
   const user = row.original;
 

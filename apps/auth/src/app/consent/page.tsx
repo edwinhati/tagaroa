@@ -61,7 +61,13 @@ export default function ConsentPage() {
       }
 
       if (data?.redirectURI) {
-        window.location.href = data.redirectURI;
+        const globalLocation =
+          typeof globalThis.location !== "undefined" ? globalThis.location : null;
+        if (globalLocation) {
+          globalLocation.href = data.redirectURI;
+        } else {
+          router.push(data.redirectURI);
+        }
       } else {
         router.push("/");
       }

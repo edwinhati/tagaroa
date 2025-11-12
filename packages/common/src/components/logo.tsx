@@ -1,8 +1,6 @@
-import React from "react";
-
-interface LogoProps {
+type LogoProps = Readonly<{
   size?: number | string;
-}
+}>;
 
 export function Logo({ size = 33 }: LogoProps) {
   return (

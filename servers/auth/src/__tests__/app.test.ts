@@ -14,6 +14,7 @@ const suppressedLogPatterns = [
   "[req:failing-request] Auth handler failed",
   "Error: unexpected failure",
 ];
+const ansiEscapePattern = /\u001b\[[0-9;]*m/g;
 
 const originalConsoleLog = console.log;
 
@@ -22,7 +23,7 @@ beforeAll(() => {
     const serialized = args
       .map((arg) => (typeof arg === "string" ? arg : ""))
       .join(" ");
-    const normalized = serialized.replace(/\x1b\[[0-9;]*m/g, "");
+    const normalized = serialized.replaceAll(ansiEscapePattern, "");
 
     if (suppressedLogPatterns.some((pattern) => normalized.includes(pattern))) {
       return;

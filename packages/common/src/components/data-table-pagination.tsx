@@ -1,6 +1,6 @@
 "use client";
 
-import React, { ReactNode } from "react";
+import { type ReactNode } from "react";
 import {
   ChevronFirstIcon,
   ChevronLastIcon,
@@ -24,7 +24,7 @@ import {
 import { Label } from "@repo/ui/components/label";
 import { Button } from "@repo/ui/components/button";
 
-export type DataTablePaginationProps<TData> = {
+export type DataTablePaginationProps<TData> = Readonly<{
   table: Table<TData>;
   pageSizeOptions?: number[];
   label?: string;
@@ -36,7 +36,7 @@ export type DataTablePaginationProps<TData> = {
     hasNext: boolean;
     hasPrev: boolean;
   };
-};
+}>;
 
 const DEFAULT_PAGE_SIZE_OPTIONS = [10, 20, 30, 40, 50];
 
@@ -55,7 +55,6 @@ export function DataTablePagination<TData>({
   // Use server-side pagination info if available, otherwise fall back to client-side
   const rowCount = serverSidePagination?.total ?? table.getRowCount();
   const currentPage = serverSidePagination?.page ?? pageIndex + 1;
-  const totalPages = serverSidePagination?.totalPages ?? table.getPageCount();
   const hasNext = serverSidePagination?.hasNext ?? table.getCanNextPage();
   const hasPrev = serverSidePagination?.hasPrev ?? table.getCanPreviousPage();
 

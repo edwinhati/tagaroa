@@ -44,16 +44,16 @@ const fetchAccounts = async (params?: {
 
   // Add dynamic filters - support comma-separated values for multi-select
   if (params?.filters) {
-    Object.entries(params.filters).forEach(([key, values]) => {
+    for (const [key, values] of Object.entries(params.filters)) {
       if (values.length > 0) {
         // Join multiple values with comma for multi-select support
         searchParams.append(key, values.join(","));
       }
-    });
+    }
   }
 
   const queryString = searchParams.toString();
-  const url = `/account${queryString ? `?${queryString}` : ""}`;
+  const url = queryString ? `/account?${queryString}` : "/account";
 
   try {
     // Use custom fetch to bypass envelope extraction completely

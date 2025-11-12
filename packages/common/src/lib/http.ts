@@ -83,9 +83,9 @@ export const fileApi = {
 };
 
 async function buildHeaders(init: ApiRequestInit): Promise<Record<string, string>> {
-  const headers: Record<string, string> = init.headers
-    ? { ...init.headers }
-    : {};
+  const headers: Record<string, string> = {
+    ...(init.headers ?? {}),
+  };
 
   const authHeader = await resolveAuthHeader(init.auth);
   if (authHeader) {

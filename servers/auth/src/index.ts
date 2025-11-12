@@ -25,7 +25,9 @@ process.on("SIGTERM", () => {
   process.exit(0);
 });
 
-startServer().catch((error) => {
+try {
+  await startServer();
+} catch (error) {
   console.error("Failed to start server:", error);
   process.exit(1);
-});
+}

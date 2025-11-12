@@ -178,11 +178,11 @@ const COMMON_SCOPES = [
   { value: "admin", label: "admin", description: "Administrative access" },
 ];
 
-interface ScopeComboboxProps {
+type ScopeComboboxProps = Readonly<{
   value: string;
   onChange: (value: string) => void;
   placeholder?: string;
-}
+}>;
 
 export function ScopeCombobox({
   value,
@@ -320,14 +320,6 @@ export function ScopeCombobox({
             ref={triggerRef}
             className="flex min-h-10 w-full flex-wrap items-center gap-1 rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-within:ring-2 focus-within:ring-ring focus-within:ring-offset-2 cursor-text"
             onClick={() => inputRef.current?.focus()}
-            onKeyDown={(e) => {
-              if (e.key === "Enter" || e.key === " ") {
-                e.preventDefault();
-                inputRef.current?.focus();
-              }
-            }}
-            tabIndex={0}
-            role="button"
             aria-label="Focus scope input"
           >
             <div className="flex flex-wrap items-center gap-1 w-full">
@@ -445,9 +437,9 @@ const createClientSchema = z.object({
 
 type CreateClientFormData = z.infer<typeof createClientSchema>;
 
-interface CreateOIDCClientDialogProps {
+type CreateOIDCClientDialogProps = Readonly<{
   onClientCreated: () => void;
-}
+}>;
 
 export function CreateOIDCClientDialog({
   onClientCreated,

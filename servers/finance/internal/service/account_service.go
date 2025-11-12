@@ -37,11 +37,19 @@ type GetAccountsResult struct {
 	CurrencyAggregations map[string]util.AggregationResult
 }
 
+type UpdateAccountInput struct {
+	Name      *string
+	Currency  *string
+	Notes     *string
+	Balance   *float64
+	IsDeleted *bool
+}
+
 type AccountService interface {
 	CreateAccount(ctx context.Context, account *model.Account) (*model.Account, error)
 	GetAccount(ctx context.Context, id, userID uuid.UUID) (*model.Account, error)
 	GetAccounts(ctx context.Context, params GetAccountsParams) (*GetAccountsResult, error)
-	UpdateAccount(ctx context.Context, id uuid.UUID, name, currency, notes *string, balance *float64, IsDeleted *bool, userID uuid.UUID) (*model.Account, error)
+	UpdateAccount(ctx context.Context, id uuid.UUID, input UpdateAccountInput, userID uuid.UUID) (*model.Account, error)
 }
 
 type accountService struct {
@@ -171,7 +179,7 @@ func (s *accountService) GetAccounts(ctx context.Context, params GetAccountsPara
 	return result, nil
 }
 
-func (s *accountService) UpdateAccount(ctx context.Context, id uuid.UUID, name, currency, notes *string, balance *float64, IsDeleted *bool, userID uuid.UUID) (*model.Account, error) {
+func (s *accountService) UpdateAccount(ctx context.Context, id uuid.UUID, input UpdateAccountInput, userID uuid.UUID) (*model.Account, error) {
 	params := util.FindUniqueParams{
 		Where: map[string]any{
 			"id":      id,
@@ -188,20 +196,20 @@ func (s *accountService) UpdateAccount(ctx context.Context, id uuid.UUID, name, 
 	}
 
 	// Update fields if provided
-	if name != nil {
-		account.Name = *name
+	if input.Name != nil {
+		account.Name = *input.Name
 	}
-	if balance != nil {
-		account.Balance = *balance
+	if input.Balance != nil {
+		account.Balance = *input.Balance
 	}
-	if currency != nil {
-		account.Currency = *currency
+	if input.Currency != nil {
+		account.Currency = *input.Currency
 	}
-	if notes != nil {
-		account.Notes = notes
+	if input.Notes != nil {
+		account.Notes = input.Notes
 	}
 
-	if IsDeleted != nil && *IsDeleted {
+	if input.IsDeleted != nil && *input.IsDeleted {
 		account.IsDeleted = true
 	}
 

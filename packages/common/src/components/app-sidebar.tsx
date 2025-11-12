@@ -1,6 +1,6 @@
 "use client";
 
-import React from "react";
+import { type ComponentProps, type ComponentType } from "react";
 import Link from "next/link";
 import {
   Sidebar,
@@ -19,10 +19,12 @@ import {
 import { Logo } from "@repo/common/components/logo";
 import { ThemeSwitcher } from "@repo/common/components/theme-switcher";
 
-interface AppSidebarProps extends React.ComponentProps<typeof Sidebar> {
-  appName: string;
-  nav: Array<{ name: string; icon: React.ComponentType; href: string }>;
-}
+type AppSidebarProps = Readonly<
+  ComponentProps<typeof Sidebar> & {
+    appName: string;
+    nav: Array<{ name: string; icon: ComponentType; href: string }>;
+  }
+>;
 
 export function AppSidebar({ appName, nav, ...props }: AppSidebarProps) {
   const { open } = useSidebar();

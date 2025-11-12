@@ -84,13 +84,13 @@ const updateClientSchema = z.object({
 
 type UpdateClientFormData = z.infer<typeof updateClientSchema>;
 
-interface OIDCClientDetailSheetProps {
+type OIDCClientDetailSheetProps = Readonly<{
   client: OIDCClient;
   open: boolean;
   onOpenChange: (open: boolean) => void;
   onClientUpdated: () => void;
   onClientDeleted: () => void;
-}
+}>;
 
 // Helper functions to reduce duplication
 const getStoredClients = (): OIDCClient[] => {
@@ -139,7 +139,7 @@ const CredentialField = ({
   onToggleVisibility?: () => void;
 }) => (
   <div>
-    <label className="text-sm font-medium text-muted-foreground">{label}</label>
+    <p className="text-sm font-medium text-muted-foreground">{label}</p>
     <div className="flex items-center gap-2 mt-1">
       <code className="flex-1 text-sm bg-muted px-3 py-2 rounded border">
         {showToggle && !isVisible ? "••••••••••••••••••••••••••••••••" : value}
@@ -171,7 +171,7 @@ const EndpointField = ({
   showExternalLink?: boolean;
 }) => (
   <div>
-    <label className="text-sm font-medium text-muted-foreground">{label}</label>
+    <p className="text-sm font-medium text-muted-foreground">{label}</p>
     <div className="flex items-center gap-2 mt-1">
       <code className="flex-1 text-sm bg-muted px-3 py-2 rounded border">
         {endpoint}
@@ -560,9 +560,9 @@ export function OIDCClientDetailSheet({
 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div>
-                    <label className="text-sm font-medium text-muted-foreground">
+                    <p className="text-sm font-medium text-muted-foreground">
                       Client Type
-                    </label>
+                    </p>
                     <div className="mt-1">
                       <Badge variant="secondary">
                         {typeLabels[client.type]}
@@ -571,9 +571,9 @@ export function OIDCClientDetailSheet({
                   </div>
 
                   <div>
-                    <label className="text-sm font-medium text-muted-foreground">
+                    <p className="text-sm font-medium text-muted-foreground">
                       Status
-                    </label>
+                    </p>
                     <div className="mt-1">
                       <Badge
                         variant={client.disabled ? "destructive" : "default"}
@@ -585,12 +585,12 @@ export function OIDCClientDetailSheet({
                 </div>
 
                 <div>
-                  <label className="text-sm font-medium text-muted-foreground">
+                  <p className="text-sm font-medium text-muted-foreground">
                     Redirect URIs
-                  </label>
+                  </p>
                   <div className="mt-1 space-y-1">
-                    {client.redirectURLs.map((uri, index) => (
-                      <div key={index} className="flex items-center gap-2">
+                    {client.redirectURLs.map((uri) => (
+                      <div key={uri} className="flex items-center gap-2">
                         <code className="flex-1 text-sm bg-muted px-3 py-2 rounded border">
                           {uri}
                         </code>
@@ -609,9 +609,9 @@ export function OIDCClientDetailSheet({
 
                 {client.metadata && (
                   <div>
-                    <label className="text-sm font-medium text-muted-foreground">
+                    <p className="text-sm font-medium text-muted-foreground">
                       Metadata
-                    </label>
+                    </p>
                     <pre className="mt-1 text-sm bg-muted px-3 py-2 rounded border overflow-x-auto">
                       {JSON.stringify(client.metadata, null, 2)}
                     </pre>
@@ -659,18 +659,18 @@ export function OIDCClientDetailSheet({
 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div>
-                    <label className="text-sm font-medium text-muted-foreground">
-                      Created
-                    </label>
+                      <p className="text-sm font-medium text-muted-foreground">
+                        Created
+                      </p>
                     <div className="mt-1 text-sm">
                       {client.createdAt.toLocaleString()}
                     </div>
                   </div>
 
                   <div>
-                    <label className="text-sm font-medium text-muted-foreground">
-                      Last Updated
-                    </label>
+                      <p className="text-sm font-medium text-muted-foreground">
+                        Last Updated
+                      </p>
                     <div className="mt-1 text-sm">
                       {client.updatedAt.toLocaleString()}
                     </div>

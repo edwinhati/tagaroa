@@ -1,6 +1,13 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import {
+  useCallback,
+  useEffect,
+  useMemo,
+  useState,
+  type Dispatch,
+  type SetStateAction,
+} from "react";
 import {
   AlertTriangle,
   CircleUserRound,
@@ -209,12 +216,6 @@ export function UserDetailSheet(
     setNewPassword,
   } = useLocalUserFormState(user);
 
-  const [isSavingProfile, setIsSavingProfile] = useState(false);
-  const [isUpdatingRole, setIsUpdatingRole] = useState(false);
-  const [isBanMutating, setIsBanMutating] = useState(false);
-  const [isSettingPassword, setIsSettingPassword] = useState(false);
-  const [isRemovingUser, setIsRemovingUser] = useState(false);
-  const [isImpersonatingUser, setIsImpersonatingUser] = useState(false);
   const {
     sessions,
     sessionsLoading,
@@ -239,6 +240,44 @@ export function UserDetailSheet(
   const isAlreadyImpersonating = Boolean(
     currentSession?.session?.impersonatedBy,
   );
+  const impersonateDisabled =
+    isImpersonatingUser || isViewingCurrentUser || isAlreadyImpersonating;
+
+  const {
+    isSavingProfile,
+    isUpdatingRole,
+    isBanMutating,
+    isSettingPassword,
+    isRemovingUser,
+    isImpersonatingUser,
+    handleSaveProfile,
+    handleChangeRole,
+    handleBanUser,
+    handleImpersonateUser,
+    handleUnbanUser,
+    handleSetPassword,
+    handleRemoveUser,
+  } = useUserDetailActions({
+    localUser,
+    setLocalUser,
+    nameInput,
+    emailInput,
+    roleValue,
+    setRoleValue,
+    banReason,
+    setBanReason,
+    banDuration,
+    setBanDuration,
+    setShowBanForm,
+    newPassword,
+    setNewPassword,
+    onUserUpdated,
+    onUserDeleted,
+    onOpenChange,
+    isViewingCurrentUser,
+    isAlreadyImpersonating,
+  });
+
   const impersonateDisabled =
     isImpersonatingUser || isViewingCurrentUser || isAlreadyImpersonating;
 
@@ -309,227 +348,6 @@ export function UserDetailSheet(
     );
   };
 
-  const handleSaveProfile = async () => {
-    if (!localUser) return;
-    const trimmedName = nameInput.trim();
-    const trimmedEmail = emailInput.trim();
-
-    const updates: Record<string, unknown> = {};
-    if (trimmedName !== (localUser.name ?? "")) {
-      updates.name = trimmedName;
-    }
-    if (trimmedEmail !== localUser.email) {
-      updates.email = trimmedEmail;
-    }
-
-    if (Object.keys(updates).length === 0) {
-      toast.info("No changes to save.");
-      return;
-    }
-
-    setIsSavingProfile(true);
-    try {
-      const payload: UpdateUserInput = {
-        userId: localUser.id,
-        data: updates,
-      };
-      const response: UpdateUserResponse =
-        await authClient.admin.updateUser(payload);
-      const updatedUser = ensureResponseData<UpdateUserData>(
-        response,
-        "Failed to update user profile.",
-      );
-      setLocalUser(updatedUser);
-      onUserUpdated?.(updatedUser);
-      toast.success("User profile updated.");
-    } catch (error) {
-      const message =
-        error instanceof Error
-          ? error.message
-          : "Failed to update user profile.";
-      toast.error(message);
-    } finally {
-      setIsSavingProfile(false);
-    }
-  };
-
-  const handleChangeRole = async (value: string) => {
-    if (!localUser || value === pickPrimaryRole(localUser.role)) return;
-
-    // Show confirmation dialog for role changes
-    const currentRole = pickPrimaryRole(localUser.role);
-    const userName = localUser.name || localUser.email || "this user";
-    const confirmed = confirmAction(
-      `Are you sure you want to change ${userName}'s role from "${currentRole}" to "${value}"? This will immediately affect their permissions across the system.`,
-    );
-
-    if (!confirmed) {
-      return;
-    }
-
-    setRoleValue(value);
-    setIsUpdatingRole(true);
-    try {
-      const payload = {
-        userId: localUser.id,
-        role: value,
-      };
-      const response = await authClient.admin.setRole(payload);
-      const { user: updatedUser } = ensureResponseData<{ user: never }>(
-        response,
-        "Failed to update user role.",
-      );
-      setLocalUser(updatedUser);
-      onUserUpdated?.(updatedUser);
-      toast.success(`User role updated to ${value}.`);
-    } catch (error) {
-      const message =
-        error instanceof Error ? error.message : "Failed to update user role.";
-      setRoleValue(pickPrimaryRole(localUser.role));
-      toast.error(message);
-    } finally {
-      setIsUpdatingRole(false);
-    }
-  };
-
-  const handleBanUser = async () => {
-    if (!localUser) return;
-    if (!banReason.trim()) {
-      toast.error("Ban reason cannot be empty.");
-      return;
-    }
-    setIsBanMutating(true);
-    try {
-      const payload: BanUserInput = {
-        userId: localUser.id,
-        banReason: banReason.trim(),
-        banExpiresIn: BAN_DURATION_SECONDS[banDuration],
-      };
-      const response: BanUserResponse = await authClient.admin.banUser(payload);
-      const { user: updatedUser } = ensureResponseData<BanUserData>(
-        response,
-        "Failed to ban user.",
-      );
-      setLocalUser(updatedUser);
-      onUserUpdated?.(updatedUser);
-      toast.success("User banned successfully.");
-      setShowBanForm(false);
-    } catch (error) {
-      const message =
-        error instanceof Error ? error.message : "Failed to ban user.";
-      toast.error(message);
-    } finally {
-      setIsBanMutating(false);
-    }
-  };
-
-  const handleImpersonateUser = async () => {
-    if (!localUser) return;
-    if (currentSession?.user?.id === localUser.id) {
-      toast.info("You are already signed in as this user.");
-      return;
-    }
-    setIsImpersonatingUser(true);
-    try {
-      const payload: ImpersonateUserInput = {
-        userId: localUser.id,
-      };
-      const response: ImpersonateUserResponse =
-        await authClient.admin.impersonateUser(payload);
-      ensureResponseData<ImpersonateUserData>(
-        response,
-        "Failed to impersonate user.",
-      );
-      toast.success(
-        `Impersonating ${
-          localUser.name ?? localUser.email ?? "selected user"
-        }. Returning to app...`,
-      );
-      navigateTo("/");
-    } catch (error) {
-      const message =
-        error instanceof Error ? error.message : "Failed to impersonate user.";
-      toast.error(message);
-    } finally {
-      setIsImpersonatingUser(false);
-    }
-  };
-
-  const handleUnbanUser = async () => {
-    if (!localUser) return;
-    setIsBanMutating(true);
-    try {
-      const payload: UnbanUserInput = {
-        userId: localUser.id,
-      };
-      const response: UnbanUserResponse =
-        await authClient.admin.unbanUser(payload);
-      const { user: updatedUser } = ensureResponseData<UnbanUserData>(
-        response,
-        "Failed to update ban status.",
-      );
-      setLocalUser(updatedUser);
-      onUserUpdated?.(updatedUser);
-      toast.success("User ban status removed.");
-    } catch (error) {
-      const message =
-        error instanceof Error ? error.message : "Failed to update ban status.";
-      toast.error(message);
-    } finally {
-      setIsBanMutating(false);
-    }
-  };
-
-  const handleSetPassword = async () => {
-    if (!localUser) return;
-    if (!newPassword.trim()) {
-      toast.error("New password cannot be empty.");
-      return;
-    }
-
-    setIsSettingPassword(true);
-    try {
-      const payload: SetUserPasswordInput = {
-        userId: localUser.id,
-        newPassword: newPassword.trim(),
-      };
-      await authClient.admin.setUserPassword(payload);
-      toast.success("User password updated.");
-      setNewPassword("");
-    } catch (error) {
-      const message =
-        error instanceof Error ? error.message : "Failed to set user password.";
-      toast.error(message);
-    } finally {
-      setIsSettingPassword(false);
-    }
-  };
-
-  const handleRemoveUser = async () => {
-    if (!localUser) return;
-    const confirmed = confirmAction(
-      `User ${
-        localUser.name ?? localUser.email
-      } will be permanently deleted. Continue?`,
-    );
-    if (!confirmed) return;
-
-    setIsRemovingUser(true);
-    try {
-      const payload: RemoveUserInput = { userId: localUser.id };
-      await authClient.admin.removeUser(payload);
-      toast.success("User deleted successfully.");
-      onOpenChange(false);
-      onUserDeleted?.(localUser.id);
-    } catch (error) {
-      const message =
-        error instanceof Error ? error.message : "Failed to delete user.";
-      toast.error(message);
-    } finally {
-      setIsRemovingUser(false);
-    }
-  };
-
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
       <SheetContent className="flex h-full flex-col p-4 gap-6 overflow-y-auto sm:max-w-xl">
@@ -541,11 +359,7 @@ export function UserDetailSheet(
           </SheetDescription>
         </SheetHeader>
 
-        {!localUser ? (
-          <div className="flex flex-1 items-center justify-center">
-            <Skeleton className="h-12 w-12" />
-          </div>
-        ) : (
+        {localUser ? (
           <>
             <Card className="rounded-md bg-muted/40 px-4 text-sm">
               <div className="flex items-start gap-3">
@@ -947,6 +761,10 @@ export function UserDetailSheet(
               </Card>
             </div>
           </>
+        ) : (
+          <div className="flex flex-1 items-center justify-center">
+            <Skeleton className="h-12 w-12" />
+          </div>
         )}
       </SheetContent>
     </Sheet>
@@ -1103,3 +921,311 @@ const truncateToken = (token: string) => {
   if (token.length <= 24) return token;
   return `${token.slice(0, 12)}…${token.slice(-6)}`;
 };
+
+type UserDetailActionParams = {
+  localUser: UserWithRole | null;
+  setLocalUser: Dispatch<SetStateAction<UserWithRole | null>>;
+  nameInput: string;
+  emailInput: string;
+  roleValue: string;
+  setRoleValue: Dispatch<SetStateAction<string>>;
+  banReason: string;
+  setBanReason: Dispatch<SetStateAction<string>>;
+  banDuration: BanDurationOption;
+  setBanDuration: Dispatch<SetStateAction<BanDurationOption>>;
+  setShowBanForm: Dispatch<SetStateAction<boolean>>;
+  newPassword: string;
+  setNewPassword: Dispatch<SetStateAction<string>>;
+  onUserUpdated?: (user: UserWithRole) => void;
+  onUserDeleted?: (userId: string) => void;
+  onOpenChange: (open: boolean) => void;
+  isViewingCurrentUser: boolean;
+  isAlreadyImpersonating: boolean;
+};
+
+function useUserDetailActions({
+  localUser,
+  setLocalUser,
+  nameInput,
+  emailInput,
+  roleValue,
+  setRoleValue,
+  banReason,
+  setBanReason,
+  banDuration,
+  setBanDuration,
+  setShowBanForm,
+  newPassword,
+  setNewPassword,
+  onUserUpdated,
+  onUserDeleted,
+  onOpenChange,
+  isViewingCurrentUser,
+  isAlreadyImpersonating,
+}: UserDetailActionParams) {
+  const [isSavingProfile, setIsSavingProfile] = useState(false);
+  const [isUpdatingRole, setIsUpdatingRole] = useState(false);
+  const [isBanMutating, setIsBanMutating] = useState(false);
+  const [isSettingPassword, setIsSettingPassword] = useState(false);
+  const [isRemovingUser, setIsRemovingUser] = useState(false);
+  const [isImpersonatingUser, setIsImpersonatingUser] = useState(false);
+
+  const handleSaveProfile = useCallback(async () => {
+    if (!localUser) return;
+    const trimmedName = nameInput.trim();
+    const trimmedEmail = emailInput.trim();
+
+    const updates: Record<string, unknown> = {};
+    if (trimmedName !== (localUser.name ?? "")) {
+      updates.name = trimmedName;
+    }
+    if (trimmedEmail !== localUser.email) {
+      updates.email = trimmedEmail;
+    }
+
+    if (Object.keys(updates).length === 0) {
+      toast.info("No changes to save.");
+      return;
+    }
+
+    setIsSavingProfile(true);
+    try {
+      const payload: UpdateUserInput = {
+        userId: localUser.id,
+        data: updates,
+      };
+      const response: UpdateUserResponse =
+        await authClient.admin.updateUser(payload);
+      const updatedUser = ensureResponseData<UpdateUserData>(
+        response,
+        "Failed to update user profile.",
+      );
+      setLocalUser(updatedUser);
+      onUserUpdated?.(updatedUser);
+      toast.success("User profile updated.");
+    } catch (error) {
+      const message =
+        error instanceof Error
+          ? error.message
+          : "Failed to update user profile.";
+      toast.error(message);
+    } finally {
+      setIsSavingProfile(false);
+    }
+  }, [emailInput, localUser, nameInput, onUserUpdated, setLocalUser]);
+
+  const handleChangeRole = useCallback(
+    async (value: string) => {
+      if (!localUser || value === pickPrimaryRole(localUser.role)) return;
+
+      const currentRole = pickPrimaryRole(localUser.role);
+      const confirmed = confirmAction(
+        `Change role from ${currentRole} to ${value}?`,
+      );
+      if (!confirmed) return;
+
+      setIsUpdatingRole(true);
+      try {
+        const payload: UpdateUserInput = {
+          userId: localUser.id,
+          data: {
+            role: value,
+          },
+        };
+        const response = await authClient.admin.updateUser(payload);
+        const updatedUser = ensureResponseData<UpdateUserData>(
+          response,
+          "Failed to update user role.",
+        );
+        setLocalUser(updatedUser);
+        setRoleValue(value);
+        onUserUpdated?.(updatedUser);
+        toast.success("User role updated.");
+      } catch (error) {
+        const message =
+          error instanceof Error ? error.message : "Failed to update user role.";
+        toast.error(message);
+      } finally {
+        setIsUpdatingRole(false);
+      }
+    },
+    [localUser, onUserUpdated, setLocalUser, setRoleValue],
+  );
+
+  const handleBanUser = useCallback(async () => {
+    if (!localUser) return;
+
+    const banDurationSeconds = BAN_DURATION_SECONDS[banDuration];
+
+    setIsBanMutating(true);
+    try {
+      const payload: BanUserInput = {
+        userId: localUser.id,
+        reason: banReason.trim(),
+        durationSeconds: banDurationSeconds,
+      };
+      const response: BanUserResponse = await authClient.admin.banUser(payload);
+      const updatedUser = ensureResponseData<BanUserData>(
+        response,
+        "Failed to ban user.",
+      );
+      setLocalUser(updatedUser);
+      setShowBanForm(false);
+      setBanReason(defaultBanReason);
+      setBanDuration(defaultBanDuration);
+      onUserUpdated?.(updatedUser);
+      toast.success("User banned successfully.");
+    } catch (error) {
+      const message =
+        error instanceof Error ? error.message : "Failed to ban user.";
+      toast.error(message);
+    } finally {
+      setIsBanMutating(false);
+    }
+  }, [
+    banDuration,
+    banReason,
+    localUser,
+    onUserUpdated,
+    setBanDuration,
+    setBanReason,
+    setLocalUser,
+    setShowBanForm,
+  ]);
+
+  const handleImpersonateUser = useCallback(async () => {
+    if (!localUser) {
+      toast.error("User information unavailable.");
+      return;
+    }
+
+    if (isViewingCurrentUser) {
+      toast.error("Cannot impersonate the currently logged-in user.");
+      return;
+    }
+
+    if (isAlreadyImpersonating) {
+      toast.error("Already impersonating another user.");
+      return;
+    }
+
+    setIsImpersonatingUser(true);
+    try {
+      const payload: ImpersonateUserInput = {
+        userId: localUser.id,
+      };
+      const response: ImpersonateUserResponse =
+        await authClient.admin.impersonateUser(payload);
+      const result = ensureResponseData<ImpersonateUserData>(
+        response,
+        "Failed to impersonate user.",
+      );
+
+      toast.success("Impersonation started. Redirecting...");
+      if (result.sessionToken) {
+        document.cookie = `better-auth.session_token=${result.sessionToken}; path=/;`;
+      }
+      navigateTo("/dashboard");
+    } catch (error) {
+      const message =
+        error instanceof Error
+          ? error.message
+          : "Failed to impersonate user.";
+      toast.error(message);
+    } finally {
+      setIsImpersonatingUser(false);
+    }
+  }, [isAlreadyImpersonating, isViewingCurrentUser, localUser]);
+
+  const handleUnbanUser = useCallback(async () => {
+    if (!localUser) return;
+
+    setIsBanMutating(true);
+    try {
+      const payload: UnbanUserInput = {
+        userId: localUser.id,
+      };
+      const response: UnbanUserResponse =
+        await authClient.admin.unbanUser(payload);
+      const updatedUser = ensureResponseData<UnbanUserData>(
+        response,
+        "Failed to unban user.",
+      );
+      setLocalUser(updatedUser);
+      onUserUpdated?.(updatedUser);
+      toast.success("User unbanned successfully.");
+    } catch (error) {
+      const message =
+        error instanceof Error ? error.message : "Failed to unban user.";
+      toast.error(message);
+    } finally {
+      setIsBanMutating(false);
+    }
+  }, [localUser, onUserUpdated, setLocalUser]);
+
+  const handleSetPassword = useCallback(async () => {
+    if (!localUser) return;
+
+    if (newPassword.trim().length < 8) {
+      toast.error("Password must be at least 8 characters.");
+      return;
+    }
+
+    setIsSettingPassword(true);
+    try {
+      const payload: SetUserPasswordInput = {
+        userId: localUser.id,
+        newPassword: newPassword.trim(),
+      };
+      await authClient.admin.setUserPassword(payload);
+      setNewPassword("");
+      toast.success("Password updated successfully.");
+    } catch (error) {
+      const message =
+        error instanceof Error ? error.message : "Failed to set password.";
+      toast.error(message);
+    } finally {
+      setIsSettingPassword(false);
+    }
+  }, [localUser, newPassword, setNewPassword]);
+
+  const handleRemoveUser = useCallback(async () => {
+    if (!localUser) return;
+
+    const confirmed = confirmAction(
+      "Are you sure you want to delete this user? This action cannot be undone.",
+    );
+    if (!confirmed) return;
+
+    setIsRemovingUser(true);
+    try {
+      const payload: RemoveUserInput = { userId: localUser.id };
+      await authClient.admin.removeUser(payload);
+      toast.success("User deleted successfully.");
+      onUserDeleted?.(localUser.id);
+      onOpenChange(false);
+    } catch (error) {
+      const message =
+        error instanceof Error ? error.message : "Failed to delete user.";
+      toast.error(message);
+    } finally {
+      setIsRemovingUser(false);
+    }
+  }, [localUser, onOpenChange, onUserDeleted]);
+
+  return {
+    isSavingProfile,
+    isUpdatingRole,
+    isBanMutating,
+    isSettingPassword,
+    isRemovingUser,
+    isImpersonatingUser,
+    handleSaveProfile,
+    handleChangeRole,
+    handleBanUser,
+    handleImpersonateUser,
+    handleUnbanUser,
+    handleSetPassword,
+    handleRemoveUser,
+  };
+}

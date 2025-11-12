@@ -2,11 +2,9 @@
 
 import { ContentPanel } from "@repo/common/components/content-panel";
 
-export default function BudgetTemplate({
-  children,
-}: {
-  children: React.ReactNode;
-}) {
+type BudgetTemplateProps = Readonly<{ children: React.ReactNode }>;
+
+export default function BudgetTemplate({ children }: BudgetTemplateProps) {
   const menu = [
     {
       name: "Budget",

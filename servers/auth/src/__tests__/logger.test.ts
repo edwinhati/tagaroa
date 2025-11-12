@@ -40,6 +40,8 @@ const captureConsole = () => {
   return { calls, restore };
 };
 
+const ansiEscapePattern = /\u001b\[[0-9;]*m/g;
+
 beforeEach(() => {
   configMock.nodeEnv = "development";
   configMock.logLevel = "info";
@@ -85,7 +87,7 @@ describe("createLogger", () => {
     }
 
     expect(calls.length).toBe(1);
-    expect(String(calls[0][0]).includes("should log")).toBeTruthy();
+    expect(String(calls[0][0])).toContain("should log");
   });
 
   test("formats context, objects and stack traces in development", () => {
@@ -108,36 +110,28 @@ describe("createLogger", () => {
 
     const strippedCalls = calls.map(([first]) =>
       typeof first === "string"
-        ? (first as string).replace(/\x1b\[[0-9;]*m/g, "")
+        ? (first as string).replaceAll(ansiEscapePattern, "")
         : first,
     );
+    const stringCalls = strippedCalls.filter(
+      (line): line is string => typeof line === "string",
+    );
 
-    expect(
-      strippedCalls.some(
-        (line) => typeof line === "string" && line.includes("[Ctx]"),
-      ),
-    ).toBeTruthy();
-    expect(
-      strippedCalls.some(
-        (line) =>
-          typeof line === "string" && line.includes('"message": "test"'),
-      ),
-    ).toBeTruthy();
-    expect(
-      strippedCalls.some(
-        (line) => typeof line === "string" && line.includes("42"),
-      ),
-    ).toBeTruthy();
-    expect(
-      strippedCalls.some(
-        (line) => typeof line === "string" && line.includes("stack-trace"),
-      ),
-    ).toBeTruthy();
-    expect(
-      strippedCalls.some(
-        (line) => typeof line === "string" && line.includes("hono message"),
-      ),
-    ).toBeTruthy();
+    expect(stringCalls).toEqual(
+      expect.arrayContaining([expect.stringContaining("[Ctx]")]),
+    );
+    expect(stringCalls).toEqual(
+      expect.arrayContaining([expect.stringContaining('"message": "test"')]),
+    );
+    expect(stringCalls).toEqual(
+      expect.arrayContaining([expect.stringContaining("42")]),
+    );
+    expect(stringCalls).toEqual(
+      expect.arrayContaining([expect.stringContaining("stack-trace")]),
+    );
+    expect(stringCalls).toEqual(
+      expect.arrayContaining([expect.stringContaining("hono message")]),
+    );
   });
 
   test("respects explicit warn threshold", () => {
@@ -154,7 +148,7 @@ describe("createLogger", () => {
     }
 
     expect(calls.length).toBe(1);
-    expect(String(calls[0][0]).includes("should appear")).toBeTruthy();
+    expect(String(calls[0][0])).toContain("should appear");
   });
 });
 
@@ -199,11 +193,11 @@ describe("httpMiddleware", () => {
     expect(response.headers.get("x-request-id")).toBe("middleware-test");
     expect(setMock).toHaveBeenCalledWith("requestId", "middleware-test");
     expect(setMock).toHaveBeenCalledWith("logger", logger);
-    expect(
-      calls.some(
-        ([line]) =>
-          typeof line === "string" && line.includes("middleware failure"),
-      ),
-    ).toBeTruthy();
+    const errorLines = calls
+      .map(([line]) => (typeof line === "string" ? line : null))
+      .filter((line): line is string => line !== null);
+    expect(errorLines).toEqual(
+      expect.arrayContaining([expect.stringContaining("middleware failure")]),
+    );
   });
 });

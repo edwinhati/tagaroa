@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, type ComponentProps } from "react";
+import { useState, type ComponentProps } from "react";
 import { CircleAlertIcon } from "lucide-react";
 
 import {
@@ -18,7 +18,7 @@ import { Button } from "@repo/ui/components/button";
 
 type ButtonComponentProps = ComponentProps<typeof Button>;
 
-export type DataTableBulkDeleteDialogProps = {
+export type DataTableBulkDeleteDialogProps = Readonly<{
   selectedCount: number;
   onConfirm: () => void | Promise<void>;
   triggerLabel?: string;
@@ -29,7 +29,7 @@ export type DataTableBulkDeleteDialogProps = {
   buttonVariant?: ButtonComponentProps["variant"];
   buttonSize?: ButtonComponentProps["size"];
   buttonClassName?: string;
-};
+}>;
 
 /**
  * Confirmation dialog helper for bulk deletion actions.

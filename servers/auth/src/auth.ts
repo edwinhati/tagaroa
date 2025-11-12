@@ -166,7 +166,7 @@ export const auth = betterAuth({
     }),
     multiSession({ maximumSessions: 3 }),
     haveIBeenPwned(),
-    ...(process.env.NODE_ENV !== "production" ? [openAPI()] : []),
+    ...(process.env.NODE_ENV === "production" ? [] : [openAPI()]),
   ],
   trustedOrigins,
   logger: {

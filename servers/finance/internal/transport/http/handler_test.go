@@ -63,8 +63,8 @@ func (m *MockAccountService) GetAccounts(ctx context.Context, params service.Get
 	}
 	return args.Get(0).(*service.GetAccountsResult), args.Error(1)
 }
-func (m *MockAccountService) UpdateAccount(ctx context.Context, id uuid.UUID, name, currency, notes *string, balance *float64, isDeleted *bool, userID uuid.UUID) (*model.Account, error) {
-	args := m.Called(ctx, id, name, currency, notes, balance, isDeleted, userID)
+func (m *MockAccountService) UpdateAccount(ctx context.Context, id uuid.UUID, input service.UpdateAccountInput, userID uuid.UUID) (*model.Account, error) {
+	args := m.Called(ctx, id, input, userID)
 	if args.Get(0) == nil {
 		return nil, args.Error(1)
 	}
@@ -109,6 +109,16 @@ func perform(h func(http.ResponseWriter, *http.Request), req *http.Request) *htt
 
 func stringPtr(s string) *string    { return &s }
 func float64Ptr(f float64) *float64 { return &f }
+
+func updateInputFromRequest(req UpdateAccountRequest) service.UpdateAccountInput {
+	return service.UpdateAccountInput{
+		Name:      req.Name,
+		Currency:  req.Currency,
+		Notes:     req.Notes,
+		Balance:   req.Balance,
+		IsDeleted: req.IsDeleted,
+	}
+}
 
 /* ------------------------------ Create ------------------------------- */
 
@@ -406,7 +416,7 @@ func TestAccountHandlerUpdateAccountVariants(t *testing.T) {
 			req:  authedReq("PUT", accountPathWithID(accountID), body, userID),
 			setup: func() {
 				mockSvc.
-					On("UpdateAccount", mock.Anything, accountID, body.Name, body.Currency, body.Notes, body.Balance, body.IsDeleted, userID).
+					On("UpdateAccount", mock.Anything, accountID, updateInput, userID).
 					Return(okAccount, nil).Once()
 			},
 			wantStatus: http.StatusOK,
@@ -437,7 +447,7 @@ func TestAccountHandlerUpdateAccountVariants(t *testing.T) {
 			req:  authedReq("PUT", accountPathWithID(accountID), body, userID),
 			setup: func() {
 				mockSvc.
-					On("UpdateAccount", mock.Anything, accountID, body.Name, body.Currency, body.Notes, body.Balance, body.IsDeleted, userID).
+					On("UpdateAccount", mock.Anything, accountID, updateInput, userID).
 					Return(nil, service.ErrAccountNotFound).Once()
 			},
 			wantStatus: http.StatusNotFound,
@@ -447,7 +457,7 @@ func TestAccountHandlerUpdateAccountVariants(t *testing.T) {
 			req:  authedReq("PUT", accountPathWithID(accountID), body, userID),
 			setup: func() {
 				mockSvc.
-					On("UpdateAccount", mock.Anything, accountID, body.Name, body.Currency, body.Notes, body.Balance, body.IsDeleted, userID).
+					On("UpdateAccount", mock.Anything, accountID, updateInput, userID).
 					Return(nil, service.ErrAccessDenied).Once()
 			},
 			wantStatus: http.StatusForbidden,
@@ -457,7 +467,7 @@ func TestAccountHandlerUpdateAccountVariants(t *testing.T) {
 			req:  authedReq("PUT", accountPathWithID(accountID), body, userID),
 			setup: func() {
 				mockSvc.
-					On("UpdateAccount", mock.Anything, accountID, body.Name, body.Currency, body.Notes, body.Balance, body.IsDeleted, userID).
+					On("UpdateAccount", mock.Anything, accountID, updateInput, userID).
 					Return(nil, fmt.Errorf("boom")).Once()
 			},
 			wantStatus: http.StatusInternalServerError,

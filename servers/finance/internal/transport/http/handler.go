@@ -268,7 +268,14 @@ func (h *AccountHandler) UpdateAccount(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
-	account, err := h.accountService.UpdateAccount(r.Context(), id, req.Name, req.Currency, req.Notes, req.Balance, req.IsDeleted, userID)
+	input := service.UpdateAccountInput{
+		Name:      req.Name,
+		Currency:  req.Currency,
+		Notes:     req.Notes,
+		Balance:   req.Balance,
+		IsDeleted: req.IsDeleted,
+	}
+	account, err := h.accountService.UpdateAccount(r.Context(), id, input, userID)
 	if err != nil {
 		switch err {
 		case service.ErrAccountNotFound:

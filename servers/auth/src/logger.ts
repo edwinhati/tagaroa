@@ -5,15 +5,13 @@ import { createMiddleware } from "hono/factory";
 
 export type LogLevel = "verbose" | "debug" | "log" | "warn" | "error";
 
-export type LogContext = string;
-
 export interface Logger {
   setContext(context: string): void;
-  verbose(message: any, context?: LogContext): void;
-  debug(message: any, context?: LogContext): void;
-  log(message: any, context?: LogContext): void;
-  warn(message: any, context?: LogContext): void;
-  error(message: any, stack?: string, context?: LogContext): void;
+  verbose(message: any, context?: string): void;
+  debug(message: any, context?: string): void;
+  log(message: any, context?: string): void;
+  warn(message: any, context?: string): void;
+  error(message: any, stack?: string, context?: string): void;
 
   // Adapter for Hono logger
   honoSink: (message: string, ...rest: unknown[]) => void;
@@ -57,13 +55,13 @@ const levelLabels: Record<LogLevel, string> = {
   error: "ERROR",
 };
 
-const VALID_LOG_LEVELS: LogLevel[] = [
+const VALID_LOG_LEVELS = new Set<LogLevel>([
   "verbose",
   "debug",
   "log",
   "warn",
   "error",
-];
+]);
 
 function parseLogLevel(level: string): LogLevel {
   const normalized = level.toLowerCase();
@@ -71,7 +69,7 @@ function parseLogLevel(level: string): LogLevel {
   if (normalized === "info") return "log";
   if (normalized === "trace") return "verbose";
 
-  return VALID_LOG_LEVELS.includes(normalized as LogLevel)
+  return VALID_LOG_LEVELS.has(normalized as LogLevel)
     ? (normalized as LogLevel)
     : "log";
 }
@@ -146,23 +144,23 @@ export function createLogger(context?: string): Logger {
       currentContext = ctx;
     },
 
-    verbose(message: any, context?: LogContext) {
+    verbose(message: any, context?: string) {
       printMessage("verbose", message, context);
     },
 
-    debug(message: any, context?: LogContext) {
+    debug(message: any, context?: string) {
       printMessage("debug", message, context);
     },
 
-    log(message: any, context?: LogContext) {
+    log(message: any, context?: string) {
       printMessage("log", message, context);
     },
 
-    warn(message: any, context?: LogContext) {
+    warn(message: any, context?: string) {
       printMessage("warn", message, context);
     },
 
-    error(message: any, stack?: string, context?: LogContext) {
+    error(message: any, stack?: string, context?: string) {
       printMessage("error", message, context, stack);
     },
 
@@ -233,12 +231,12 @@ export const httpMiddleware = (logger: Logger): MiddlewareHandler =>
       c.res.headers.set("x-request-id", requestId);
 
       // Log successful request
-      const statusColor =
-        status >= 400
-          ? colors.red
-          : status >= 300
-            ? colors.yellow
-            : colors.green;
+      let statusColor = colors.green;
+      if (status >= 400) {
+        statusColor = colors.red;
+      } else if (status >= 300) {
+        statusColor = colors.yellow;
+      }
       logger.log(
         `${reqInfo.method} ${reqInfo.path} ${statusColor}${status}${colors.reset} - ${ms}ms`,
         "HTTP",

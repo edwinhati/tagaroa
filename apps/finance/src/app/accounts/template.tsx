@@ -2,11 +2,9 @@
 
 import { ContentPanel } from "@repo/common/components/content-panel";
 
-export default function AccountTemplate({
-  children,
-}: {
-  children: React.ReactNode;
-}) {
+type AccountTemplateProps = Readonly<{ children: React.ReactNode }>;
+
+export default function AccountTemplate({ children }: AccountTemplateProps) {
   const menu = [
     {
       name: "Accounts",

@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from "react";
+import { useState } from "react";
 
 import {
   BoltIcon,
@@ -32,6 +32,11 @@ import {
 
 import { authClient } from "@repo/common/lib/auth-client";
 
+const getBrowserLocation = () =>
+  typeof globalThis !== "undefined"
+    ? (globalThis as { location?: Location }).location
+    : undefined;
+
 export function UserMenu() {
   const { data: session } = authClient.useSession();
   const avatarSrc = session?.user?.image?.trim() ? session.user.image : "";
@@ -51,7 +56,7 @@ export function UserMenu() {
         );
       }
       toast.success("Impersonation session ended.");
-      window.location.reload();
+      getBrowserLocation()?.reload();
     } catch (error) {
       const message =
         error instanceof Error
@@ -156,11 +161,18 @@ export function UserMenu() {
               await new Promise((resolve) => setTimeout(resolve, 100));
 
               // Redirect to auth app sign-in page with logout parameter
-              window.location.href = `${process.env.NEXT_PUBLIC_AUTH_APP_URL}/sign-in?logout=true`;
+              const locationTarget = `${process.env.NEXT_PUBLIC_AUTH_APP_URL}/sign-in?logout=true`;
+              const browserLocation = getBrowserLocation();
+              if (browserLocation) {
+                browserLocation.href = locationTarget;
+              }
             } catch (error) {
               console.error("Logout failed:", error);
               // Force redirect even if everything fails
-              window.location.href = `${process.env.NEXT_PUBLIC_AUTH_APP_URL}/sign-in?logout=true`;
+              const browserLocation = getBrowserLocation();
+              if (browserLocation) {
+                browserLocation.href = `${process.env.NEXT_PUBLIC_AUTH_APP_URL}/sign-in?logout=true`;
+              }
             } finally {
               setIsLoggingOut(false);
             }
