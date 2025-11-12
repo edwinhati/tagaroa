@@ -1,3 +1,11 @@
+# [0.2.0](https://github.com/edwinhati/tagaroa/compare/v0.1.0...v0.2.0) (2025-11-12)
+
+
+### Features
+
+* **auth:** Implement robust error handling and add unit tests ([4d4ba23](https://github.com/edwinhati/tagaroa/commit/4d4ba23ad31a611ba45eef4d077c110b2819df7f))
+* **web:** Create initial landing page structure ([#41](https://github.com/edwinhati/tagaroa/issues/41)) ([0bbcea4](https://github.com/edwinhati/tagaroa/commit/0bbcea4cca44d610a9abda1d51a7614479406e5e))
+
 # [0.1.0] (2025-11-03)
 
 Initial development release
