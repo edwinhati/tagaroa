@@ -578,14 +578,14 @@ func TestConvertAggregations(t *testing.T) {
 		require.True(t, ok)
 		assert.Len(t, typeBuckets, 1)
 		assert.Equal(t, "BANK", typeBuckets[0].Key)
-		assert.Equal(t, int64(2), typeBuckets[0].Count)
+		assert.EqualValues(t, 2, typeBuckets[0].Count)
 		assert.Equal(t, 200.0, typeBuckets[0].Sum)
 
 		currencyBuckets, ok := (*got)["currency"]
 		require.True(t, ok)
 		assert.Len(t, currencyBuckets, 1)
 		assert.Equal(t, "USD", currencyBuckets[0].Key)
-		assert.Equal(t, int64(3), currencyBuckets[0].Count)
+		assert.EqualValues(t, 3, currencyBuckets[0].Count)
 		assert.Equal(t, 300.0, currencyBuckets[0].Sum)
 	})
 }
