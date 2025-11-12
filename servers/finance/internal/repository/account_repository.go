@@ -4,7 +4,6 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
-	"slices"
 	"strings"
 	"time"
 
@@ -71,78 +70,117 @@ type whereBuildOpts struct {
 	excludeDeleted bool     // always enforce is_deleted=false
 }
 
+type whereBuilder struct {
+	conditions []string
+	args       []any
+	argIndex   int
+	opts       whereBuildOpts
+	processed  map[string]struct{}
+}
+
+func newWhereBuilder(opts whereBuildOpts) *whereBuilder {
+	builder := &whereBuilder{
+		argIndex:  1,
+		opts:      opts,
+		processed: make(map[string]struct{}),
+	}
+	if opts.excludeDeleted {
+		builder.conditions = append(builder.conditions, isDeletedCondition)
+	}
+	return builder
+}
+
+func (b *whereBuilder) addSearchCondition(value any) {
+	searchTerm := fmt.Sprintf(searchLikeFormat, value)
+	b.conditions = append(
+		b.conditions,
+		fmt.Sprintf(searchConditionTemplate, b.argIndex, b.argIndex),
+	)
+	b.args = append(b.args, searchTerm)
+	b.argIndex++
+}
+
+func (b *whereBuilder) addSliceCondition(field string, slice []string) {
+	if len(slice) == 0 {
+		return
+	}
+	placeholders := make([]string, len(slice))
+	for i := range slice {
+		placeholders[i] = fmt.Sprintf("$%d", b.argIndex)
+		b.args = append(b.args, slice[i])
+		b.argIndex++
+	}
+	b.conditions = append(
+		b.conditions,
+		fmt.Sprintf(inClauseFormat, field, strings.Join(placeholders, ",")),
+	)
+}
+
+func (b *whereBuilder) addEqualsCondition(field string, value any) {
+	b.conditions = append(
+		b.conditions,
+		fmt.Sprintf(equalsClauseFormat, field, b.argIndex),
+	)
+	b.args = append(b.args, value)
+	b.argIndex++
+}
+
+func (b *whereBuilder) processField(field string, value any) {
+	if field == b.opts.skipField {
+		return
+	}
+
+	b.processed[field] = struct{}{}
+
+	if field == "search" {
+		b.addSearchCondition(value)
+		return
+	}
+
+	if slice, ok := value.([]string); ok {
+		b.addSliceCondition(field, slice)
+		return
+	}
+
+	b.addEqualsCondition(field, value)
+}
+
+func (b *whereBuilder) process(where map[string]any) {
+	if where == nil {
+		return
+	}
+	for _, field := range b.opts.fieldOrder {
+		if value, ok := where[field]; ok {
+			b.processField(field, value)
+		}
+	}
+	for field, value := range where {
+		if field == b.opts.skipField {
+			continue
+		}
+		if _, seen := b.processed[field]; seen {
+			continue
+		}
+		b.processField(field, value)
+	}
+}
+
+func (b *whereBuilder) clause() (string, []any) {
+	if len(b.conditions) == 0 {
+		return "", b.args
+	}
+	return whereKeyword + strings.Join(b.conditions, " AND "), b.args
+}
+
 // buildWhere constructs a WHERE clause and args with:
 // - deterministic processing order
 // - special handling for "search" across (name, notes) with LOWER/COALESCE
 // - slice values → IN (...)
 // - ability to skip a field (e.g., skip "type" when aggregating by type)
 func buildWhere(where map[string]any, opts whereBuildOpts) (clause string, args []any) {
-	var conditions []string
-	argIndex := 1
-
-	if opts.excludeDeleted {
-		conditions = append(conditions, isDeletedCondition)
-	}
-
-	if where == nil {
-		if len(conditions) > 0 {
-			return whereKeyword + strings.Join(conditions, " AND "), nil
-		}
-		return "", nil
-	}
-
-	processed := map[string]struct{}{}
-
-	processField := func(field string, value any) {
-		if field == opts.skipField {
-			return // skip filtering on the field we aggregate by
-		}
-
-		switch field {
-		case "search":
-			searchTerm := fmt.Sprintf(searchLikeFormat, value)
-			conditions = append(conditions,
-				fmt.Sprintf(searchConditionTemplate, argIndex, argIndex),
-			)
-			args = append(args, searchTerm)
-			argIndex++
-		default:
-			// []string → IN (...)
-			if slice, ok := value.([]string); ok && len(slice) > 0 {
-				placeholders := make([]string, len(slice))
-				for i := range slice {
-					placeholders[i] = fmt.Sprintf("$%d", argIndex)
-					args = append(args, slice[i])
-					argIndex++
-				}
-				conditions = append(conditions, fmt.Sprintf(inClauseFormat, field, strings.Join(placeholders, ",")))
-			} else {
-				conditions = append(conditions, fmt.Sprintf(equalsClauseFormat, field, argIndex))
-				args = append(args, value)
-				argIndex++
-			}
-		}
-	}
-
-	// First: known fields in stable order
-	for _, field := range opts.fieldOrder {
-		if value, ok := where[field]; ok {
-			processField(field, value)
-			processed[field] = struct{}{}
-		}
-	}
-	// Then: any remaining fields
-	for field, value := range where {
-		if field == opts.skipField || slices.Contains(opts.fieldOrder, field) {
-			continue
-		}
-		processField(field, value)
-	}
-
-	if len(conditions) == 0 {
-		return "", args
-	}
-	return whereKeyword + strings.Join(conditions, " AND "), args
+	builder := newWhereBuilder(opts)
+	builder.process(where)
+	return builder.clause()
 }
 
 // addOffsetLimit appends OFFSET/LIMIT placeholders preserving correct arg indexes.

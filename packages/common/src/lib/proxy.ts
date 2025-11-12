@@ -223,81 +223,193 @@ async function proxyCommon<UserT extends User | UserWithRole>(
     honorAuthRefererOnRoot,
   } = opts;
 
-  const { pathname } = request.nextUrl;
   const commonResult = await handleCommonProxyLogic(request, authAppUrl);
-
-  if (commonResult.type === "next") return NextResponse.next();
-  if (commonResult.type === "redirect")
-    return NextResponse.redirect(commonResult.url);
-  if (commonResult.type === "auth-redirect")
-    return redirectToAuth(request, commonResult.url, commonResult.redirect);
-
-  // Safety: if we just came from the auth app and we're on "/", let it pass
-  if (
-    honorAuthRefererOnRoot &&
-    isFromAuthAppRoot(request, authAppUrl, commonResult.sessionCookie)
-  ) {
-    return NextResponse.next();
+  const continuation = evaluateCommonResult(
+    request,
+    authAppUrl,
+    honorAuthRefererOnRoot,
+    commonResult,
+  );
+  if (continuation.kind === "response") {
+    return continuation.response;
   }
 
-  try {
-    const user = await fetchUser(commonResult.sessionCookie);
+  const userResult = await fetchUserOrRedirect(
+    request,
+    authAppUrl,
+    continuation.sessionCookie,
+    fetchUser,
+  );
+  if ("response" in userResult) {
+    return userResult.response;
+  }
 
+  const verificationRedirect = enforceVerificationRequirement(
+    request,
+    authAppUrl,
+    verifyPath,
+    requireVerified,
+    userResult.user,
+  );
+  if (verificationRedirect) {
+    return verificationRedirect;
+  }
+
+  const roleRedirect = enforceRolePolicy(request, authAppUrl, userResult.user, {
+    allowedRoles,
+    requireAdmin,
+    redirectUrl,
+  });
+  if (roleRedirect) {
+    return roleRedirect;
+  }
+
+  if (onAuthorized) {
+    const maybe = await onAuthorized(userResult.user, request);
+    if (maybe) return maybe;
+  }
+
+  return NextResponse.next();
+}
+
+type CommonResult =
+  Awaited<ReturnType<typeof handleCommonProxyLogic>>;
+
+type ContinuationResult =
+  | { kind: "response"; response: NextResponse }
+  | { kind: "continue"; sessionCookie: string };
+
+function evaluateCommonResult(
+  request: NextRequest,
+  authAppUrl: string,
+  honorAuthRefererOnRoot: boolean | undefined,
+  result: CommonResult,
+): ContinuationResult {
+  switch (result.type) {
+    case "next":
+      return { kind: "response", response: NextResponse.next() };
+    case "redirect":
+      return {
+        kind: "response",
+        response: NextResponse.redirect(result.url),
+      };
+    case "auth-redirect":
+      return {
+        kind: "response",
+        response: redirectToAuth(request, result.url, result.redirect),
+      };
+    case "continue":
+    default:
+      if (
+        honorAuthRefererOnRoot &&
+        isFromAuthAppRoot(request, authAppUrl, result.sessionCookie)
+      ) {
+        return { kind: "response", response: NextResponse.next() };
+      }
+      return { kind: "continue", sessionCookie: result.sessionCookie };
+  }
+}
+
+type FetchUserOutcome<UserT> =
+  | { user: UserT }
+  | { response: NextResponse };
+
+async function fetchUserOrRedirect<UserT extends User | UserWithRole>(
+  request: NextRequest,
+  authAppUrl: string,
+  sessionCookie: string,
+  fetchUserFn: (cookie: string) => Promise<UserT | null>,
+): Promise<FetchUserOutcome<UserT>> {
+  try {
+    const user = await fetchUserFn(sessionCookie);
     if (!user) {
-      return redirectAndClear(
+      return {
+        response: redirectAndClear(
+          request,
+          authAppUrl,
+          computeRedirectTarget(request),
+        ),
+      };
+    }
+    return { user };
+  } catch (error) {
+    console.error(`Proxy error for ${request.nextUrl.pathname}:`, error);
+    return {
+      response: redirectAndClear(
         request,
         authAppUrl,
-        pathname === "/" ? undefined : request.nextUrl.href,
-      );
-    }
-
-    if (requireVerified && !user.emailVerified) {
-      return NextResponse.redirect(
-        new URL(`${authAppUrl}${verifyPath}`, request.nextUrl),
-      );
-    }
-
-    // Role policy (only if options provided)
-    const needAdmin = !!requireAdmin;
-    const hasAllowed =
-      Array.isArray(allowedRoles) && allowedRoles.length > 0
-        ? hasRole(user as UserWithRole, allowedRoles)
-        : true;
-    const isUserAdmin = "role" in user ? isAdmin(user as UserWithRole) : false;
-
-    if ((needAdmin && !isUserAdmin) || !hasAllowed) {
-      // custom redirect override
-      if (redirectUrl) {
-        return redirectToApp(request, redirectUrl);
-      }
-
-      // default role-aware redirect
-      if (isUserAdmin) {
-        const adminUrl = process.env.NEXT_PUBLIC_ADMIN_APP_URL as string;
-        return redirectToApp(request, adminUrl);
-      } else {
-        const dashboardUrl =
-          process.env.NEXT_PUBLIC_DASHBOARD_URL ||
-          (process.env.NEXT_PUBLIC_MAIN_APP_URL as string);
-        return redirectToApp(request, dashboardUrl);
-      }
-    }
-
-    // Custom post-authorization behavior (e.g., send admins to admin app)
-    if (onAuthorized) {
-      const maybe = await onAuthorized(user, request);
-      if (maybe) return maybe;
-    }
-
-    return NextResponse.next();
-  } catch (error) {
-    console.error(`Proxy error for ${pathname}:`, error);
-    return redirectAndClear(
-      request,
-      authAppUrl,
-      pathname === "/" ? undefined : request.nextUrl.href,
-    );
+        computeRedirectTarget(request),
+      ),
+    };
   }
+}
+
+function computeRedirectTarget(request: NextRequest): string | undefined {
+  return request.nextUrl.pathname === "/" ? undefined : request.nextUrl.href;
+}
+
+function enforceVerificationRequirement(
+  request: NextRequest,
+  authAppUrl: string,
+  verifyPath: string,
+  requireVerified: boolean | undefined,
+  user: User | UserWithRole,
+): NextResponse | null {
+  if (!requireVerified || user.emailVerified) {
+    return null;
+  }
+  return NextResponse.redirect(new URL(`${authAppUrl}${verifyPath}`, request.nextUrl));
+}
+
+type RolePolicyOptions = Pick<
+  ProxyCommonOpts<UserWithRole>,
+  "allowedRoles" | "requireAdmin" | "redirectUrl"
+>;
+
+function enforceRolePolicy(
+  request: NextRequest,
+  authAppUrl: string,
+  user: User | UserWithRole,
+  options: RolePolicyOptions,
+): NextResponse | null {
+  const { allowedRoles, requireAdmin, redirectUrl } = options;
+  const needsRoles =
+    !!requireAdmin || (Array.isArray(allowedRoles) && allowedRoles.length > 0);
+
+  if (!needsRoles || !("role" in user)) {
+    return null;
+  }
+
+  const hasAllowed =
+    Array.isArray(allowedRoles) && allowedRoles.length > 0
+      ? hasRole(user, allowedRoles)
+      : true;
+  const adminRequired = !!requireAdmin;
+  const isUserAdmin = isAdmin(user);
+
+  if ((adminRequired && !isUserAdmin) || !hasAllowed) {
+    if (redirectUrl) {
+      return redirectToApp(request, redirectUrl);
+    }
+    return redirectToApp(request, resolveDefaultRoleRedirect(isUserAdmin, authAppUrl));
+  }
+
+  return null;
+}
+
+function resolveDefaultRoleRedirect(
+  isAdminUser: boolean,
+  authAppUrl: string,
+): string {
+  if (isAdminUser) {
+    return process.env.NEXT_PUBLIC_ADMIN_APP_URL || authAppUrl;
+  }
+  return (
+    process.env.NEXT_PUBLIC_DASHBOARD_URL ||
+    process.env.NEXT_PUBLIC_DASHBOARD_APP_URL ||
+    process.env.NEXT_PUBLIC_MAIN_APP_URL ||
+    authAppUrl
+  );
 }
 
 /* --------------------------- Public creators ------------------------- */
