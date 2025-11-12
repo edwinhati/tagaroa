@@ -37,6 +37,15 @@ const accountSelectCols = `
 	id, name, type, balance, user_id, currency, notes, is_deleted, created_at, updated_at
 `
 
+const (
+	whereKeyword            = " WHERE "
+	equalsClauseFormat      = "%s = $%d"
+	inClauseFormat          = "%s IN (%s)"
+	searchConditionTemplate = "(LOWER(name) LIKE LOWER($%d) OR LOWER(COALESCE(notes, '')) LIKE LOWER($%d))"
+	searchLikeFormat        = "%%%v%%"
+	isDeletedCondition      = "is_deleted = false"
+)
+
 // Allowlisted columns for ORDER BY to prevent SQL injection
 var allowedOrderByColumns = map[string]bool{
 	"id":         true,
@@ -72,12 +81,12 @@ func buildWhere(where map[string]any, opts whereBuildOpts) (clause string, args 
 	argIndex := 1
 
 	if opts.excludeDeleted {
-		conditions = append(conditions, "is_deleted = false")
+		conditions = append(conditions, isDeletedCondition)
 	}
 
 	if where == nil {
 		if len(conditions) > 0 {
-			return " WHERE " + strings.Join(conditions, " AND "), nil
+			return whereKeyword + strings.Join(conditions, " AND "), nil
 		}
 		return "", nil
 	}
@@ -91,9 +100,9 @@ func buildWhere(where map[string]any, opts whereBuildOpts) (clause string, args 
 
 		switch field {
 		case "search":
-			searchTerm := fmt.Sprintf("%%%v%%", value)
+			searchTerm := fmt.Sprintf(searchLikeFormat, value)
 			conditions = append(conditions,
-				fmt.Sprintf("(LOWER(name) LIKE LOWER($%d) OR LOWER(COALESCE(notes, '')) LIKE LOWER($%d))", argIndex, argIndex),
+				fmt.Sprintf(searchConditionTemplate, argIndex, argIndex),
 			)
 			args = append(args, searchTerm)
 			argIndex++
@@ -106,9 +115,9 @@ func buildWhere(where map[string]any, opts whereBuildOpts) (clause string, args 
 					args = append(args, slice[i])
 					argIndex++
 				}
-				conditions = append(conditions, fmt.Sprintf("%s IN (%s)", field, strings.Join(placeholders, ",")))
+				conditions = append(conditions, fmt.Sprintf(inClauseFormat, field, strings.Join(placeholders, ",")))
 			} else {
-				conditions = append(conditions, fmt.Sprintf("%s = $%d", field, argIndex))
+				conditions = append(conditions, fmt.Sprintf(equalsClauseFormat, field, argIndex))
 				args = append(args, value)
 				argIndex++
 			}
@@ -133,7 +142,7 @@ func buildWhere(where map[string]any, opts whereBuildOpts) (clause string, args 
 	if len(conditions) == 0 {
 		return "", args
 	}
-	return " WHERE " + strings.Join(conditions, " AND "), args
+	return whereKeyword + strings.Join(conditions, " AND "), args
 }
 
 // addOffsetLimit appends OFFSET/LIMIT placeholders preserving correct arg indexes.

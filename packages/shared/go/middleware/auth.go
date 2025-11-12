@@ -19,6 +19,20 @@ type contextKey string
 
 const UserIDKey contextKey = "userID"
 
+type authErr struct {
+	status int
+	title  string
+	detail string
+}
+
+func (e *authErr) write(w http.ResponseWriter) {
+	writeErrorResponse(w, e.status, e.title, e.detail)
+}
+
+func newAuthErr(status int, title, detail string) *authErr {
+	return &authErr{status: status, title: title, detail: detail}
+}
+
 func AuthMiddleware(oidcClient *client.OIDCClient) func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -27,30 +41,15 @@ func AuthMiddleware(oidcClient *client.OIDCClient) func(http.Handler) http.Handl
 				return
 			}
 
-			authHeader := r.Header.Get("Authorization")
-			if authHeader == "" {
-				writeErrorResponse(w, http.StatusUnauthorized, "Missing authorization header", "Authorization header is required to access this resource.")
+			tokenStr, tokenErr := extractBearerToken(r.Header.Get("Authorization"))
+			if tokenErr != nil {
+				tokenErr.write(w)
 				return
 			}
 
-			tokenStr := ""
-			if strings.HasPrefix(authHeader, "Bearer ") {
-				tokenStr = strings.TrimSpace(authHeader[7:])
-			}
-
-			if tokenStr == "" {
-				writeErrorResponse(w, http.StatusUnauthorized, "Invalid authorization header format", "Authorization header must be in the format: Bearer <token>.")
-				return
-			}
-
-			subject, err := oidcClient.Subject(r.Context(), tokenStr)
-			if err != nil {
-				status := http.StatusUnauthorized
-				if errors.Is(err, context.Canceled) || errors.Is(err, context.DeadlineExceeded) {
-					status = http.StatusRequestTimeout
-				}
-
-				writeErrorResponse(w, status, "Invalid or expired token", err.Error())
+			subject, subjectErr := subjectFromToken(r.Context(), oidcClient, tokenStr)
+			if subjectErr != nil {
+				subjectErr.write(w)
 				return
 			}
 
@@ -82,6 +81,49 @@ func writeErrorResponse(w http.ResponseWriter, statusCode int, error, message st
 	}
 
 	json.NewEncoder(w).Encode(response)
+}
+
+func extractBearerToken(authHeader string) (string, *authErr) {
+	if authHeader == "" {
+		return "", newAuthErr(
+			http.StatusUnauthorized,
+			"Missing authorization header",
+			"Authorization header is required to access this resource.",
+		)
+	}
+
+	if !strings.HasPrefix(authHeader, "Bearer ") {
+		return "", newAuthErr(
+			http.StatusUnauthorized,
+			"Invalid authorization header format",
+			"Authorization header must be in the format: Bearer <token>.",
+		)
+	}
+
+	tokenStr := strings.TrimSpace(authHeader[len("Bearer "):])
+	if tokenStr == "" {
+		return "", newAuthErr(
+			http.StatusUnauthorized,
+			"Invalid authorization header format",
+			"Authorization header must be in the format: Bearer <token>.",
+		)
+	}
+
+	return tokenStr, nil
+}
+
+func subjectFromToken(ctx context.Context, oidcClient *client.OIDCClient, token string) (string, *authErr) {
+	subject, err := oidcClient.Subject(ctx, token)
+	if err == nil {
+		return subject, nil
+	}
+
+	status := http.StatusUnauthorized
+	if errors.Is(err, context.Canceled) || errors.Is(err, context.DeadlineExceeded) {
+		status = http.StatusRequestTimeout
+	}
+
+	return "", newAuthErr(status, "Invalid or expired token", err.Error())
 }
 
 // isValidUUID checks if a string is a valid UUID format

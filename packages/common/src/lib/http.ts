@@ -2,23 +2,17 @@
 
 import { authClient } from "@repo/common/lib/auth-client";
 
-type Service = "auth" | "finance" | "file" | string;
+type Service = "auth" | "finance" | "file";
 
 function getApiUrl(service: Service, path: string): string {
-  const baseUrl = process.env.NEXT_PUBLIC_API_URL as string;
+  const baseUrl = process.env.NEXT_PUBLIC_API_URL ?? "";
+  const servicePrefix: Record<Service, string> = {
+    auth: "auth",
+    finance: "finance",
+    file: "file",
+  };
 
-  // Add service prefix to path for API gateway routing
-  switch (service) {
-    case "auth":
-      return `${baseUrl}/api/auth${path}`;
-    case "finance":
-      return `${baseUrl}/api/finance${path}`;
-    case "file":
-      return `${baseUrl}/api/file${path}`;
-    default:
-      // Allow passing a full base URL string for custom services
-      return `${service}${path}`;
-  }
+  return `${baseUrl}/api/${servicePrefix[service]}${path}`;
 }
 
 export type ApiRequestInit = Omit<RequestInit, "headers" | "body"> & {
@@ -40,44 +34,8 @@ export async function apiRequest<T = unknown>(
 ): Promise<T> {
   const url = getApiUrl(service, path);
 
-  const headers: Record<string, string> = {
-    ...(init.headers || {}),
-  };
-
-  // Attach Authorization header by default
-  if (init.auth !== false) {
-    try {
-      const { data: jwtData, error } = await authClient.token();
-      if (jwtData?.token) {
-        headers["Authorization"] = `Bearer ${jwtData.token}`;
-      } else {
-        console.warn("Failed to get JWT token:", error);
-        const { data: session } = await authClient.getSession();
-        const sessionToken = session?.session.token;
-        if (sessionToken) {
-          headers["Authorization"] = `Bearer ${sessionToken}`;
-        }
-      }
-    } catch (error) {
-      console.warn("Error getting JWT token:", error);
-      // Fallback to session token
-      const { data: session } = await authClient.getSession();
-      const sessionToken = session?.session.token;
-      if (sessionToken) {
-        headers["Authorization"] = `Bearer ${sessionToken}`;
-      }
-    }
-  }
-
-  // Handle JSON body convenience
-  let body: BodyInit | undefined = undefined;
-  if (init.formData !== undefined) {
-    // Don't set Content-Type for FormData - let the browser set it with boundary
-    body = init.formData;
-  } else if (init.json !== undefined) {
-    headers["Content-Type"] = headers["Content-Type"] || "application/json";
-    body = JSON.stringify(init.json);
-  }
+  const headers = await buildHeaders(init);
+  const body = buildBody(init, headers);
 
   const response = await fetch(url, {
     ...init,
@@ -85,64 +43,122 @@ export async function apiRequest<T = unknown>(
     body,
   });
 
-  // Attempt to parse JSON either way
-  let parsed: JsonEnvelope<T> | undefined;
-  try {
-    parsed = (await response.json()) as JsonEnvelope<T>;
-  } catch {
-    // Non-JSON response
-  }
+  const parsed = await parseJsonResponse<T>(response);
 
   if (!response.ok) {
-    const message =
-      (parsed &&
-        typeof parsed === "object" &&
-        "error" in parsed &&
-        parsed.error) ||
-      response.statusText ||
-      "Request failed";
-    throw new Error(message);
+    throw new Error(extractErrorMessage(response, parsed));
   }
 
-  // Support both `{ data }` envelope and raw JSON bodies
-  if (parsed && typeof parsed === "object" && "data" in parsed) {
-    return parsed.data as T;
-  }
-  return parsed as T;
+  return unwrapResponseData(parsed);
 }
 
 export const authApi = {
-  get: <T>(path: string, init?: ApiRequestInit) =>
-    apiRequest<T>("auth", path, { method: "GET", ...(init || {}) }),
-  post: <T>(path: string, json?: unknown, init?: ApiRequestInit) =>
-    apiRequest<T>("auth", path, { method: "POST", json, ...(init || {}) }),
+  get: <T>(path: string, init: ApiRequestInit = {}) =>
+    apiRequest<T>("auth", path, { method: "GET", ...init }),
+  post: <T>(path: string, json?: unknown, init: ApiRequestInit = {}) =>
+    apiRequest<T>("auth", path, { method: "POST", json, ...init }),
 };
 
 export const financeApi = {
-  get: <T>(path: string, init?: ApiRequestInit) =>
-    apiRequest<T>("finance", path, { method: "GET", ...(init || {}) }),
-  post: <T>(path: string, json?: unknown, init?: ApiRequestInit) =>
-    apiRequest<T>("finance", path, { method: "POST", json, ...(init || {}) }),
-  put: <T>(path: string, json?: unknown, init?: ApiRequestInit) =>
-    apiRequest<T>("finance", path, { method: "PUT", json, ...(init || {}) }),
-  patch: <T>(path: string, json?: unknown, init?: ApiRequestInit) =>
-    apiRequest<T>("finance", path, { method: "PATCH", json, ...(init || {}) }),
+  get: <T>(path: string, init: ApiRequestInit = {}) =>
+    apiRequest<T>("finance", path, { method: "GET", ...init }),
+  post: <T>(path: string, json?: unknown, init: ApiRequestInit = {}) =>
+    apiRequest<T>("finance", path, { method: "POST", json, ...init }),
+  put: <T>(path: string, json?: unknown, init: ApiRequestInit = {}) =>
+    apiRequest<T>("finance", path, { method: "PUT", json, ...init }),
+  patch: <T>(path: string, json?: unknown, init: ApiRequestInit = {}) =>
+    apiRequest<T>("finance", path, { method: "PATCH", json, ...init }),
 };
 
 export const fileApi = {
-  get: <T>(path: string, init?: ApiRequestInit) =>
-    apiRequest<T>("file", path, { method: "GET", ...(init || {}) }),
-  delete: <T>(path: string, init?: ApiRequestInit) =>
-    apiRequest<T>("file", path, { method: "DELETE", ...(init || {}) }),
-  post: <T>(path: string, json?: unknown, init?: ApiRequestInit) =>
-    apiRequest<T>("file", path, { method: "POST", json, ...(init || {}) }),
-  upload: <T>(file: File, init?: ApiRequestInit) => {
+  get: <T>(path: string, init: ApiRequestInit = {}) =>
+    apiRequest<T>("file", path, { method: "GET", ...init }),
+  delete: <T>(path: string, init: ApiRequestInit = {}) =>
+    apiRequest<T>("file", path, { method: "DELETE", ...init }),
+  post: <T>(path: string, json?: unknown, init: ApiRequestInit = {}) =>
+    apiRequest<T>("file", path, { method: "POST", json, ...init }),
+  upload: <T>(file: File, init: ApiRequestInit = {}) => {
     const formData = new FormData();
     formData.append("file", file);
     return apiRequest<T>("file", "/upload", {
       method: "POST",
       formData,
-      ...(init || {}),
+      ...init,
     });
   },
 };
+
+async function buildHeaders(init: ApiRequestInit): Promise<Record<string, string>> {
+  const headers: Record<string, string> = {
+    ...(init.headers ?? {}),
+  };
+
+  const authHeader = await resolveAuthHeader(init.auth);
+  if (authHeader) {
+    headers["Authorization"] = authHeader;
+  }
+
+  return headers;
+}
+
+async function resolveAuthHeader(authEnabled?: boolean): Promise<string | undefined> {
+  if (authEnabled === false) {
+    return undefined;
+  }
+
+  const token = await fetchAccessToken();
+  return token ? `Bearer ${token}` : undefined;
+}
+
+async function fetchAccessToken(): Promise<string | undefined> {
+  try {
+    const { data: jwtData, error } = await authClient.token();
+    if (jwtData?.token) {
+      return jwtData.token;
+    }
+    if (error) {
+      console.warn("Failed to get JWT token:", error);
+    }
+  } catch (error) {
+    console.warn("Error getting JWT token:", error);
+  }
+
+  const { data: session } = await authClient.getSession();
+  return session?.session.token;
+}
+
+function buildBody(init: ApiRequestInit, headers: Record<string, string>): BodyInit | undefined {
+  if (init.formData) {
+    return init.formData;
+  }
+  if (init.json !== undefined) {
+    headers["Content-Type"] = headers["Content-Type"] ?? "application/json";
+    return JSON.stringify(init.json);
+  }
+  return undefined;
+}
+
+async function parseJsonResponse<T>(response: Response): Promise<JsonEnvelope<T> | undefined> {
+  try {
+    return (await response.json()) as JsonEnvelope<T>;
+  } catch {
+    return undefined;
+  }
+}
+
+function extractErrorMessage<T>(
+  response: Response,
+  parsed?: JsonEnvelope<T>,
+): string {
+  if (parsed && typeof parsed === "object" && "error" in parsed && parsed.error) {
+    return parsed.error;
+  }
+  return response.statusText || "Request failed";
+}
+
+function unwrapResponseData<T>(parsed?: JsonEnvelope<T>): T {
+  if (parsed && typeof parsed === "object" && "data" in parsed) {
+    return parsed.data as T;
+  }
+  return parsed as T;
+}
