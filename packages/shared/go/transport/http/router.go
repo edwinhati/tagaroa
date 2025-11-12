@@ -4,6 +4,8 @@ import (
 	"net/http"
 )
 
+const methodNotAllowedMsg = "Method not allowed"
+
 // Router wraps http.ServeMux with additional functionality
 type Router struct {
 	mux *http.ServeMux
@@ -93,7 +95,7 @@ func (g *RouterGroup) POST(pattern string, handler http.HandlerFunc) {
 	fullPattern := g.prefix + pattern
 	wrappedHandler := applyMiddleware(func(w http.ResponseWriter, r *http.Request) {
 		if r.Method != http.MethodPost {
-			http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+			http.Error(w, methodNotAllowedMsg, http.StatusMethodNotAllowed)
 			return
 		}
 		handler(w, r)
@@ -106,7 +108,7 @@ func (g *RouterGroup) GET(pattern string, handler http.HandlerFunc) {
 	fullPattern := g.prefix + pattern
 	wrappedHandler := applyMiddleware(func(w http.ResponseWriter, r *http.Request) {
 		if r.Method != http.MethodGet {
-			http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+			http.Error(w, methodNotAllowedMsg, http.StatusMethodNotAllowed)
 			return
 		}
 		handler(w, r)
@@ -119,7 +121,7 @@ func (g *RouterGroup) PUT(pattern string, handler http.HandlerFunc) {
 	fullPattern := g.prefix + pattern
 	wrappedHandler := applyMiddleware(func(w http.ResponseWriter, r *http.Request) {
 		if r.Method != http.MethodPut {
-			http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+			http.Error(w, methodNotAllowedMsg, http.StatusMethodNotAllowed)
 			return
 		}
 		handler(w, r)
@@ -132,7 +134,7 @@ func (g *RouterGroup) PATCH(pattern string, handler http.HandlerFunc) {
 	fullPattern := g.prefix + pattern
 	wrappedHandler := applyMiddleware(func(w http.ResponseWriter, r *http.Request) {
 		if r.Method != http.MethodPatch {
-			http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+			http.Error(w, methodNotAllowedMsg, http.StatusMethodNotAllowed)
 			return
 		}
 		handler(w, r)
@@ -145,7 +147,7 @@ func (g *RouterGroup) DELETE(pattern string, handler http.HandlerFunc) {
 	fullPattern := g.prefix + pattern
 	wrappedHandler := applyMiddleware(func(w http.ResponseWriter, r *http.Request) {
 		if r.Method != http.MethodDelete {
-			http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+			http.Error(w, methodNotAllowedMsg, http.StatusMethodNotAllowed)
 			return
 		}
 		handler(w, r)

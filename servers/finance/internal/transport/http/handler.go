@@ -13,6 +13,12 @@ import (
 	"github.com/google/uuid"
 )
 
+const (
+	defaultOrderByClause = "created_at DESC"
+	minQueryLimit        = 5
+	maxQueryLimit        = 50
+)
+
 type CreateAccountRequest struct {
 	Name     string            `json:"name" validate:"required"`
 	Type     model.AccountType `json:"type" validate:"required"`
@@ -135,54 +141,7 @@ func (h *AccountHandler) GetAccounts(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Pagination parameters
-	page := httputil.GetQueryInt(r, "page", 1)
-	limit := max(5, min(httputil.GetQueryInt(r, "limit", 5), 50))
-
-	// Get ordering preference
-	orderBy := r.URL.Query().Get("order_by")
-	if orderBy == "" {
-		orderBy = "created_at DESC"
-	}
-
-	// Get account types (support multiple values)
-	var accountTypes []string
-	if typeParams := r.URL.Query()["type"]; len(typeParams) > 0 {
-		for _, typeParam := range typeParams {
-			// Split comma-separated values
-			for _, t := range strings.Split(typeParam, ",") {
-				if trimmed := strings.TrimSpace(t); trimmed != "" {
-					accountTypes = append(accountTypes, trimmed)
-				}
-			}
-		}
-	}
-
-	// Get account currencies (support multiple values)
-	var accountCurrencies []string
-	if currencyParams := r.URL.Query()["currency"]; len(currencyParams) > 0 {
-		for _, currencyParam := range currencyParams {
-			// Split comma-separated values
-			for _, c := range strings.Split(currencyParam, ",") {
-				if trimmed := strings.TrimSpace(c); trimmed != "" {
-					accountCurrencies = append(accountCurrencies, trimmed)
-				}
-			}
-		}
-	}
-
-	// Get search query
-	search := strings.TrimSpace(r.URL.Query().Get("search"))
-
-	params := service.GetAccountsParams{
-		UserID:     userID,
-		Page:       page,
-		Types:      accountTypes,
-		Currencies: accountCurrencies,
-		Search:     search,
-		Limit:      limit,
-		OrderBy:    orderBy,
-	}
+	params := buildAccountQueryParams(r, userID)
 
 	result, err := h.accountService.GetAccounts(r.Context(), params)
 	if err != nil {
@@ -190,59 +149,102 @@ func (h *AccountHandler) GetAccounts(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Create pagination info
-	pagination := httputil.NewPagination(page, limit, result.Total)
+	pagination := httputil.NewPagination(params.Page, params.Limit, result.Total)
+	aggregations := convertAggregations(result)
 
-	// Convert repository aggregations to HTTP aggregations format
-	var aggregations *httputil.Aggregations
-	if result.TypeAggregations != nil || result.CurrencyAggregations != nil {
-		aggregationsMap := make(httputil.Aggregations)
-
-		// Convert type aggregations
-		if result.TypeAggregations != nil {
-			var typeBuckets []httputil.Bucket
-			for key, agg := range result.TypeAggregations {
-				bucket := httputil.Bucket{
-					Key:   key,
-					Count: agg.Count,
-					Min:   agg.Min,
-					Max:   agg.Max,
-					Avg:   agg.Avg,
-					Sum:   agg.Sum,
-				}
-				typeBuckets = append(typeBuckets, bucket)
-			}
-			if len(typeBuckets) > 0 {
-				aggregationsMap["type"] = typeBuckets
-			}
-		}
-
-		// Convert currency aggregations
-		if result.CurrencyAggregations != nil {
-			var currencyBuckets []httputil.Bucket
-			for key, agg := range result.CurrencyAggregations {
-				bucket := httputil.Bucket{
-					Key:   key,
-					Count: agg.Count,
-					Min:   agg.Min,
-					Max:   agg.Max,
-					Avg:   agg.Avg,
-					Sum:   agg.Sum,
-				}
-				currencyBuckets = append(currencyBuckets, bucket)
-			}
-			if len(currencyBuckets) > 0 {
-				aggregationsMap["currency"] = currencyBuckets
-			}
-		}
-
-		aggregations = &aggregationsMap
-
+	if aggregations != nil {
 		httputil.WriteListResponse(w, http.StatusOK, result.Accounts, pagination, aggregations, "Accounts retrieved successfully")
-	} else {
-		// Use the standard paginated response
-		httputil.WritePaginatedJSONResponse(w, http.StatusOK, result.Accounts, pagination, "Accounts retrieved successfully")
+		return
 	}
+
+	httputil.WritePaginatedJSONResponse(w, http.StatusOK, result.Accounts, pagination, "Accounts retrieved successfully")
+}
+
+func buildAccountQueryParams(r *http.Request, userID uuid.UUID) service.GetAccountsParams {
+	query := r.URL.Query()
+	return service.GetAccountsParams{
+		UserID:     userID,
+		Page:       httputil.GetQueryInt(r, "page", 1),
+		Types:      parseQueryValues(query["type"]),
+		Currencies: parseQueryValues(query["currency"]),
+		Search:     strings.TrimSpace(query.Get("search")),
+		Limit:      clampLimit(httputil.GetQueryInt(r, "limit", minQueryLimit)),
+		OrderBy:    pickOrderBy(query.Get("order_by")),
+	}
+}
+
+func parseQueryValues(values []string) []string {
+	if len(values) == 0 {
+		return nil
+	}
+
+	var parsed []string
+	for _, value := range values {
+		for _, part := range strings.Split(value, ",") {
+			if trimmed := strings.TrimSpace(part); trimmed != "" {
+				parsed = append(parsed, trimmed)
+			}
+		}
+	}
+	return parsed
+}
+
+func pickOrderBy(raw string) string {
+	if strings.TrimSpace(raw) == "" {
+		return defaultOrderByClause
+	}
+	return raw
+}
+
+func clampLimit(value int) int {
+	switch {
+	case value <= 0:
+		return minQueryLimit
+	case value < minQueryLimit:
+		return minQueryLimit
+	case value > maxQueryLimit:
+		return maxQueryLimit
+	default:
+		return value
+	}
+}
+
+func convertAggregations(result *service.GetAccountsResult) *httputil.Aggregations {
+	if result == nil {
+		return nil
+	}
+
+	aggregationsMap := make(httputil.Aggregations)
+	if buckets := convertAggregationResults(result.TypeAggregations); len(buckets) > 0 {
+		aggregationsMap["type"] = buckets
+	}
+	if buckets := convertAggregationResults(result.CurrencyAggregations); len(buckets) > 0 {
+		aggregationsMap["currency"] = buckets
+	}
+
+	if len(aggregationsMap) == 0 {
+		return nil
+	}
+	return &aggregationsMap
+}
+
+func convertAggregationResults(source map[string]util.AggregationResult) []httputil.Bucket {
+	if len(source) == 0 {
+		return nil
+	}
+
+	buckets := make([]httputil.Bucket, 0, len(source))
+	for key, agg := range source {
+		buckets = append(buckets, httputil.Bucket{
+			Key:   key,
+			Count: agg.Count,
+			Min:   agg.Min,
+			Max:   agg.Max,
+			Avg:   agg.Avg,
+			Sum:   agg.Sum,
+		})
+	}
+	return buckets
 }
 
 func (h *AccountHandler) GetAccountTypes(w http.ResponseWriter, r *http.Request) {

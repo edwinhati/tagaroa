@@ -12,6 +12,7 @@ import {
   User,
   Shield,
   UserCheck,
+  type LucideIcon,
 } from "lucide-react";
 import { toast } from "sonner";
 
@@ -103,6 +104,34 @@ type ResultWithData<T> = {
   error: { message?: string } | null;
 };
 
+const roleBadgeConfig: Record<
+  string,
+  { variant: "default" | "secondary" | "outline"; Icon?: LucideIcon }
+> = {
+  admin: { variant: "default", Icon: Shield },
+  moderator: { variant: "outline", Icon: UserCheck },
+  user: { variant: "secondary", Icon: User },
+};
+
+const confirmAction = (message: string) => {
+  const confirmFn = (globalThis as { confirm?: (msg: string) => boolean })
+    .confirm;
+  if (typeof confirmFn === "function") {
+    return confirmFn(message);
+  }
+  return true;
+};
+
+const navigateTo = (path: string) => {
+  const locationObj = (globalThis as { location?: Location }).location;
+  if (locationObj?.assign) {
+    locationObj.assign(path);
+  }
+};
+
+const defaultBanReason = "Policy violation.";
+const defaultBanDuration: BanDurationOption = "permanent";
+
 const ensureResponseData = <T,>(
   result: ResultWithData<T>,
   fallbackMessage: string,
@@ -157,34 +186,43 @@ const getStatusBadge = (user?: UserWithRole | null) => {
   return <Badge variant="secondary">Active</Badge>;
 };
 
-export function UserDetailSheet({
-  user,
-  open,
-  onOpenChange,
-  onUserUpdated,
-  onUserDeleted,
-}: UserDetailSheetProps) {
-  const [localUser, setLocalUser] = useState<UserWithRole | null>(user);
-  const [nameInput, setNameInput] = useState(user?.name ?? "");
-  const [emailInput, setEmailInput] = useState(user?.email ?? "");
-  const [roleValue, setRoleValue] = useState(pickPrimaryRole(user?.role));
-  const [banReason, setBanReason] = useState("Policy violation.");
-  const [banDuration, setBanDuration] =
-    useState<BanDurationOption>("permanent");
-  const [showBanForm, setShowBanForm] = useState(false);
-  const [newPassword, setNewPassword] = useState("");
+export function UserDetailSheet(
+  props: Readonly<UserDetailSheetProps>,
+) {
+  const { user, open, onOpenChange, onUserUpdated, onUserDeleted } = props;
+  const {
+    localUser,
+    setLocalUser,
+    nameInput,
+    setNameInput,
+    emailInput,
+    setEmailInput,
+    roleValue,
+    setRoleValue,
+    banReason,
+    setBanReason,
+    banDuration,
+    setBanDuration,
+    showBanForm,
+    setShowBanForm,
+    newPassword,
+    setNewPassword,
+  } = useLocalUserFormState(user);
 
   const [isSavingProfile, setIsSavingProfile] = useState(false);
   const [isUpdatingRole, setIsUpdatingRole] = useState(false);
   const [isBanMutating, setIsBanMutating] = useState(false);
   const [isSettingPassword, setIsSettingPassword] = useState(false);
   const [isRemovingUser, setIsRemovingUser] = useState(false);
-  const [isRevokingAll, setIsRevokingAll] = useState(false);
   const [isImpersonatingUser, setIsImpersonatingUser] = useState(false);
-
-  const [sessions, setSessions] = useState<SessionWithImpersonatedBy[]>([]);
-  const [sessionsLoading, setSessionsLoading] = useState(false);
-  const [sessionsError, setSessionsError] = useState<string | null>(null);
+  const {
+    sessions,
+    sessionsLoading,
+    sessionsError,
+    isRevokingAll,
+    handleRevokeSession,
+    handleRevokeAllSessions,
+  } = useUserSessionsManager(localUser, open);
 
   const { data: currentSession } = authClient.useSession();
   const currentSessionUserId = currentSession?.user?.id ?? null;
@@ -204,45 +242,72 @@ export function UserDetailSheet({
   const impersonateDisabled =
     isImpersonatingUser || isViewingCurrentUser || isAlreadyImpersonating;
 
-  useEffect(() => {
-    if (user) {
-      setLocalUser(user);
-      setNameInput(user.name ?? "");
-      setEmailInput(user.email ?? "");
-      setRoleValue(pickPrimaryRole(user.role));
-      setShowBanForm(false);
-      setBanReason("Policy violation.");
-      setBanDuration("permanent");
-      setNewPassword("");
-      setSessions([]);
-      setSessionsError(null);
-    }
-  }, [user]);
+  const currentRoleBadge = roleBadgeConfig[roleValue] ?? roleBadgeConfig.user;
+  const RoleBadgeIcon = currentRoleBadge.Icon;
 
-  const fetchSessions = useCallback(async (userId: string) => {
-    setSessionsLoading(true);
-    setSessionsError(null);
-    try {
-      const input: ListUserSessionsInput = { userId };
-      const response = await authClient.admin.listUserSessions(input);
-      const { sessions } = ensureListUserSessionsData(response);
-      setSessions(sessions);
-    } catch (error) {
-      const message =
-        error instanceof Error
-          ? error.message
-          : "Failed to load user sessions.";
-      setSessionsError(message);
-    } finally {
-      setSessionsLoading(false);
+  const renderSessions = () => {
+    if (sessionsLoading) {
+      return (
+        <div className="space-y-2">
+          <Skeleton className="h-12 w-full" />
+          <Skeleton className="h-12 w-full" />
+        </div>
+      );
     }
-  }, []);
-
-  useEffect(() => {
-    if (open && user?.id) {
-      void fetchSessions(user.id);
+    if (sessionsError) {
+      return (
+        <div className="rounded-md border border-destructive/20 bg-destructive/5 p-3 text-xs text-destructive">
+          {sessionsError}
+        </div>
+      );
     }
-  }, [open, user?.id, fetchSessions]);
+    if (sessions.length === 0) {
+      return <p className="text-xs text-muted-foreground">No active sessions.</p>;
+    }
+    return (
+      <div className="space-y-3">
+        {sessions.map((session) => (
+          <div
+            key={session.id}
+            className="flex flex-col gap-2 rounded-md border bg-muted/30 p-3 text-xs"
+          >
+            <div className="flex flex-wrap items-center justify-between gap-2 font-mono">
+              <span className="truncate">
+                Token: {session.token ? truncateToken(session.token) : "-"}
+              </span>
+              <span className="text-muted-foreground">
+                {formatDateTime(session.expiresAt)}
+              </span>
+            </div>
+            <div className="flex flex-wrap items-center justify-between gap-2 text-muted-foreground">
+              <span>{session.userAgent ?? "User agent unavailable"}</span>
+              <span>IP: {session.ipAddress ?? "-"}</span>
+            </div>
+            <div className="flex items-center justify-between">
+              {session.impersonatedBy ? (
+                <Badge variant="outline" className="gap-1">
+                  <Clock3 className="h-3 w-3" />
+                  Impersonated by {session.impersonatedBy}
+                </Badge>
+              ) : (
+                <span className="text-muted-foreground">Standard session</span>
+              )}
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() =>
+                  session.token && handleRevokeSession(session.token)
+                }
+                disabled={!session.token}
+              >
+                Revoke
+              </Button>
+            </div>
+          </div>
+        ))}
+      </div>
+    );
+  };
 
   const handleSaveProfile = async () => {
     if (!localUser) return;
@@ -294,7 +359,7 @@ export function UserDetailSheet({
     // Show confirmation dialog for role changes
     const currentRole = pickPrimaryRole(localUser.role);
     const userName = localUser.name || localUser.email || "this user";
-    const confirmed = window.confirm(
+    const confirmed = confirmAction(
       `Are you sure you want to change ${userName}'s role from "${currentRole}" to "${value}"? This will immediately affect their permissions across the system.`,
     );
 
@@ -380,7 +445,7 @@ export function UserDetailSheet({
           localUser.name ?? localUser.email ?? "selected user"
         }. Returning to app...`,
       );
-      window.location.assign("/");
+      navigateTo("/");
     } catch (error) {
       const message =
         error instanceof Error ? error.message : "Failed to impersonate user.";
@@ -440,47 +505,9 @@ export function UserDetailSheet({
     }
   };
 
-  const handleRevokeSession = async (sessionToken: string | null) => {
-    if (!sessionToken) {
-      toast.error("Session token not found.");
-      return;
-    }
-    try {
-      const payload: RevokeSessionInput = { sessionToken };
-      await authClient.admin.revokeUserSession(payload);
-      setSessions((prev) =>
-        prev.filter((session) => session.token !== sessionToken),
-      );
-      toast.success("Session revoked.");
-    } catch (error) {
-      const message =
-        error instanceof Error ? error.message : "Failed to revoke session.";
-      toast.error(message);
-    }
-  };
-
-  const handleRevokeAllSessions = async () => {
-    if (!localUser) return;
-    setIsRevokingAll(true);
-    try {
-      const payload: RevokeSessionsInput = { userId: localUser.id };
-      await authClient.admin.revokeUserSessions(payload);
-      setSessions([]);
-      toast.success("All user sessions revoked.");
-    } catch (error) {
-      const message =
-        error instanceof Error
-          ? error.message
-          : "Failed to revoke all sessions.";
-      toast.error(message);
-    } finally {
-      setIsRevokingAll(false);
-    }
-  };
-
   const handleRemoveUser = async () => {
     if (!localUser) return;
-    const confirmed = window.confirm(
+    const confirmed = confirmAction(
       `User ${
         localUser.name ?? localUser.email
       } will be permanently deleted. Continue?`,
@@ -724,20 +751,12 @@ export function UserDetailSheet({
                   </div>
                   <CardAction>
                     <Badge
-                      variant={
-                        roleValue === "admin"
-                          ? "default"
-                          : roleValue === "moderator"
-                            ? "outline"
-                            : "secondary"
-                      }
+                      variant={currentRoleBadge.variant}
                       className="capitalize flex items-center gap-1"
                     >
-                      {roleValue === "admin" && <Shield className="h-3 w-3" />}
-                      {roleValue === "moderator" && (
-                        <UserCheck className="h-3 w-3" />
-                      )}
-                      {roleValue === "user" && <User className="h-3 w-3" />}
+                      {RoleBadgeIcon ? (
+                        <RoleBadgeIcon className="h-3 w-3" />
+                      ) : null}
                       {roleValue}
                     </Badge>
                   </CardAction>
@@ -900,72 +919,7 @@ export function UserDetailSheet({
                     </Button>
                   </CardAction>
                 </CardHeader>
-                <CardContent>
-                  {sessionsLoading ? (
-                    <div className="space-y-2">
-                      <Skeleton className="h-12 w-full" />
-                      <Skeleton className="h-12 w-full" />
-                    </div>
-                  ) : sessionsError ? (
-                    <div className="rounded-md border border-destructive/20 bg-destructive/5 p-3 text-xs text-destructive">
-                      {sessionsError}
-                    </div>
-                  ) : sessions.length === 0 ? (
-                    <p className="text-xs text-muted-foreground">
-                      No active sessions.
-                    </p>
-                  ) : (
-                    <div className="space-y-3">
-                      {sessions.map((session) => (
-                        <div
-                          key={session.id}
-                          className="flex flex-col gap-2 rounded-md border bg-muted/30 p-3 text-xs"
-                        >
-                          <div className="flex flex-wrap items-center justify-between gap-2 font-mono">
-                            <span className="truncate">
-                              Token:{" "}
-                              {session.token
-                                ? truncateToken(session.token)
-                                : "-"}
-                            </span>
-                            <span className="text-muted-foreground">
-                              {formatDateTime(session.expiresAt)}
-                            </span>
-                          </div>
-                          <div className="flex flex-wrap items-center justify-between gap-2 text-muted-foreground">
-                            <span>
-                              {session.userAgent ?? "User agent unavailable"}
-                            </span>
-                            <span>IP: {session.ipAddress ?? "-"}</span>
-                          </div>
-                          <div className="flex items-center justify-between">
-                            {session.impersonatedBy ? (
-                              <Badge variant="outline" className="gap-1">
-                                <Clock3 className="h-3 w-3" />
-                                Impersonated by {session.impersonatedBy}
-                              </Badge>
-                            ) : (
-                              <span className="text-muted-foreground">
-                                Standard session
-                              </span>
-                            )}
-                            <Button
-                              variant="outline"
-                              size="sm"
-                              onClick={() =>
-                                session.token &&
-                                handleRevokeSession(session.token)
-                              }
-                              disabled={!session.token}
-                            >
-                              Revoke
-                            </Button>
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  )}
-                </CardContent>
+                <CardContent>{renderSessions()}</CardContent>
               </Card>
 
               <Card className="border-destructive/40 bg-destructive/5">
@@ -997,6 +951,152 @@ export function UserDetailSheet({
       </SheetContent>
     </Sheet>
   );
+}
+
+function useLocalUserFormState(user: UserWithRole | null) {
+  const [localUser, setLocalUser] = useState<UserWithRole | null>(user);
+  const [nameInput, setNameInput] = useState(user?.name ?? "");
+  const [emailInput, setEmailInput] = useState(user?.email ?? "");
+  const [roleValue, setRoleValue] = useState(pickPrimaryRole(user?.role));
+  const [banReason, setBanReason] = useState(defaultBanReason);
+  const [banDuration, setBanDuration] =
+    useState<BanDurationOption>(defaultBanDuration);
+  const [showBanForm, setShowBanForm] = useState(false);
+  const [newPassword, setNewPassword] = useState("");
+
+  useEffect(() => {
+    if (!user) {
+      setLocalUser(null);
+      setNameInput("");
+      setEmailInput("");
+      setRoleValue("user");
+      setShowBanForm(false);
+      setBanReason(defaultBanReason);
+      setBanDuration(defaultBanDuration);
+      setNewPassword("");
+      return;
+    }
+    setLocalUser(user);
+    setNameInput(user.name ?? "");
+    setEmailInput(user.email ?? "");
+    setRoleValue(pickPrimaryRole(user.role));
+    setShowBanForm(false);
+    setBanReason(defaultBanReason);
+    setBanDuration(defaultBanDuration);
+    setNewPassword("");
+  }, [user]);
+
+  return {
+    localUser,
+    setLocalUser,
+    nameInput,
+    setNameInput,
+    emailInput,
+    setEmailInput,
+    roleValue,
+    setRoleValue,
+    banReason,
+    setBanReason,
+    banDuration,
+    setBanDuration,
+    showBanForm,
+    setShowBanForm,
+    newPassword,
+    setNewPassword,
+  };
+}
+
+function useUserSessionsManager(
+  localUser: UserWithRole | null,
+  open: boolean,
+) {
+  const [sessions, setSessions] = useState<SessionWithImpersonatedBy[]>([]);
+  const [sessionsLoading, setSessionsLoading] = useState(false);
+  const [sessionsError, setSessionsError] = useState<string | null>(null);
+  const [isRevokingAll, setIsRevokingAll] = useState(false);
+
+  const fetchSessions = useCallback(async (userId: string) => {
+    setSessionsLoading(true);
+    setSessionsError(null);
+    try {
+      const input: ListUserSessionsInput = { userId };
+      const response = await authClient.admin.listUserSessions(input);
+      const { sessions } = ensureListUserSessionsData(response);
+      setSessions(sessions);
+    } catch (error) {
+      const message =
+        error instanceof Error
+          ? error.message
+          : "Failed to load user sessions.";
+      setSessionsError(message);
+    } finally {
+      setSessionsLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    setSessions([]);
+    setSessionsError(null);
+  }, [localUser?.id]);
+
+  useEffect(() => {
+    if (open && localUser?.id) {
+      fetchSessions(localUser.id).catch(() => {});
+    }
+  }, [open, localUser?.id, fetchSessions]);
+
+  const handleRevokeSession = useCallback(
+    async (sessionToken: string | null) => {
+      if (!sessionToken) {
+        toast.error("Session token not found.");
+        return;
+      }
+      try {
+        const payload: RevokeSessionInput = { sessionToken };
+        await authClient.admin.revokeUserSession(payload);
+        setSessions((prev) =>
+          prev.filter((session) => session.token !== sessionToken),
+        );
+        toast.success("Session revoked.");
+      } catch (error) {
+        const message =
+          error instanceof Error ? error.message : "Failed to revoke session.";
+        toast.error(message);
+      }
+    },
+    [],
+  );
+
+  const handleRevokeAllSessions = useCallback(async () => {
+    if (!localUser) {
+      toast.error("User information unavailable.");
+      return;
+    }
+    setIsRevokingAll(true);
+    try {
+      const payload: RevokeSessionsInput = { userId: localUser.id };
+      await authClient.admin.revokeUserSessions(payload);
+      setSessions([]);
+      toast.success("All user sessions revoked.");
+    } catch (error) {
+      const message =
+        error instanceof Error
+          ? error.message
+          : "Failed to revoke all sessions.";
+      toast.error(message);
+    } finally {
+      setIsRevokingAll(false);
+    }
+  }, [localUser]);
+
+  return {
+    sessions,
+    sessionsLoading,
+    sessionsError,
+    isRevokingAll,
+    handleRevokeSession,
+    handleRevokeAllSessions,
+  };
 }
 
 const truncateToken = (token: string) => {

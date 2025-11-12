@@ -24,15 +24,18 @@ export function FooterSection() {
         </Link>
 
         <div className="my-8 flex flex-wrap justify-center gap-6 text-sm">
-          {links.map((link, index) => (
-            <Link
-              key={index}
-              href={link.href}
-              className="text-muted-foreground hover:text-primary block duration-150"
-            >
-              <span>{link.title}</span>
-            </Link>
-          ))}
+          {links.map((link) => {
+            const linkKey = `${link.title}-${link.href}`;
+            return (
+              <Link
+                key={linkKey}
+                href={link.href}
+                className="text-muted-foreground hover:text-primary block duration-150"
+              >
+                <span>{link.title}</span>
+              </Link>
+            );
+          })}
         </div>
         <div className="my-8 flex flex-wrap justify-center gap-6 text-sm">
           <Link

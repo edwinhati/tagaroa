@@ -138,7 +138,11 @@ func (b *whereBuilder) processField(field string, value any) {
 	}
 
 	if slice, ok := value.([]string); ok {
-		b.addSliceCondition(field, slice)
+		if len(slice) == 0 {
+			b.addEqualsCondition(field, value)
+		} else {
+			b.addSliceCondition(field, slice)
+		}
 		return
 	}
 

@@ -51,7 +51,10 @@ ENV NODE_ENV=production
 COPY --from=base /app/out/full/ .
 RUN apk add --no-cache libc6-compat
 # Build auth app using bun
-RUN cd apps/auth && bun run build
+WORKDIR /app/apps/auth
+RUN bun run build
+
+WORKDIR /app
 
 # Runner stage
 FROM oven/bun:alpine AS runner

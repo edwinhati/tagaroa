@@ -43,13 +43,7 @@ export async function apiRequest<T = unknown>(
     body,
   });
 
-  const parsed = await parseJsonResponse<T>(response);
-
-  if (!response.ok) {
-    throw new Error(extractErrorMessage(response, parsed));
-  }
-
-  return unwrapResponseData(parsed);
+  return handleResponse<T>(response);
 }
 
 export const authApi = {
@@ -89,9 +83,9 @@ export const fileApi = {
 };
 
 async function buildHeaders(init: ApiRequestInit): Promise<Record<string, string>> {
-  const headers: Record<string, string> = {
-    ...(init.headers ?? {}),
-  };
+  const headers: Record<string, string> = init.headers
+    ? { ...init.headers }
+    : {};
 
   const authHeader = await resolveAuthHeader(init.auth);
   if (authHeader) {
@@ -158,7 +152,18 @@ function extractErrorMessage<T>(
 
 function unwrapResponseData<T>(parsed?: JsonEnvelope<T>): T {
   if (parsed && typeof parsed === "object" && "data" in parsed) {
-    return parsed.data as T;
+    if (parsed.data === undefined) {
+      throw new Error("Response payload missing data field");
+    }
+    return parsed.data;
   }
   return parsed as T;
+}
+
+async function handleResponse<T>(response: Response): Promise<T> {
+  const parsed = await parseJsonResponse<T>(response);
+  if (!response.ok) {
+    throw new Error(extractErrorMessage(response, parsed));
+  }
+  return unwrapResponseData(parsed);
 }

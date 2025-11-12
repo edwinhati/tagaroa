@@ -51,7 +51,10 @@ ENV NODE_ENV=production
 COPY --from=base /app/out/full/ .
 RUN apk add --no-cache libc6-compat
 # Build finance app using bun
-RUN cd apps/finance && bun run build
+WORKDIR /app/apps/finance
+RUN bun run build
+
+WORKDIR /app
 
 # Runner stage
 FROM oven/bun:alpine AS runner

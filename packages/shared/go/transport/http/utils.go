@@ -9,9 +9,14 @@ import (
 	"github.com/google/uuid"
 )
 
+const (
+	headerContentType = "Content-Type"
+	headerJSONValue   = "application/json"
+)
+
 // WriteJSONResponse writes a JSON response with the given status code and data
 func WriteJSONResponse[T any](w http.ResponseWriter, statusCode int, data *T, message string) {
-	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set(headerContentType, headerJSONValue)
 	w.WriteHeader(statusCode)
 
 	response := ApiResponse[T]{
@@ -25,7 +30,7 @@ func WriteJSONResponse[T any](w http.ResponseWriter, statusCode int, data *T, me
 
 // WriteErrorResponse writes a JSON error response
 func WriteErrorResponse(w http.ResponseWriter, statusCode int, error, message string) {
-	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set(headerContentType, headerJSONValue)
 	w.WriteHeader(statusCode)
 
 	response := ApiResponse[string]{
@@ -78,7 +83,7 @@ func GetPathParam(r *http.Request, key string) string {
 
 // WritePaginatedJSONResponse writes a JSON response with pagination
 func WritePaginatedJSONResponse[T any](w http.ResponseWriter, statusCode int, items []T, pagination Pagination, message string) {
-	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set(headerContentType, headerJSONValue)
 	w.WriteHeader(statusCode)
 
 	response := ApiResponse[[]T]{
@@ -93,7 +98,7 @@ func WritePaginatedJSONResponse[T any](w http.ResponseWriter, statusCode int, it
 
 // WriteListResponse writes a JSON response with pagination and optional aggregations
 func WriteListResponse[T any](w http.ResponseWriter, statusCode int, items []T, pagination Pagination, aggregations *Aggregations, message string) {
-	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set(headerContentType, headerJSONValue)
 	w.WriteHeader(statusCode)
 
 	response := ApiResponse[[]T]{

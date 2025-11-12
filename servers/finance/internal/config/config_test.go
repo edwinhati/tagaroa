@@ -8,6 +8,12 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
+const (
+	testAuthURL          = "https://auth.example.com"
+	testAuthURLWithSlash = "https://auth.example.com/"
+	testAuthURLMulti     = "https://auth.example.com///"
+)
+
 /***************
  * Test helpers
  ***************/
@@ -88,17 +94,17 @@ func TestOIDCConfigIssuerURL(t *testing.T) {
 	}{
 		{
 			name:     "URL with trailing slash",
-			baseURL:  "https://auth.example.com/",
-			expected: "https://auth.example.com",
+			baseURL:  testAuthURLWithSlash,
+			expected: testAuthURL,
 		},
 		{
 			name:     "URL without trailing slash",
-			baseURL:  "https://auth.example.com",
-			expected: "https://auth.example.com",
+			baseURL:  testAuthURL,
+			expected: testAuthURL,
 		},
 		{
 			name:     "URL with multiple trailing slashes",
-			baseURL:  "https://auth.example.com///",
+			baseURL:  testAuthURLMulti,
 			expected: "https://auth.example.com//",
 		},
 	}

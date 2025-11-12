@@ -51,7 +51,10 @@ ENV NODE_ENV=production
 COPY --from=base /app/out/full/ .
 RUN apk add --no-cache libc6-compat
 # Build admin app using bun
-RUN cd apps/admin && bun run build
+WORKDIR /app/apps/admin
+RUN bun run build
+
+WORKDIR /app
 
 # Runner stage
 FROM oven/bun:alpine AS runner

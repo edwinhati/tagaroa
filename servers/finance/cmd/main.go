@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"database/sql"
 	"log"
 	"log/slog"
 	"net/http"
@@ -24,30 +25,44 @@ import (
 )
 
 func main() {
-	// Load .env file
+	loadEnvFile()
+
+	cfg := mustLoadConfig()
+	logStartupInfo(cfg)
+
+	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
+	defer stop()
+
+	db := mustConnectDatabase(cfg)
+	defer db.Close()
+
+	oidcClient := mustInitOIDCClient(ctx, cfg)
+	handler := buildHTTPHandler(cfg, db, oidcClient, parseAllowedOrigins(cfg.Server.TrustedOrigins))
+
+	registerHealthEndpoint()
+
+	server := newHTTPServer(cfg.Server.Port, handler)
+	go startServer(server)
+
+	<-ctx.Done()
+	gracefulShutdown(server)
+}
+
+func loadEnvFile() {
 	if err := godotenv.Load(); err != nil {
 		log.Printf("Warning: Could not load .env file: %v", err)
 	}
+}
 
-	// Load configuration
+func mustLoadConfig() *config.Config {
 	cfg, err := config.LoadConfig()
 	if err != nil {
 		log.Fatalf("Failed to load configuration: %v", err)
 	}
+	return cfg
+}
 
-	// Initialize allowed origins for CORS
-	var allowedOrigins []string
-
-	// Add production origins if configured
-	if trustedOrigins := cfg.Server.TrustedOrigins; trustedOrigins != "" {
-		origins := strings.Split(trustedOrigins, ",")
-		for _, origin := range origins {
-			if trimmed := strings.TrimSpace(origin); trimmed != "" {
-				allowedOrigins = append(allowedOrigins, trimmed)
-			}
-		}
-	}
-
+func logStartupInfo(cfg *config.Config) {
 	log.Printf("🚀 Starting Finance Server")
 	log.Printf("Environment: %s", cfg.Server.Env)
 	log.Printf("Log level: %s", cfg.Log.Level)
@@ -56,12 +71,22 @@ func main() {
 	if cfg.Sentry.DSN != "" {
 		log.Printf("Sentry enabled with sample rate: %.2f", cfg.Sentry.TracesSampleRate)
 	}
+}
 
-	// Graceful shutdown setup
-	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
-	defer stop()
+func parseAllowedOrigins(trustedOrigins string) []string {
+	if trustedOrigins == "" {
+		return nil
+	}
+	var origins []string
+	for _, origin := range strings.Split(trustedOrigins, ",") {
+		if trimmed := strings.TrimSpace(origin); trimmed != "" {
+			origins = append(origins, trimmed)
+		}
+	}
+	return origins
+}
 
-	// Initialize database connection
+func mustConnectDatabase(cfg *config.Config) *sql.DB {
 	db, err := client.ConnectDatabase(
 		cfg.Database.Host,
 		cfg.Database.User,
@@ -72,10 +97,10 @@ func main() {
 	if err != nil {
 		log.Fatalf("Failed to connect to database: %v", err)
 	}
+	return db
+}
 
-	// Note: Database migrations should be handled separately with a migration tool
-	// For now, ensure the accounts table exists with the proper schema
-
+func mustInitOIDCClient(ctx context.Context, cfg *config.Config) *client.OIDCClient {
 	issuer := cfg.OIDC.IssuerURL()
 	if issuer == "" {
 		log.Fatal("OIDC issuer URL is required")
@@ -88,29 +113,36 @@ func main() {
 	if err != nil {
 		log.Fatalf("Failed to initialize OIDC client: %v", err)
 	}
+	return oidcClient
+}
 
-	// Initialize repositories
+func buildHTTPHandler(
+	cfg *config.Config,
+	db *sql.DB,
+	oidcClient *client.OIDCClient,
+	allowedOrigins []string,
+) http.Handler {
 	accountRepo := repository.NewAccountRepository(db)
-
-	// Initialize services
 	accountService := service.NewAccountService(accountRepo)
 
-	// Initialize HTTP router
 	router := httputil.NewRouter()
-
-	// Initialize HTTP handlers
 	httphandler.NewAccountHandler(oidcClient, accountService).SetupRoutes(router)
 
-	// Create rate limiter (100 requests per minute per IP)
+	handler := applyMiddlewares(router, allowedOrigins)
+	return handler
+}
+
+func applyMiddlewares(router http.Handler, allowedOrigins []string) http.Handler {
 	rateLimiter := util.NewRateLimiter(rate.Every(time.Minute/100), 10)
 
-	var handler http.Handler = router
+	handler := http.Handler(router)
 	handler = util.RequestID(handler)
 	handler = util.SecurityHeaders(handler)
 	handler = util.CORS(allowedOrigins)(handler)
-	handler = rateLimiter.RateLimit(handler)
+	return rateLimiter.RateLimit(handler)
+}
 
-	// Add health check endpoint
+func registerHealthEndpoint() {
 	http.HandleFunc("/health", func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusOK)
@@ -121,28 +153,27 @@ func main() {
 			"version": "1.0.0"
 		}`))
 	})
+}
 
-	// Create HTTP server
-	server := &http.Server{
-		Addr:    ":" + cfg.Server.Port,
+func newHTTPServer(port string, handler http.Handler) *http.Server {
+	return &http.Server{
+		Addr:    ":" + port,
 		Handler: handler,
 	}
-	// Start server
-	go func() {
-		if err := server.ListenAndServe(); err != nil && err != http.ErrServerClosed {
-			log.Fatalf("Failed to start server: %v", err)
-		}
-	}()
+}
 
-	// Wait for shutdown signal
-	<-ctx.Done()
+func startServer(server *http.Server) {
+	if err := server.ListenAndServe(); err != nil && err != http.ErrServerClosed {
+		log.Fatalf("Failed to start server: %v", err)
+	}
+}
+
+func gracefulShutdown(server *http.Server) {
 	slog.Info("📦 Shutting down services gracefully...")
 
-	// Create a shutdown context with a timeout
 	shutdownCtx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 
-	// Shutdown HTTP server
 	if err := server.Shutdown(shutdownCtx); err != nil {
 		slog.Error("HTTP server shutdown error", "error", err)
 	}

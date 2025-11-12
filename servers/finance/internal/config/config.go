@@ -59,7 +59,15 @@ type SentryConfig struct {
 
 // LoadFromEnv loads configuration from environment variables
 func (c *Config) LoadFromEnv() error {
-	// Server config
+	c.loadServerConfig()
+	c.loadLogConfig()
+	c.loadDatabaseConfig()
+	c.loadOIDCConfig()
+	c.loadSentryConfig()
+	return nil
+}
+
+func (c *Config) loadServerConfig() {
 	if env := os.Getenv("ENV"); env != "" {
 		c.Server.Env = env
 	}
@@ -69,8 +77,9 @@ func (c *Config) LoadFromEnv() error {
 	if trustedOrigins := os.Getenv("TRUSTED_ORIGINS"); trustedOrigins != "" {
 		c.Server.TrustedOrigins = trustedOrigins
 	}
+}
 
-	// Log config
+func (c *Config) loadLogConfig() {
 	if level := os.Getenv("LOG_LEVEL"); level != "" {
 		c.Log.Level = level
 	}
@@ -82,8 +91,9 @@ func (c *Config) LoadFromEnv() error {
 			c.Log.AddSource = val
 		}
 	}
+}
 
-	// Database config
+func (c *Config) loadDatabaseConfig() {
 	if host := os.Getenv("DB_HOST"); host != "" {
 		c.Database.Host = host
 	}
@@ -104,8 +114,9 @@ func (c *Config) LoadFromEnv() error {
 			c.Database.SlowThreshold = duration
 		}
 	}
+}
 
-	// OIDC config
+func (c *Config) loadOIDCConfig() {
 	if baseURL := os.Getenv("OIDC_BASE_URL"); baseURL != "" {
 		c.OIDC.BaseURL = baseURL
 	}
@@ -115,8 +126,9 @@ func (c *Config) LoadFromEnv() error {
 	if clientSecret := os.Getenv("OIDC_CLIENT_SECRET"); clientSecret != "" {
 		c.OIDC.ClientSecret = clientSecret
 	}
+}
 
-	// Sentry config
+func (c *Config) loadSentryConfig() {
 	if dsn := os.Getenv("SENTRY_DSN"); dsn != "" {
 		c.Sentry.DSN = dsn
 	}
@@ -125,8 +137,6 @@ func (c *Config) LoadFromEnv() error {
 			c.Sentry.TracesSampleRate = rate
 		}
 	}
-
-	return nil
 }
 
 // LoadConfig creates a new Config instance and loads values from environment variables

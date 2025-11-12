@@ -12,6 +12,14 @@ import (
 	"github.com/stretchr/testify/mock"
 )
 
+const (
+	testAccountName      = "Test Account"
+	updatedAccountName   = "Updated Account"
+	createdAtDescOrder   = "created_at DESC"
+	databaseErrorMsg     = "database error"
+	mockModelAccountType = "*model.Account"
+)
+
 // MockAccountRepository is a mock implementation of AccountRepository
 type MockAccountRepository struct {
 	mock.Mock
@@ -47,18 +55,20 @@ func (m *MockAccountRepository) Update(ctx context.Context, account *model.Accou
 
 func (m *MockAccountRepository) GetTypeAggregations(ctx context.Context, where map[string]any) (map[string]util.AggregationResult, error) {
 	args := m.Called(ctx, where)
-	if args.Get(0) == nil {
-		return nil, args.Error(1)
-	}
-	return args.Get(0).(map[string]util.AggregationResult), args.Error(1)
+	return parseAggregationArgs(args)
 }
 
 func (m *MockAccountRepository) GetCurrencyAggregations(ctx context.Context, where map[string]any) (map[string]util.AggregationResult, error) {
 	args := m.Called(ctx, where)
-	if args.Get(0) == nil {
+	return parseAggregationArgs(args)
+}
+
+func parseAggregationArgs(args mock.Arguments) (map[string]util.AggregationResult, error) {
+	value := args.Get(0)
+	if value == nil {
 		return nil, args.Error(1)
 	}
-	return args.Get(0).(map[string]util.AggregationResult), args.Error(1)
+	return value.(map[string]util.AggregationResult), args.Error(1)
 }
 
 func TestAccountServiceCreateAccount(t *testing.T) {
@@ -69,14 +79,14 @@ func TestAccountServiceCreateAccount(t *testing.T) {
 	userID := uuid.New()
 	inputAccount := &model.Account{
 		ID:       uuid.New(),
-		Name:     "Test Account",
+		Name:     testAccountName,
 		Type:     model.AccountTypeBank,
 		Balance:  1000.0,
 		UserID:   userID,
 		Currency: "USD",
 	}
 
-	mockRepo.On("Create", ctx, mock.AnythingOfType("*model.Account")).Return(nil)
+	mockRepo.On("Create", ctx, mock.AnythingOfType(mockModelAccountType)).Return(nil)
 
 	account, err := service.CreateAccount(ctx, inputAccount)
 
@@ -100,7 +110,7 @@ func TestAccountServiceCreateAccountInvalidType(t *testing.T) {
 	userID := uuid.New()
 	inputAccount := &model.Account{
 		ID:       uuid.New(),
-		Name:     "Test Account",
+		Name:     testAccountName,
 		Type:     "INVALID_TYPE",
 		Balance:  1000.0,
 		UserID:   userID,
@@ -125,7 +135,7 @@ func TestAccountServiceGetAccount(t *testing.T) {
 	userID := uuid.New()
 	expectedAccount := &model.Account{
 		ID:       accountID,
-		Name:     "Test Account",
+		Name:     testAccountName,
 		Type:     model.AccountTypeBank,
 		Balance:  1000.0,
 		Currency: "USD",
@@ -211,14 +221,14 @@ func TestAccountServiceUpdateAccount(t *testing.T) {
 	userID := uuid.New()
 	existingAccount := &model.Account{
 		ID:       accountID,
-		Name:     "Test Account",
+		Name:     testAccountName,
 		Type:     model.AccountTypeBank,
 		Balance:  1000.0,
 		Currency: "USD",
 		UserID:   userID,
 	}
 
-	newName := "Updated Account"
+	newName := updatedAccountName
 	newBalance := 1500.0
 
 	params := util.FindUniqueParams{
@@ -229,7 +239,7 @@ func TestAccountServiceUpdateAccount(t *testing.T) {
 	}
 
 	mockRepo.On("FindUnique", ctx, params).Return(existingAccount, nil)
-	mockRepo.On("Update", ctx, mock.AnythingOfType("*model.Account")).Return(nil)
+	mockRepo.On("Update", ctx, mock.AnythingOfType(mockModelAccountType)).Return(nil)
 
 	account, err := service.UpdateAccount(ctx, accountID, &newName, nil, nil, &newBalance, nil, userID)
 
@@ -258,7 +268,7 @@ func TestAccountServiceUpdateAccountNotFound(t *testing.T) {
 
 	mockRepo.On("FindUnique", ctx, params).Return(nil, nil)
 
-	newName := "Updated Account"
+	newName := updatedAccountName
 	account, err := service.UpdateAccount(ctx, accountID, &newName, nil, nil, nil, nil, userID)
 
 	assert.Error(t, err)
@@ -277,7 +287,7 @@ func TestAccountServiceUpdateAccountAllFields(t *testing.T) {
 	userID := uuid.New()
 	existingAccount := &model.Account{
 		ID:       accountID,
-		Name:     "Test Account",
+		Name:     testAccountName,
 		Type:     model.AccountTypeBank,
 		Balance:  1000.0,
 		Currency: "USD",
@@ -285,7 +295,7 @@ func TestAccountServiceUpdateAccountAllFields(t *testing.T) {
 		Notes:    nil,
 	}
 
-	newName := "Updated Account"
+	newName := updatedAccountName
 	newBalance := 1500.0
 	newCurrency := "EUR"
 	newNotes := "Updated notes"
@@ -299,7 +309,7 @@ func TestAccountServiceUpdateAccountAllFields(t *testing.T) {
 	}
 
 	mockRepo.On("FindUnique", ctx, params).Return(existingAccount, nil)
-	mockRepo.On("Update", ctx, mock.AnythingOfType("*model.Account")).Return(nil)
+	mockRepo.On("Update", ctx, mock.AnythingOfType(mockModelAccountType)).Return(nil)
 
 	account, err := service.UpdateAccount(ctx, accountID, &newName, &newCurrency, &newNotes, &newBalance, &isDeleted, userID)
 
@@ -364,7 +374,7 @@ func TestAccountServiceGetAccounts(t *testing.T) {
 		Offset:  0,
 		Limit:   10,
 		Where:   expectedWhereClause,
-		OrderBy: "created_at DESC",
+		OrderBy: createdAtDescOrder,
 	}
 
 	mockRepo.On("GetTypeAggregations", ctx, expectedWhereClause).Return(typeAggregations, nil)
@@ -460,7 +470,7 @@ func TestAccountServiceGetAccountsDefaultPagination(t *testing.T) {
 		Offset:  0, // (1 - 1) * 10
 		Limit:   10,
 		Where:   expectedWhereClause,
-		OrderBy: "created_at DESC",
+		OrderBy: createdAtDescOrder,
 	}
 
 	mockRepo.On("GetTypeAggregations", ctx, expectedWhereClause).Return(map[string]util.AggregationResult{}, nil)
@@ -506,14 +516,14 @@ func TestAccountServiceCreateAccountRepositoryError(t *testing.T) {
 	userID := uuid.New()
 	inputAccount := &model.Account{
 		ID:       uuid.New(),
-		Name:     "Test Account",
+		Name:     testAccountName,
 		Type:     model.AccountTypeBank,
 		Balance:  1000.0,
 		UserID:   userID,
 		Currency: "USD",
 	}
 
-	mockRepo.On("Create", ctx, mock.AnythingOfType("*model.Account")).Return(fmt.Errorf("database error"))
+	mockRepo.On("Create", ctx, mock.AnythingOfType(mockModelAccountType)).Return(fmt.Errorf(databaseErrorMsg))
 
 	account, err := service.CreateAccount(ctx, inputAccount)
 
@@ -539,7 +549,7 @@ func TestAccountServiceGetAccountRepositoryError(t *testing.T) {
 		},
 	}
 
-	mockRepo.On("FindUnique", ctx, params).Return(nil, fmt.Errorf("database error"))
+	mockRepo.On("FindUnique", ctx, params).Return(nil, fmt.Errorf(databaseErrorMsg))
 
 	account, err := service.GetAccount(ctx, accountID, userID)
 
@@ -559,14 +569,14 @@ func TestAccountServiceUpdateAccountRepositoryError(t *testing.T) {
 	userID := uuid.New()
 	existingAccount := &model.Account{
 		ID:       accountID,
-		Name:     "Test Account",
+		Name:     testAccountName,
 		Type:     model.AccountTypeBank,
 		Balance:  1000.0,
 		Currency: "USD",
 		UserID:   userID,
 	}
 
-	newName := "Updated Account"
+	newName := updatedAccountName
 
 	params := util.FindUniqueParams{
 		Where: map[string]any{
@@ -576,7 +586,7 @@ func TestAccountServiceUpdateAccountRepositoryError(t *testing.T) {
 	}
 
 	mockRepo.On("FindUnique", ctx, params).Return(existingAccount, nil)
-	mockRepo.On("Update", ctx, mock.AnythingOfType("*model.Account")).Return(fmt.Errorf("database error"))
+	mockRepo.On("Update", ctx, mock.AnythingOfType(mockModelAccountType)).Return(fmt.Errorf(databaseErrorMsg))
 
 	account, err := service.UpdateAccount(ctx, accountID, &newName, nil, nil, nil, nil, userID)
 
@@ -707,7 +717,7 @@ func TestAccountServiceGetAccountsFindManyError(t *testing.T) {
 		Offset:  0,
 		Limit:   10,
 		Where:   expectedWhereClause,
-		OrderBy: "created_at DESC",
+		OrderBy: createdAtDescOrder,
 	}
 
 	typeAggregations := map[string]util.AggregationResult{
@@ -747,9 +757,9 @@ func TestAccountServiceUpdateAccountFindUniqueError(t *testing.T) {
 		},
 	}
 
-	mockRepo.On("FindUnique", ctx, params).Return(nil, fmt.Errorf("database error"))
+	mockRepo.On("FindUnique", ctx, params).Return(nil, fmt.Errorf(databaseErrorMsg))
 
-	newName := "Updated Account"
+	newName := updatedAccountName
 	account, err := service.UpdateAccount(ctx, accountID, &newName, nil, nil, nil, nil, userID)
 
 	assert.Error(t, err)
@@ -768,7 +778,7 @@ func TestAccountServiceUpdateAccountIsDeletedFalse(t *testing.T) {
 	userID := uuid.New()
 	existingAccount := &model.Account{
 		ID:        accountID,
-		Name:      "Test Account",
+		Name:      testAccountName,
 		Type:      model.AccountTypeBank,
 		Balance:   1000.0,
 		Currency:  "USD",
@@ -786,7 +796,7 @@ func TestAccountServiceUpdateAccountIsDeletedFalse(t *testing.T) {
 	}
 
 	mockRepo.On("FindUnique", ctx, params).Return(existingAccount, nil)
-	mockRepo.On("Update", ctx, mock.AnythingOfType("*model.Account")).Return(nil)
+	mockRepo.On("Update", ctx, mock.AnythingOfType(mockModelAccountType)).Return(nil)
 
 	account, err := service.UpdateAccount(ctx, accountID, nil, nil, nil, nil, &isDeleted, userID)
 

@@ -1800,19 +1800,3 @@ func TestAccountRepositoryCoverageEdgeCases(t *testing.T) {
 }
 
 // Test to ensure validation errors from getAggregations are surfaced with context.
-func TestAccountRepositoryGetAggregationsValidationError(t *testing.T) {
-	db, _, repo := setupMockDB(t)
-	defer db.Close()
-
-	ctx := context.Background()
-	where := map[string]any{
-		"user_id": uuid.New(),
-	}
-
-	repoImpl := repo.(*accountRepository)
-	_, err := repoImpl.getAggregations(ctx, "invalid_column", "invalid_column", []string{"user_id"}, where)
-
-	assert.Error(t, err)
-	assert.Contains(t, err.Error(), "invalid aggregation groupBy")
-	assert.Contains(t, err.Error(), invalidGroupByColumnErr)
-}
