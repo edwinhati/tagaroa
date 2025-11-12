@@ -61,7 +61,7 @@ func (m *MockAccountRepository) GetCurrencyAggregations(ctx context.Context, whe
 	return args.Get(0).(map[string]util.AggregationResult), args.Error(1)
 }
 
-func TestAccountService_CreateAccount(t *testing.T) {
+func TestAccountServiceCreateAccount(t *testing.T) {
 	mockRepo := new(MockAccountRepository)
 	service := NewAccountService(mockRepo)
 
@@ -92,7 +92,7 @@ func TestAccountService_CreateAccount(t *testing.T) {
 	mockRepo.AssertExpectations(t)
 }
 
-func TestAccountService_CreateAccount_InvalidType(t *testing.T) {
+func TestAccountServiceCreateAccountInvalidType(t *testing.T) {
 	mockRepo := new(MockAccountRepository)
 	service := NewAccountService(mockRepo)
 
@@ -116,7 +116,7 @@ func TestAccountService_CreateAccount_InvalidType(t *testing.T) {
 	mockRepo.AssertExpectations(t)
 }
 
-func TestAccountService_GetAccount(t *testing.T) {
+func TestAccountServiceGetAccount(t *testing.T) {
 	mockRepo := new(MockAccountRepository)
 	service := NewAccountService(mockRepo)
 
@@ -150,7 +150,7 @@ func TestAccountService_GetAccount(t *testing.T) {
 	mockRepo.AssertExpectations(t)
 }
 
-func TestAccountService_GetAccount_NotFound(t *testing.T) {
+func TestAccountServiceGetAccountNotFound(t *testing.T) {
 	mockRepo := new(MockAccountRepository)
 	service := NewAccountService(mockRepo)
 
@@ -176,7 +176,7 @@ func TestAccountService_GetAccount_NotFound(t *testing.T) {
 	mockRepo.AssertExpectations(t)
 }
 
-func TestAccountService_GetAccount_AccessDenied(t *testing.T) {
+func TestAccountServiceGetAccountAccessDenied(t *testing.T) {
 	mockRepo := new(MockAccountRepository)
 	service := NewAccountService(mockRepo)
 
@@ -202,7 +202,7 @@ func TestAccountService_GetAccount_AccessDenied(t *testing.T) {
 	mockRepo.AssertExpectations(t)
 }
 
-func TestAccountService_UpdateAccount(t *testing.T) {
+func TestAccountServiceUpdateAccount(t *testing.T) {
 	mockRepo := new(MockAccountRepository)
 	service := NewAccountService(mockRepo)
 
@@ -241,7 +241,7 @@ func TestAccountService_UpdateAccount(t *testing.T) {
 	mockRepo.AssertExpectations(t)
 }
 
-func TestAccountService_UpdateAccount_NotFound(t *testing.T) {
+func TestAccountServiceUpdateAccountNotFound(t *testing.T) {
 	mockRepo := new(MockAccountRepository)
 	service := NewAccountService(mockRepo)
 
@@ -268,7 +268,7 @@ func TestAccountService_UpdateAccount_NotFound(t *testing.T) {
 	mockRepo.AssertExpectations(t)
 }
 
-func TestAccountService_UpdateAccount_AllFields(t *testing.T) {
+func TestAccountServiceUpdateAccountAllFields(t *testing.T) {
 	mockRepo := new(MockAccountRepository)
 	service := NewAccountService(mockRepo)
 
@@ -314,7 +314,7 @@ func TestAccountService_UpdateAccount_AllFields(t *testing.T) {
 	mockRepo.AssertExpectations(t)
 }
 
-func TestAccountService_GetAccounts(t *testing.T) {
+func TestAccountServiceGetAccounts(t *testing.T) {
 	mockRepo := new(MockAccountRepository)
 	service := NewAccountService(mockRepo)
 
@@ -384,7 +384,7 @@ func TestAccountService_GetAccounts(t *testing.T) {
 	mockRepo.AssertExpectations(t)
 }
 
-func TestAccountService_GetAccounts_WithFilters(t *testing.T) {
+func TestAccountServiceGetAccountsWithFilters(t *testing.T) {
 	mockRepo := new(MockAccountRepository)
 	service := NewAccountService(mockRepo)
 
@@ -439,7 +439,7 @@ func TestAccountService_GetAccounts_WithFilters(t *testing.T) {
 	mockRepo.AssertExpectations(t)
 }
 
-func TestAccountService_GetAccounts_DefaultPagination(t *testing.T) {
+func TestAccountServiceGetAccountsDefaultPagination(t *testing.T) {
 	mockRepo := new(MockAccountRepository)
 	service := NewAccountService(mockRepo)
 
@@ -498,7 +498,7 @@ func TestIsValidAccountType(t *testing.T) {
 		})
 	}
 }
-func TestAccountService_CreateAccount_RepositoryError(t *testing.T) {
+func TestAccountServiceCreateAccountRepositoryError(t *testing.T) {
 	mockRepo := new(MockAccountRepository)
 	service := NewAccountService(mockRepo)
 
@@ -524,7 +524,7 @@ func TestAccountService_CreateAccount_RepositoryError(t *testing.T) {
 	mockRepo.AssertExpectations(t)
 }
 
-func TestAccountService_GetAccount_RepositoryError(t *testing.T) {
+func TestAccountServiceGetAccountRepositoryError(t *testing.T) {
 	mockRepo := new(MockAccountRepository)
 	service := NewAccountService(mockRepo)
 
@@ -550,7 +550,7 @@ func TestAccountService_GetAccount_RepositoryError(t *testing.T) {
 	mockRepo.AssertExpectations(t)
 }
 
-func TestAccountService_UpdateAccount_RepositoryError(t *testing.T) {
+func TestAccountServiceUpdateAccountRepositoryError(t *testing.T) {
 	mockRepo := new(MockAccountRepository)
 	service := NewAccountService(mockRepo)
 
@@ -587,7 +587,7 @@ func TestAccountService_UpdateAccount_RepositoryError(t *testing.T) {
 	mockRepo.AssertExpectations(t)
 }
 
-func TestAccountService_GetAccounts_TypeAggregationError(t *testing.T) {
+func TestAccountServiceGetAccountsTypeAggregationError(t *testing.T) {
 	mockRepo := new(MockAccountRepository)
 	service := NewAccountService(mockRepo)
 
@@ -615,7 +615,7 @@ func TestAccountService_GetAccounts_TypeAggregationError(t *testing.T) {
 	mockRepo.AssertExpectations(t)
 }
 
-func TestAccountService_GetAccounts_CurrencyAggregationError(t *testing.T) {
+func TestAccountServiceGetAccountsCurrencyAggregationError(t *testing.T) {
 	mockRepo := new(MockAccountRepository)
 	service := NewAccountService(mockRepo)
 
@@ -648,7 +648,7 @@ func TestAccountService_GetAccounts_CurrencyAggregationError(t *testing.T) {
 	mockRepo.AssertExpectations(t)
 }
 
-func TestAccountService_GetAccounts_CountError(t *testing.T) {
+func TestAccountServiceGetAccountsCountError(t *testing.T) {
 	mockRepo := new(MockAccountRepository)
 	service := NewAccountService(mockRepo)
 
@@ -686,7 +686,7 @@ func TestAccountService_GetAccounts_CountError(t *testing.T) {
 	mockRepo.AssertExpectations(t)
 }
 
-func TestAccountService_GetAccounts_FindManyError(t *testing.T) {
+func TestAccountServiceGetAccountsFindManyError(t *testing.T) {
 	mockRepo := new(MockAccountRepository)
 	service := NewAccountService(mockRepo)
 
@@ -732,7 +732,7 @@ func TestAccountService_GetAccounts_FindManyError(t *testing.T) {
 	mockRepo.AssertExpectations(t)
 }
 
-func TestAccountService_UpdateAccount_FindUniqueError(t *testing.T) {
+func TestAccountServiceUpdateAccountFindUniqueError(t *testing.T) {
 	mockRepo := new(MockAccountRepository)
 	service := NewAccountService(mockRepo)
 
@@ -759,7 +759,7 @@ func TestAccountService_UpdateAccount_FindUniqueError(t *testing.T) {
 	mockRepo.AssertExpectations(t)
 }
 
-func TestAccountService_UpdateAccount_IsDeletedFalse(t *testing.T) {
+func TestAccountServiceUpdateAccountIsDeletedFalse(t *testing.T) {
 	mockRepo := new(MockAccountRepository)
 	service := NewAccountService(mockRepo)
 

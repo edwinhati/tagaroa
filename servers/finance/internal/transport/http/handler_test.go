@@ -20,6 +20,24 @@ import (
 	"github.com/stretchr/testify/mock"
 )
 
+const (
+	accountPath                = "/account"
+	accountPathWithIDPrefix    = "/account/"
+	accountTypesPath           = "/account/types"
+	headerContentType          = "Content-Type"
+	headerJSONValue            = "application/json"
+	invalidJSONBody            = "invalid json"
+	invalidUUIDCaseName        = "invalid uuid"
+	noUserIDCaseName           = "no user id"
+	serviceErrorCaseName       = "service error"
+	modelAccountTypeName       = "*model.Account"
+	serviceGetAccountsTypeName = "service.GetAccountsParams"
+	defaultAccountName         = "Account 1"
+	testAccountName            = "Test Account"
+	updatedAccountName         = "Updated Account"
+	invalidUUIDValue           = "invalid-uuid"
+)
+
 /* ----------------------- Mocks & small helpers ----------------------- */
 
 type MockAccountService struct{ mock.Mock }
@@ -59,6 +77,10 @@ func setupHandler(t *testing.T) (*AccountHandler, *MockAccountService) {
 	return NewAccountHandler(mockOIDC, mockSvc), mockSvc
 }
 
+func accountPathWithID(id uuid.UUID) string {
+	return accountPathWithIDPrefix + id.String()
+}
+
 func authedReq(method, url string, body any, userID uuid.UUID) *http.Request {
 	var buf *bytes.Buffer
 	if body != nil {
@@ -68,14 +90,14 @@ func authedReq(method, url string, body any, userID uuid.UUID) *http.Request {
 		buf = bytes.NewBuffer(nil)
 	}
 	req := httptest.NewRequest(method, url, buf)
-	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set(headerContentType, headerJSONValue)
 	ctx := context.WithValue(req.Context(), middleware.UserIDKey, userID.String())
 	return req.WithContext(ctx)
 }
 
 func rawReq(method, url string, rawBody []byte) *http.Request {
 	req := httptest.NewRequest(method, url, bytes.NewBuffer(rawBody))
-	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set(headerContentType, headerJSONValue)
 	return req
 }
 
@@ -85,17 +107,17 @@ func perform(h func(http.ResponseWriter, *http.Request), req *http.Request) *htt
 	return w
 }
 
-func stringPtr(s string) *string  { return &s }
+func stringPtr(s string) *string    { return &s }
 func float64Ptr(f float64) *float64 { return &f }
 
 /* ------------------------------ Create ------------------------------- */
 
-func TestAccountHandler_CreateAccount_Variants(t *testing.T) {
+func TestAccountHandlerCreateAccountVariants(t *testing.T) {
 	handler, mockSvc := setupHandler(t)
 	userID := uuid.New()
 
 	okReq := CreateAccountRequest{
-		Name:     "Test Account",
+		Name:     testAccountName,
 		Type:     model.AccountTypeBank,
 		Balance:  1000,
 		Currency: "USD",
@@ -110,51 +132,53 @@ func TestAccountHandler_CreateAccount_Variants(t *testing.T) {
 	}
 
 	tests := []struct {
-		name          string
-		req           *http.Request
-		mockSetup     func()
-		wantStatus    int
+		name       string
+		req        *http.Request
+		mockSetup  func()
+		wantStatus int
 	}{
 		{
 			name: "success",
-			req:  authedReq("POST", "/account", okReq, userID),
+			req:  authedReq("POST", accountPath, okReq, userID),
 			mockSetup: func() {
 				mockSvc.
-					On("CreateAccount", mock.Anything, mock.AnythingOfType("*model.Account")).
+					On("CreateAccount", mock.Anything, mock.AnythingOfType(modelAccountTypeName)).
 					Return(okAccount, nil).Once()
 			},
 			wantStatus: http.StatusOK,
 		},
 		{
 			name: "invalid type",
-			req:  authedReq("POST", "/account", CreateAccountRequest{Name: "A", Type: "INVALID", Balance: 10, Currency: "USD"}, userID),
+			req:  authedReq("POST", accountPath, CreateAccountRequest{Name: "A", Type: "INVALID", Balance: 10, Currency: "USD"}, userID),
 			mockSetup: func() {
 				mockSvc.
-					On("CreateAccount", mock.Anything, mock.AnythingOfType("*model.Account")).
+					On("CreateAccount", mock.Anything, mock.AnythingOfType(modelAccountTypeName)).
 					Return(nil, service.ErrInvalidAccountType).Once()
 			},
 			wantStatus: http.StatusBadRequest,
 		},
 		{
-			name: "invalid json",
-			req:  func() *http.Request { return authedReq("POST", "/account", nil, userID).WithContext(authedReq("POST", "/account", nil, userID).Context()) }(), // placeholder; will replace body
-			mockSetup: func() {},
+			name: invalidJSONBody,
+			req: func() *http.Request {
+				return authedReq("POST", accountPath, nil, userID).WithContext(authedReq("POST", accountPath, nil, userID).Context())
+			}(), // placeholder; will replace body
+			mockSetup:  func() { /* no expectations for invalid payload */ },
 			wantStatus: http.StatusBadRequest,
 		},
 		{
-			name: "service error",
-			req:  authedReq("POST", "/account", okReq, userID),
+			name: serviceErrorCaseName,
+			req:  authedReq("POST", accountPath, okReq, userID),
 			mockSetup: func() {
 				mockSvc.
-					On("CreateAccount", mock.Anything, mock.AnythingOfType("*model.Account")).
-					Return(nil, fmt.Errorf("service error")).Once()
+					On("CreateAccount", mock.Anything, mock.AnythingOfType(modelAccountTypeName)).
+					Return(nil, fmt.Errorf(serviceErrorCaseName)).Once()
 			},
 			wantStatus: http.StatusInternalServerError,
 		},
 		{
-			name:       "no user id",
-			req:        rawReq("POST", "/account", mustJSON(okReq)),
-			mockSetup:  func() {},
+			name:       noUserIDCaseName,
+			req:        rawReq("POST", accountPath, mustJSON(okReq)),
+			mockSetup:  func() { /* unauthorized request has no expectations */ },
 			wantStatus: http.StatusUnauthorized,
 		},
 	}
@@ -162,9 +186,9 @@ func TestAccountHandler_CreateAccount_Variants(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			switch tt.name {
-			case "invalid json":
+			case invalidJSONBody:
 				// craft raw invalid JSON with auth
-				r := rawReq("POST", "/account", []byte("invalid json"))
+				r := rawReq("POST", accountPath, []byte(invalidJSONBody))
 				ctx := context.WithValue(r.Context(), middleware.UserIDKey, userID.String())
 				tt.req = r.WithContext(ctx)
 			}
@@ -178,13 +202,13 @@ func TestAccountHandler_CreateAccount_Variants(t *testing.T) {
 
 /* ----------------------------- Get many ------------------------------ */
 
-func TestAccountHandler_GetAccounts_Variants(t *testing.T) {
+func TestAccountHandlerGetAccountsVariants(t *testing.T) {
 	handler, mockSvc := setupHandler(t)
 	userID := uuid.New()
 
 	account := &model.Account{
 		ID:       uuid.New(),
-		Name:     "Account 1",
+		Name:     defaultAccountName,
 		Type:     model.AccountTypeBank,
 		Balance:  1000,
 		Currency: "USD",
@@ -220,21 +244,21 @@ func TestAccountHandler_GetAccounts_Variants(t *testing.T) {
 		mockErr    error
 		wantStatus int
 	}{
-		{"ok", authedReq("GET", "/account", nil, userID), okResult, nil, http.StatusOK},
-		{"with query params", authedReq("GET", "/account?page=2&limit=20&type=BANK&currency=USD&search=test&order_by=name%20ASC", nil, userID), okResult, nil, http.StatusOK},
-		{"multiple types", authedReq("GET", "/account?type=BANK,CASH&currency=USD,EUR", nil, userID), emptyResult, nil, http.StatusOK},
-		{"no aggregations", authedReq("GET", "/account", nil, userID), emptyAgg, nil, http.StatusOK},
-		{"service error", authedReq("GET", "/account", nil, userID), nil, fmt.Errorf("boom"), http.StatusInternalServerError},
-		{"unauthorized", rawReq("GET", "/account", nil), nil, nil, http.StatusUnauthorized},
-		{"limit too high", authedReq("GET", "/account?limit=100", nil, userID), emptyResult, nil, http.StatusOK},
-		{"limit too low", authedReq("GET", "/account?limit=1", nil, userID), emptyResult, nil, http.StatusOK},
+		{"ok", authedReq("GET", accountPath, nil, userID), okResult, nil, http.StatusOK},
+		{"with query params", authedReq("GET", accountPath+"?page=2&limit=20&type=BANK&currency=USD&search=test&order_by=name%20ASC", nil, userID), okResult, nil, http.StatusOK},
+		{"multiple types", authedReq("GET", accountPath+"?type=BANK,CASH&currency=USD,EUR", nil, userID), emptyResult, nil, http.StatusOK},
+		{"no aggregations", authedReq("GET", accountPath, nil, userID), emptyAgg, nil, http.StatusOK},
+		{serviceErrorCaseName, authedReq("GET", accountPath, nil, userID), nil, fmt.Errorf("boom"), http.StatusInternalServerError},
+		{noUserIDCaseName, rawReq("GET", accountPath, nil), nil, nil, http.StatusUnauthorized},
+		{"limit too high", authedReq("GET", accountPath+"?limit=100", nil, userID), emptyResult, nil, http.StatusOK},
+		{"limit too low", authedReq("GET", accountPath+"?limit=1", nil, userID), emptyResult, nil, http.StatusOK},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			if tt.req.Context().Value(middleware.UserIDKey) != nil {
 				mockSvc.
-					On("GetAccounts", mock.Anything, mock.AnythingOfType("service.GetAccountsParams")).
+					On("GetAccounts", mock.Anything, mock.AnythingOfType(serviceGetAccountsTypeName)).
 					Return(tt.mockRet, tt.mockErr).Once()
 			}
 			w := perform(handler.GetAccounts, tt.req)
@@ -246,13 +270,13 @@ func TestAccountHandler_GetAccounts_Variants(t *testing.T) {
 
 /* ----------------------------- Get single ---------------------------- */
 
-func TestAccountHandler_GetAccount_Variants(t *testing.T) {
+func TestAccountHandlerGetAccountVariants(t *testing.T) {
 	handler, mockSvc := setupHandler(t)
 
 	userID := uuid.New()
 	acc := &model.Account{
 		ID:       uuid.New(),
-		Name:     "Test Account",
+		Name:     testAccountName,
 		Type:     model.AccountTypeBank,
 		Balance:  1000,
 		Currency: "USD",
@@ -267,17 +291,17 @@ func TestAccountHandler_GetAccount_Variants(t *testing.T) {
 	}{
 		{
 			name: "success",
-			req:  authedReq("GET", "/account/"+acc.ID.String(), nil, userID),
+			req:  authedReq("GET", accountPathWithID(acc.ID), nil, userID),
 			setup: func() {
 				// net/http mux path param
-				ttReq := authedReq("GET", "/account/"+acc.ID.String(), nil, userID)
+				ttReq := authedReq("GET", accountPathWithID(acc.ID), nil, userID)
 				ttReq.SetPathValue("id", acc.ID.String())
 			},
 			wantStatus: http.StatusOK,
 		},
 		{
 			name: "not found",
-			req:  authedReq("GET", "/account/"+acc.ID.String(), nil, userID),
+			req:  authedReq("GET", accountPathWithID(acc.ID), nil, userID),
 			setup: func() {
 				mockSvc.
 					On("GetAccount", mock.Anything, acc.ID, userID).
@@ -287,7 +311,7 @@ func TestAccountHandler_GetAccount_Variants(t *testing.T) {
 		},
 		{
 			name: "access denied",
-			req:  authedReq("GET", "/account/"+acc.ID.String(), nil, userID),
+			req:  authedReq("GET", accountPathWithID(acc.ID), nil, userID),
 			setup: func() {
 				mockSvc.
 					On("GetAccount", mock.Anything, acc.ID, userID).
@@ -296,8 +320,8 @@ func TestAccountHandler_GetAccount_Variants(t *testing.T) {
 			wantStatus: http.StatusForbidden,
 		},
 		{
-			name: "service error",
-			req:  authedReq("GET", "/account/"+acc.ID.String(), nil, userID),
+			name: serviceErrorCaseName,
+			req:  authedReq("GET", accountPathWithID(acc.ID), nil, userID),
 			setup: func() {
 				mockSvc.
 					On("GetAccount", mock.Anything, acc.ID, userID).
@@ -306,15 +330,23 @@ func TestAccountHandler_GetAccount_Variants(t *testing.T) {
 			wantStatus: http.StatusInternalServerError,
 		},
 		{
-			name:       "invalid uuid",
-			req:        func() *http.Request { r := authedReq("GET", "/account/invalid-uuid", nil, userID); r.SetPathValue("id", "invalid-uuid"); return r }(),
-			setup:      func() {},
+			name: invalidUUIDCaseName,
+			req: func() *http.Request {
+				r := authedReq("GET", accountPathWithIDPrefix+invalidUUIDValue, nil, userID)
+				r.SetPathValue("id", invalidUUIDValue)
+				return r
+			}(),
+			setup:      func() { /* invalid uuid bypasses mocks */ },
 			wantStatus: http.StatusBadRequest,
 		},
 		{
-			name:       "no user id",
-			req:        func() *http.Request { r := rawReq("GET", "/account/"+acc.ID.String(), nil); r.SetPathValue("id", acc.ID.String()); return r }(),
-			setup:      func() {},
+			name: noUserIDCaseName,
+			req: func() *http.Request {
+				r := rawReq("GET", accountPathWithID(acc.ID), nil)
+				r.SetPathValue("id", acc.ID.String())
+				return r
+			}(),
+			setup:      func() { /* unauthorized request */ },
 			wantStatus: http.StatusUnauthorized,
 		},
 	}
@@ -322,7 +354,7 @@ func TestAccountHandler_GetAccount_Variants(t *testing.T) {
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
 			// ensure path value exists
-			if tc.req.PathValue("id") == "" && tc.name != "invalid uuid" && tc.name != "no user id" {
+			if tc.req.PathValue("id") == "" && tc.name != invalidUUIDCaseName && tc.name != noUserIDCaseName {
 				tc.req.SetPathValue("id", acc.ID.String())
 			}
 			if tc.setup != nil {
@@ -343,20 +375,20 @@ func TestAccountHandler_GetAccount_Variants(t *testing.T) {
 
 /* ------------------------------ Update ------------------------------- */
 
-func TestAccountHandler_UpdateAccount_Variants(t *testing.T) {
+func TestAccountHandlerUpdateAccountVariants(t *testing.T) {
 	handler, mockSvc := setupHandler(t)
 
 	userID := uuid.New()
 	accountID := uuid.New()
 
 	body := UpdateAccountRequest{
-		Name:    stringPtr("Updated Account"),
+		Name:    stringPtr(updatedAccountName),
 		Balance: float64Ptr(1500),
 	}
 
 	okAccount := &model.Account{
 		ID:       accountID,
-		Name:     "Updated Account",
+		Name:     updatedAccountName,
 		Type:     model.AccountTypeBank,
 		Balance:  1500,
 		Currency: "USD",
@@ -371,7 +403,7 @@ func TestAccountHandler_UpdateAccount_Variants(t *testing.T) {
 	}{
 		{
 			name: "success",
-			req:  authedReq("PUT", "/account/"+accountID.String(), body, userID),
+			req:  authedReq("PUT", accountPathWithID(accountID), body, userID),
 			setup: func() {
 				mockSvc.
 					On("UpdateAccount", mock.Anything, accountID, body.Name, body.Currency, body.Notes, body.Balance, body.IsDeleted, userID).
@@ -380,25 +412,29 @@ func TestAccountHandler_UpdateAccount_Variants(t *testing.T) {
 			wantStatus: http.StatusOK,
 		},
 		{
-			name:       "invalid uuid",
-			req:        func() *http.Request { r := authedReq("PUT", "/account/invalid-uuid", body, userID); r.SetPathValue("id", "invalid-uuid"); return r }(),
-			setup:      func() {},
+			name: invalidUUIDCaseName,
+			req: func() *http.Request {
+				r := authedReq("PUT", accountPathWithIDPrefix+invalidUUIDValue, body, userID)
+				r.SetPathValue("id", invalidUUIDValue)
+				return r
+			}(),
+			setup:      func() { /* invalid path param */ },
 			wantStatus: http.StatusBadRequest,
 		},
 		{
-			name: "invalid json",
+			name: invalidJSONBody,
 			req: func() *http.Request {
-				r := rawReq("PUT", "/account/"+accountID.String(), []byte("invalid json"))
+				r := rawReq("PUT", accountPathWithID(accountID), []byte(invalidJSONBody))
 				ctx := context.WithValue(r.Context(), middleware.UserIDKey, userID.String())
 				r = r.WithContext(ctx)
 				return r
 			}(),
-			setup:      func() {},
+			setup:      func() { /* invalid payload */ },
 			wantStatus: http.StatusBadRequest,
 		},
 		{
 			name: "not found",
-			req:  authedReq("PUT", "/account/"+accountID.String(), body, userID),
+			req:  authedReq("PUT", accountPathWithID(accountID), body, userID),
 			setup: func() {
 				mockSvc.
 					On("UpdateAccount", mock.Anything, accountID, body.Name, body.Currency, body.Notes, body.Balance, body.IsDeleted, userID).
@@ -408,7 +444,7 @@ func TestAccountHandler_UpdateAccount_Variants(t *testing.T) {
 		},
 		{
 			name: "access denied",
-			req:  authedReq("PUT", "/account/"+accountID.String(), body, userID),
+			req:  authedReq("PUT", accountPathWithID(accountID), body, userID),
 			setup: func() {
 				mockSvc.
 					On("UpdateAccount", mock.Anything, accountID, body.Name, body.Currency, body.Notes, body.Balance, body.IsDeleted, userID).
@@ -417,26 +453,26 @@ func TestAccountHandler_UpdateAccount_Variants(t *testing.T) {
 			wantStatus: http.StatusForbidden,
 		},
 		{
-			name: "service error",
-			req:  authedReq("PUT", "/account/"+accountID.String(), body, userID),
+			name: serviceErrorCaseName,
+			req:  authedReq("PUT", accountPathWithID(accountID), body, userID),
 			setup: func() {
 				mockSvc.
 					On("UpdateAccount", mock.Anything, accountID, body.Name, body.Currency, body.Notes, body.Balance, body.IsDeleted, userID).
 					Return(nil, fmt.Errorf("boom")).Once()
 			},
 			wantStatus: http.StatusInternalServerError,
-	},
+		},
 		{
-			name:       "no user id",
-			req:        rawReq("PUT", "/account/"+accountID.String(), mustJSON(body)),
-			setup:      func() {},
+			name:       noUserIDCaseName,
+			req:        rawReq("PUT", accountPathWithID(accountID), mustJSON(body)),
+			setup:      func() { /* unauthorized request */ },
 			wantStatus: http.StatusUnauthorized,
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			if tt.req.PathValue("id") == "" && tt.name != "invalid uuid" {
+			if tt.req.PathValue("id") == "" && tt.name != invalidUUIDCaseName {
 				tt.req.SetPathValue("id", accountID.String())
 			}
 			tt.setup()
@@ -449,20 +485,22 @@ func TestAccountHandler_UpdateAccount_Variants(t *testing.T) {
 
 /* ----------------------- Simple/unchanged tests ---------------------- */
 
-func TestAccountHandler_GetAccountTypes(t *testing.T) {
+func TestAccountHandlerGetAccountTypes(t *testing.T) {
 	handler, _ := setupHandler(t)
 	userID := uuid.New()
 
-	req := authedReq("GET", "/account/types", nil, userID)
+	req := authedReq("GET", accountTypesPath, nil, userID)
 	w := perform(handler.GetAccountTypes, req)
 	assert.Equal(t, http.StatusOK, w.Code)
 
-	var resp struct{ Data []model.AccountType `json:"data"` }
+	var resp struct {
+		Data []model.AccountType `json:"data"`
+	}
 	assert.NoError(t, json.Unmarshal(w.Body.Bytes(), &resp))
 	assert.Len(t, resp.Data, 5)
 }
 
-func TestAccountHandler_SetupRoutes(t *testing.T) {
+func TestAccountHandlerSetupRoutes(t *testing.T) {
 	handler, _ := setupHandler(t)
 	router := httputil.NewRouter()
 	assert.NotPanics(t, func() { handler.SetupRoutes(router) })

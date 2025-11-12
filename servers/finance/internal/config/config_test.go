@@ -80,7 +80,7 @@ func assertZeroConfig(t *testing.T, c *Config) {
  * Tests
  ***************/
 
-func TestOIDCConfig_IssuerURL(t *testing.T) {
+func TestOIDCConfigIssuerURL(t *testing.T) {
 	tests := []struct {
 		name     string
 		baseURL  string
@@ -110,7 +110,7 @@ func TestOIDCConfig_IssuerURL(t *testing.T) {
 	}
 }
 
-func TestConfig_LoadFromEnv(t *testing.T) {
+func TestConfigLoadFromEnv(t *testing.T) {
 	withEnv(t, map[string]string{
 		"ENV":                       "test",
 		"PORT":                      "8080",
@@ -158,7 +158,7 @@ func TestConfig_LoadFromEnv(t *testing.T) {
 	assert.Equal(t, 0.5, c.Sentry.TracesSampleRate)
 }
 
-func TestConfig_LoadFromEnv_InvalidValues(t *testing.T) {
+func TestConfigLoadFromEnvInvalidValues(t *testing.T) {
 	withEnv(t, map[string]string{
 		"LOG_ADD_SOURCE":            "invalid-bool",
 		"DB_SLOW_THRESHOLD":         "invalid-duration",
@@ -174,7 +174,7 @@ func TestConfig_LoadFromEnv_InvalidValues(t *testing.T) {
 	assert.Equal(t, 0.0, c.Sentry.TracesSampleRate)             // default 0.0
 }
 
-func TestConfig_LoadFromEnv_EmptyValues(t *testing.T) {
+func TestConfigLoadFromEnvEmptyValues(t *testing.T) {
 	keys := []string{
 		"ENV", "PORT", "TRUSTED_ORIGINS", "LOG_LEVEL", "LOG_FORMAT", "LOG_ADD_SOURCE",
 		"DB_HOST", "DB_PORT", "DB_USER", "DB_PASSWORD", "DB_NAME", "DB_SLOW_THRESHOLD",
@@ -189,7 +189,7 @@ func TestConfig_LoadFromEnv_EmptyValues(t *testing.T) {
 	assertZeroConfig(t, c)
 }
 
-func TestLoadConfig_Initializes(t *testing.T) {
+func TestLoadConfigInitializes(t *testing.T) {
 	cfg, err := LoadConfig()
 	assert.NoError(t, err)
 	if assert.NotNil(t, cfg) {

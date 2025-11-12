@@ -4,7 +4,6 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
-	"reflect"
 	"testing"
 	"time"
 
@@ -16,6 +15,14 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+const (
+	defaultAccountRepoAccountName = "Account 1"
+	defaultAccountRepoTestName    = "Test Account"
+	orderByNameASC                = "name ASC"
+	invalidGroupByColumnErr       = "invalid GROUP BY column: invalid_column"
+	rowsIterationErrorText        = "rows iteration error"
+)
+
 func setupMockDB(t *testing.T) (*sql.DB, sqlmock.Sqlmock, AccountRepository) {
 	db, mock, err := sqlmock.New()
 	require.NoError(t, err)
@@ -24,14 +31,14 @@ func setupMockDB(t *testing.T) (*sql.DB, sqlmock.Sqlmock, AccountRepository) {
 	return db, mock, repo
 }
 
-func TestAccountRepository_Create(t *testing.T) {
+func TestAccountRepositoryCreate(t *testing.T) {
 	db, mock, repo := setupMockDB(t)
 	defer db.Close()
 
 	ctx := context.Background()
 	account := &model.Account{
 		ID:       uuid.New(),
-		Name:     "Test Account",
+		Name:     defaultAccountRepoTestName,
 		Type:     model.AccountTypeBank,
 		Balance:  1000.0,
 		UserID:   uuid.New(),
@@ -53,14 +60,14 @@ func TestAccountRepository_Create(t *testing.T) {
 	assert.NoError(t, mock.ExpectationsWereMet())
 }
 
-func TestAccountRepository_Create_GeneratesID(t *testing.T) {
+func TestAccountRepositoryCreateGeneratesID(t *testing.T) {
 	db, mock, repo := setupMockDB(t)
 	defer db.Close()
 
 	ctx := context.Background()
 	account := &model.Account{
 		ID:       uuid.Nil, // No ID provided
-		Name:     "Test Account",
+		Name:     defaultAccountRepoTestName,
 		Type:     model.AccountTypeBank,
 		Balance:  1000.0,
 		UserID:   uuid.New(),
@@ -80,7 +87,7 @@ func TestAccountRepository_Create_GeneratesID(t *testing.T) {
 	assert.NoError(t, mock.ExpectationsWereMet())
 }
 
-func TestAccountRepository_FindUnique(t *testing.T) {
+func TestAccountRepositoryFindUnique(t *testing.T) {
 	db, mock, repo := setupMockDB(t)
 	defer db.Close()
 
@@ -99,7 +106,7 @@ func TestAccountRepository_FindUnique(t *testing.T) {
 	rows := sqlmock.NewRows([]string{
 		"id", "name", "type", "balance", "user_id", "currency", "notes", "is_deleted", "created_at", "updated_at",
 	}).AddRow(
-		accountID, "Test Account", model.AccountTypeBank, 1000.0, userID, "USD", nil, false, createdAt, updatedAt,
+		accountID, defaultAccountRepoTestName, model.AccountTypeBank, 1000.0, userID, "USD", nil, false, createdAt, updatedAt,
 	)
 
 	mock.ExpectQuery(`SELECT (.+) FROM accounts WHERE is_deleted = false AND id = \$1 LIMIT 1`).
@@ -111,7 +118,7 @@ func TestAccountRepository_FindUnique(t *testing.T) {
 	assert.NoError(t, err)
 	assert.NotNil(t, account)
 	assert.Equal(t, accountID, account.ID)
-	assert.Equal(t, "Test Account", account.Name)
+	assert.Equal(t, defaultAccountRepoTestName, account.Name)
 	assert.Equal(t, model.AccountTypeBank, account.Type)
 	assert.Equal(t, 1000.0, account.Balance)
 	assert.Equal(t, userID, account.UserID)
@@ -119,7 +126,7 @@ func TestAccountRepository_FindUnique(t *testing.T) {
 	assert.NoError(t, mock.ExpectationsWereMet())
 }
 
-func TestAccountRepository_FindUnique_NotFound(t *testing.T) {
+func TestAccountRepositoryFindUniqueNotFound(t *testing.T) {
 	db, mock, repo := setupMockDB(t)
 	defer db.Close()
 
@@ -141,7 +148,7 @@ func TestAccountRepository_FindUnique_NotFound(t *testing.T) {
 	assert.NoError(t, mock.ExpectationsWereMet())
 }
 
-func TestAccountRepository_FindMany(t *testing.T) {
+func TestAccountRepositoryFindMany(t *testing.T) {
 	db, mock, repo := setupMockDB(t)
 	defer db.Close()
 
@@ -159,7 +166,7 @@ func TestAccountRepository_FindMany(t *testing.T) {
 	rows := sqlmock.NewRows([]string{
 		"id", "name", "type", "balance", "user_id", "currency", "notes", "is_deleted", "created_at", "updated_at",
 	}).AddRow(
-		uuid.New(), "Account 1", model.AccountTypeBank, 1000.0, userID, "USD", nil, false, time.Now(), time.Now(),
+		uuid.New(), defaultAccountRepoAccountName, model.AccountTypeBank, 1000.0, userID, "USD", nil, false, time.Now(), time.Now(),
 	).AddRow(
 		uuid.New(), "Account 2", model.AccountTypeCash, 500.0, userID, "EUR", nil, false, time.Now(), time.Now(),
 	)
@@ -172,12 +179,12 @@ func TestAccountRepository_FindMany(t *testing.T) {
 
 	assert.NoError(t, err)
 	assert.Len(t, accounts, 2)
-	assert.Equal(t, "Account 1", accounts[0].Name)
+	assert.Equal(t, defaultAccountRepoAccountName, accounts[0].Name)
 	assert.Equal(t, "Account 2", accounts[1].Name)
 	assert.NoError(t, mock.ExpectationsWereMet())
 }
 
-func TestAccountRepository_FindMany_WithSearch(t *testing.T) {
+func TestAccountRepositoryFindManyWithSearch(t *testing.T) {
 	db, mock, repo := setupMockDB(t)
 	defer db.Close()
 
@@ -206,7 +213,7 @@ func TestAccountRepository_FindMany_WithSearch(t *testing.T) {
 	assert.NoError(t, mock.ExpectationsWereMet())
 }
 
-func TestAccountRepository_Count(t *testing.T) {
+func TestAccountRepositoryCount(t *testing.T) {
 	db, mock, repo := setupMockDB(t)
 	defer db.Close()
 
@@ -230,7 +237,7 @@ func TestAccountRepository_Count(t *testing.T) {
 	assert.NoError(t, mock.ExpectationsWereMet())
 }
 
-func TestAccountRepository_Update(t *testing.T) {
+func TestAccountRepositoryUpdate(t *testing.T) {
 	db, mock, repo := setupMockDB(t)
 	defer db.Close()
 
@@ -256,7 +263,7 @@ func TestAccountRepository_Update(t *testing.T) {
 	assert.NoError(t, mock.ExpectationsWereMet())
 }
 
-func TestAccountRepository_GetTypeAggregations(t *testing.T) {
+func TestAccountRepositoryGetTypeAggregations(t *testing.T) {
 	db, mock, repo := setupMockDB(t)
 	defer db.Close()
 
@@ -298,7 +305,7 @@ func TestAccountRepository_GetTypeAggregations(t *testing.T) {
 	assert.NoError(t, mock.ExpectationsWereMet())
 }
 
-func TestAccountRepository_GetCurrencyAggregations(t *testing.T) {
+func TestAccountRepositoryGetCurrencyAggregations(t *testing.T) {
 	db, mock, repo := setupMockDB(t)
 	defer db.Close()
 
@@ -339,7 +346,7 @@ func TestAccountRepository_GetCurrencyAggregations(t *testing.T) {
 
 	assert.NoError(t, mock.ExpectationsWereMet())
 }
-func TestAccountRepository_FindMany_WithMultipleFilters(t *testing.T) {
+func TestAccountRepositoryFindManyWithMultipleFilters(t *testing.T) {
 	db, mock, repo := setupMockDB(t)
 	defer db.Close()
 
@@ -369,7 +376,7 @@ func TestAccountRepository_FindMany_WithMultipleFilters(t *testing.T) {
 	assert.NoError(t, mock.ExpectationsWereMet())
 }
 
-func TestAccountRepository_Count_WithTypeFilter(t *testing.T) {
+func TestAccountRepositoryCountWithTypeFilter(t *testing.T) {
 	db, mock, repo := setupMockDB(t)
 	defer db.Close()
 
@@ -393,7 +400,7 @@ func TestAccountRepository_Count_WithTypeFilter(t *testing.T) {
 	assert.Equal(t, 2, count)
 	assert.NoError(t, mock.ExpectationsWereMet())
 }
-func TestAccountRepository_FindUnique_DatabaseError(t *testing.T) {
+func TestAccountRepositoryFindUniqueDatabaseError(t *testing.T) {
 	db, mock, repo := setupMockDB(t)
 	defer db.Close()
 
@@ -416,7 +423,7 @@ func TestAccountRepository_FindUnique_DatabaseError(t *testing.T) {
 	assert.NoError(t, mock.ExpectationsWereMet())
 }
 
-func TestAccountRepository_FindMany_DatabaseError(t *testing.T) {
+func TestAccountRepositoryFindManyDatabaseError(t *testing.T) {
 	db, mock, repo := setupMockDB(t)
 	defer db.Close()
 
@@ -438,7 +445,7 @@ func TestAccountRepository_FindMany_DatabaseError(t *testing.T) {
 	assert.NoError(t, mock.ExpectationsWereMet())
 }
 
-func TestAccountRepository_Count_DatabaseError(t *testing.T) {
+func TestAccountRepositoryCountDatabaseError(t *testing.T) {
 	db, mock, repo := setupMockDB(t)
 	defer db.Close()
 
@@ -458,14 +465,14 @@ func TestAccountRepository_Count_DatabaseError(t *testing.T) {
 	assert.NoError(t, mock.ExpectationsWereMet())
 }
 
-func TestAccountRepository_Create_DatabaseError(t *testing.T) {
+func TestAccountRepositoryCreateDatabaseError(t *testing.T) {
 	db, mock, repo := setupMockDB(t)
 	defer db.Close()
 
 	ctx := context.Background()
 	account := &model.Account{
 		ID:       uuid.New(),
-		Name:     "Test Account",
+		Name:     defaultAccountRepoTestName,
 		Type:     model.AccountTypeBank,
 		Balance:  1000.0,
 		UserID:   uuid.New(),
@@ -485,7 +492,7 @@ func TestAccountRepository_Create_DatabaseError(t *testing.T) {
 	assert.NoError(t, mock.ExpectationsWereMet())
 }
 
-func TestAccountRepository_Update_DatabaseError(t *testing.T) {
+func TestAccountRepositoryUpdateDatabaseError(t *testing.T) {
 	db, mock, repo := setupMockDB(t)
 	defer db.Close()
 
@@ -510,7 +517,7 @@ func TestAccountRepository_Update_DatabaseError(t *testing.T) {
 	assert.NoError(t, mock.ExpectationsWereMet())
 }
 
-func TestAccountRepository_GetTypeAggregations_DatabaseError(t *testing.T) {
+func TestAccountRepositoryGetTypeAggregationsDatabaseError(t *testing.T) {
 	db, mock, repo := setupMockDB(t)
 	defer db.Close()
 
@@ -531,7 +538,7 @@ func TestAccountRepository_GetTypeAggregations_DatabaseError(t *testing.T) {
 	assert.NoError(t, mock.ExpectationsWereMet())
 }
 
-func TestAccountRepository_GetCurrencyAggregations_DatabaseError(t *testing.T) {
+func TestAccountRepositoryGetCurrencyAggregationsDatabaseError(t *testing.T) {
 	db, mock, repo := setupMockDB(t)
 	defer db.Close()
 
@@ -552,7 +559,7 @@ func TestAccountRepository_GetCurrencyAggregations_DatabaseError(t *testing.T) {
 	assert.NoError(t, mock.ExpectationsWereMet())
 }
 
-func TestAccountRepository_FindMany_WithCustomOrderBy(t *testing.T) {
+func TestAccountRepositoryFindManyWithCustomOrderBy(t *testing.T) {
 	db, mock, repo := setupMockDB(t)
 	defer db.Close()
 
@@ -563,7 +570,7 @@ func TestAccountRepository_FindMany_WithCustomOrderBy(t *testing.T) {
 		Where: map[string]any{
 			"user_id": userID,
 		},
-		OrderBy: "name ASC",
+		OrderBy: orderByNameASC,
 	}
 
 	rows := sqlmock.NewRows([]string{
@@ -581,7 +588,7 @@ func TestAccountRepository_FindMany_WithCustomOrderBy(t *testing.T) {
 	assert.NoError(t, mock.ExpectationsWereMet())
 }
 
-func TestAccountRepository_FindMany_EmptyWhere(t *testing.T) {
+func TestAccountRepositoryFindManyEmptyWhere(t *testing.T) {
 	db, mock, repo := setupMockDB(t)
 	defer db.Close()
 
@@ -604,7 +611,7 @@ func TestAccountRepository_FindMany_EmptyWhere(t *testing.T) {
 	assert.Len(t, accounts, 0)
 	assert.NoError(t, mock.ExpectationsWereMet())
 }
-func TestAccountRepository_FindMany_RowsScanError(t *testing.T) {
+func TestAccountRepositoryFindManyRowsScanError(t *testing.T) {
 	db, mock, repo := setupMockDB(t)
 	defer db.Close()
 
@@ -621,7 +628,7 @@ func TestAccountRepository_FindMany_RowsScanError(t *testing.T) {
 	rows := sqlmock.NewRows([]string{
 		"id", "name", "type", "balance", "user_id", "currency", "notes", "is_deleted", "created_at", "updated_at",
 	}).AddRow(
-		"invalid-uuid", "Account 1", model.AccountTypeBank, 1000.0, userID, "USD", nil, false, time.Now(), time.Now(),
+		"invalid-uuid", defaultAccountRepoAccountName, model.AccountTypeBank, 1000.0, userID, "USD", nil, false, time.Now(), time.Now(),
 	)
 
 	mock.ExpectQuery(`SELECT (.+) FROM accounts WHERE is_deleted = false AND user_id = \$1 ORDER BY created_at DESC`).
@@ -635,7 +642,7 @@ func TestAccountRepository_FindMany_RowsScanError(t *testing.T) {
 	assert.NoError(t, mock.ExpectationsWereMet())
 }
 
-func TestAccountRepository_GetTypeAggregations_ScanError(t *testing.T) {
+func TestAccountRepositoryGetTypeAggregationsScanError(t *testing.T) {
 	db, mock, repo := setupMockDB(t)
 	defer db.Close()
 
@@ -665,7 +672,7 @@ func TestAccountRepository_GetTypeAggregations_ScanError(t *testing.T) {
 	assert.NoError(t, mock.ExpectationsWereMet())
 }
 
-func TestAccountRepository_GetCurrencyAggregations_ScanError(t *testing.T) {
+func TestAccountRepositoryGetCurrencyAggregationsScanError(t *testing.T) {
 	db, mock, repo := setupMockDB(t)
 	defer db.Close()
 
@@ -695,7 +702,7 @@ func TestAccountRepository_GetCurrencyAggregations_ScanError(t *testing.T) {
 	assert.NoError(t, mock.ExpectationsWereMet())
 }
 
-func TestAccountRepository_GetTypeAggregations_RowsError(t *testing.T) {
+func TestAccountRepositoryGetTypeAggregationsRowsError(t *testing.T) {
 	db, mock, repo := setupMockDB(t)
 	defer db.Close()
 
@@ -710,7 +717,7 @@ func TestAccountRepository_GetTypeAggregations_RowsError(t *testing.T) {
 		"key", "count", "min_balance", "max_balance", "avg_balance", "sum_balance",
 	}).AddRow(
 		"BANK", 2, 500.0, 1500.0, 1000.0, 2000.0,
-	).RowError(0, fmt.Errorf("rows iteration error"))
+	).RowError(0, fmt.Errorf(rowsIterationErrorText))
 
 	mock.ExpectQuery(`SELECT type as key, COUNT\(\*\) as count, COALESCE\(MIN\(balance\), 0\) as min_balance, COALESCE\(MAX\(balance\), 0\) as max_balance, COALESCE\(AVG\(balance\), 0\) as avg_balance, COALESCE\(SUM\(balance\), 0\) as sum_balance FROM accounts WHERE is_deleted = false AND user_id = \$1 GROUP BY type ORDER BY type`).
 		WithArgs(userID).
@@ -724,7 +731,7 @@ func TestAccountRepository_GetTypeAggregations_RowsError(t *testing.T) {
 	assert.NoError(t, mock.ExpectationsWereMet())
 }
 
-func TestAccountRepository_GetCurrencyAggregations_RowsError(t *testing.T) {
+func TestAccountRepositoryGetCurrencyAggregationsRowsError(t *testing.T) {
 	db, mock, repo := setupMockDB(t)
 	defer db.Close()
 
@@ -739,7 +746,7 @@ func TestAccountRepository_GetCurrencyAggregations_RowsError(t *testing.T) {
 		"key", "count", "min_balance", "max_balance", "avg_balance", "sum_balance",
 	}).AddRow(
 		"USD", 3, 100.0, 2000.0, 1000.0, 3000.0,
-	).RowError(0, fmt.Errorf("rows iteration error"))
+	).RowError(0, fmt.Errorf(rowsIterationErrorText))
 
 	mock.ExpectQuery(`SELECT currency as key, COUNT\(\*\) as count, COALESCE\(MIN\(balance\), 0\) as min_balance, COALESCE\(MAX\(balance\), 0\) as max_balance, COALESCE\(AVG\(balance\), 0\) as avg_balance, COALESCE\(SUM\(balance\), 0\) as sum_balance FROM accounts WHERE is_deleted = false AND user_id = \$1 GROUP BY currency ORDER BY currency`).
 		WithArgs(userID).
@@ -753,7 +760,7 @@ func TestAccountRepository_GetCurrencyAggregations_RowsError(t *testing.T) {
 	assert.NoError(t, mock.ExpectationsWereMet())
 }
 
-func TestAccountRepository_FindMany_RowsError(t *testing.T) {
+func TestAccountRepositoryFindManyRowsError(t *testing.T) {
 	db, mock, repo := setupMockDB(t)
 	defer db.Close()
 
@@ -769,8 +776,8 @@ func TestAccountRepository_FindMany_RowsError(t *testing.T) {
 	rows := sqlmock.NewRows([]string{
 		"id", "name", "type", "balance", "user_id", "currency", "notes", "is_deleted", "created_at", "updated_at",
 	}).AddRow(
-		uuid.New(), "Account 1", model.AccountTypeBank, 1000.0, userID, "USD", nil, false, time.Now(), time.Now(),
-	).RowError(0, fmt.Errorf("rows iteration error"))
+		uuid.New(), defaultAccountRepoAccountName, model.AccountTypeBank, 1000.0, userID, "USD", nil, false, time.Now(), time.Now(),
+	).RowError(0, fmt.Errorf(rowsIterationErrorText))
 
 	mock.ExpectQuery(`SELECT (.+) FROM accounts WHERE is_deleted = false AND user_id = \$1 ORDER BY created_at DESC`).
 		WithArgs(userID).
@@ -783,7 +790,7 @@ func TestAccountRepository_FindMany_RowsError(t *testing.T) {
 	assert.NoError(t, mock.ExpectationsWereMet())
 }
 
-func TestAccountRepository_Count_WithSearchFilter(t *testing.T) {
+func TestAccountRepositoryCountWithSearchFilter(t *testing.T) {
 	db, mock, repo := setupMockDB(t)
 	defer db.Close()
 
@@ -808,7 +815,7 @@ func TestAccountRepository_Count_WithSearchFilter(t *testing.T) {
 	assert.NoError(t, mock.ExpectationsWereMet())
 }
 
-func TestAccountRepository_Count_EmptyWhere(t *testing.T) {
+func TestAccountRepositoryCountEmptyWhere(t *testing.T) {
 	db, mock, repo := setupMockDB(t)
 	defer db.Close()
 
@@ -828,7 +835,7 @@ func TestAccountRepository_Count_EmptyWhere(t *testing.T) {
 	assert.NoError(t, mock.ExpectationsWereMet())
 }
 
-func TestAccountRepository_FindMany_WithLimitAndOffset(t *testing.T) {
+func TestAccountRepositoryFindManyWithLimitAndOffset(t *testing.T) {
 	db, mock, repo := setupMockDB(t)
 	defer db.Close()
 
@@ -858,7 +865,7 @@ func TestAccountRepository_FindMany_WithLimitAndOffset(t *testing.T) {
 	assert.NoError(t, mock.ExpectationsWereMet())
 }
 
-func TestAccountRepository_FindMany_OnlyOffset(t *testing.T) {
+func TestAccountRepositoryFindManyOnlyOffset(t *testing.T) {
 	db, mock, repo := setupMockDB(t)
 	defer db.Close()
 
@@ -887,7 +894,7 @@ func TestAccountRepository_FindMany_OnlyOffset(t *testing.T) {
 	assert.NoError(t, mock.ExpectationsWereMet())
 }
 
-func TestAccountRepository_FindMany_OnlyLimit(t *testing.T) {
+func TestAccountRepositoryFindManyOnlyLimit(t *testing.T) {
 	db, mock, repo := setupMockDB(t)
 	defer db.Close()
 
@@ -928,7 +935,7 @@ func TestNewAccountRepository(t *testing.T) {
 
 // Additional tests to improve coverage for GetTypeAggregations
 
-func TestAccountRepository_GetTypeAggregations_WithSearch(t *testing.T) {
+func TestAccountRepositoryGetTypeAggregationsWithSearch(t *testing.T) {
 	db, mock, repo := setupMockDB(t)
 	defer db.Close()
 
@@ -958,7 +965,7 @@ func TestAccountRepository_GetTypeAggregations_WithSearch(t *testing.T) {
 	assert.NoError(t, mock.ExpectationsWereMet())
 }
 
-func TestAccountRepository_GetTypeAggregations_WithSliceFilter(t *testing.T) {
+func TestAccountRepositoryGetTypeAggregationsWithSliceFilter(t *testing.T) {
 	db, mock, repo := setupMockDB(t)
 	defer db.Close()
 
@@ -988,7 +995,7 @@ func TestAccountRepository_GetTypeAggregations_WithSliceFilter(t *testing.T) {
 	assert.NoError(t, mock.ExpectationsWereMet())
 }
 
-func TestAccountRepository_GetTypeAggregations_EmptyWhere(t *testing.T) {
+func TestAccountRepositoryGetTypeAggregationsEmptyWhere(t *testing.T) {
 	db, mock, repo := setupMockDB(t)
 	defer db.Close()
 
@@ -1016,7 +1023,7 @@ func TestAccountRepository_GetTypeAggregations_EmptyWhere(t *testing.T) {
 	assert.NoError(t, mock.ExpectationsWereMet())
 }
 
-func TestAccountRepository_GetTypeAggregations_WithTypeFieldSkipped(t *testing.T) {
+func TestAccountRepositoryGetTypeAggregationsWithTypeFieldSkipped(t *testing.T) {
 	db, mock, repo := setupMockDB(t)
 	defer db.Close()
 
@@ -1052,7 +1059,7 @@ func TestAccountRepository_GetTypeAggregations_WithTypeFieldSkipped(t *testing.T
 
 // Additional tests to improve coverage for GetCurrencyAggregations
 
-func TestAccountRepository_GetCurrencyAggregations_WithSearch(t *testing.T) {
+func TestAccountRepositoryGetCurrencyAggregationsWithSearch(t *testing.T) {
 	db, mock, repo := setupMockDB(t)
 	defer db.Close()
 
@@ -1082,7 +1089,7 @@ func TestAccountRepository_GetCurrencyAggregations_WithSearch(t *testing.T) {
 	assert.NoError(t, mock.ExpectationsWereMet())
 }
 
-func TestAccountRepository_GetCurrencyAggregations_WithSliceFilter(t *testing.T) {
+func TestAccountRepositoryGetCurrencyAggregationsWithSliceFilter(t *testing.T) {
 	db, mock, repo := setupMockDB(t)
 	defer db.Close()
 
@@ -1115,7 +1122,7 @@ func TestAccountRepository_GetCurrencyAggregations_WithSliceFilter(t *testing.T)
 	assert.NoError(t, mock.ExpectationsWereMet())
 }
 
-func TestAccountRepository_GetCurrencyAggregations_EmptyWhere(t *testing.T) {
+func TestAccountRepositoryGetCurrencyAggregationsEmptyWhere(t *testing.T) {
 	db, mock, repo := setupMockDB(t)
 	defer db.Close()
 
@@ -1143,7 +1150,7 @@ func TestAccountRepository_GetCurrencyAggregations_EmptyWhere(t *testing.T) {
 	assert.NoError(t, mock.ExpectationsWereMet())
 }
 
-func TestAccountRepository_GetCurrencyAggregations_WithCurrencyFieldSkipped(t *testing.T) {
+func TestAccountRepositoryGetCurrencyAggregationsWithCurrencyFieldSkipped(t *testing.T) {
 	db, mock, repo := setupMockDB(t)
 	defer db.Close()
 
@@ -1178,7 +1185,7 @@ func TestAccountRepository_GetCurrencyAggregations_WithCurrencyFieldSkipped(t *t
 }
 
 // Test for non-slice field handling in aggregations
-func TestAccountRepository_GetTypeAggregations_WithStringField(t *testing.T) {
+func TestAccountRepositoryGetTypeAggregationsWithStringField(t *testing.T) {
 	db, mock, repo := setupMockDB(t)
 	defer db.Close()
 
@@ -1208,7 +1215,7 @@ func TestAccountRepository_GetTypeAggregations_WithStringField(t *testing.T) {
 	assert.NoError(t, mock.ExpectationsWereMet())
 }
 
-func TestAccountRepository_GetCurrencyAggregations_WithStringField(t *testing.T) {
+func TestAccountRepositoryGetCurrencyAggregationsWithStringField(t *testing.T) {
 	db, mock, repo := setupMockDB(t)
 	defer db.Close()
 
@@ -1239,7 +1246,7 @@ func TestAccountRepository_GetCurrencyAggregations_WithStringField(t *testing.T)
 }
 
 // Test for unknown field handling in FindMany
-func TestAccountRepository_FindMany_WithUnknownField(t *testing.T) {
+func TestAccountRepositoryFindManyWithUnknownField(t *testing.T) {
 	db, mock, repo := setupMockDB(t)
 	defer db.Close()
 
@@ -1256,7 +1263,7 @@ func TestAccountRepository_FindMany_WithUnknownField(t *testing.T) {
 	rows := sqlmock.NewRows([]string{
 		"id", "name", "type", "balance", "user_id", "currency", "notes", "is_deleted", "created_at", "updated_at",
 	}).AddRow(
-		uuid.New(), "Test Account", "bank", 1000.0, userID, "USD", "Test notes", false, time.Now(), time.Now(),
+		uuid.New(), defaultAccountRepoTestName, "bank", 1000.0, userID, "USD", "Test notes", false, time.Now(), time.Now(),
 	)
 
 	mock.ExpectQuery(`SELECT id, name, type, balance, user_id, currency, notes, is_deleted, created_at, updated_at FROM accounts WHERE is_deleted = false AND user_id = \$1 AND unknown_field = \$2 ORDER BY created_at DESC`).
@@ -1271,7 +1278,7 @@ func TestAccountRepository_FindMany_WithUnknownField(t *testing.T) {
 }
 
 // Test for unknown field handling in Count
-func TestAccountRepository_Count_WithUnknownField(t *testing.T) {
+func TestAccountRepositoryCountWithUnknownField(t *testing.T) {
 	db, mock, repo := setupMockDB(t)
 	defer db.Close()
 
@@ -1297,7 +1304,7 @@ func TestAccountRepository_Count_WithUnknownField(t *testing.T) {
 }
 
 // Test for unknown field handling in GetTypeAggregations
-func TestAccountRepository_GetTypeAggregations_WithUnknownField(t *testing.T) {
+func TestAccountRepositoryGetTypeAggregationsWithUnknownField(t *testing.T) {
 	db, mock, repo := setupMockDB(t)
 	defer db.Close()
 
@@ -1328,7 +1335,7 @@ func TestAccountRepository_GetTypeAggregations_WithUnknownField(t *testing.T) {
 }
 
 // Test for unknown field handling in GetCurrencyAggregations
-func TestAccountRepository_GetCurrencyAggregations_WithUnknownField(t *testing.T) {
+func TestAccountRepositoryGetCurrencyAggregationsWithUnknownField(t *testing.T) {
 	db, mock, repo := setupMockDB(t)
 	defer db.Close()
 
@@ -1359,7 +1366,7 @@ func TestAccountRepository_GetCurrencyAggregations_WithUnknownField(t *testing.T
 }
 
 // Test for slice field handling in unknown fields for Count
-func TestAccountRepository_Count_WithUnknownSliceField(t *testing.T) {
+func TestAccountRepositoryCountWithUnknownSliceField(t *testing.T) {
 	db, mock, repo := setupMockDB(t)
 	defer db.Close()
 
@@ -1385,7 +1392,7 @@ func TestAccountRepository_Count_WithUnknownSliceField(t *testing.T) {
 }
 
 // Test for slice field handling in unknown fields for FindMany
-func TestAccountRepository_FindMany_WithUnknownSliceField(t *testing.T) {
+func TestAccountRepositoryFindManyWithUnknownSliceField(t *testing.T) {
 	db, mock, repo := setupMockDB(t)
 	defer db.Close()
 
@@ -1402,7 +1409,7 @@ func TestAccountRepository_FindMany_WithUnknownSliceField(t *testing.T) {
 	rows := sqlmock.NewRows([]string{
 		"id", "name", "type", "balance", "user_id", "currency", "notes", "is_deleted", "created_at", "updated_at",
 	}).AddRow(
-		uuid.New(), "Test Account", "bank", 1000.0, userID, "USD", "Test notes", false, time.Now(), time.Now(),
+		uuid.New(), defaultAccountRepoTestName, "bank", 1000.0, userID, "USD", "Test notes", false, time.Now(), time.Now(),
 	)
 
 	mock.ExpectQuery(`SELECT id, name, type, balance, user_id, currency, notes, is_deleted, created_at, updated_at FROM accounts WHERE is_deleted = false AND user_id = \$1 AND unknown_slice IN \(\$2,\$3\) ORDER BY created_at DESC`).
@@ -1417,7 +1424,7 @@ func TestAccountRepository_FindMany_WithUnknownSliceField(t *testing.T) {
 }
 
 // Test for slice field handling in unknown fields for GetTypeAggregations
-func TestAccountRepository_GetTypeAggregations_WithUnknownSliceField(t *testing.T) {
+func TestAccountRepositoryGetTypeAggregationsWithUnknownSliceField(t *testing.T) {
 	db, mock, repo := setupMockDB(t)
 	defer db.Close()
 
@@ -1448,7 +1455,7 @@ func TestAccountRepository_GetTypeAggregations_WithUnknownSliceField(t *testing.
 }
 
 // Test for slice field handling in unknown fields for GetCurrencyAggregations
-func TestAccountRepository_GetCurrencyAggregations_WithUnknownSliceField(t *testing.T) {
+func TestAccountRepositoryGetCurrencyAggregationsWithUnknownSliceField(t *testing.T) {
 	db, mock, repo := setupMockDB(t)
 	defer db.Close()
 
@@ -1481,7 +1488,7 @@ func TestAccountRepository_GetCurrencyAggregations_WithUnknownSliceField(t *test
 // Test cases to achieve 100% coverage
 
 // Test buildWhere with nil where and no excludeDeleted
-func TestAccountRepository_FindUnique_NilWhereNoExcludeDeleted(t *testing.T) {
+func TestAccountRepositoryFindUniqueNilWhereNoExcludeDeleted(t *testing.T) {
 	db, mock, repo := setupMockDB(t)
 	defer db.Close()
 
@@ -1508,7 +1515,7 @@ func TestAccountRepository_FindUnique_NilWhereNoExcludeDeleted(t *testing.T) {
 }
 
 // Test buildWhere with empty slice - it falls through to else clause
-func TestAccountRepository_FindMany_WithEmptySlice(t *testing.T) {
+func TestAccountRepositoryFindManyWithEmptySlice(t *testing.T) {
 	db, _, repo := setupMockDB(t)
 	defer db.Close()
 
@@ -1530,7 +1537,7 @@ func TestAccountRepository_FindMany_WithEmptySlice(t *testing.T) {
 }
 
 // Test Count with empty slice - it falls through to else clause
-func TestAccountRepository_Count_WithEmptySlice(t *testing.T) {
+func TestAccountRepositoryCountWithEmptySlice(t *testing.T) {
 	db, _, repo := setupMockDB(t)
 	defer db.Close()
 
@@ -1550,7 +1557,7 @@ func TestAccountRepository_Count_WithEmptySlice(t *testing.T) {
 }
 
 // Test for the case where len(conditions) == 0 after processing
-func TestAccountRepository_FindMany_EmptyConditionsAfterProcessing(t *testing.T) {
+func TestAccountRepositoryFindManyEmptyConditionsAfterProcessing(t *testing.T) {
 	db, mock, repo := setupMockDB(t)
 	defer db.Close()
 
@@ -1582,7 +1589,7 @@ func TestAccountRepository_FindMany_EmptyConditionsAfterProcessing(t *testing.T)
 }
 
 // Test buildWhere function directly to achieve 100% coverage
-func TestBuildWhere_NilWhereNoConditions(t *testing.T) {
+func TestBuildWhereNilWhereNoConditions(t *testing.T) {
 	// Test the case where where is nil and excludeDeleted is false
 	// This should return "", nil
 	clause, args := buildWhere(nil, whereBuildOpts{
@@ -1596,7 +1603,7 @@ func TestBuildWhere_NilWhereNoConditions(t *testing.T) {
 }
 
 // Test buildWhere with nil where but excludeDeleted true
-func TestBuildWhere_NilWhereWithExcludeDeleted(t *testing.T) {
+func TestBuildWhereNilWhereWithExcludeDeleted(t *testing.T) {
 	// Test the case where where is nil but excludeDeleted is true
 	// This should return " WHERE is_deleted = false", nil
 	clause, args := buildWhere(nil, whereBuildOpts{
@@ -1610,7 +1617,7 @@ func TestBuildWhere_NilWhereWithExcludeDeleted(t *testing.T) {
 }
 
 // Test buildWhere with empty slice
-func TestBuildWhere_EmptySlice(t *testing.T) {
+func TestBuildWhereEmptySlice(t *testing.T) {
 	// Test the case where a field has an empty slice
 	// This should fall through to the else clause and be treated as a regular value
 	where := map[string]any{
@@ -1630,7 +1637,7 @@ func TestBuildWhere_EmptySlice(t *testing.T) {
 }
 
 // Test buildWhere where all fields are skipped resulting in empty conditions
-func TestBuildWhere_AllFieldsSkipped(t *testing.T) {
+func TestBuildWhereAllFieldsSkipped(t *testing.T) {
 	// Test the case where all fields are skipped, resulting in len(conditions) == 0
 	where := map[string]any{
 		"type": "BANK", // This will be skipped
@@ -1649,14 +1656,14 @@ func TestBuildWhere_AllFieldsSkipped(t *testing.T) {
 
 // Tests for new validation functions added for SQL injection prevention
 
-func TestValidateOrderBy_ValidCases(t *testing.T) {
+func TestValidateOrderByValidCases(t *testing.T) {
 	tests := []struct {
 		name     string
 		input    string
 		expected string
 	}{
 		{"Empty string returns default", "", "created_at DESC"},
-		{"Valid column ASC", "name ASC", "name ASC"},
+		{"Valid column ASC", orderByNameASC, orderByNameASC},
 		{"Valid column DESC", "balance DESC", "balance DESC"},
 		{"Valid column without direction defaults to ASC", "type", "type ASC"},
 		{"Valid column with lowercase direction", "currency desc", "currency DESC"},
@@ -1672,7 +1679,7 @@ func TestValidateOrderBy_ValidCases(t *testing.T) {
 	}
 }
 
-func TestValidateOrderBy_InvalidCases(t *testing.T) {
+func TestValidateOrderByInvalidCases(t *testing.T) {
 	tests := []struct {
 		name        string
 		input       string
@@ -1694,7 +1701,7 @@ func TestValidateOrderBy_InvalidCases(t *testing.T) {
 	}
 }
 
-func TestValidateGroupByColumn_ValidCases(t *testing.T) {
+func TestValidateGroupByColumnValidCases(t *testing.T) {
 	tests := []struct {
 		name   string
 		column string
@@ -1711,13 +1718,13 @@ func TestValidateGroupByColumn_ValidCases(t *testing.T) {
 	}
 }
 
-func TestValidateGroupByColumn_InvalidCases(t *testing.T) {
+func TestValidateGroupByColumnInvalidCases(t *testing.T) {
 	tests := []struct {
 		name        string
 		column      string
 		expectedErr string
 	}{
-		{"Invalid column", "invalid_column", "invalid GROUP BY column: invalid_column"},
+		{"Invalid column", "invalid_column", invalidGroupByColumnErr},
 		{"SQL injection attempt", "type; DROP TABLE accounts;", "invalid GROUP BY column: type; DROP TABLE accounts;"},
 		{"Empty column", "", "invalid GROUP BY column: "},
 	}
@@ -1731,7 +1738,7 @@ func TestValidateGroupByColumn_InvalidCases(t *testing.T) {
 	}
 }
 
-func TestAccountRepository_FindMany_InvalidOrderBy(t *testing.T) {
+func TestAccountRepositoryFindManyInvalidOrderBy(t *testing.T) {
 	db, _, repo := setupMockDB(t)
 	defer db.Close()
 
@@ -1753,41 +1760,31 @@ func TestAccountRepository_FindMany_InvalidOrderBy(t *testing.T) {
 	assert.Contains(t, err.Error(), "invalid ORDER BY column: invalid_column")
 }
 
-func TestAccountRepository_GetAggregations_InvalidGroupBy(t *testing.T) {
-	// Test invalid GROUP BY column by calling getAggregations directly
-	// We need to access the private method, so we'll test through the public methods
-	// that use invalid columns
+func TestAccountRepositoryGetAggregationsInvalidGroupBy(t *testing.T) {
+	db, _, repo := setupMockDB(t)
+	defer db.Close()
 
-	// Since we can't directly call getAggregations with invalid groupBy,
-	// we'll test the validation by modifying the allowedGroupByColumns temporarily
-	// But since we can't modify package-level variables in tests, we'll test
-	// the validation function directly above and trust that it's used correctly
-	// in the getAggregations method.
+	ctx := context.Background()
+	where := map[string]any{
+		"user_id": uuid.New(),
+	}
 
-	// The validation is already tested in TestValidateGroupByColumn_InvalidCases
-	// and the integration is covered by the existing aggregation tests.
+	repoImpl := repo.(*accountRepository)
+	_, err := repoImpl.getAggregations(ctx, "invalid_column", "invalid_column", []string{"user_id"}, where)
 
-	// This test is intentionally empty as the validation is tested separately
-	// and the integration is covered by existing tests
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "invalid aggregation groupBy")
+	assert.Contains(t, err.Error(), invalidGroupByColumnErr)
 }
 
-// Test to cover the validation error path in getAggregations
-// Since getAggregations is private, we need to test through reflection or by
-// temporarily modifying the validation logic. However, since we can't easily
-// modify package-level variables, we'll focus on testing the validation functions
-// directly and trust that they're properly integrated.
-
-// The missing coverage is likely in the error handling paths that are hard to trigger
-// in normal testing scenarios. Let's add a test that covers edge cases.
-
-func TestAccountRepository_Coverage_EdgeCases(t *testing.T) {
+func TestAccountRepositoryCoverageEdgeCases(t *testing.T) {
 	// Test to ensure we have full coverage of validation functions
 	// These are already tested individually, but this ensures integration
 
 	// Test validateOrderBy with whitespace
 	result, err := validateOrderBy("  name  ASC  ")
 	assert.NoError(t, err)
-	assert.Equal(t, "name ASC", result)
+	assert.Equal(t, orderByNameASC, result)
 
 	// Test validateOrderBy with just whitespace
 	result, err = validateOrderBy("   ")
@@ -1802,84 +1799,8 @@ func TestAccountRepository_Coverage_EdgeCases(t *testing.T) {
 	assert.NoError(t, err)
 }
 
-// Test to achieve 100% coverage by testing the private getAggregations method
-// with invalid groupBy parameter using reflection
-func TestAccountRepository_GetAggregations_InvalidGroupByReflection(t *testing.T) {
-	db, _, repo := setupMockDB(t)
-	defer db.Close()
-
-	ctx := context.Background()
-	userID := uuid.New()
-	where := map[string]any{
-		"user_id": userID,
-	}
-
-	// Use reflection to call the private getAggregations method with invalid groupBy
-	repoValue := reflect.ValueOf(repo)
-	method := repoValue.MethodByName("getAggregations")
-
-	// If the method is not found (because it's private), we need to access it differently
-	if !method.IsValid() {
-		// Access the underlying struct
-		repoStruct := reflect.ValueOf(repo).Elem()
-		// Get the method from the struct type
-		methodType := repoStruct.Type()
-		for i := 0; i < methodType.NumMethod(); i++ {
-			if methodType.Method(i).Name == "getAggregations" {
-				method = repoStruct.Method(i)
-				break
-			}
-		}
-	}
-
-	// If we still can't access it, try a different approach
-	if !method.IsValid() {
-		// Create parameters for the method call
-		params := []reflect.Value{
-			reflect.ValueOf(ctx),
-			reflect.ValueOf("invalid_column"), // This should trigger validation error
-			reflect.ValueOf("invalid_column"),
-			reflect.ValueOf([]string{"user_id"}),
-			reflect.ValueOf(where),
-		}
-
-		// Try to get the method through the interface
-		repoInterface := repo.(*accountRepository)
-		methodValue := reflect.ValueOf(repoInterface).MethodByName("getAggregations")
-
-		if methodValue.IsValid() {
-			// Call the method
-			results := methodValue.Call(params)
-
-			// Check that we got an error (second return value)
-			if len(results) == 2 {
-				errValue := results[1]
-				if !errValue.IsNil() {
-					err := errValue.Interface().(error)
-					assert.Error(t, err)
-					assert.Contains(t, err.Error(), "invalid aggregation groupBy")
-					return
-				}
-			}
-		}
-	}
-
-	// If reflection doesn't work, we'll test the validation function directly
-	// which should be sufficient for coverage
-	err := validateGroupByColumn("invalid_column")
-	assert.Error(t, err)
-	assert.Contains(t, err.Error(), "invalid GROUP BY column: invalid_column")
-}
-
-// Test helper function to access private method for 100% coverage
-func (r *accountRepository) testGetAggregationsWithInvalidGroupBy(ctx context.Context, where map[string]any) error {
-	// Call getAggregations with invalid groupBy to trigger validation error
-	_, err := r.getAggregations(ctx, "invalid_column", "invalid_column", []string{"user_id"}, where)
-	return err
-}
-
-// Test to achieve 100% coverage by testing the validation error path in getAggregations
-func TestAccountRepository_GetAggregations_ValidationError(t *testing.T) {
+// Test to ensure validation errors from getAggregations are surfaced with context.
+func TestAccountRepositoryGetAggregationsValidationError(t *testing.T) {
 	db, _, repo := setupMockDB(t)
 	defer db.Close()
 
@@ -1888,13 +1809,10 @@ func TestAccountRepository_GetAggregations_ValidationError(t *testing.T) {
 		"user_id": uuid.New(),
 	}
 
-	// Cast to concrete type to access test helper method
 	repoImpl := repo.(*accountRepository)
-
-	// Call the test helper that triggers the validation error
-	err := repoImpl.testGetAggregationsWithInvalidGroupBy(ctx, where)
+	_, err := repoImpl.getAggregations(ctx, "invalid_column", "invalid_column", []string{"user_id"}, where)
 
 	assert.Error(t, err)
 	assert.Contains(t, err.Error(), "invalid aggregation groupBy")
-	assert.Contains(t, err.Error(), "invalid GROUP BY column: invalid_column")
+	assert.Contains(t, err.Error(), invalidGroupByColumnErr)
 }
