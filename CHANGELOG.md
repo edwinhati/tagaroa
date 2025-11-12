@@ -1,3 +1,10 @@
+## [0.2.1](https://github.com/edwinhati/tagaroa/compare/v0.2.0...v0.2.1) (2025-11-12)
+
+
+### Bug Fixes
+
+* **security:** delete get_sonar.js ([18f04bd](https://github.com/edwinhati/tagaroa/commit/18f04bd3f7be7c7c11a89bb60d0a69d6b1ab3296))
+
 # [0.2.0](https://github.com/edwinhati/tagaroa/compare/v0.1.0...v0.2.0) (2025-11-12)
 
 
