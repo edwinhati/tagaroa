@@ -1,7 +1,7 @@
 "use client";
 
-import { FingerprintIcon, UsersIcon } from "lucide-react";
 import { ContentPanel } from "@repo/common/components/content-panel";
+import { UsersIcon } from "lucide-react";
 
 export default function AuthTemplate({
   children,
@@ -13,11 +13,6 @@ export default function AuthTemplate({
       name: "Users",
       icon: UsersIcon,
       href: "/auth/users",
-    },
-    {
-      name: "OIDC",
-      icon: FingerprintIcon,
-      href: "/auth/oidc",
     },
   ];
   return (

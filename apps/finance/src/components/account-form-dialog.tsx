@@ -1,17 +1,12 @@
 "use client";
 
-import { useState } from "react";
-import { useForm, Controller } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { NumericFormat } from "react-number-format";
-
 import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@repo/ui/components/select";
+  fetchAccountTypes,
+  mutateAccount as mutateAccountRequest,
+} from "@repo/common/lib/query/account-query";
+import { type Account, accountSchema } from "@repo/common/types/account";
+import { Button } from "@repo/ui/components/button";
 import {
   Dialog,
   DialogContent,
@@ -31,15 +26,18 @@ import {
   InputGroupInput,
   InputGroupTextarea,
 } from "@repo/ui/components/input-group";
-import { Button } from "@repo/ui/components/button";
-
 import {
-  useMutateAccount,
-  useGetAccountTypes,
-} from "@repo/common/lib/query/account-query";
-import { Account, accountSchema } from "@repo/common/types/account";
-
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@repo/ui/components/select";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { PlusIcon } from "lucide-react";
+import { useState } from "react";
+import { Controller, useForm, useWatch } from "react-hook-form";
+import { NumericFormat } from "react-number-format";
 import { toast } from "sonner";
 
 const currencies = [
@@ -78,6 +76,10 @@ export function AccountFormDialog({
           notes: "",
         },
   });
+  const selectedCurrency = useWatch({
+    control: form.control,
+    name: "currency",
+  });
 
   const handleOpenChange = (newOpen: boolean) => {
     if (!newOpen) {
@@ -86,7 +88,11 @@ export function AccountFormDialog({
     setOpen(newOpen);
   };
 
-  const { mutate: mutateAccount, isPending } = useMutateAccount({
+  const queryClient = useQueryClient();
+
+  const { mutate: mutateAccount, isPending } = useMutation({
+    mutationKey: ["mutateAccount"],
+    mutationFn: mutateAccountRequest,
     onSuccess: () => {
       toast.success(initialData ? "Account updated" : "Account created");
       form.reset();
@@ -96,6 +102,9 @@ export function AccountFormDialog({
       toast.error("Failed to save account", {
         description: err.message,
       });
+    },
+    onSettled: () => {
+      queryClient.invalidateQueries({ queryKey: ["accounts"] });
     },
   });
 
@@ -110,7 +119,10 @@ export function AccountFormDialog({
     });
   };
 
-  const { data: accountTypes } = useGetAccountTypes();
+  const { data: accountTypes } = useQuery({
+    queryKey: ["accountTypes"],
+    queryFn: fetchAccountTypes,
+  });
   let submitLabel = "Add Account";
   if (initialData) {
     submitLabel = "Update Account";
@@ -185,7 +197,7 @@ export function AccountFormDialog({
                       <SelectValue placeholder="Select account type" />
                     </SelectTrigger>
                     <SelectContent>
-                      {(accountTypes as string[]).map((type) => (
+                      {(accountTypes ?? []).map((type) => (
                         <SelectItem key={type} value={type}>
                           {type}
                         </SelectItem>
@@ -238,14 +250,12 @@ export function AccountFormDialog({
               control={form.control}
               name="balance"
               render={({ field, fieldState }) => {
-                const selectedCurrency = form.watch("currency");
                 const getCurrencyPrefix = (currency: string) => {
                   switch (currency) {
                     case "USD":
                       return "$ ";
                     case "SGD":
                       return "S$ ";
-                    case "IDR":
                     default:
                       return "Rp ";
                   }
@@ -257,7 +267,6 @@ export function AccountFormDialog({
                       return "$ 0.00";
                     case "SGD":
                       return "S$ 0.00";
-                    case "IDR":
                     default:
                       return "Rp 0,00";
                   }

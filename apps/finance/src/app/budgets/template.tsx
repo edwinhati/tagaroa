@@ -1,6 +1,7 @@
 "use client";
 
 import { ContentPanel } from "@repo/common/components/content-panel";
+import { BudgetProvider } from "@repo/common/providers/budget-provider";
 
 type BudgetTemplateProps = Readonly<{ children: React.ReactNode }>;
 
@@ -16,12 +17,14 @@ export default function BudgetTemplate({ children }: BudgetTemplateProps) {
     },
   ];
   return (
-    <ContentPanel
-      contentTitle="Budget Management"
-      contentLabel="Overview"
-      menu={menu}
-    >
-      {children}
-    </ContentPanel>
+    <BudgetProvider>
+      <ContentPanel
+        contentTitle="Budget Management"
+        contentLabel="Overview"
+        menu={menu}
+      >
+        {children}
+      </ContentPanel>
+    </BudgetProvider>
   );
 }

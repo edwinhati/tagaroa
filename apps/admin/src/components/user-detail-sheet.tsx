@@ -1,27 +1,8 @@
 "use client";
 
-import {
-  useCallback,
-  useEffect,
-  useMemo,
-  useState,
-  type Dispatch,
-  type SetStateAction,
-} from "react";
-import {
-  AlertTriangle,
-  CircleUserRound,
-  Clock3,
-  KeyRound,
-  ShieldBan,
-  ShieldCheck,
-  Trash2,
-  User,
-  Shield,
-  UserCheck,
-  type LucideIcon,
-} from "lucide-react";
-import { toast } from "sonner";
+import { authClient } from "@repo/common/lib/auth-client";
+import { Badge } from "@repo/ui/components/badge";
+import { Button } from "@repo/ui/components/button";
 
 import {
   Card,
@@ -32,6 +13,9 @@ import {
   CardHeader,
   CardTitle,
 } from "@repo/ui/components/card";
+import { Input } from "@repo/ui/components/input";
+import { Label } from "@repo/ui/components/label";
+import { RadioGroup, RadioGroupItem } from "@repo/ui/components/radio-group";
 import {
   Sheet,
   SheetContent,
@@ -39,17 +23,33 @@ import {
   SheetHeader,
   SheetTitle,
 } from "@repo/ui/components/sheet";
-import { Badge } from "@repo/ui/components/badge";
-import { Button } from "@repo/ui/components/button";
-import { Input } from "@repo/ui/components/input";
-import { Label } from "@repo/ui/components/label";
 import { Skeleton } from "@repo/ui/components/skeleton";
-import { RadioGroup, RadioGroupItem } from "@repo/ui/components/radio-group";
-import {
-  UserWithRole,
+import type {
   SessionWithImpersonatedBy,
+  UserWithRole,
 } from "better-auth/plugins/admin";
-import { authClient } from "@repo/common/lib/auth-client";
+import {
+  AlertTriangle,
+  CircleUserRound,
+  Clock3,
+  KeyRound,
+  type LucideIcon,
+  Shield,
+  ShieldBan,
+  ShieldCheck,
+  Trash2,
+  User,
+  UserCheck,
+} from "lucide-react";
+import {
+  type Dispatch,
+  type SetStateAction,
+  useCallback,
+  useEffect,
+  useMemo,
+  useState,
+} from "react";
+import { toast } from "sonner";
 
 interface UserDetailSheetProps {
   user: UserWithRole | null;
@@ -257,7 +257,6 @@ export function UserDetailSheet(props: Readonly<UserDetailSheetProps>) {
     setLocalUser,
     nameInput,
     emailInput,
-    roleValue,
     setRoleValue,
     banReason,
     setBanReason,
@@ -778,6 +777,7 @@ function useLocalUserFormState(user: UserWithRole | null) {
   const [showBanForm, setShowBanForm] = useState(false);
   const [newPassword, setNewPassword] = useState("");
 
+  // Keep form state in sync with the active user record.
   useEffect(() => {
     if (!user) {
       setLocalUser(null);
@@ -848,7 +848,7 @@ function useUserSessionsManager(localUser: UserWithRole | null, open: boolean) {
   useEffect(() => {
     setSessions([]);
     setSessionsError(null);
-  }, [localUser?.id]);
+  }, []);
 
   useEffect(() => {
     if (open && localUser?.id) {
@@ -920,7 +920,6 @@ type UserDetailActionParams = {
   setLocalUser: Dispatch<SetStateAction<UserWithRole | null>>;
   nameInput: string;
   emailInput: string;
-  roleValue: string;
   setRoleValue: Dispatch<SetStateAction<string>>;
   banReason: string;
   setBanReason: Dispatch<SetStateAction<string>>;
@@ -941,7 +940,6 @@ function useUserDetailActions({
   setLocalUser,
   nameInput,
   emailInput,
-  roleValue,
   setRoleValue,
   banReason,
   setBanReason,
@@ -1118,6 +1116,7 @@ function useUserDetailActions({
 
       toast.success("Impersonation started. Redirecting...");
       if (result.sessionToken) {
+        // biome-ignore lint/suspicious/noDocumentCookie: cookie required for cross-app session
         document.cookie = `better-auth.session_token=${result.sessionToken}; path=/;`;
       }
       navigateTo("/dashboard");

@@ -1,29 +1,19 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { DataTableBulkDeleteDialog } from "@repo/common/components/data-table-bulk-delete-dialog";
+import { DataTableMultiSelectFilter } from "@repo/common/components/data-table-multi-select-filter";
+import { DataTablePagination } from "@repo/common/components/data-table-pagination";
+import { ServerSearchInput } from "@repo/common/components/data-table-search-input";
+import { Loading } from "@repo/common/components/loading";
 import {
-  Row,
-  SortingState,
-  useReactTable,
-  VisibilityState,
-  FilterFn,
-  ColumnDef,
-  flexRender,
-  getCoreRowModel,
-  ColumnFiltersState,
-  getFacetedUniqueValues,
-  getFilteredRowModel,
-  getSortedRowModel,
-  PaginationState,
-} from "@tanstack/react-table";
-import {
-  PlusIcon,
-  EllipsisIcon,
-  ChevronUpIcon,
-  ChevronDownIcon,
-} from "lucide-react";
-
-import { cn } from "@repo/ui/lib/utils";
+  deleteAccount as deleteAccountRequest,
+  fetchAccounts,
+  mutateAccount as mutateAccountRequest,
+} from "@repo/common/lib/query/account-query";
+import type {
+  Account,
+  PaginatedAccountsResult,
+} from "@repo/common/types/account";
 import { Badge } from "@repo/ui/components/badge";
 import { Button } from "@repo/ui/components/button";
 import { Checkbox } from "@repo/ui/components/checkbox";
@@ -37,6 +27,14 @@ import {
   DropdownMenuTrigger,
 } from "@repo/ui/components/dropdown-menu";
 import {
+  Empty,
+  EmptyContent,
+  EmptyDescription,
+  EmptyHeader,
+  EmptyTitle,
+} from "@repo/ui/components/empty";
+import { Skeleton } from "@repo/ui/components/skeleton";
+import {
   Table,
   TableBody,
   TableCell,
@@ -44,131 +42,26 @@ import {
   TableHeader,
   TableRow,
 } from "@repo/ui/components/table";
-import { Skeleton } from "@repo/ui/components/skeleton";
+import { cn } from "@repo/ui/lib/utils";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
-  Empty,
-  EmptyContent,
-  EmptyDescription,
-  EmptyHeader,
-  EmptyTitle,
-} from "@repo/ui/components/empty";
+  type ColumnDef,
+  type FilterFn,
+  flexRender,
+  getCoreRowModel,
+  getSortedRowModel,
+  type PaginationState,
+  type Row,
+  useReactTable,
+} from "@tanstack/react-table";
 import {
-  useGetAccounts,
-  useMutateAccount,
-} from "@repo/common/lib/query/account-query";
-import { Loading } from "@repo/common/components/loading";
+  ChevronDownIcon,
+  ChevronUpIcon,
+  EllipsisIcon,
+  PlusIcon,
+} from "lucide-react";
+import { useEffect, useMemo, useState } from "react";
 import { AccountFormDialog } from "@/components/account-form-dialog";
-import { DataTablePagination } from "@repo/common/components/data-table-pagination";
-import { DataTableMultiSelectFilter } from "@repo/common/components/data-table-multi-select-filter";
-import { DataTableBulkDeleteDialog } from "@repo/common/components/data-table-bulk-delete-dialog";
-import { ServerSearchInput } from "@repo/common/components/data-table-search-input";
-import { Account } from "@repo/common/types/account";
-
-// Custom filter function for multi-column searching
-const multiColumnFilterFn: FilterFn<Account> = (
-  row,
-  _columnId,
-  filterValue,
-) => {
-  const searchableRowContent =
-    `${row.original.name} ${row.original.type}`.toLowerCase();
-  const searchTerm = (filterValue ?? "").toLowerCase();
-  return searchableRowContent.includes(searchTerm);
-};
-
-const columns: ColumnDef<Account>[] = [
-  {
-    id: "select",
-    header: ({ table }) => (
-      <Checkbox
-        checked={
-          table.getIsAllPageRowsSelected() ||
-          (table.getIsSomePageRowsSelected() && "indeterminate")
-        }
-        onCheckedChange={(value) => table.toggleAllPageRowsSelected(!!value)}
-        aria-label="Select all"
-      />
-    ),
-    cell: ({ row }) => (
-      <Checkbox
-        checked={row.getIsSelected()}
-        onCheckedChange={(value) => row.toggleSelected(!!value)}
-        aria-label="Select row"
-      />
-    ),
-    size: 28,
-    enableSorting: false,
-    enableHiding: false,
-  },
-  {
-    header: "Name",
-    accessorKey: "name",
-    cell: ({ row }) => (
-      <div className="font-medium">{row.getValue("name")}</div>
-    ),
-    size: 180,
-    filterFn: multiColumnFilterFn,
-    enableHiding: false,
-    enableSorting: false,
-  },
-  {
-    header: "Notes",
-    accessorKey: "notes",
-    size: 220,
-    enableSorting: false,
-  },
-  {
-    header: "Type",
-    accessorKey: "type",
-    cell: ({ row }) => {
-      const typeValue = row.getValue("type")?.toString().replaceAll("_", "-");
-      return <Badge variant="outline">{typeValue}</Badge>;
-    },
-    size: 100,
-    enableSorting: false,
-  },
-  {
-    header: "Balance",
-    accessorKey: "balance",
-    cell: ({ row }) => {
-      const amount = Number.parseFloat(row.getValue("balance"));
-      const formatted = new Intl.NumberFormat(
-        row.original.currency === "IDR" ? "id-ID" : "en-US",
-        {
-          style: "currency",
-          currency: row.original.currency,
-        },
-      ).format(amount);
-      return formatted;
-    },
-    size: 120,
-    enableSorting: false,
-  },
-  {
-    id: "actions",
-    header: () => <span className="sr-only">Actions</span>,
-    cell: ({ row }) => <RowActions row={row} />,
-    size: 60,
-    enableHiding: false,
-  },
-];
-
-const resolveColumnKey = (
-  column: ColumnDef<Account>,
-  fallbackIndex: number,
-) => {
-  if (column.id) {
-    return column.id;
-  }
-  if ("accessorKey" in column) {
-    const accessorKey = (column as { accessorKey?: string | number })
-      .accessorKey;
-    if (accessorKey !== undefined) {
-      return accessorKey.toString();
-    }
-  }
-  return `col-${fallbackIndex}`;
-};
 
 export function AccountDataTable() {
   const [isMounted, setIsMounted] = useState(false);
@@ -189,9 +82,19 @@ export function AccountDataTable() {
   return <AccountDataTableContent />;
 }
 
+// Custom filter function for multi-column searching
+const multiColumnFilterFn: FilterFn<Account> = (
+  row,
+  _columnId,
+  filterValue,
+) => {
+  const searchableRowContent =
+    `${row.original.name} ${row.original.type}`.toLowerCase();
+  const searchTerm = (filterValue ?? "").toLowerCase();
+  return searchableRowContent.includes(searchTerm);
+};
+
 function AccountDataTableContent() {
-  const [columnFilters, setColumnFilters] = useState<ColumnFiltersState>([]);
-  const [columnVisibility, setColumnVisibility] = useState<VisibilityState>({});
   const [pagination, setPagination] = useState<PaginationState>({
     pageIndex: 0,
     pageSize: 5,
@@ -203,22 +106,130 @@ function AccountDataTableContent() {
   const [openPopovers, setOpenPopovers] = useState<Record<string, boolean>>({});
 
   // Stable data state to prevent re-renders during refetch
-  const [stableData, setStableData] = useState<{
-    accounts: Account[];
-    pagination: any;
-    aggregations: any;
-  } | null>(null);
+  const [stableData, setStableData] = useState<PaginatedAccountsResult | null>(
+    null,
+  );
   const [isInitialLoading, setIsInitialLoading] = useState(true);
 
-  const [sorting, setSorting] = useState<SortingState>([]);
+  const queryClient = useQueryClient();
 
-  const { mutate } = useMutateAccount({});
-  const { data: accountsResponse, error } = useGetAccounts({
-    page: pagination.pageIndex + 1,
-    limit: pagination.pageSize,
-    filters: serverFilters,
-    search: searchQuery,
+  const { mutate } = useMutation({
+    mutationKey: ["mutateAccount"],
+    mutationFn: mutateAccountRequest,
+    onSettled: () => {
+      queryClient.invalidateQueries({ queryKey: ["accounts"] });
+    },
   });
+
+  const { mutate: deleteAccount } = useMutation({
+    mutationKey: ["deleteAccount"],
+    mutationFn: deleteAccountRequest,
+    onSettled: () => {
+      queryClient.invalidateQueries({ queryKey: ["accounts"] });
+    },
+  });
+
+  const { data: accountsResponse, error } = useQuery({
+    queryKey: [
+      "accounts",
+      {
+        page: pagination.pageIndex + 1,
+        limit: pagination.pageSize,
+        filters: serverFilters,
+        search: searchQuery,
+      },
+    ],
+    queryFn: () =>
+      fetchAccounts({
+        page: pagination.pageIndex + 1,
+        limit: pagination.pageSize,
+        filters: serverFilters,
+        search: searchQuery,
+      }),
+  });
+
+  const columns: ColumnDef<Account>[] = useMemo(
+    () => [
+      {
+        id: "select",
+        header: ({ table }) => (
+          <Checkbox
+            checked={
+              table.getIsAllPageRowsSelected() ||
+              (table.getIsSomePageRowsSelected() && "indeterminate")
+            }
+            onCheckedChange={(value) =>
+              table.toggleAllPageRowsSelected(!!value)
+            }
+            aria-label="Select all"
+          />
+        ),
+        cell: ({ row }) => (
+          <Checkbox
+            checked={row.getIsSelected()}
+            onCheckedChange={(value) => row.toggleSelected(!!value)}
+            aria-label="Select row"
+          />
+        ),
+        size: 28,
+      },
+      {
+        header: "Name",
+        accessorKey: "name",
+        cell: ({ row }) => (
+          <div className="font-medium">{row.getValue("name")}</div>
+        ),
+        size: 180,
+        filterFn: multiColumnFilterFn,
+      },
+      {
+        header: "Notes",
+        accessorKey: "notes",
+        size: 220,
+      },
+      {
+        header: "Type",
+        accessorKey: "type",
+        cell: ({ row }) => {
+          const typeValue = row
+            .getValue("type")
+            ?.toString()
+            .replaceAll("_", "-");
+          return <Badge variant="outline">{typeValue}</Badge>;
+        },
+        size: 100,
+      },
+      {
+        header: "Balance",
+        accessorKey: "balance",
+        cell: ({ row }) => {
+          const amount = Number.parseFloat(row.getValue("balance"));
+          const formatted = new Intl.NumberFormat(
+            row.original.currency === "IDR" ? "id-ID" : "en-US",
+            {
+              style: "currency",
+              currency: row.original.currency,
+            },
+          ).format(amount);
+          return formatted;
+        },
+        size: 120,
+      },
+      {
+        id: "actions",
+        header: () => <span className="sr-only">Actions</span>,
+        cell: ({ row }) => (
+          <RowActions
+            row={row}
+            mutateAccount={mutate}
+            deleteAccount={deleteAccount}
+          />
+        ),
+        size: 60,
+      },
+    ],
+    [deleteAccount, mutate],
+  );
 
   // Update stable data only when new data arrives, not during loading
   useEffect(() => {
@@ -233,12 +244,16 @@ function AccountDataTableContent() {
   }, [accountsResponse, error]);
 
   // Use stable data to prevent re-renders during refetch
-  const tableData = useMemo(() => {
-    return stableData?.accounts || [];
-  }, [stableData?.accounts]);
+  const tableData = useMemo(
+    () => stableData?.accounts ?? [],
+    [stableData?.accounts],
+  );
 
   const paginationInfo = stableData?.pagination;
-  const aggregations = stableData?.aggregations || {};
+  const aggregations = useMemo(
+    () => stableData?.aggregations ?? {},
+    [stableData?.aggregations],
+  );
   const showLoadingState = isInitialLoading;
   const skeletonRowKeys = useMemo(
     () =>
@@ -253,20 +268,7 @@ function AccountDataTableContent() {
     Object.keys(serverFilters).length > 0 || searchQuery.length > 0;
 
   // Check if there's truly no data (no accounts at all for the user)
-  const hasTotalData = paginationInfo?.total > 0;
-
-  const handleDeleteRows = () => {
-    const selectedRows = table.getSelectedRowModel().rows;
-
-    for (const row of selectedRows) {
-      mutate({
-        ...row.original,
-        isDeleted: true,
-      });
-    }
-
-    table.resetRowSelection();
-  };
+  const hasTotalData = (paginationInfo?.total ?? 0) > 0;
 
   // Memoize filter options to prevent re-ordering and popover closing
   const filterOptions = useMemo(() => {
@@ -298,28 +300,30 @@ function AccountDataTableContent() {
     return options;
   }, [aggregations]);
 
+  // TanStack Table exposes functions that React Compiler cannot memoize; suppress rule locally.
+  // eslint-disable-next-line react-hooks/incompatible-library
   const table = useReactTable({
     data: tableData,
     columns,
     getCoreRowModel: getCoreRowModel(),
     getSortedRowModel: getSortedRowModel(),
-    onSortingChange: setSorting,
-    enableSortingRemoval: false,
-    // Remove client-side pagination since we're using server-side
     manualPagination: true,
     pageCount: paginationInfo?.total_pages ?? 0,
     onPaginationChange: setPagination,
-    onColumnFiltersChange: setColumnFilters,
-    onColumnVisibilityChange: setColumnVisibility,
-    getFilteredRowModel: getFilteredRowModel(),
-    getFacetedUniqueValues: getFacetedUniqueValues(),
     state: {
-      sorting,
       pagination,
-      columnFilters,
-      columnVisibility,
     },
   });
+
+  const handleDeleteRows = () => {
+    const selectedRows = table.getSelectedRowModel().rows;
+
+    for (const row of selectedRows) {
+      deleteAccount(row.original.id as string);
+    }
+
+    table.resetRowSelection();
+  };
 
   const hasRows = table.getRowModel().rows.length > 0;
   const selectedCount = table.getSelectedRowModel().rows.length;
@@ -620,10 +624,13 @@ function AccountDataTableContent() {
   );
 }
 
-type RowActionsProps = Readonly<{ row: Row<Account> }>;
+type RowActionsProps = Readonly<{
+  row: Row<Account>;
+  mutateAccount: (account: Account) => void;
+  deleteAccount: (id: string) => void;
+}>;
 
-function RowActions({ row }: RowActionsProps) {
-  const { mutate } = useMutateAccount({});
+function RowActions({ row, mutateAccount, deleteAccount }: RowActionsProps) {
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
@@ -653,7 +660,7 @@ function RowActions({ row }: RowActionsProps) {
             onSelect={(e) => {
               e.preventDefault();
               const a = row.original;
-              mutate({
+              mutateAccount({
                 name: `${a.name} (Copy)`,
                 type: a.type,
                 balance: a.balance,
@@ -670,10 +677,7 @@ function RowActions({ row }: RowActionsProps) {
         <DropdownMenuItem
           onSelect={(e) => {
             e.preventDefault();
-            mutate({
-              ...row.original,
-              isDeleted: true,
-            });
+            deleteAccount(row.original.id as string);
           }}
           className="text-destructive focus:text-destructive"
         >
@@ -684,3 +688,20 @@ function RowActions({ row }: RowActionsProps) {
     </DropdownMenu>
   );
 }
+
+const resolveColumnKey = (
+  column: ColumnDef<Account>,
+  fallbackIndex: number,
+) => {
+  if (column.id) {
+    return column.id;
+  }
+  if ("accessorKey" in column) {
+    const accessorKey = (column as { accessorKey?: string | number })
+      .accessorKey;
+    if (accessorKey !== undefined) {
+      return accessorKey.toString();
+    }
+  }
+  return `col-${fallbackIndex}`;
+};

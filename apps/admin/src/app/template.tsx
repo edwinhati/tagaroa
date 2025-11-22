@@ -2,8 +2,7 @@
 
 import { AppNavbar } from "@repo/common/components/app-navbar";
 import { AppSidebar } from "@repo/common/components/app-sidebar";
-import { AppProvider } from "@repo/common/providers/app-provider";
-import { SidebarProvider, SidebarInset } from "@repo/ui/components/sidebar";
+import { SidebarInset, SidebarProvider } from "@repo/ui/components/sidebar";
 import { DoorClosedLockedIcon } from "lucide-react";
 
 const nav = [
@@ -16,7 +15,7 @@ export default function RootTemplate({
   readonly children: React.ReactNode;
 }) {
   return (
-    <AppProvider>
+    <div className="[--header-height:calc(--spacing(14))]">
       <SidebarProvider defaultOpen={false}>
         <AppSidebar appName="Administrator" nav={nav} />
         <SidebarInset>
@@ -24,6 +23,6 @@ export default function RootTemplate({
           <div className="flex flex-1 flex-col">{children}</div>
         </SidebarInset>
       </SidebarProvider>
-    </AppProvider>
+    </div>
   );
 }

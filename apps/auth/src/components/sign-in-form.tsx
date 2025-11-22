@@ -1,14 +1,9 @@
 "use client";
 
-import { z } from "zod";
-import Link from "next/link";
-import { useState, useEffect } from "react";
-import { useForm, Controller } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { useRouter, useSearchParams } from "next/navigation";
-import { useFeatureFlagEnabled } from "posthog-js/react";
-
-import { toast } from "sonner";
+import { authClient } from "@repo/common/lib/auth-client";
+import { resolveSafeRedirect } from "@repo/common/lib/redirect";
+import { Button } from "@repo/ui/components/button";
 import {
   Card,
   CardContent,
@@ -27,13 +22,16 @@ import {
   InputGroupAddon,
   InputGroupInput,
 } from "@repo/ui/components/input-group";
-import { Button } from "@repo/ui/components/button";
 import { Separator } from "@repo/ui/components/separator";
 import { cn } from "@repo/ui/lib/utils";
-
-import { authClient } from "@repo/common/lib/auth-client";
-import { resolveSafeRedirect } from "@repo/common/lib/redirect";
 import { CircleAlert, Eye, EyeOff, Loader2, Mail } from "lucide-react";
+import Link from "next/link";
+import { useRouter, useSearchParams } from "next/navigation";
+import { useFeatureFlagEnabled } from "posthog-js/react";
+import { useState, useSyncExternalStore } from "react";
+import { Controller, useForm } from "react-hook-form";
+import { toast } from "sonner";
+import { z } from "zod";
 
 const signInFormSchema = z.object({
   email: z.email({
@@ -46,11 +44,28 @@ const signInFormSchema = z.object({
 
 type SignInFormValues = z.infer<typeof signInFormSchema>;
 
+const subscribeToClient = (callback: () => void) => {
+  const id =
+    typeof window !== "undefined"
+      ? window.requestAnimationFrame(() => callback())
+      : undefined;
+
+  return () => {
+    if (id !== undefined) {
+      window.cancelAnimationFrame(id);
+    }
+  };
+};
+
 export function SignInForm({
   className,
   ...props
 }: React.ComponentPropsWithoutRef<"div">) {
-  const [mounted, setMounted] = useState(false);
+  const mounted = useSyncExternalStore(
+    subscribeToClient,
+    () => true,
+    () => false,
+  );
   const googleAuthFlagEnabled = useFeatureFlagEnabled("google-auth");
   const githubAuthFlagEnabled = useFeatureFlagEnabled("github-auth");
 
@@ -61,10 +76,6 @@ export function SignInForm({
   const [loading, setLoading] = useState<boolean>();
   const [authError, setAuthError] = useState<string | null>(null);
   const [showPassword, setShowPassword] = useState<boolean>(false);
-
-  useEffect(() => {
-    setMounted(true);
-  }, []);
 
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -156,6 +167,7 @@ export function SignInForm({
                     className="h-4 w-4"
                     viewBox="0 0 24 24"
                   >
+                    <title>Continue with Google</title>
                     <path
                       d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"
                       fill="#4285F4"
@@ -196,6 +208,7 @@ export function SignInForm({
                     viewBox="0 0 24 24"
                     fill="currentColor"
                   >
+                    <title>Continue with GitHub</title>
                     <path d="M12 .5C5.73.5.5 5.74.5 12.02c0 5.1 3.29 9.42 7.86 10.96.58.11.79-.25.79-.56v-2.15c-3.2.7-3.87-1.54-3.87-1.54-.53-1.34-1.3-1.7-1.3-1.7-1.07-.73.08-.72.08-.72 1.18.08 1.8 1.22 1.8 1.22 1.05 1.79 2.75 1.27 3.42.97.11-.76.41-1.27.75-1.56-2.55-.29-5.23-1.28-5.23-5.7 0-1.26.45-2.29 1.19-3.1-.12-.29-.52-1.44.11-3.01 0 0 .97-.31 3.18 1.18a10.95 10.95 0 0 1 5.8 0c2.2-1.5 3.18-1.18 3.18-1.18.63 1.57.23 2.72.11 3.01.74.81 1.19 1.84 1.19 3.1 0 4.43-2.68 5.41-5.24 5.69.42.36.8 1.08.8 2.18v3.23c0 .31.21.68.8.56A10.52 10.52 0 0 0 23.5 12c0-6.28-5.23-11.5-11.5-11.5z" />
                   </svg>
                 </div>

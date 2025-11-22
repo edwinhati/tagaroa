@@ -1,28 +1,10 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState, useRef } from "react";
-import {
-  ColumnDef,
-  ColumnFiltersState,
-  flexRender,
-  getCoreRowModel,
-  getFacetedUniqueValues,
-  getFilteredRowModel,
-  getSortedRowModel,
-  PaginationState,
-  Row,
-  SortingState,
-  useReactTable,
-  VisibilityState,
-} from "@tanstack/react-table";
-import {
-  ChevronDownIcon,
-  ChevronUpIcon,
-  EllipsisIcon,
-  LoaderIcon,
-} from "lucide-react";
-
-import { cn } from "@repo/ui/lib/utils";
+import { DataTableBulkDeleteDialog } from "@repo/common/components/data-table-bulk-delete-dialog";
+import { DataTableMultiSelectFilter } from "@repo/common/components/data-table-multi-select-filter";
+import { DataTablePagination } from "@repo/common/components/data-table-pagination";
+import { ServerSearchInput } from "@repo/common/components/data-table-search-input";
+import { authClient } from "@repo/common/lib/auth-client";
 import {
   Avatar,
   AvatarFallback,
@@ -31,7 +13,6 @@ import {
 import { Badge } from "@repo/ui/components/badge";
 import { Button } from "@repo/ui/components/button";
 import { Checkbox } from "@repo/ui/components/checkbox";
-
 import {
   Table,
   TableBody,
@@ -40,15 +21,31 @@ import {
   TableHeader,
   TableRow,
 } from "@repo/ui/components/table";
-import { DataTablePagination } from "@repo/common/components/data-table-pagination";
-import { DataTableMultiSelectFilter } from "@repo/common/components/data-table-multi-select-filter";
-import { DataTableBulkDeleteDialog } from "@repo/common/components/data-table-bulk-delete-dialog";
-import { ServerSearchInput } from "@repo/common/components/data-table-search-input";
-
-import { authClient } from "@repo/common/lib/auth-client";
-import { type UserWithRole } from "better-auth/plugins/admin";
-import { UserDetailSheet } from "@/components/user-detail-sheet";
+import { cn } from "@repo/ui/lib/utils";
+import {
+  type ColumnDef,
+  type ColumnFiltersState,
+  flexRender,
+  getCoreRowModel,
+  getFacetedUniqueValues,
+  getFilteredRowModel,
+  getSortedRowModel,
+  type PaginationState,
+  type Row,
+  type SortingState,
+  useReactTable,
+  type VisibilityState,
+} from "@tanstack/react-table";
+import type { UserWithRole } from "better-auth/plugins/admin";
+import {
+  ChevronDownIcon,
+  ChevronUpIcon,
+  EllipsisIcon,
+  LoaderIcon,
+} from "lucide-react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { CreateUserDialog } from "@/components/create-user-dialog";
+import { UserDetailSheet } from "@/components/user-detail-sheet";
 
 // Use the UserWithRole type from better-auth
 type User = UserWithRole;
@@ -258,11 +255,13 @@ export function UserDataTable() {
   // These states control the actual API calls to Better Auth
   const [searchValue, setSearchValue] = useState<string>("");
   const [debouncedSearchValue, setDebouncedSearchValue] = useState<string>("");
-  const [serverFilters, setServerFilters] = useState<{
+  type ServerFilters = {
     role?: string[];
     emailVerified?: boolean[];
     banned?: boolean[];
-  }>({});
+  };
+
+  const [serverFilters, setServerFilters] = useState<ServerFilters>({});
 
   const searchTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
@@ -288,6 +287,19 @@ export function UserDataTable() {
   const [total, setTotal] = useState(0);
   const [error, setError] = useState<string | null>(null);
 
+  type UserQueryParams = {
+    limit: number;
+    offset: number;
+    sortBy: string;
+    sortDirection: "asc" | "desc";
+    searchValue?: string;
+    searchField?: string;
+    searchOperator?: string;
+    filterField?: string;
+    filterValue?: string | boolean;
+    filterOperator?: string;
+  };
+
   // Fetch users from Better Auth admin API with server-side filtering and sorting
   const fetchUsers = useCallback(async () => {
     try {
@@ -295,7 +307,7 @@ export function UserDataTable() {
       setError(null);
 
       // Build query parameters
-      const queryParams: any = {
+      const queryParams: UserQueryParams = {
         limit: pagination.pageSize,
         offset: pagination.pageIndex * pagination.pageSize,
         sortBy: sorting[0]?.id || "name",
@@ -439,26 +451,30 @@ export function UserDataTable() {
       checked: boolean,
     ) => {
       setServerFilters((prev) => {
-        const currentValues = prev[filterKey] || [];
-        let newValues: (string | boolean)[];
+        const currentValues = prev[filterKey] ?? [];
+        const nextValues = checked
+          ? [...currentValues, value]
+          : currentValues.filter((v) => v !== value);
 
-        if (checked) {
-          newValues = [...currentValues, value];
+        const updatedFilters: ServerFilters = { ...prev };
+        if (nextValues.length === 0) {
+          delete updatedFilters[filterKey];
+        } else if (filterKey === "role") {
+          updatedFilters[filterKey] = nextValues.filter(
+            (v): v is string => typeof v === "string",
+          );
         } else {
-          newValues = currentValues.filter((v) => v !== value);
+          updatedFilters[filterKey] = nextValues.filter(
+            (v): v is boolean => typeof v === "boolean",
+          ) as ServerFilters[typeof filterKey];
         }
 
-        const newFilters = { ...prev };
-        if (newValues.length === 0) {
-          delete newFilters[filterKey];
-        } else {
-          newFilters[filterKey] = newValues as any;
-        }
+        setPagination((prevPagination) => ({
+          ...prevPagination,
+          pageIndex: 0,
+        }));
 
-        // Reset to first page when filters change
-        setPagination((prev) => ({ ...prev, pageIndex: 0 }));
-
-        return newFilters;
+        return updatedFilters;
       });
     },
     [],

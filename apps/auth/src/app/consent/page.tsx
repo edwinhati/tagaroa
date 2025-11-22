@@ -1,8 +1,7 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import { useSearchParams, useRouter } from "next/navigation";
 import { authClient } from "@repo/common/lib/auth-client";
+import { Badge } from "@repo/ui/components/badge";
 import { Button } from "@repo/ui/components/button";
 import {
   Card,
@@ -10,17 +9,10 @@ import {
   CardHeader,
   CardTitle,
 } from "@repo/ui/components/card";
-import { Badge } from "@repo/ui/components/badge";
 import { Separator } from "@repo/ui/components/separator";
-import { CheckIcon, XIcon, ShieldIcon, UserIcon, MailIcon } from "lucide-react";
-
-interface ConsentPageProps {
-  searchParams: {
-    consent_code?: string;
-    client_id?: string;
-    scope?: string;
-  };
-}
+import { CheckIcon, MailIcon, ShieldIcon, UserIcon, XIcon } from "lucide-react";
+import { useRouter, useSearchParams } from "next/navigation";
+import { useEffect, useState } from "react";
 
 export default function ConsentPage() {
   const searchParams = useSearchParams();

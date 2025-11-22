@@ -1,5 +1,5 @@
-import type { Metadata } from "next";
 import { LayoutShell } from "@repo/common/components/layout-shell";
+import type { Metadata } from "next";
 
 export const metadata: Metadata = {
   title: "Tagaroa Capital",

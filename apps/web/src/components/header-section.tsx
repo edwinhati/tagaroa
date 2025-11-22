@@ -1,14 +1,12 @@
 "use client";
 
-import Link from "next/link";
-import { Menu, X } from "lucide-react";
-import { cn } from "@repo/ui/lib/utils";
-import { useState, useEffect } from "react";
-
 import { Logo } from "@repo/common/components/logo";
-import { Button } from "@repo/ui/components/button";
-
 import { authClient } from "@repo/common/lib/auth-client";
+import { Button } from "@repo/ui/components/button";
+import { cn } from "@repo/ui/lib/utils";
+import { Menu, X } from "lucide-react";
+import Link from "next/link";
+import { useEffect, useState } from "react";
 
 const menuItems = [{ name: "", href: "#" }];
 
@@ -52,6 +50,7 @@ export const HeaderSection = () => {
                 Tagaroa
               </span>
               <button
+                type="button"
                 onClick={() => setMenuState(!menuState)}
                 aria-label={menuState ? "Close Menu" : "Open Menu"}
                 className="relative z-20 -m-2.5 -mr-4 block cursor-pointer p-2.5 lg:hidden"

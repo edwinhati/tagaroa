@@ -1,12 +1,11 @@
 "use client";
 
+import { AnimatedGroup } from "@repo/ui/components/animated-group";
 import { Button } from "@repo/ui/components/button";
 import { TextEffect } from "@repo/ui/components/text-effect";
-import { AnimatedGroup } from "@repo/ui/components/animated-group";
 import { Mail, SendHorizonal } from "lucide-react";
-
-import { HeaderSection } from "@/components/header-section";
 import { FooterSection } from "@/components/footer-section";
+import { HeaderSection } from "@/components/header-section";
 
 const transitionVariants = {
   item: {
@@ -133,6 +132,7 @@ const AppComponent = () => {
           fill="none"
           xmlns="http://www.w3.org/2000/svg"
         >
+          <title>Performance chart</title>
           <path
             fillRule="evenodd"
             clipRule="evenodd"

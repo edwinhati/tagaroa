@@ -1,7 +1,7 @@
 "use client";
-import { JSX, ReactNode } from "react";
+import type { JSX, ReactNode } from "react";
 
-import { motion, Variants } from "motion/react";
+import { motion, type Variants } from "motion/react";
 import React from "react";
 
 export type PresetType =
@@ -132,8 +132,11 @@ function AnimatedGroup({
       variants={containerVariants}
       className={className}
     >
-      {React.Children.map(children, (child, index) => (
-        <MotionChild key={index} variants={itemVariants}>
+      {React.Children.toArray(children).map((child, index) => (
+        <MotionChild
+          key={(child as React.ReactElement).key ?? index}
+          variants={itemVariants}
+        >
           {child}
         </MotionChild>
       ))}

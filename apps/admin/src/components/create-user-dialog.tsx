@@ -1,12 +1,9 @@
 "use client";
 
-import { z } from "zod";
-import { useState } from "react";
-import { useForm, Controller } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { PlusIcon } from "lucide-react";
-
+import { authClient } from "@repo/common/lib/auth-client";
 import { Button } from "@repo/ui/components/button";
+import { Checkbox } from "@repo/ui/components/checkbox";
 import {
   Dialog,
   DialogContent,
@@ -29,10 +26,11 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@repo/ui/components/select";
-import { Checkbox } from "@repo/ui/components/checkbox";
+import { PlusIcon } from "lucide-react";
+import { useState } from "react";
+import { Controller, useForm } from "react-hook-form";
 import { toast } from "sonner";
-
-import { authClient } from "@repo/common/lib/auth-client";
+import { z } from "zod";
 
 const createUserSchema = z.object({
   name: z.string().min(1, "Name is required"),

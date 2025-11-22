@@ -1,7 +1,7 @@
-import { type User } from "better-auth";
-import { getSessionCookie } from "better-auth/cookies";
-import { NextRequest, NextResponse } from "next/server";
 import { resolveSafeRedirect } from "@repo/common/lib/redirect";
+import type { User } from "better-auth";
+import { getSessionCookie } from "better-auth/cookies";
+import { type NextRequest, NextResponse } from "next/server";
 
 // Route Definitions
 const routes = {

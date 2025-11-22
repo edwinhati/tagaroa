@@ -114,6 +114,16 @@ const AnimationComponent: React.FC<{
   per: "line" | "word" | "char";
   segmentWrapperClassName?: string;
 }> = React.memo(({ segment, variants, per, segmentWrapperClassName }) => {
+  const charItems = React.useMemo(() => {
+    const occurrences = new Map<string, number>();
+
+    return segment.split("").map((char) => {
+      const count = (occurrences.get(char) ?? 0) + 1;
+      occurrences.set(char, count);
+      return { char, key: `${segment}-${char}-${count}` };
+    });
+  }, [segment]);
+
   const content =
     per === "line" ? (
       <motion.span variants={variants} className="block">
@@ -129,9 +139,9 @@ const AnimationComponent: React.FC<{
       </motion.span>
     ) : (
       <motion.span className="inline-block whitespace-pre">
-        {segment.split("").map((char, charIndex) => (
+        {charItems.map(({ char, key }) => (
           <motion.span
-            key={`char-${charIndex}`}
+            key={key}
             aria-hidden="true"
             variants={variants}
             className="inline-block whitespace-pre"
