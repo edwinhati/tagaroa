@@ -293,11 +293,11 @@ export function UserDataTable() {
     sortBy: string;
     sortDirection: "asc" | "desc";
     searchValue?: string;
-    searchField?: string;
-    searchOperator?: string;
+    searchField?: "name" | "email";
+    searchOperator?: "contains" | "starts_with" | "ends_with";
     filterField?: string;
     filterValue?: string | boolean;
-    filterOperator?: string;
+    filterOperator?: "contains" | "eq" | "ne" | "lt" | "lte" | "gt" | "gte";
   };
 
   // Fetch users from Better Auth admin API with server-side filtering and sorting

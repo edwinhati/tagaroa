@@ -1054,8 +1054,8 @@ function useUserDetailActions({
     try {
       const payload: BanUserInput = {
         userId: localUser.id,
-        reason: banReason.trim(),
-        durationSeconds: banDurationSeconds,
+        banReason: banReason.trim(),
+        banExpiresIn: banDurationSeconds,
       };
       const response: BanUserResponse = await authClient.admin.banUser(payload);
       const updatedUser = ensureResponseData<BanUserData>(
