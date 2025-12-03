@@ -1,4 +1,4 @@
-package http
+package handler
 
 import (
 	"bytes"
@@ -8,10 +8,10 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"testing"
+	"time"
 
 	"github.com/edwinhati/tagaroa/packages/shared/go/client"
-	"github.com/edwinhati/tagaroa/packages/shared/go/middleware"
-	httputil "github.com/edwinhati/tagaroa/packages/shared/go/transport/http"
+	"github.com/edwinhati/tagaroa/packages/shared/go/router"
 	"github.com/edwinhati/tagaroa/packages/shared/go/util"
 	"github.com/edwinhati/tagaroa/servers/finance/internal/model"
 	"github.com/edwinhati/tagaroa/servers/finance/internal/service"
@@ -37,6 +37,10 @@ const (
 	testAccountName            = "Test Account"
 	updatedAccountName         = "Updated Account"
 	invalidUUIDValue           = "invalid-uuid"
+	budgetPath                 = "/budget"
+	budgetsPath                = "/budgets"
+	budgetPathWithIDPrefix     = "/budget/"
+	budgetItemPathPrefix       = "/budget/item/"
 )
 
 /* ----------------------- Mocks & small helpers ----------------------- */
@@ -71,11 +75,71 @@ func (m *MockAccountService) UpdateAccount(ctx context.Context, id uuid.UUID, in
 	}
 	return args.Get(0).(*model.Account), args.Error(1)
 }
+func (m *MockAccountService) DeleteAccount(ctx context.Context, id uuid.UUID, userID uuid.UUID) error {
+	args := m.Called(ctx, id, userID)
+	return args.Error(0)
+}
+
+type MockBudgetService struct{ mock.Mock }
+
+func (m *MockBudgetService) CreateBudget(ctx context.Context, budget *model.Budget) (*model.Budget, error) {
+	args := m.Called(ctx, budget)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).(*model.Budget), args.Error(1)
+}
+
+func (m *MockBudgetService) UpdateBudget(ctx context.Context, id uuid.UUID, input service.UpdateBudgetInput, userID uuid.UUID) (*model.Budget, error) {
+	args := m.Called(ctx, id, input, userID)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).(*model.Budget), args.Error(1)
+}
+
+func (m *MockBudgetService) GetBudget(ctx context.Context, month, year int, userID uuid.UUID) (*model.Budget, error) {
+	args := m.Called(ctx, month, year, userID)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).(*model.Budget), args.Error(1)
+}
+
+func (m *MockBudgetService) GetBudgets(ctx context.Context, params service.GetBudgetsParams) (*service.GetBudgetsResult, error) {
+	args := m.Called(ctx, params)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).(*service.GetBudgetsResult), args.Error(1)
+}
+
+func (m *MockBudgetService) CreateBudgetItem(ctx context.Context, item *model.BudgetItem) (*model.BudgetItem, error) {
+	args := m.Called(ctx, item)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).(*model.BudgetItem), args.Error(1)
+}
+
+func (m *MockBudgetService) UpdateBudgetItem(ctx context.Context, item *model.BudgetItem, userID uuid.UUID) (*model.BudgetItem, error) {
+	args := m.Called(ctx, item, userID)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).(*model.BudgetItem), args.Error(1)
+}
 
 func setupHandler(t *testing.T) (*AccountHandler, *MockAccountService) {
 	mockSvc := new(MockAccountService)
 	mockOIDC := &client.OIDCClient{}
 	return NewAccountHandler(mockOIDC, mockSvc), mockSvc
+}
+
+func setupBudgetHandler(t *testing.T) (*BudgetHandler, *MockBudgetService) {
+	mockSvc := new(MockBudgetService)
+	mockOIDC := &client.OIDCClient{}
+	return NewBudgetHandler(mockOIDC, mockSvc), mockSvc
 }
 
 func accountPathWithID(id uuid.UUID) string {
@@ -92,7 +156,7 @@ func authedReq(method, url string, body any, userID uuid.UUID) *http.Request {
 	}
 	req := httptest.NewRequest(method, url, buf)
 	req.Header.Set(headerContentType, headerJSONValue)
-	ctx := context.WithValue(req.Context(), middleware.UserIDKey, userID.String())
+	ctx := context.WithValue(req.Context(), util.UserIDKey, userID.String())
 	return req.WithContext(ctx)
 }
 
@@ -113,11 +177,10 @@ func float64Ptr(f float64) *float64 { return &f }
 
 func updateInputFromRequest(req UpdateAccountRequest) service.UpdateAccountInput {
 	return service.UpdateAccountInput{
-		Name:      req.Name,
-		Currency:  req.Currency,
-		Notes:     req.Notes,
-		Balance:   req.Balance,
-		IsDeleted: req.IsDeleted,
+		Name:     req.Name,
+		Currency: req.Currency,
+		Notes:    req.Notes,
+		Balance:  req.Balance,
 	}
 }
 
@@ -200,7 +263,7 @@ func TestAccountHandlerCreateAccountVariants(t *testing.T) {
 			case invalidJSONBody:
 				// craft raw invalid JSON with auth
 				r := rawReq("POST", accountPath, []byte(invalidJSONBody))
-				ctx := context.WithValue(r.Context(), middleware.UserIDKey, userID.String())
+				ctx := context.WithValue(r.Context(), util.UserIDKey, userID.String())
 				tt.req = r.WithContext(ctx)
 			}
 			tt.mockSetup()
@@ -267,7 +330,7 @@ func TestAccountHandlerGetAccountsVariants(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			if tt.req.Context().Value(middleware.UserIDKey) != nil {
+			if tt.req.Context().Value(util.UserIDKey) != nil {
 				mockSvc.
 					On("GetAccounts", mock.Anything, mock.AnythingOfType(serviceGetAccountsTypeName)).
 					Return(tt.mockRet, tt.mockErr).Once()
@@ -326,7 +389,7 @@ func TestAccountHandlerGetAccountVariants(t *testing.T) {
 			setup: func() {
 				mockSvc.
 					On("GetAccount", mock.Anything, acc.ID, userID).
-					Return(nil, service.ErrAccessDenied).Once()
+					Return(nil, service.ErrAccountAccessDenied).Once()
 			},
 			wantStatus: http.StatusForbidden,
 		},
@@ -437,7 +500,7 @@ func TestAccountHandlerUpdateAccountVariants(t *testing.T) {
 			name: invalidJSONBody,
 			req: func() *http.Request {
 				r := rawReq("PUT", accountPathWithID(accountID), []byte(invalidJSONBody))
-				ctx := context.WithValue(r.Context(), middleware.UserIDKey, userID.String())
+				ctx := context.WithValue(r.Context(), util.UserIDKey, userID.String())
 				r = r.WithContext(ctx)
 				return r
 			}(),
@@ -462,7 +525,7 @@ func TestAccountHandlerUpdateAccountVariants(t *testing.T) {
 				updateInput := updateInputFromRequest(body)
 				mockSvc.
 					On("UpdateAccount", mock.Anything, accountID, updateInput, userID).
-					Return(nil, service.ErrAccessDenied).Once()
+					Return(nil, service.ErrAccountAccessDenied).Once()
 			},
 			wantStatus: http.StatusForbidden,
 		},
@@ -517,7 +580,7 @@ func TestAccountHandlerGetAccountTypes(t *testing.T) {
 
 func TestAccountHandlerSetupRoutes(t *testing.T) {
 	handler, _ := setupHandler(t)
-	router := httputil.NewRouter()
+	router := router.NewRouter()
 	assert.NotPanics(t, func() { handler.SetupRoutes(router) })
 }
 
@@ -588,6 +651,463 @@ func TestConvertAggregations(t *testing.T) {
 		assert.EqualValues(t, 3, currencyBuckets[0].Count)
 		assert.Equal(t, 300.0, currencyBuckets[0].Sum)
 	})
+}
+
+/* ----------------------------- delete account ----------------------------- */
+
+func TestAccountHandlerDeleteAccountVariants(t *testing.T) {
+	handler, mockSvc := setupHandler(t)
+	userID := uuid.New()
+	accountID := uuid.New()
+
+	tests := []struct {
+		name       string
+		req        *http.Request
+		mockSetup  func()
+		wantStatus int
+	}{
+		{
+			name: "success",
+			req:  authedReq("DELETE", accountPathWithID(accountID), nil, userID),
+			mockSetup: func() {
+				account := &model.Account{ID: accountID, UserID: userID}
+				mockSvc.On("GetAccount", mock.Anything, accountID, userID).Return(account, nil).Once()
+				mockSvc.On("DeleteAccount", mock.Anything, accountID, userID).Return(nil).Once()
+			},
+			wantStatus: http.StatusOK,
+		},
+		{
+			name: "get account not found",
+			req:  authedReq("DELETE", accountPathWithID(accountID), nil, userID),
+			mockSetup: func() {
+				mockSvc.On("GetAccount", mock.Anything, accountID, userID).Return((*model.Account)(nil), service.ErrAccountNotFound).Once()
+			},
+			wantStatus: http.StatusNotFound,
+		},
+		{
+			name: "get account access denied",
+			req:  authedReq("DELETE", accountPathWithID(accountID), nil, userID),
+			mockSetup: func() {
+				mockSvc.On("GetAccount", mock.Anything, accountID, userID).Return((*model.Account)(nil), service.ErrAccountAccessDenied).Once()
+			},
+			wantStatus: http.StatusForbidden,
+		},
+		{
+			name: "get account error",
+			req:  authedReq("DELETE", accountPathWithID(accountID), nil, userID),
+			mockSetup: func() {
+				mockSvc.On("GetAccount", mock.Anything, accountID, userID).Return((*model.Account)(nil), fmt.Errorf("db err")).Once()
+			},
+			wantStatus: http.StatusInternalServerError,
+		},
+		{
+			name: "delete not found",
+			req:  authedReq("DELETE", accountPathWithID(accountID), nil, userID),
+			mockSetup: func() {
+				account := &model.Account{ID: accountID, UserID: userID}
+				mockSvc.On("GetAccount", mock.Anything, accountID, userID).Return(account, nil).Once()
+				mockSvc.On("DeleteAccount", mock.Anything, accountID, userID).Return(service.ErrAccountNotFound).Once()
+			},
+			wantStatus: http.StatusNotFound,
+		},
+		{
+			name: "delete access denied",
+			req:  authedReq("DELETE", accountPathWithID(accountID), nil, userID),
+			mockSetup: func() {
+				account := &model.Account{ID: accountID, UserID: userID}
+				mockSvc.On("GetAccount", mock.Anything, accountID, userID).Return(account, nil).Once()
+				mockSvc.On("DeleteAccount", mock.Anything, accountID, userID).Return(service.ErrAccountAccessDenied).Once()
+			},
+			wantStatus: http.StatusForbidden,
+		},
+		{
+			name: "delete error",
+			req:  authedReq("DELETE", accountPathWithID(accountID), nil, userID),
+			mockSetup: func() {
+				account := &model.Account{ID: accountID, UserID: userID}
+				mockSvc.On("GetAccount", mock.Anything, accountID, userID).Return(account, nil).Once()
+				mockSvc.On("DeleteAccount", mock.Anything, accountID, userID).Return(fmt.Errorf("delete err")).Once()
+			},
+			wantStatus: http.StatusInternalServerError,
+		},
+		{
+			name:       invalidUUIDCaseName,
+			req:        authedReq("DELETE", accountPathWithIDPrefix+invalidUUIDValue, nil, userID),
+			mockSetup:  func() {},
+			wantStatus: http.StatusBadRequest,
+		},
+		{
+			name:       noUserIDCaseName,
+			req:        rawReq("DELETE", accountPathWithID(accountID), nil),
+			mockSetup:  func() {},
+			wantStatus: http.StatusUnauthorized,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			mockSvc.ExpectedCalls = nil
+			mockSvc.Calls = nil
+			tt.mockSetup()
+
+			switch tt.name {
+			case invalidUUIDCaseName:
+				tt.req.SetPathValue("id", invalidUUIDValue)
+			default:
+				tt.req.SetPathValue("id", accountID.String())
+			}
+
+			resp := perform(handler.DeleteAccount, tt.req)
+			assert.Equal(t, tt.wantStatus, resp.Code)
+
+			mockSvc.AssertExpectations(t)
+		})
+	}
+}
+
+/* ----------------------------- budget handlers ---------------------------- */
+
+func budgetPathWithID(id uuid.UUID) string {
+	return budgetPath + "/" + id.String()
+}
+
+func budgetItemPathWithID(id uuid.UUID) string {
+	return budgetItemPathPrefix + id.String()
+}
+
+func TestBudgetHandlerCreateBudget(t *testing.T) {
+	handler, mockSvc := setupBudgetHandler(t)
+	userID := uuid.New()
+	reqBody := CreateBudgetRequest{Month: 1, Year: 2025, Amount: 100, Currency: "USD"}
+
+	tests := []struct {
+		name       string
+		req        *http.Request
+		mockSetup  func()
+		wantStatus int
+	}{
+		{
+			name: "success",
+			req:  authedReq("POST", budgetPath, reqBody, userID),
+			mockSetup: func() {
+				mockSvc.On("CreateBudget", mock.Anything, mock.AnythingOfType("*model.Budget")).
+					Return(&model.Budget{ID: uuid.New(), Month: 1, Year: 2025, UserID: userID}, nil).Once()
+			},
+			wantStatus: http.StatusOK,
+		},
+		{
+			name: "service error",
+			req:  authedReq("POST", budgetPath, reqBody, userID),
+			mockSetup: func() {
+				mockSvc.On("CreateBudget", mock.Anything, mock.AnythingOfType("*model.Budget")).Return((*model.Budget)(nil), fmt.Errorf("fail")).Once()
+			},
+			wantStatus: http.StatusInternalServerError,
+		},
+		{
+			name:       invalidJSONBody,
+			req:        rawReq("POST", budgetPath, []byte(invalidJSONBody)),
+			mockSetup:  func() {},
+			wantStatus: http.StatusBadRequest,
+		},
+		{
+			name:       noUserIDCaseName,
+			req:        rawReq("POST", budgetPath, mustJSON(reqBody)),
+			mockSetup:  func() {},
+			wantStatus: http.StatusUnauthorized,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			mockSvc.ExpectedCalls = nil
+			mockSvc.Calls = nil
+			tt.mockSetup()
+
+			resp := perform(handler.CreateBudget, tt.req)
+			assert.Equal(t, tt.wantStatus, resp.Code)
+
+			mockSvc.AssertExpectations(t)
+		})
+	}
+}
+
+func TestBudgetHandlerGetBudget(t *testing.T) {
+	handler, mockSvc := setupBudgetHandler(t)
+	userID := uuid.New()
+	currentMonth := int(time.Now().Month())
+	currentYear := time.Now().Year()
+
+	tests := []struct {
+		name       string
+		mockSetup  func()
+		wantStatus int
+	}{
+		{
+			name: "success",
+			mockSetup: func() {
+				mockSvc.On("GetBudget", mock.Anything, currentMonth, currentYear, userID).Return(&model.Budget{ID: uuid.New(), UserID: userID}, nil).Once()
+			},
+			wantStatus: http.StatusOK,
+		},
+		{
+			name: "not found",
+			mockSetup: func() {
+				mockSvc.On("GetBudget", mock.Anything, currentMonth, currentYear, userID).Return((*model.Budget)(nil), service.ErrBudgetNotFound).Once()
+			},
+			wantStatus: http.StatusOK,
+		},
+		{
+			name: "access denied",
+			mockSetup: func() {
+				mockSvc.On("GetBudget", mock.Anything, currentMonth, currentYear, userID).Return((*model.Budget)(nil), service.ErrBudgetAccessDenied).Once()
+			},
+			wantStatus: http.StatusForbidden,
+		},
+		{
+			name: "service error",
+			mockSetup: func() {
+				mockSvc.On("GetBudget", mock.Anything, currentMonth, currentYear, userID).Return((*model.Budget)(nil), fmt.Errorf("boom")).Once()
+			},
+			wantStatus: http.StatusInternalServerError,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			mockSvc.ExpectedCalls = nil
+			mockSvc.Calls = nil
+			tt.mockSetup()
+
+			req := authedReq("GET", budgetPath, nil, userID)
+			resp := perform(handler.GetBudget, req)
+			assert.Equal(t, tt.wantStatus, resp.Code)
+
+			mockSvc.AssertExpectations(t)
+		})
+	}
+
+	t.Run(noUserIDCaseName, func(t *testing.T) {
+		req := rawReq("GET", budgetPath, nil)
+		resp := perform(handler.GetBudget, req)
+		assert.Equal(t, http.StatusUnauthorized, resp.Code)
+	})
+}
+
+func TestBudgetHandlerGetBudgets(t *testing.T) {
+	handler, mockSvc := setupBudgetHandler(t)
+	userID := uuid.New()
+
+	t.Run("success", func(t *testing.T) {
+		mockSvc.On("GetBudgets", mock.Anything, mock.AnythingOfType("service.GetBudgetsParams")).
+			Return(&service.GetBudgetsResult{Budgets: []*model.Budget{}, Total: 0}, nil).Once()
+
+		req := authedReq("GET", budgetsPath+"?page=2&limit=5", nil, userID)
+		resp := perform(handler.GetBudgets, req)
+		assert.Equal(t, http.StatusOK, resp.Code)
+		mockSvc.AssertExpectations(t)
+	})
+
+	t.Run("service error", func(t *testing.T) {
+		mockSvc.ExpectedCalls = nil
+		mockSvc.Calls = nil
+		mockSvc.On("GetBudgets", mock.Anything, mock.AnythingOfType("service.GetBudgetsParams")).
+			Return((*service.GetBudgetsResult)(nil), fmt.Errorf("fail")).Once()
+
+		req := authedReq("GET", budgetsPath, nil, userID)
+		resp := perform(handler.GetBudgets, req)
+		assert.Equal(t, http.StatusInternalServerError, resp.Code)
+		mockSvc.AssertExpectations(t)
+	})
+
+	t.Run(noUserIDCaseName, func(t *testing.T) {
+		req := rawReq("GET", budgetsPath, nil)
+		resp := perform(handler.GetBudgets, req)
+		assert.Equal(t, http.StatusUnauthorized, resp.Code)
+	})
+}
+
+func TestBudgetHandlerUpdateBudget(t *testing.T) {
+	handler, mockSvc := setupBudgetHandler(t)
+	userID := uuid.New()
+	budgetID := uuid.New()
+	reqBody := UpdateBudgetRequest{Amount: float64Ptr(200)}
+
+	tests := []struct {
+		name       string
+		req        *http.Request
+		mockSetup  func()
+		wantStatus int
+	}{
+		{
+			name: "success",
+			req:  authedReq("PUT", budgetPathWithID(budgetID), reqBody, userID),
+			mockSetup: func() {
+				mockSvc.On("UpdateBudget", mock.Anything, budgetID, mock.AnythingOfType("service.UpdateBudgetInput"), userID).
+					Return(&model.Budget{ID: budgetID, UserID: userID}, nil).Once()
+			},
+			wantStatus: http.StatusOK,
+		},
+		{
+			name: "not found",
+			req:  authedReq("PUT", budgetPathWithID(budgetID), reqBody, userID),
+			mockSetup: func() {
+				mockSvc.On("UpdateBudget", mock.Anything, budgetID, mock.AnythingOfType("service.UpdateBudgetInput"), userID).
+					Return((*model.Budget)(nil), service.ErrBudgetNotFound).Once()
+			},
+			wantStatus: http.StatusNotFound,
+		},
+		{
+			name: "access denied",
+			req:  authedReq("PUT", budgetPathWithID(budgetID), reqBody, userID),
+			mockSetup: func() {
+				mockSvc.On("UpdateBudget", mock.Anything, budgetID, mock.AnythingOfType("service.UpdateBudgetInput"), userID).
+					Return((*model.Budget)(nil), service.ErrBudgetAccessDenied).Once()
+			},
+			wantStatus: http.StatusForbidden,
+		},
+		{
+			name: "service error",
+			req:  authedReq("PUT", budgetPathWithID(budgetID), reqBody, userID),
+			mockSetup: func() {
+				mockSvc.On("UpdateBudget", mock.Anything, budgetID, mock.AnythingOfType("service.UpdateBudgetInput"), userID).
+					Return((*model.Budget)(nil), fmt.Errorf("fail")).Once()
+			},
+			wantStatus: http.StatusInternalServerError,
+		},
+		{
+			name:       invalidUUIDCaseName,
+			req:        authedReq("PUT", budgetPathWithIDPrefix+invalidUUIDValue, reqBody, userID),
+			mockSetup:  func() {},
+			wantStatus: http.StatusBadRequest,
+		},
+		{
+			name:       invalidJSONBody,
+			req:        rawReq("PUT", budgetPathWithID(budgetID), []byte(invalidJSONBody)),
+			mockSetup:  func() {},
+			wantStatus: http.StatusBadRequest,
+		},
+		{
+			name:       noUserIDCaseName,
+			req:        rawReq("PUT", budgetPathWithID(budgetID), mustJSON(reqBody)),
+			mockSetup:  func() {},
+			wantStatus: http.StatusUnauthorized,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			mockSvc.ExpectedCalls = nil
+			mockSvc.Calls = nil
+			tt.mockSetup()
+
+			switch tt.name {
+			case invalidUUIDCaseName:
+				tt.req.SetPathValue("id", invalidUUIDValue)
+			default:
+				tt.req.SetPathValue("id", budgetID.String())
+			}
+
+			resp := perform(handler.UpdateBudget, tt.req)
+			assert.Equal(t, tt.wantStatus, resp.Code)
+			mockSvc.AssertExpectations(t)
+		})
+	}
+}
+
+func TestBudgetHandlerUpdateBudgetItem(t *testing.T) {
+	handler, mockSvc := setupBudgetHandler(t)
+	userID := uuid.New()
+	itemID := uuid.New()
+	budgetID := uuid.New()
+	reqBody := UpdateBudgetItemRequest{Allocation: 10, Category: "Food", BudgetID: &budgetID}
+
+	tests := []struct {
+		name       string
+		req        *http.Request
+		mockSetup  func()
+		wantStatus int
+	}{
+		{
+			name: "success",
+			req:  authedReq("PUT", budgetItemPathWithID(itemID), reqBody, userID),
+			mockSetup: func() {
+				mockSvc.On("UpdateBudgetItem", mock.Anything, mock.AnythingOfType("*model.BudgetItem"), userID).
+					Return(&model.BudgetItem{ID: itemID, BudgetID: &budgetID}, nil).Once()
+			},
+			wantStatus: http.StatusOK,
+		},
+		{
+			name: "not found",
+			req:  authedReq("PUT", budgetItemPathWithID(itemID), reqBody, userID),
+			mockSetup: func() {
+				mockSvc.On("UpdateBudgetItem", mock.Anything, mock.AnythingOfType("*model.BudgetItem"), userID).
+					Return((*model.BudgetItem)(nil), service.ErrBudgetNotFound).Once()
+			},
+			wantStatus: http.StatusNotFound,
+		},
+		{
+			name: "access denied",
+			req:  authedReq("PUT", budgetItemPathWithID(itemID), reqBody, userID),
+			mockSetup: func() {
+				mockSvc.On("UpdateBudgetItem", mock.Anything, mock.AnythingOfType("*model.BudgetItem"), userID).
+					Return((*model.BudgetItem)(nil), service.ErrBudgetAccessDenied).Once()
+			},
+			wantStatus: http.StatusForbidden,
+		},
+		{
+			name: "service error",
+			req:  authedReq("PUT", budgetItemPathWithID(itemID), reqBody, userID),
+			mockSetup: func() {
+				mockSvc.On("UpdateBudgetItem", mock.Anything, mock.AnythingOfType("*model.BudgetItem"), userID).
+					Return((*model.BudgetItem)(nil), fmt.Errorf("fail")).Once()
+			},
+			wantStatus: http.StatusInternalServerError,
+		},
+		{
+			name:       invalidUUIDCaseName,
+			req:        authedReq("PUT", budgetItemPathPrefix+invalidUUIDValue, reqBody, userID),
+			mockSetup:  func() {},
+			wantStatus: http.StatusBadRequest,
+		},
+		{
+			name:       invalidJSONBody,
+			req:        rawReq("PUT", budgetItemPathWithID(itemID), []byte(invalidJSONBody)),
+			mockSetup:  func() {},
+			wantStatus: http.StatusBadRequest,
+		},
+		{
+			name:       noUserIDCaseName,
+			req:        rawReq("PUT", budgetItemPathWithID(itemID), mustJSON(reqBody)),
+			mockSetup:  func() {},
+			wantStatus: http.StatusUnauthorized,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			mockSvc.ExpectedCalls = nil
+			mockSvc.Calls = nil
+			tt.mockSetup()
+
+			switch tt.name {
+			case invalidUUIDCaseName:
+				tt.req.SetPathValue("id", invalidUUIDValue)
+			default:
+				tt.req.SetPathValue("id", itemID.String())
+			}
+
+			resp := perform(handler.UpdateBudgetItem, tt.req)
+			assert.Equal(t, tt.wantStatus, resp.Code)
+			mockSvc.AssertExpectations(t)
+		})
+	}
+}
+
+func TestBudgetHandlerSetupRoutes(t *testing.T) {
+	handler, _ := setupBudgetHandler(t)
+	r := router.NewRouter()
+
+	handler.SetupRoutes(r)
 }
 
 /* ------------------------------- utils -------------------------------- */

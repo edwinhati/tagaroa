@@ -14,6 +14,7 @@ type Config struct {
 	Database DatabaseConfig
 	OIDC     OIDCConfig
 	Sentry   SentryConfig
+	Kafka    KafkaConfig
 }
 
 // ServerConfig holds server-related configuration
@@ -57,6 +58,12 @@ type SentryConfig struct {
 	TracesSampleRate float64
 }
 
+// KafkaConfig captures settings required to integrate with Kafka.
+type KafkaConfig struct {
+	Brokers  []string
+	ClientID string
+}
+
 // LoadFromEnv loads configuration from environment variables
 func (c *Config) LoadFromEnv() error {
 	c.loadServerConfig()
@@ -64,6 +71,7 @@ func (c *Config) LoadFromEnv() error {
 	c.loadDatabaseConfig()
 	c.loadOIDCConfig()
 	c.loadSentryConfig()
+	c.loadKafkaConfig()
 	return nil
 }
 
@@ -137,6 +145,27 @@ func (c *Config) loadSentryConfig() {
 			c.Sentry.TracesSampleRate = rate
 		}
 	}
+}
+
+func (c *Config) loadKafkaConfig() {
+	if brokers := os.Getenv("KAFKA_BROKERS"); brokers != "" {
+		c.Kafka.Brokers = parseCSV(brokers)
+	}
+
+	if clientID := os.Getenv("KAFKA_CLIENT_ID"); clientID != "" {
+		c.Kafka.ClientID = clientID
+	}
+}
+
+func parseCSV(value string) []string {
+	parts := strings.Split(value, ",")
+	result := make([]string, 0, len(parts))
+	for _, part := range parts {
+		if trimmed := strings.TrimSpace(part); trimmed != "" {
+			result = append(result, trimmed)
+		}
+	}
+	return result
 }
 
 // LoadConfig creates a new Config instance and loads values from environment variables

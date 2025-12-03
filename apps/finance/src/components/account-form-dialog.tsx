@@ -2,8 +2,8 @@
 
 import { zodResolver } from "@hookform/resolvers/zod";
 import {
-  fetchAccountTypes,
-  mutateAccount as mutateAccountRequest,
+  accountMutationOptions,
+  accountTypesQueryOptions,
 } from "@repo/common/lib/query/account-query";
 import { type Account, accountSchema } from "@repo/common/types/account";
 import { Button } from "@repo/ui/components/button";
@@ -33,7 +33,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@repo/ui/components/select";
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useMutation, useQuery } from "@tanstack/react-query";
 import { PlusIcon } from "lucide-react";
 import { useState } from "react";
 import { Controller, useForm, useWatch } from "react-hook-form";
@@ -76,6 +76,7 @@ export function AccountFormDialog({
           notes: "",
         },
   });
+
   const selectedCurrency = useWatch({
     control: form.control,
     name: "currency",
@@ -88,11 +89,8 @@ export function AccountFormDialog({
     setOpen(newOpen);
   };
 
-  const queryClient = useQueryClient();
-
-  const { mutate: mutateAccount, isPending } = useMutation({
-    mutationKey: ["mutateAccount"],
-    mutationFn: mutateAccountRequest,
+  const { mutate, isPending } = useMutation({
+    ...accountMutationOptions(),
     onSuccess: () => {
       toast.success(initialData ? "Account updated" : "Account created");
       form.reset();
@@ -103,13 +101,10 @@ export function AccountFormDialog({
         description: err.message,
       });
     },
-    onSettled: () => {
-      queryClient.invalidateQueries({ queryKey: ["accounts"] });
-    },
   });
 
   const onSubmit = async () => {
-    mutateAccount({
+    mutate({
       id: initialData?.id,
       name: form.getValues("name"),
       type: form.getValues("type"),
@@ -119,10 +114,8 @@ export function AccountFormDialog({
     });
   };
 
-  const { data: accountTypes } = useQuery({
-    queryKey: ["accountTypes"],
-    queryFn: fetchAccountTypes,
-  });
+  const { data: accountTypes } = useQuery(accountTypesQueryOptions());
+
   let submitLabel = "Add Account";
   if (initialData) {
     submitLabel = "Update Account";

@@ -15,21 +15,20 @@ import (
 	"golang.org/x/time/rate"
 
 	"github.com/edwinhati/tagaroa/packages/shared/go/client"
-	httputil "github.com/edwinhati/tagaroa/packages/shared/go/transport/http"
+	"github.com/edwinhati/tagaroa/packages/shared/go/kafka"
+	"github.com/edwinhati/tagaroa/packages/shared/go/middleware"
+	"github.com/edwinhati/tagaroa/packages/shared/go/router"
 	"github.com/edwinhati/tagaroa/packages/shared/go/util"
 	"github.com/edwinhati/tagaroa/servers/finance/internal/config"
 	"github.com/edwinhati/tagaroa/servers/finance/internal/repository"
 	"github.com/edwinhati/tagaroa/servers/finance/internal/service"
-	httphandler "github.com/edwinhati/tagaroa/servers/finance/internal/transport/http"
+	httphandler "github.com/edwinhati/tagaroa/servers/finance/internal/transport"
 	"github.com/joho/godotenv"
 )
 
 var (
-	mustLoadConfigFn      = config.LoadConfig
-	mustConnectDatabaseFn = client.ConnectDatabase
-	mustInitOIDCClientFn  = client.NewOIDCClient
-	startServerFn         = func(server *http.Server) error { return server.ListenAndServe() }
-	logFatalfFn           = log.Fatalf
+	mustInitKafkaProducerFn = initKafkaProducer
+	logFatalfFn             = log.Fatalf
 )
 
 var runFn = run
@@ -53,7 +52,15 @@ func run() error {
 	defer db.Close()
 
 	oidcClient := mustInitOIDCClient(ctx, cfg)
-	handler := buildHTTPHandler(cfg, db, oidcClient, parseAllowedOrigins(cfg.Server.TrustedOrigins))
+	kafkaProducer := mustInitKafkaProducerFn(cfg)
+	defer kafkaProducer.Close()
+
+	handler := buildHTTPHandler(
+		db,
+		oidcClient,
+		kafkaProducer,
+		parseAllowedOrigins(cfg.Server.TrustedOrigins),
+	)
 
 	registerHealthEndpoint()
 
@@ -133,24 +140,41 @@ func mustInitOIDCClient(ctx context.Context, cfg *config.Config) *client.OIDCCli
 	return oidcClient
 }
 
+func initKafkaProducer(cfg *config.Config) kafka.Producer {
+	if len(cfg.Kafka.Brokers) == 0 {
+		log.Fatal("KAFKA_BROKERS is required to start the finance server")
+	}
+
+	producer, err := kafka.NewProducer(kafka.Config{
+		Brokers:  cfg.Kafka.Brokers,
+		ClientID: cfg.Kafka.ClientID,
+	})
+	if err != nil {
+		log.Fatalf("Failed to init Kafka producer: %v", err)
+	}
+	return producer
+}
+
 func buildHTTPHandler(
-	cfg *config.Config,
 	db *sql.DB,
 	oidcClient *client.OIDCClient,
+	kafkaProducer kafka.Producer,
 	allowedOrigins []string,
 ) http.Handler {
 	accountRepo := repository.NewAccountRepository(db)
+	budgetRepo := repository.NewBudgetRepository(db)
 	accountService := service.NewAccountService(accountRepo)
+	budgetService := service.NewBudgetService(kafkaProducer, budgetRepo)
 
-	router := httputil.NewRouter()
+	router := router.NewRouter()
 	httphandler.NewAccountHandler(oidcClient, accountService).SetupRoutes(router)
+	httphandler.NewBudgetHandler(oidcClient, budgetService).SetupRoutes(router)
 
-	handler := applyMiddlewares(router, allowedOrigins)
-	return handler
+	return applyMiddlewares(router, allowedOrigins)
 }
 
 func applyMiddlewares(router http.Handler, allowedOrigins []string) http.Handler {
-	rateLimiter := util.NewRateLimiter(rate.Every(time.Minute/100), 10)
+	rateLimiter := middleware.NewRateLimiter(rate.Every(time.Minute/100), 10)
 
 	handler := http.Handler(router)
 	handler = util.RequestID(handler)

@@ -8,11 +8,11 @@ import (
 	"time"
 
 	"github.com/DATA-DOG/go-sqlmock"
+	"github.com/edwinhati/tagaroa/packages/shared/go/client"
 	"github.com/edwinhati/tagaroa/packages/shared/go/util"
 	"github.com/edwinhati/tagaroa/servers/finance/internal/model"
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
 )
 
 const (
@@ -23,16 +23,14 @@ const (
 	rowsIterationErrorText        = "rows iteration error"
 )
 
-func setupMockDB(t *testing.T) (*sql.DB, sqlmock.Sqlmock, AccountRepository) {
-	db, mock, err := sqlmock.New()
-	require.NoError(t, err)
-
+func setupAccountRepository(t *testing.T) (*sql.DB, sqlmock.Sqlmock, AccountRepository) {
+	db, mock := client.SetupMockDB(t)
 	repo := NewAccountRepository(db)
 	return db, mock, repo
 }
 
 func TestAccountRepositoryCreate(t *testing.T) {
-	db, mock, repo := setupMockDB(t)
+	db, mock, repo := setupAccountRepository(t)
 	defer db.Close()
 
 	ctx := context.Background()
@@ -48,7 +46,7 @@ func TestAccountRepositoryCreate(t *testing.T) {
 
 	mock.ExpectExec(`INSERT INTO accounts`).
 		WithArgs(account.ID, account.Name, account.Type, account.Balance,
-			account.UserID, account.Currency, account.Notes, false,
+			account.UserID, account.Currency, account.Notes, nil,
 			sqlmock.AnyArg(), sqlmock.AnyArg()).
 		WillReturnResult(sqlmock.NewResult(1, 1))
 
@@ -61,7 +59,7 @@ func TestAccountRepositoryCreate(t *testing.T) {
 }
 
 func TestAccountRepositoryCreateGeneratesID(t *testing.T) {
-	db, mock, repo := setupMockDB(t)
+	db, mock, repo := setupAccountRepository(t)
 	defer db.Close()
 
 	ctx := context.Background()
@@ -76,7 +74,7 @@ func TestAccountRepositoryCreateGeneratesID(t *testing.T) {
 
 	mock.ExpectExec(`INSERT INTO accounts`).
 		WithArgs(sqlmock.AnyArg(), account.Name, account.Type, account.Balance,
-			account.UserID, account.Currency, account.Notes, false,
+			account.UserID, account.Currency, account.Notes, nil,
 			sqlmock.AnyArg(), sqlmock.AnyArg()).
 		WillReturnResult(sqlmock.NewResult(1, 1))
 
@@ -88,7 +86,7 @@ func TestAccountRepositoryCreateGeneratesID(t *testing.T) {
 }
 
 func TestAccountRepositoryFindUnique(t *testing.T) {
-	db, mock, repo := setupMockDB(t)
+	db, mock, repo := setupAccountRepository(t)
 	defer db.Close()
 
 	ctx := context.Background()
@@ -104,12 +102,12 @@ func TestAccountRepositoryFindUnique(t *testing.T) {
 	}
 
 	rows := sqlmock.NewRows([]string{
-		"id", "name", "type", "balance", "user_id", "currency", "notes", "is_deleted", "created_at", "updated_at",
+		"id", "name", "type", "balance", "user_id", "currency", "notes", "deleted_at", "created_at", "updated_at",
 	}).AddRow(
-		accountID, defaultAccountRepoTestName, model.AccountTypeBank, 1000.0, userID, "USD", nil, false, createdAt, updatedAt,
+		accountID, defaultAccountRepoTestName, model.AccountTypeBank, 1000.0, userID, "USD", nil, nil, createdAt, updatedAt,
 	)
 
-	mock.ExpectQuery(`SELECT (.+) FROM accounts WHERE is_deleted = false AND id = \$1 LIMIT 1`).
+	mock.ExpectQuery(`SELECT (.+) FROM accounts WHERE deleted_at IS NULL AND id = \$1 LIMIT 1`).
 		WithArgs(accountID).
 		WillReturnRows(rows)
 
@@ -127,7 +125,7 @@ func TestAccountRepositoryFindUnique(t *testing.T) {
 }
 
 func TestAccountRepositoryFindUniqueNotFound(t *testing.T) {
-	db, mock, repo := setupMockDB(t)
+	db, mock, repo := setupAccountRepository(t)
 	defer db.Close()
 
 	ctx := context.Background()
@@ -137,7 +135,7 @@ func TestAccountRepositoryFindUniqueNotFound(t *testing.T) {
 		},
 	}
 
-	mock.ExpectQuery(`SELECT (.+) FROM accounts WHERE is_deleted = false AND id = \$1 LIMIT 1`).
+	mock.ExpectQuery(`SELECT (.+) FROM accounts WHERE deleted_at IS NULL AND id = \$1 LIMIT 1`).
 		WithArgs(sqlmock.AnyArg()).
 		WillReturnError(sql.ErrNoRows)
 
@@ -149,7 +147,7 @@ func TestAccountRepositoryFindUniqueNotFound(t *testing.T) {
 }
 
 func TestAccountRepositoryFindMany(t *testing.T) {
-	db, mock, repo := setupMockDB(t)
+	db, mock, repo := setupAccountRepository(t)
 	defer db.Close()
 
 	ctx := context.Background()
@@ -164,14 +162,14 @@ func TestAccountRepositoryFindMany(t *testing.T) {
 	}
 
 	rows := sqlmock.NewRows([]string{
-		"id", "name", "type", "balance", "user_id", "currency", "notes", "is_deleted", "created_at", "updated_at",
+		"id", "name", "type", "balance", "user_id", "currency", "notes", "deleted_at", "created_at", "updated_at",
 	}).AddRow(
-		uuid.New(), defaultAccountRepoAccountName, model.AccountTypeBank, 1000.0, userID, "USD", nil, false, time.Now(), time.Now(),
+		uuid.New(), defaultAccountRepoAccountName, model.AccountTypeBank, 1000.0, userID, "USD", nil, nil, time.Now(), time.Now(),
 	).AddRow(
-		uuid.New(), "Account 2", model.AccountTypeCash, 500.0, userID, "EUR", nil, false, time.Now(), time.Now(),
+		uuid.New(), "Account 2", model.AccountTypeCash, 500.0, userID, "EUR", nil, nil, time.Now(), time.Now(),
 	)
 
-	mock.ExpectQuery(`SELECT (.+) FROM accounts WHERE is_deleted = false AND user_id = \$1 ORDER BY created_at DESC LIMIT \$2`).
+	mock.ExpectQuery(`SELECT (.+) FROM accounts WHERE deleted_at IS NULL AND user_id = \$1 ORDER BY created_at DESC LIMIT \$2`).
 		WithArgs(userID, 10).
 		WillReturnRows(rows)
 
@@ -185,7 +183,7 @@ func TestAccountRepositoryFindMany(t *testing.T) {
 }
 
 func TestAccountRepositoryFindManyWithSearch(t *testing.T) {
-	db, mock, repo := setupMockDB(t)
+	db, mock, repo := setupAccountRepository(t)
 	defer db.Close()
 
 	ctx := context.Background()
@@ -199,10 +197,10 @@ func TestAccountRepositoryFindManyWithSearch(t *testing.T) {
 	}
 
 	rows := sqlmock.NewRows([]string{
-		"id", "name", "type", "balance", "user_id", "currency", "notes", "is_deleted", "created_at", "updated_at",
+		"id", "name", "type", "balance", "user_id", "currency", "notes", "deleted_at", "created_at", "updated_at",
 	})
 
-	mock.ExpectQuery(`SELECT (.+) FROM accounts WHERE is_deleted = false AND user_id = \$1 AND \(LOWER\(name\) LIKE LOWER\(\$2\) OR LOWER\(COALESCE\(notes, ''\)\) LIKE LOWER\(\$2\)\) ORDER BY created_at DESC`).
+	mock.ExpectQuery(`SELECT (.+) FROM accounts WHERE deleted_at IS NULL AND user_id = \$1 AND \(LOWER.+\) ORDER BY created_at DESC`).
 		WithArgs(userID, "%test%").
 		WillReturnRows(rows)
 
@@ -214,7 +212,7 @@ func TestAccountRepositoryFindManyWithSearch(t *testing.T) {
 }
 
 func TestAccountRepositoryCount(t *testing.T) {
-	db, mock, repo := setupMockDB(t)
+	db, mock, repo := setupAccountRepository(t)
 	defer db.Close()
 
 	ctx := context.Background()
@@ -226,7 +224,7 @@ func TestAccountRepositoryCount(t *testing.T) {
 
 	rows := sqlmock.NewRows([]string{"count"}).AddRow(5)
 
-	mock.ExpectQuery(`SELECT COUNT\(\*\) FROM accounts WHERE is_deleted = false AND user_id = \$1`).
+	mock.ExpectQuery(`SELECT COUNT\(\*\) FROM accounts WHERE deleted_at IS NULL AND user_id = \$1`).
 		WithArgs(userID).
 		WillReturnRows(rows)
 
@@ -238,7 +236,7 @@ func TestAccountRepositoryCount(t *testing.T) {
 }
 
 func TestAccountRepositoryUpdate(t *testing.T) {
-	db, mock, repo := setupMockDB(t)
+	db, mock, repo := setupAccountRepository(t)
 	defer db.Close()
 
 	ctx := context.Background()
@@ -251,9 +249,9 @@ func TestAccountRepositoryUpdate(t *testing.T) {
 		Notes:    nil,
 	}
 
-	mock.ExpectExec(`UPDATE accounts SET name = \$2, type = \$3, balance = \$4, currency = \$5, notes = \$6, is_deleted = \$7, updated_at = \$8 WHERE id = \$1`).
+	mock.ExpectExec(`UPDATE accounts SET name = \$2, type = \$3, balance = \$4, currency = \$5, notes = \$6, deleted_at = \$7, updated_at = \$8 WHERE id = \$1`).
 		WithArgs(account.ID, account.Name, account.Type, account.Balance,
-			account.Currency, account.Notes, account.IsDeleted, sqlmock.AnyArg()).
+			account.Currency, account.Notes, account.DeletedAt, sqlmock.AnyArg()).
 		WillReturnResult(sqlmock.NewResult(1, 1))
 
 	err := repo.Update(ctx, account)
@@ -264,7 +262,7 @@ func TestAccountRepositoryUpdate(t *testing.T) {
 }
 
 func TestAccountRepositoryGetTypeAggregations(t *testing.T) {
-	db, mock, repo := setupMockDB(t)
+	db, mock, repo := setupAccountRepository(t)
 	defer db.Close()
 
 	ctx := context.Background()
@@ -282,7 +280,7 @@ func TestAccountRepositoryGetTypeAggregations(t *testing.T) {
 		"CASH", 1, 100.0, 100.0, 100.0, 100.0,
 	)
 
-	mock.ExpectQuery(`SELECT type as key, COUNT\(\*\) as count, COALESCE\(MIN\(balance\), 0\) as min_balance, COALESCE\(MAX\(balance\), 0\) as max_balance, COALESCE\(AVG\(balance\), 0\) as avg_balance, COALESCE\(SUM\(balance\), 0\) as sum_balance FROM accounts WHERE is_deleted = false AND user_id = \$1 GROUP BY type ORDER BY type`).
+	mock.ExpectQuery(`SELECT type as key, COUNT\(\*\) as count, COALESCE\(MIN\(balance\), 0\) as min_balance, COALESCE\(MAX\(balance\), 0\) as max_balance, COALESCE\(AVG\(balance\), 0\) as avg_balance, COALESCE\(SUM\(balance\), 0\) as sum_balance FROM accounts WHERE deleted_at IS NULL AND user_id = \$1 GROUP BY type ORDER BY type`).
 		WithArgs(userID).
 		WillReturnRows(rows)
 
@@ -306,7 +304,7 @@ func TestAccountRepositoryGetTypeAggregations(t *testing.T) {
 }
 
 func TestAccountRepositoryGetCurrencyAggregations(t *testing.T) {
-	db, mock, repo := setupMockDB(t)
+	db, mock, repo := setupAccountRepository(t)
 	defer db.Close()
 
 	ctx := context.Background()
@@ -324,7 +322,7 @@ func TestAccountRepositoryGetCurrencyAggregations(t *testing.T) {
 		"EUR", 1, 500.0, 500.0, 500.0, 500.0,
 	)
 
-	mock.ExpectQuery(`SELECT currency as key, COUNT\(\*\) as count, COALESCE\(MIN\(balance\), 0\) as min_balance, COALESCE\(MAX\(balance\), 0\) as max_balance, COALESCE\(AVG\(balance\), 0\) as avg_balance, COALESCE\(SUM\(balance\), 0\) as sum_balance FROM accounts WHERE is_deleted = false AND user_id = \$1 GROUP BY currency ORDER BY currency`).
+	mock.ExpectQuery(`SELECT currency as key, COUNT\(\*\) as count, COALESCE\(MIN\(balance\), 0\) as min_balance, COALESCE\(MAX\(balance\), 0\) as max_balance, COALESCE\(AVG\(balance\), 0\) as avg_balance, COALESCE\(SUM\(balance\), 0\) as sum_balance FROM accounts WHERE deleted_at IS NULL AND user_id = \$1 GROUP BY currency ORDER BY currency`).
 		WithArgs(userID).
 		WillReturnRows(rows)
 
@@ -347,7 +345,7 @@ func TestAccountRepositoryGetCurrencyAggregations(t *testing.T) {
 	assert.NoError(t, mock.ExpectationsWereMet())
 }
 func TestAccountRepositoryFindManyWithMultipleFilters(t *testing.T) {
-	db, mock, repo := setupMockDB(t)
+	db, mock, repo := setupAccountRepository(t)
 	defer db.Close()
 
 	ctx := context.Background()
@@ -362,10 +360,10 @@ func TestAccountRepositoryFindManyWithMultipleFilters(t *testing.T) {
 	}
 
 	rows := sqlmock.NewRows([]string{
-		"id", "name", "type", "balance", "user_id", "currency", "notes", "is_deleted", "created_at", "updated_at",
+		"id", "name", "type", "balance", "user_id", "currency", "notes", "deleted_at", "created_at", "updated_at",
 	})
 
-	mock.ExpectQuery(`SELECT (.+) FROM accounts WHERE is_deleted = false AND user_id = \$1 AND type IN \(\$2,\$3\) ORDER BY created_at DESC OFFSET \$4`).
+	mock.ExpectQuery(`SELECT (.+) FROM accounts WHERE deleted_at IS NULL AND user_id = \$1 AND type IN \(\$2,\$3\) ORDER BY created_at DESC OFFSET \$4`).
 		WithArgs(userID, "BANK", "CASH", 10).
 		WillReturnRows(rows)
 
@@ -377,7 +375,7 @@ func TestAccountRepositoryFindManyWithMultipleFilters(t *testing.T) {
 }
 
 func TestAccountRepositoryCountWithTypeFilter(t *testing.T) {
-	db, mock, repo := setupMockDB(t)
+	db, mock, repo := setupAccountRepository(t)
 	defer db.Close()
 
 	ctx := context.Background()
@@ -390,7 +388,7 @@ func TestAccountRepositoryCountWithTypeFilter(t *testing.T) {
 
 	rows := sqlmock.NewRows([]string{"count"}).AddRow(2)
 
-	mock.ExpectQuery(`SELECT COUNT\(\*\) FROM accounts WHERE is_deleted = false AND user_id = \$1 AND type IN \(\$2\)`).
+	mock.ExpectQuery(`SELECT COUNT\(\*\) FROM accounts WHERE deleted_at IS NULL AND user_id = \$1 AND type IN \(\$2\)`).
 		WithArgs(userID, "BANK").
 		WillReturnRows(rows)
 
@@ -401,7 +399,7 @@ func TestAccountRepositoryCountWithTypeFilter(t *testing.T) {
 	assert.NoError(t, mock.ExpectationsWereMet())
 }
 func TestAccountRepositoryFindUniqueDatabaseError(t *testing.T) {
-	db, mock, repo := setupMockDB(t)
+	db, mock, repo := setupAccountRepository(t)
 	defer db.Close()
 
 	ctx := context.Background()
@@ -411,7 +409,7 @@ func TestAccountRepositoryFindUniqueDatabaseError(t *testing.T) {
 		},
 	}
 
-	mock.ExpectQuery(`SELECT (.+) FROM accounts WHERE is_deleted = false AND id = \$1 LIMIT 1`).
+	mock.ExpectQuery(`SELECT (.+) FROM accounts WHERE deleted_at IS NULL AND id = \$1 LIMIT 1`).
 		WithArgs(sqlmock.AnyArg()).
 		WillReturnError(fmt.Errorf("database connection error"))
 
@@ -424,7 +422,7 @@ func TestAccountRepositoryFindUniqueDatabaseError(t *testing.T) {
 }
 
 func TestAccountRepositoryFindManyDatabaseError(t *testing.T) {
-	db, mock, repo := setupMockDB(t)
+	db, mock, repo := setupAccountRepository(t)
 	defer db.Close()
 
 	ctx := context.Background()
@@ -434,7 +432,7 @@ func TestAccountRepositoryFindManyDatabaseError(t *testing.T) {
 		},
 	}
 
-	mock.ExpectQuery(`SELECT (.+) FROM accounts WHERE is_deleted = false AND user_id = \$1 ORDER BY created_at DESC`).
+	mock.ExpectQuery(`SELECT (.+) FROM accounts WHERE deleted_at IS NULL AND user_id = \$1 ORDER BY created_at DESC`).
 		WithArgs(sqlmock.AnyArg()).
 		WillReturnError(fmt.Errorf("database error"))
 
@@ -446,7 +444,7 @@ func TestAccountRepositoryFindManyDatabaseError(t *testing.T) {
 }
 
 func TestAccountRepositoryCountDatabaseError(t *testing.T) {
-	db, mock, repo := setupMockDB(t)
+	db, mock, repo := setupAccountRepository(t)
 	defer db.Close()
 
 	ctx := context.Background()
@@ -454,7 +452,7 @@ func TestAccountRepositoryCountDatabaseError(t *testing.T) {
 		"user_id": uuid.New(),
 	}
 
-	mock.ExpectQuery(`SELECT COUNT\(\*\) FROM accounts WHERE is_deleted = false AND user_id = \$1`).
+	mock.ExpectQuery(`SELECT COUNT\(\*\) FROM accounts WHERE deleted_at IS NULL AND user_id = \$1`).
 		WithArgs(sqlmock.AnyArg()).
 		WillReturnError(fmt.Errorf("count error"))
 
@@ -466,7 +464,7 @@ func TestAccountRepositoryCountDatabaseError(t *testing.T) {
 }
 
 func TestAccountRepositoryCreateDatabaseError(t *testing.T) {
-	db, mock, repo := setupMockDB(t)
+	db, mock, repo := setupAccountRepository(t)
 	defer db.Close()
 
 	ctx := context.Background()
@@ -493,7 +491,7 @@ func TestAccountRepositoryCreateDatabaseError(t *testing.T) {
 }
 
 func TestAccountRepositoryUpdateDatabaseError(t *testing.T) {
-	db, mock, repo := setupMockDB(t)
+	db, mock, repo := setupAccountRepository(t)
 	defer db.Close()
 
 	ctx := context.Background()
@@ -505,7 +503,7 @@ func TestAccountRepositoryUpdateDatabaseError(t *testing.T) {
 		Currency: "EUR",
 	}
 
-	mock.ExpectExec(`UPDATE accounts SET name = \$2, type = \$3, balance = \$4, currency = \$5, notes = \$6, is_deleted = \$7, updated_at = \$8 WHERE id = \$1`).
+	mock.ExpectExec(`UPDATE accounts SET name = \$2, type = \$3, balance = \$4, currency = \$5, notes = \$6, deleted_at = \$7, updated_at = \$8 WHERE id = \$1`).
 		WithArgs(sqlmock.AnyArg(), sqlmock.AnyArg(), sqlmock.AnyArg(), sqlmock.AnyArg(),
 			sqlmock.AnyArg(), sqlmock.AnyArg(), sqlmock.AnyArg(), sqlmock.AnyArg()).
 		WillReturnError(fmt.Errorf("update error"))
@@ -518,7 +516,7 @@ func TestAccountRepositoryUpdateDatabaseError(t *testing.T) {
 }
 
 func TestAccountRepositoryGetTypeAggregationsDatabaseError(t *testing.T) {
-	db, mock, repo := setupMockDB(t)
+	db, mock, repo := setupAccountRepository(t)
 	defer db.Close()
 
 	ctx := context.Background()
@@ -526,7 +524,7 @@ func TestAccountRepositoryGetTypeAggregationsDatabaseError(t *testing.T) {
 		"user_id": uuid.New(),
 	}
 
-	mock.ExpectQuery(`SELECT type as key, COUNT\(\*\) as count, COALESCE\(MIN\(balance\), 0\) as min_balance, COALESCE\(MAX\(balance\), 0\) as max_balance, COALESCE\(AVG\(balance\), 0\) as avg_balance, COALESCE\(SUM\(balance\), 0\) as sum_balance FROM accounts WHERE is_deleted = false AND user_id = \$1 GROUP BY type ORDER BY type`).
+	mock.ExpectQuery(`SELECT type as key, COUNT\(\*\) as count, COALESCE\(MIN\(balance\), 0\) as min_balance, COALESCE\(MAX\(balance\), 0\) as max_balance, COALESCE\(AVG\(balance\), 0\) as avg_balance, COALESCE\(SUM\(balance\), 0\) as sum_balance FROM accounts WHERE deleted_at IS NULL AND user_id = \$1 GROUP BY type ORDER BY type`).
 		WithArgs(sqlmock.AnyArg()).
 		WillReturnError(fmt.Errorf("aggregation error"))
 
@@ -539,7 +537,7 @@ func TestAccountRepositoryGetTypeAggregationsDatabaseError(t *testing.T) {
 }
 
 func TestAccountRepositoryGetCurrencyAggregationsDatabaseError(t *testing.T) {
-	db, mock, repo := setupMockDB(t)
+	db, mock, repo := setupAccountRepository(t)
 	defer db.Close()
 
 	ctx := context.Background()
@@ -547,7 +545,7 @@ func TestAccountRepositoryGetCurrencyAggregationsDatabaseError(t *testing.T) {
 		"user_id": uuid.New(),
 	}
 
-	mock.ExpectQuery(`SELECT currency as key, COUNT\(\*\) as count, COALESCE\(MIN\(balance\), 0\) as min_balance, COALESCE\(MAX\(balance\), 0\) as max_balance, COALESCE\(AVG\(balance\), 0\) as avg_balance, COALESCE\(SUM\(balance\), 0\) as sum_balance FROM accounts WHERE is_deleted = false AND user_id = \$1 GROUP BY currency ORDER BY currency`).
+	mock.ExpectQuery(`SELECT currency as key, COUNT\(\*\) as count, COALESCE\(MIN\(balance\), 0\) as min_balance, COALESCE\(MAX\(balance\), 0\) as max_balance, COALESCE\(AVG\(balance\), 0\) as avg_balance, COALESCE\(SUM\(balance\), 0\) as sum_balance FROM accounts WHERE deleted_at IS NULL AND user_id = \$1 GROUP BY currency ORDER BY currency`).
 		WithArgs(sqlmock.AnyArg()).
 		WillReturnError(fmt.Errorf("currency aggregation error"))
 
@@ -560,7 +558,7 @@ func TestAccountRepositoryGetCurrencyAggregationsDatabaseError(t *testing.T) {
 }
 
 func TestAccountRepositoryFindManyWithCustomOrderBy(t *testing.T) {
-	db, mock, repo := setupMockDB(t)
+	db, mock, repo := setupAccountRepository(t)
 	defer db.Close()
 
 	ctx := context.Background()
@@ -574,10 +572,10 @@ func TestAccountRepositoryFindManyWithCustomOrderBy(t *testing.T) {
 	}
 
 	rows := sqlmock.NewRows([]string{
-		"id", "name", "type", "balance", "user_id", "currency", "notes", "is_deleted", "created_at", "updated_at",
+		"id", "name", "type", "balance", "user_id", "currency", "notes", "deleted_at", "created_at", "updated_at",
 	})
 
-	mock.ExpectQuery(`SELECT (.+) FROM accounts WHERE is_deleted = false AND user_id = \$1 ORDER BY name ASC`).
+	mock.ExpectQuery(`SELECT (.+) FROM accounts WHERE deleted_at IS NULL AND user_id = \$1 ORDER BY name ASC`).
 		WithArgs(userID).
 		WillReturnRows(rows)
 
@@ -589,7 +587,7 @@ func TestAccountRepositoryFindManyWithCustomOrderBy(t *testing.T) {
 }
 
 func TestAccountRepositoryFindManyEmptyWhere(t *testing.T) {
-	db, mock, repo := setupMockDB(t)
+	db, mock, repo := setupAccountRepository(t)
 	defer db.Close()
 
 	ctx := context.Background()
@@ -599,10 +597,10 @@ func TestAccountRepositoryFindManyEmptyWhere(t *testing.T) {
 	}
 
 	rows := sqlmock.NewRows([]string{
-		"id", "name", "type", "balance", "user_id", "currency", "notes", "is_deleted", "created_at", "updated_at",
+		"id", "name", "type", "balance", "user_id", "currency", "notes", "deleted_at", "created_at", "updated_at",
 	})
 
-	mock.ExpectQuery(`SELECT (.+) FROM accounts WHERE is_deleted = false ORDER BY created_at DESC`).
+	mock.ExpectQuery(`SELECT (.+) FROM accounts WHERE deleted_at IS NULL ORDER BY created_at DESC`).
 		WillReturnRows(rows)
 
 	accounts, err := repo.FindMany(ctx, params)
@@ -612,7 +610,7 @@ func TestAccountRepositoryFindManyEmptyWhere(t *testing.T) {
 	assert.NoError(t, mock.ExpectationsWereMet())
 }
 func TestAccountRepositoryFindManyRowsScanError(t *testing.T) {
-	db, mock, repo := setupMockDB(t)
+	db, mock, repo := setupAccountRepository(t)
 	defer db.Close()
 
 	ctx := context.Background()
@@ -626,12 +624,12 @@ func TestAccountRepositoryFindManyRowsScanError(t *testing.T) {
 
 	// Create rows with invalid data that will cause scan error
 	rows := sqlmock.NewRows([]string{
-		"id", "name", "type", "balance", "user_id", "currency", "notes", "is_deleted", "created_at", "updated_at",
+		"id", "name", "type", "balance", "user_id", "currency", "notes", "deleted_at", "created_at", "updated_at",
 	}).AddRow(
-		"invalid-uuid", defaultAccountRepoAccountName, model.AccountTypeBank, 1000.0, userID, "USD", nil, false, time.Now(), time.Now(),
+		"invalid-uuid", defaultAccountRepoAccountName, model.AccountTypeBank, 1000.0, userID, "USD", nil, nil, time.Now(), time.Now(),
 	)
 
-	mock.ExpectQuery(`SELECT (.+) FROM accounts WHERE is_deleted = false AND user_id = \$1 ORDER BY created_at DESC`).
+	mock.ExpectQuery(`SELECT (.+) FROM accounts WHERE deleted_at IS NULL AND user_id = \$1 ORDER BY created_at DESC`).
 		WithArgs(userID).
 		WillReturnRows(rows)
 
@@ -643,7 +641,7 @@ func TestAccountRepositoryFindManyRowsScanError(t *testing.T) {
 }
 
 func TestAccountRepositoryGetTypeAggregationsScanError(t *testing.T) {
-	db, mock, repo := setupMockDB(t)
+	db, mock, repo := setupAccountRepository(t)
 	defer db.Close()
 
 	ctx := context.Background()
@@ -660,7 +658,7 @@ func TestAccountRepositoryGetTypeAggregationsScanError(t *testing.T) {
 		"BANK", "invalid-count", 500.0, 1500.0, 1000.0, 2000.0,
 	)
 
-	mock.ExpectQuery(`SELECT type as key, COUNT\(\*\) as count, COALESCE\(MIN\(balance\), 0\) as min_balance, COALESCE\(MAX\(balance\), 0\) as max_balance, COALESCE\(AVG\(balance\), 0\) as avg_balance, COALESCE\(SUM\(balance\), 0\) as sum_balance FROM accounts WHERE is_deleted = false AND user_id = \$1 GROUP BY type ORDER BY type`).
+	mock.ExpectQuery(`SELECT type as key, COUNT\(\*\) as count, COALESCE\(MIN\(balance\), 0\) as min_balance, COALESCE\(MAX\(balance\), 0\) as max_balance, COALESCE\(AVG\(balance\), 0\) as avg_balance, COALESCE\(SUM\(balance\), 0\) as sum_balance FROM accounts WHERE deleted_at IS NULL AND user_id = \$1 GROUP BY type ORDER BY type`).
 		WithArgs(userID).
 		WillReturnRows(rows)
 
@@ -673,7 +671,7 @@ func TestAccountRepositoryGetTypeAggregationsScanError(t *testing.T) {
 }
 
 func TestAccountRepositoryGetCurrencyAggregationsScanError(t *testing.T) {
-	db, mock, repo := setupMockDB(t)
+	db, mock, repo := setupAccountRepository(t)
 	defer db.Close()
 
 	ctx := context.Background()
@@ -690,7 +688,7 @@ func TestAccountRepositoryGetCurrencyAggregationsScanError(t *testing.T) {
 		"USD", "invalid-count", 100.0, 2000.0, 1000.0, 3000.0,
 	)
 
-	mock.ExpectQuery(`SELECT currency as key, COUNT\(\*\) as count, COALESCE\(MIN\(balance\), 0\) as min_balance, COALESCE\(MAX\(balance\), 0\) as max_balance, COALESCE\(AVG\(balance\), 0\) as avg_balance, COALESCE\(SUM\(balance\), 0\) as sum_balance FROM accounts WHERE is_deleted = false AND user_id = \$1 GROUP BY currency ORDER BY currency`).
+	mock.ExpectQuery(`SELECT currency as key, COUNT\(\*\) as count, COALESCE\(MIN\(balance\), 0\) as min_balance, COALESCE\(MAX\(balance\), 0\) as max_balance, COALESCE\(AVG\(balance\), 0\) as avg_balance, COALESCE\(SUM\(balance\), 0\) as sum_balance FROM accounts WHERE deleted_at IS NULL AND user_id = \$1 GROUP BY currency ORDER BY currency`).
 		WithArgs(userID).
 		WillReturnRows(rows)
 
@@ -703,7 +701,7 @@ func TestAccountRepositoryGetCurrencyAggregationsScanError(t *testing.T) {
 }
 
 func TestAccountRepositoryGetTypeAggregationsRowsError(t *testing.T) {
-	db, mock, repo := setupMockDB(t)
+	db, mock, repo := setupAccountRepository(t)
 	defer db.Close()
 
 	ctx := context.Background()
@@ -719,7 +717,7 @@ func TestAccountRepositoryGetTypeAggregationsRowsError(t *testing.T) {
 		"BANK", 2, 500.0, 1500.0, 1000.0, 2000.0,
 	).RowError(0, fmt.Errorf(rowsIterationErrorText))
 
-	mock.ExpectQuery(`SELECT type as key, COUNT\(\*\) as count, COALESCE\(MIN\(balance\), 0\) as min_balance, COALESCE\(MAX\(balance\), 0\) as max_balance, COALESCE\(AVG\(balance\), 0\) as avg_balance, COALESCE\(SUM\(balance\), 0\) as sum_balance FROM accounts WHERE is_deleted = false AND user_id = \$1 GROUP BY type ORDER BY type`).
+	mock.ExpectQuery(`SELECT type as key, COUNT\(\*\) as count, COALESCE\(MIN\(balance\), 0\) as min_balance, COALESCE\(MAX\(balance\), 0\) as max_balance, COALESCE\(AVG\(balance\), 0\) as avg_balance, COALESCE\(SUM\(balance\), 0\) as sum_balance FROM accounts WHERE deleted_at IS NULL AND user_id = \$1 GROUP BY type ORDER BY type`).
 		WithArgs(userID).
 		WillReturnRows(rows)
 
@@ -732,7 +730,7 @@ func TestAccountRepositoryGetTypeAggregationsRowsError(t *testing.T) {
 }
 
 func TestAccountRepositoryGetCurrencyAggregationsRowsError(t *testing.T) {
-	db, mock, repo := setupMockDB(t)
+	db, mock, repo := setupAccountRepository(t)
 	defer db.Close()
 
 	ctx := context.Background()
@@ -748,7 +746,7 @@ func TestAccountRepositoryGetCurrencyAggregationsRowsError(t *testing.T) {
 		"USD", 3, 100.0, 2000.0, 1000.0, 3000.0,
 	).RowError(0, fmt.Errorf(rowsIterationErrorText))
 
-	mock.ExpectQuery(`SELECT currency as key, COUNT\(\*\) as count, COALESCE\(MIN\(balance\), 0\) as min_balance, COALESCE\(MAX\(balance\), 0\) as max_balance, COALESCE\(AVG\(balance\), 0\) as avg_balance, COALESCE\(SUM\(balance\), 0\) as sum_balance FROM accounts WHERE is_deleted = false AND user_id = \$1 GROUP BY currency ORDER BY currency`).
+	mock.ExpectQuery(`SELECT currency as key, COUNT\(\*\) as count, COALESCE\(MIN\(balance\), 0\) as min_balance, COALESCE\(MAX\(balance\), 0\) as max_balance, COALESCE\(AVG\(balance\), 0\) as avg_balance, COALESCE\(SUM\(balance\), 0\) as sum_balance FROM accounts WHERE deleted_at IS NULL AND user_id = \$1 GROUP BY currency ORDER BY currency`).
 		WithArgs(userID).
 		WillReturnRows(rows)
 
@@ -761,7 +759,7 @@ func TestAccountRepositoryGetCurrencyAggregationsRowsError(t *testing.T) {
 }
 
 func TestAccountRepositoryFindManyRowsError(t *testing.T) {
-	db, mock, repo := setupMockDB(t)
+	db, mock, repo := setupAccountRepository(t)
 	defer db.Close()
 
 	ctx := context.Background()
@@ -774,12 +772,12 @@ func TestAccountRepositoryFindManyRowsError(t *testing.T) {
 	}
 
 	rows := sqlmock.NewRows([]string{
-		"id", "name", "type", "balance", "user_id", "currency", "notes", "is_deleted", "created_at", "updated_at",
+		"id", "name", "type", "balance", "user_id", "currency", "notes", "deleted_at", "created_at", "updated_at",
 	}).AddRow(
-		uuid.New(), defaultAccountRepoAccountName, model.AccountTypeBank, 1000.0, userID, "USD", nil, false, time.Now(), time.Now(),
+		uuid.New(), defaultAccountRepoAccountName, model.AccountTypeBank, 1000.0, userID, "USD", nil, nil, time.Now(), time.Now(),
 	).RowError(0, fmt.Errorf(rowsIterationErrorText))
 
-	mock.ExpectQuery(`SELECT (.+) FROM accounts WHERE is_deleted = false AND user_id = \$1 ORDER BY created_at DESC`).
+	mock.ExpectQuery(`SELECT (.+) FROM accounts WHERE deleted_at IS NULL AND user_id = \$1 ORDER BY created_at DESC`).
 		WithArgs(userID).
 		WillReturnRows(rows)
 
@@ -791,7 +789,7 @@ func TestAccountRepositoryFindManyRowsError(t *testing.T) {
 }
 
 func TestAccountRepositoryCountWithSearchFilter(t *testing.T) {
-	db, mock, repo := setupMockDB(t)
+	db, mock, repo := setupAccountRepository(t)
 	defer db.Close()
 
 	ctx := context.Background()
@@ -804,7 +802,7 @@ func TestAccountRepositoryCountWithSearchFilter(t *testing.T) {
 
 	rows := sqlmock.NewRows([]string{"count"}).AddRow(2)
 
-	mock.ExpectQuery(`SELECT COUNT\(\*\) FROM accounts WHERE is_deleted = false AND user_id = \$1 AND \(LOWER\(name\) LIKE LOWER\(\$2\) OR LOWER\(COALESCE\(notes, ''\)\) LIKE LOWER\(\$2\)\)`).
+	mock.ExpectQuery(`SELECT COUNT\(\*\) FROM accounts WHERE deleted_at IS NULL AND user_id = \$1 AND \(LOWER.+\)`).
 		WithArgs(userID, "%savings%").
 		WillReturnRows(rows)
 
@@ -816,7 +814,7 @@ func TestAccountRepositoryCountWithSearchFilter(t *testing.T) {
 }
 
 func TestAccountRepositoryCountEmptyWhere(t *testing.T) {
-	db, mock, repo := setupMockDB(t)
+	db, mock, repo := setupAccountRepository(t)
 	defer db.Close()
 
 	ctx := context.Background()
@@ -825,7 +823,7 @@ func TestAccountRepositoryCountEmptyWhere(t *testing.T) {
 
 	rows := sqlmock.NewRows([]string{"count"}).AddRow(10)
 
-	mock.ExpectQuery(`SELECT COUNT\(\*\) FROM accounts WHERE is_deleted = false`).
+	mock.ExpectQuery(`SELECT COUNT\(\*\) FROM accounts WHERE deleted_at IS NULL`).
 		WillReturnRows(rows)
 
 	count, err := repo.Count(ctx, where)
@@ -836,7 +834,7 @@ func TestAccountRepositoryCountEmptyWhere(t *testing.T) {
 }
 
 func TestAccountRepositoryFindManyWithLimitAndOffset(t *testing.T) {
-	db, mock, repo := setupMockDB(t)
+	db, mock, repo := setupAccountRepository(t)
 	defer db.Close()
 
 	ctx := context.Background()
@@ -851,10 +849,10 @@ func TestAccountRepositoryFindManyWithLimitAndOffset(t *testing.T) {
 	}
 
 	rows := sqlmock.NewRows([]string{
-		"id", "name", "type", "balance", "user_id", "currency", "notes", "is_deleted", "created_at", "updated_at",
+		"id", "name", "type", "balance", "user_id", "currency", "notes", "deleted_at", "created_at", "updated_at",
 	})
 
-	mock.ExpectQuery(`SELECT (.+) FROM accounts WHERE is_deleted = false AND user_id = \$1 ORDER BY created_at DESC OFFSET \$2 LIMIT \$3`).
+	mock.ExpectQuery(`SELECT (.+) FROM accounts WHERE deleted_at IS NULL AND user_id = \$1 ORDER BY created_at DESC OFFSET \$2 LIMIT \$3`).
 		WithArgs(userID, 10, 5).
 		WillReturnRows(rows)
 
@@ -866,7 +864,7 @@ func TestAccountRepositoryFindManyWithLimitAndOffset(t *testing.T) {
 }
 
 func TestAccountRepositoryFindManyOnlyOffset(t *testing.T) {
-	db, mock, repo := setupMockDB(t)
+	db, mock, repo := setupAccountRepository(t)
 	defer db.Close()
 
 	ctx := context.Background()
@@ -880,10 +878,10 @@ func TestAccountRepositoryFindManyOnlyOffset(t *testing.T) {
 	}
 
 	rows := sqlmock.NewRows([]string{
-		"id", "name", "type", "balance", "user_id", "currency", "notes", "is_deleted", "created_at", "updated_at",
+		"id", "name", "type", "balance", "user_id", "currency", "notes", "deleted_at", "created_at", "updated_at",
 	})
 
-	mock.ExpectQuery(`SELECT (.+) FROM accounts WHERE is_deleted = false AND user_id = \$1 ORDER BY created_at DESC OFFSET \$2`).
+	mock.ExpectQuery(`SELECT (.+) FROM accounts WHERE deleted_at IS NULL AND user_id = \$1 ORDER BY created_at DESC OFFSET \$2`).
 		WithArgs(userID, 5).
 		WillReturnRows(rows)
 
@@ -895,7 +893,7 @@ func TestAccountRepositoryFindManyOnlyOffset(t *testing.T) {
 }
 
 func TestAccountRepositoryFindManyOnlyLimit(t *testing.T) {
-	db, mock, repo := setupMockDB(t)
+	db, mock, repo := setupAccountRepository(t)
 	defer db.Close()
 
 	ctx := context.Background()
@@ -909,10 +907,10 @@ func TestAccountRepositoryFindManyOnlyLimit(t *testing.T) {
 	}
 
 	rows := sqlmock.NewRows([]string{
-		"id", "name", "type", "balance", "user_id", "currency", "notes", "is_deleted", "created_at", "updated_at",
+		"id", "name", "type", "balance", "user_id", "currency", "notes", "deleted_at", "created_at", "updated_at",
 	})
 
-	mock.ExpectQuery(`SELECT (.+) FROM accounts WHERE is_deleted = false AND user_id = \$1 ORDER BY created_at DESC LIMIT \$2`).
+	mock.ExpectQuery(`SELECT (.+) FROM accounts WHERE deleted_at IS NULL AND user_id = \$1 ORDER BY created_at DESC LIMIT \$2`).
 		WithArgs(userID, 3).
 		WillReturnRows(rows)
 
@@ -924,7 +922,7 @@ func TestAccountRepositoryFindManyOnlyLimit(t *testing.T) {
 }
 
 func TestNewAccountRepository(t *testing.T) {
-	db, _, _ := setupMockDB(t)
+	db, _, _ := setupAccountRepository(t)
 	defer db.Close()
 
 	repo := NewAccountRepository(db)
@@ -936,7 +934,7 @@ func TestNewAccountRepository(t *testing.T) {
 // Additional tests to improve coverage for GetTypeAggregations
 
 func TestAccountRepositoryGetTypeAggregationsWithSearch(t *testing.T) {
-	db, mock, repo := setupMockDB(t)
+	db, mock, repo := setupAccountRepository(t)
 	defer db.Close()
 
 	ctx := context.Background()
@@ -953,7 +951,7 @@ func TestAccountRepositoryGetTypeAggregationsWithSearch(t *testing.T) {
 		"BANK", 1, 1000.0, 1000.0, 1000.0, 1000.0,
 	)
 
-	mock.ExpectQuery(`SELECT type as key, COUNT\(\*\) as count, COALESCE\(MIN\(balance\), 0\) as min_balance, COALESCE\(MAX\(balance\), 0\) as max_balance, COALESCE\(AVG\(balance\), 0\) as avg_balance, COALESCE\(SUM\(balance\), 0\) as sum_balance FROM accounts WHERE is_deleted = false AND user_id = \$1 AND \(LOWER\(name\) LIKE LOWER\(\$2\) OR LOWER\(COALESCE\(notes, ''\)\) LIKE LOWER\(\$2\)\) GROUP BY type ORDER BY type`).
+	mock.ExpectQuery(`SELECT type as key, COUNT\(\*\) as count, COALESCE\(MIN\(balance\), 0\) as min_balance, COALESCE\(MAX\(balance\), 0\) as max_balance, COALESCE\(AVG\(balance\), 0\) as avg_balance, COALESCE\(SUM\(balance\), 0\) as sum_balance FROM accounts WHERE deleted_at IS NULL AND user_id = \$1 AND \(LOWER.+\) GROUP BY type ORDER BY type`).
 		WithArgs(userID, "%savings%").
 		WillReturnRows(rows)
 
@@ -966,7 +964,7 @@ func TestAccountRepositoryGetTypeAggregationsWithSearch(t *testing.T) {
 }
 
 func TestAccountRepositoryGetTypeAggregationsWithSliceFilter(t *testing.T) {
-	db, mock, repo := setupMockDB(t)
+	db, mock, repo := setupAccountRepository(t)
 	defer db.Close()
 
 	ctx := context.Background()
@@ -983,7 +981,7 @@ func TestAccountRepositoryGetTypeAggregationsWithSliceFilter(t *testing.T) {
 		"BANK", 2, 500.0, 1500.0, 1000.0, 2000.0,
 	)
 
-	mock.ExpectQuery(`SELECT type as key, COUNT\(\*\) as count, COALESCE\(MIN\(balance\), 0\) as min_balance, COALESCE\(MAX\(balance\), 0\) as max_balance, COALESCE\(AVG\(balance\), 0\) as avg_balance, COALESCE\(SUM\(balance\), 0\) as sum_balance FROM accounts WHERE is_deleted = false AND user_id = \$1 AND currency IN \(\$2,\$3\) GROUP BY type ORDER BY type`).
+	mock.ExpectQuery(`SELECT type as key, COUNT\(\*\) as count, COALESCE\(MIN\(balance\), 0\) as min_balance, COALESCE\(MAX\(balance\), 0\) as max_balance, COALESCE\(AVG\(balance\), 0\) as avg_balance, COALESCE\(SUM\(balance\), 0\) as sum_balance FROM accounts WHERE deleted_at IS NULL AND user_id = \$1 AND currency IN \(\$2,\$3\) GROUP BY type ORDER BY type`).
 		WithArgs(userID, "USD", "EUR").
 		WillReturnRows(rows)
 
@@ -996,7 +994,7 @@ func TestAccountRepositoryGetTypeAggregationsWithSliceFilter(t *testing.T) {
 }
 
 func TestAccountRepositoryGetTypeAggregationsEmptyWhere(t *testing.T) {
-	db, mock, repo := setupMockDB(t)
+	db, mock, repo := setupAccountRepository(t)
 	defer db.Close()
 
 	ctx := context.Background()
@@ -1011,7 +1009,7 @@ func TestAccountRepositoryGetTypeAggregationsEmptyWhere(t *testing.T) {
 		"CASH", 2, 50.0, 500.0, 275.0, 550.0,
 	)
 
-	mock.ExpectQuery(`SELECT type as key, COUNT\(\*\) as count, COALESCE\(MIN\(balance\), 0\) as min_balance, COALESCE\(MAX\(balance\), 0\) as max_balance, COALESCE\(AVG\(balance\), 0\) as avg_balance, COALESCE\(SUM\(balance\), 0\) as sum_balance FROM accounts WHERE is_deleted = false GROUP BY type ORDER BY type`).
+	mock.ExpectQuery(`SELECT type as key, COUNT\(\*\) as count, COALESCE\(MIN\(balance\), 0\) as min_balance, COALESCE\(MAX\(balance\), 0\) as max_balance, COALESCE\(AVG\(balance\), 0\) as avg_balance, COALESCE\(SUM\(balance\), 0\) as sum_balance FROM accounts WHERE deleted_at IS NULL GROUP BY type ORDER BY type`).
 		WillReturnRows(rows)
 
 	aggregations, err := repo.GetTypeAggregations(ctx, where)
@@ -1024,7 +1022,7 @@ func TestAccountRepositoryGetTypeAggregationsEmptyWhere(t *testing.T) {
 }
 
 func TestAccountRepositoryGetTypeAggregationsWithTypeFieldSkipped(t *testing.T) {
-	db, mock, repo := setupMockDB(t)
+	db, mock, repo := setupAccountRepository(t)
 	defer db.Close()
 
 	ctx := context.Background()
@@ -1044,7 +1042,7 @@ func TestAccountRepositoryGetTypeAggregationsWithTypeFieldSkipped(t *testing.T) 
 	)
 
 	// Note: type field should be skipped, so only user_id filter should be applied
-	mock.ExpectQuery(`SELECT type as key, COUNT\(\*\) as count, COALESCE\(MIN\(balance\), 0\) as min_balance, COALESCE\(MAX\(balance\), 0\) as max_balance, COALESCE\(AVG\(balance\), 0\) as avg_balance, COALESCE\(SUM\(balance\), 0\) as sum_balance FROM accounts WHERE is_deleted = false AND user_id = \$1 GROUP BY type ORDER BY type`).
+	mock.ExpectQuery(`SELECT type as key, COUNT\(\*\) as count, COALESCE\(MIN\(balance\), 0\) as min_balance, COALESCE\(MAX\(balance\), 0\) as max_balance, COALESCE\(AVG\(balance\), 0\) as avg_balance, COALESCE\(SUM\(balance\), 0\) as sum_balance FROM accounts WHERE deleted_at IS NULL AND user_id = \$1 GROUP BY type ORDER BY type`).
 		WithArgs(userID).
 		WillReturnRows(rows)
 
@@ -1060,7 +1058,7 @@ func TestAccountRepositoryGetTypeAggregationsWithTypeFieldSkipped(t *testing.T) 
 // Additional tests to improve coverage for GetCurrencyAggregations
 
 func TestAccountRepositoryGetCurrencyAggregationsWithSearch(t *testing.T) {
-	db, mock, repo := setupMockDB(t)
+	db, mock, repo := setupAccountRepository(t)
 	defer db.Close()
 
 	ctx := context.Background()
@@ -1077,7 +1075,7 @@ func TestAccountRepositoryGetCurrencyAggregationsWithSearch(t *testing.T) {
 		"USD", 2, 500.0, 1500.0, 1000.0, 2000.0,
 	)
 
-	mock.ExpectQuery(`SELECT currency as key, COUNT\(\*\) as count, COALESCE\(MIN\(balance\), 0\) as min_balance, COALESCE\(MAX\(balance\), 0\) as max_balance, COALESCE\(AVG\(balance\), 0\) as avg_balance, COALESCE\(SUM\(balance\), 0\) as sum_balance FROM accounts WHERE is_deleted = false AND user_id = \$1 AND \(LOWER\(name\) LIKE LOWER\(\$2\) OR LOWER\(COALESCE\(notes, ''\)\) LIKE LOWER\(\$2\)\) GROUP BY currency ORDER BY currency`).
+	mock.ExpectQuery(`SELECT currency as key, COUNT\(\*\) as count, COALESCE\(MIN\(balance\), 0\) as min_balance, COALESCE\(MAX\(balance\), 0\) as max_balance, COALESCE\(AVG\(balance\), 0\) as avg_balance, COALESCE\(SUM\(balance\), 0\) as sum_balance FROM accounts WHERE deleted_at IS NULL AND user_id = \$1 AND \(LOWER.+\) GROUP BY currency ORDER BY currency`).
 		WithArgs(userID, "%checking%").
 		WillReturnRows(rows)
 
@@ -1090,7 +1088,7 @@ func TestAccountRepositoryGetCurrencyAggregationsWithSearch(t *testing.T) {
 }
 
 func TestAccountRepositoryGetCurrencyAggregationsWithSliceFilter(t *testing.T) {
-	db, mock, repo := setupMockDB(t)
+	db, mock, repo := setupAccountRepository(t)
 	defer db.Close()
 
 	ctx := context.Background()
@@ -1109,7 +1107,7 @@ func TestAccountRepositoryGetCurrencyAggregationsWithSliceFilter(t *testing.T) {
 		"EUR", 1, 800.0, 800.0, 800.0, 800.0,
 	)
 
-	mock.ExpectQuery(`SELECT currency as key, COUNT\(\*\) as count, COALESCE\(MIN\(balance\), 0\) as min_balance, COALESCE\(MAX\(balance\), 0\) as max_balance, COALESCE\(AVG\(balance\), 0\) as avg_balance, COALESCE\(SUM\(balance\), 0\) as sum_balance FROM accounts WHERE is_deleted = false AND user_id = \$1 AND type IN \(\$2,\$3\) GROUP BY currency ORDER BY currency`).
+	mock.ExpectQuery(`SELECT currency as key, COUNT\(\*\) as count, COALESCE\(MIN\(balance\), 0\) as min_balance, COALESCE\(MAX\(balance\), 0\) as max_balance, COALESCE\(AVG\(balance\), 0\) as avg_balance, COALESCE\(SUM\(balance\), 0\) as sum_balance FROM accounts WHERE deleted_at IS NULL AND user_id = \$1 AND type IN \(\$2,\$3\) GROUP BY currency ORDER BY currency`).
 		WithArgs(userID, "BANK", "CASH").
 		WillReturnRows(rows)
 
@@ -1123,7 +1121,7 @@ func TestAccountRepositoryGetCurrencyAggregationsWithSliceFilter(t *testing.T) {
 }
 
 func TestAccountRepositoryGetCurrencyAggregationsEmptyWhere(t *testing.T) {
-	db, mock, repo := setupMockDB(t)
+	db, mock, repo := setupAccountRepository(t)
 	defer db.Close()
 
 	ctx := context.Background()
@@ -1138,7 +1136,7 @@ func TestAccountRepositoryGetCurrencyAggregationsEmptyWhere(t *testing.T) {
 		"EUR", 2, 300.0, 1200.0, 750.0, 1500.0,
 	)
 
-	mock.ExpectQuery(`SELECT currency as key, COUNT\(\*\) as count, COALESCE\(MIN\(balance\), 0\) as min_balance, COALESCE\(MAX\(balance\), 0\) as max_balance, COALESCE\(AVG\(balance\), 0\) as avg_balance, COALESCE\(SUM\(balance\), 0\) as sum_balance FROM accounts WHERE is_deleted = false GROUP BY currency ORDER BY currency`).
+	mock.ExpectQuery(`SELECT currency as key, COUNT\(\*\) as count, COALESCE\(MIN\(balance\), 0\) as min_balance, COALESCE\(MAX\(balance\), 0\) as max_balance, COALESCE\(AVG\(balance\), 0\) as avg_balance, COALESCE\(SUM\(balance\), 0\) as sum_balance FROM accounts WHERE deleted_at IS NULL GROUP BY currency ORDER BY currency`).
 		WillReturnRows(rows)
 
 	aggregations, err := repo.GetCurrencyAggregations(ctx, where)
@@ -1151,7 +1149,7 @@ func TestAccountRepositoryGetCurrencyAggregationsEmptyWhere(t *testing.T) {
 }
 
 func TestAccountRepositoryGetCurrencyAggregationsWithCurrencyFieldSkipped(t *testing.T) {
-	db, mock, repo := setupMockDB(t)
+	db, mock, repo := setupAccountRepository(t)
 	defer db.Close()
 
 	ctx := context.Background()
@@ -1171,7 +1169,7 @@ func TestAccountRepositoryGetCurrencyAggregationsWithCurrencyFieldSkipped(t *tes
 	)
 
 	// Note: currency field should be skipped, so only user_id filter should be applied
-	mock.ExpectQuery(`SELECT currency as key, COUNT\(\*\) as count, COALESCE\(MIN\(balance\), 0\) as min_balance, COALESCE\(MAX\(balance\), 0\) as max_balance, COALESCE\(AVG\(balance\), 0\) as avg_balance, COALESCE\(SUM\(balance\), 0\) as sum_balance FROM accounts WHERE is_deleted = false AND user_id = \$1 GROUP BY currency ORDER BY currency`).
+	mock.ExpectQuery(`SELECT currency as key, COUNT\(\*\) as count, COALESCE\(MIN\(balance\), 0\) as min_balance, COALESCE\(MAX\(balance\), 0\) as max_balance, COALESCE\(AVG\(balance\), 0\) as avg_balance, COALESCE\(SUM\(balance\), 0\) as sum_balance FROM accounts WHERE deleted_at IS NULL AND user_id = \$1 GROUP BY currency ORDER BY currency`).
 		WithArgs(userID).
 		WillReturnRows(rows)
 
@@ -1186,7 +1184,7 @@ func TestAccountRepositoryGetCurrencyAggregationsWithCurrencyFieldSkipped(t *tes
 
 // Test for non-slice field handling in aggregations
 func TestAccountRepositoryGetTypeAggregationsWithStringField(t *testing.T) {
-	db, mock, repo := setupMockDB(t)
+	db, mock, repo := setupAccountRepository(t)
 	defer db.Close()
 
 	ctx := context.Background()
@@ -1203,7 +1201,7 @@ func TestAccountRepositoryGetTypeAggregationsWithStringField(t *testing.T) {
 		"BANK", 1, 1000.0, 1000.0, 1000.0, 1000.0,
 	)
 
-	mock.ExpectQuery(`SELECT type as key, COUNT\(\*\) as count, COALESCE\(MIN\(balance\), 0\) as min_balance, COALESCE\(MAX\(balance\), 0\) as max_balance, COALESCE\(AVG\(balance\), 0\) as avg_balance, COALESCE\(SUM\(balance\), 0\) as sum_balance FROM accounts WHERE is_deleted = false AND user_id = \$1 AND currency = \$2 GROUP BY type ORDER BY type`).
+	mock.ExpectQuery(`SELECT type as key, COUNT\(\*\) as count, COALESCE\(MIN\(balance\), 0\) as min_balance, COALESCE\(MAX\(balance\), 0\) as max_balance, COALESCE\(AVG\(balance\), 0\) as avg_balance, COALESCE\(SUM\(balance\), 0\) as sum_balance FROM accounts WHERE deleted_at IS NULL AND user_id = \$1 AND currency = \$2 GROUP BY type ORDER BY type`).
 		WithArgs(userID, "USD").
 		WillReturnRows(rows)
 
@@ -1216,7 +1214,7 @@ func TestAccountRepositoryGetTypeAggregationsWithStringField(t *testing.T) {
 }
 
 func TestAccountRepositoryGetCurrencyAggregationsWithStringField(t *testing.T) {
-	db, mock, repo := setupMockDB(t)
+	db, mock, repo := setupAccountRepository(t)
 	defer db.Close()
 
 	ctx := context.Background()
@@ -1233,7 +1231,7 @@ func TestAccountRepositoryGetCurrencyAggregationsWithStringField(t *testing.T) {
 		"USD", 1, 1000.0, 1000.0, 1000.0, 1000.0,
 	)
 
-	mock.ExpectQuery(`SELECT currency as key, COUNT\(\*\) as count, COALESCE\(MIN\(balance\), 0\) as min_balance, COALESCE\(MAX\(balance\), 0\) as max_balance, COALESCE\(AVG\(balance\), 0\) as avg_balance, COALESCE\(SUM\(balance\), 0\) as sum_balance FROM accounts WHERE is_deleted = false AND user_id = \$1 AND type = \$2 GROUP BY currency ORDER BY currency`).
+	mock.ExpectQuery(`SELECT currency as key, COUNT\(\*\) as count, COALESCE\(MIN\(balance\), 0\) as min_balance, COALESCE\(MAX\(balance\), 0\) as max_balance, COALESCE\(AVG\(balance\), 0\) as avg_balance, COALESCE\(SUM\(balance\), 0\) as sum_balance FROM accounts WHERE deleted_at IS NULL AND user_id = \$1 AND type = \$2 GROUP BY currency ORDER BY currency`).
 		WithArgs(userID, "BANK").
 		WillReturnRows(rows)
 
@@ -1247,7 +1245,7 @@ func TestAccountRepositoryGetCurrencyAggregationsWithStringField(t *testing.T) {
 
 // Test for unknown field handling in FindMany
 func TestAccountRepositoryFindManyWithUnknownField(t *testing.T) {
-	db, mock, repo := setupMockDB(t)
+	db, mock, repo := setupAccountRepository(t)
 	defer db.Close()
 
 	ctx := context.Background()
@@ -1261,12 +1259,12 @@ func TestAccountRepositoryFindManyWithUnknownField(t *testing.T) {
 	}
 
 	rows := sqlmock.NewRows([]string{
-		"id", "name", "type", "balance", "user_id", "currency", "notes", "is_deleted", "created_at", "updated_at",
+		"id", "name", "type", "balance", "user_id", "currency", "notes", "deleted_at", "created_at", "updated_at",
 	}).AddRow(
-		uuid.New(), defaultAccountRepoTestName, "bank", 1000.0, userID, "USD", "Test notes", false, time.Now(), time.Now(),
+		uuid.New(), defaultAccountRepoTestName, "bank", 1000.0, userID, "USD", "Test notes", nil, time.Now(), time.Now(),
 	)
 
-	mock.ExpectQuery(`SELECT id, name, type, balance, user_id, currency, notes, is_deleted, created_at, updated_at FROM accounts WHERE is_deleted = false AND user_id = \$1 AND unknown_field = \$2 ORDER BY created_at DESC`).
+	mock.ExpectQuery(`SELECT id, name, type, balance, user_id, currency, notes, deleted_at, created_at, updated_at FROM accounts WHERE deleted_at IS NULL AND user_id = \$1 AND unknown_field = \$2 ORDER BY created_at DESC`).
 		WithArgs(userID, "test_value").
 		WillReturnRows(rows)
 
@@ -1279,7 +1277,7 @@ func TestAccountRepositoryFindManyWithUnknownField(t *testing.T) {
 
 // Test for unknown field handling in Count
 func TestAccountRepositoryCountWithUnknownField(t *testing.T) {
-	db, mock, repo := setupMockDB(t)
+	db, mock, repo := setupAccountRepository(t)
 	defer db.Close()
 
 	ctx := context.Background()
@@ -1292,7 +1290,7 @@ func TestAccountRepositoryCountWithUnknownField(t *testing.T) {
 
 	rows := sqlmock.NewRows([]string{"count"}).AddRow(1)
 
-	mock.ExpectQuery(`SELECT COUNT\(\*\) FROM accounts WHERE is_deleted = false AND user_id = \$1 AND unknown_field = \$2`).
+	mock.ExpectQuery(`SELECT COUNT\(\*\) FROM accounts WHERE deleted_at IS NULL AND user_id = \$1 AND unknown_field = \$2`).
 		WithArgs(userID, "test_value").
 		WillReturnRows(rows)
 
@@ -1305,7 +1303,7 @@ func TestAccountRepositoryCountWithUnknownField(t *testing.T) {
 
 // Test for unknown field handling in GetTypeAggregations
 func TestAccountRepositoryGetTypeAggregationsWithUnknownField(t *testing.T) {
-	db, mock, repo := setupMockDB(t)
+	db, mock, repo := setupAccountRepository(t)
 	defer db.Close()
 
 	ctx := context.Background()
@@ -1322,7 +1320,7 @@ func TestAccountRepositoryGetTypeAggregationsWithUnknownField(t *testing.T) {
 		"bank", 2, 500.0, 1500.0, 1000.0, 2000.0,
 	)
 
-	mock.ExpectQuery(`SELECT type as key, COUNT\(\*\) as count, COALESCE\(MIN\(balance\), 0\) as min_balance, COALESCE\(MAX\(balance\), 0\) as max_balance, COALESCE\(AVG\(balance\), 0\) as avg_balance, COALESCE\(SUM\(balance\), 0\) as sum_balance FROM accounts WHERE is_deleted = false AND user_id = \$1 AND unknown_field = \$2 GROUP BY type ORDER BY type`).
+	mock.ExpectQuery(`SELECT type as key, COUNT\(\*\) as count, COALESCE\(MIN\(balance\), 0\) as min_balance, COALESCE\(MAX\(balance\), 0\) as max_balance, COALESCE\(AVG\(balance\), 0\) as avg_balance, COALESCE\(SUM\(balance\), 0\) as sum_balance FROM accounts WHERE deleted_at IS NULL AND user_id = \$1 AND unknown_field = \$2 GROUP BY type ORDER BY type`).
 		WithArgs(userID, "test_value").
 		WillReturnRows(rows)
 
@@ -1336,7 +1334,7 @@ func TestAccountRepositoryGetTypeAggregationsWithUnknownField(t *testing.T) {
 
 // Test for unknown field handling in GetCurrencyAggregations
 func TestAccountRepositoryGetCurrencyAggregationsWithUnknownField(t *testing.T) {
-	db, mock, repo := setupMockDB(t)
+	db, mock, repo := setupAccountRepository(t)
 	defer db.Close()
 
 	ctx := context.Background()
@@ -1353,7 +1351,7 @@ func TestAccountRepositoryGetCurrencyAggregationsWithUnknownField(t *testing.T) 
 		"USD", 2, 500.0, 1500.0, 1000.0, 2000.0,
 	)
 
-	mock.ExpectQuery(`SELECT currency as key, COUNT\(\*\) as count, COALESCE\(MIN\(balance\), 0\) as min_balance, COALESCE\(MAX\(balance\), 0\) as max_balance, COALESCE\(AVG\(balance\), 0\) as avg_balance, COALESCE\(SUM\(balance\), 0\) as sum_balance FROM accounts WHERE is_deleted = false AND user_id = \$1 AND unknown_field = \$2 GROUP BY currency ORDER BY currency`).
+	mock.ExpectQuery(`SELECT currency as key, COUNT\(\*\) as count, COALESCE\(MIN\(balance\), 0\) as min_balance, COALESCE\(MAX\(balance\), 0\) as max_balance, COALESCE\(AVG\(balance\), 0\) as avg_balance, COALESCE\(SUM\(balance\), 0\) as sum_balance FROM accounts WHERE deleted_at IS NULL AND user_id = \$1 AND unknown_field = \$2 GROUP BY currency ORDER BY currency`).
 		WithArgs(userID, "test_value").
 		WillReturnRows(rows)
 
@@ -1367,7 +1365,7 @@ func TestAccountRepositoryGetCurrencyAggregationsWithUnknownField(t *testing.T) 
 
 // Test for slice field handling in unknown fields for Count
 func TestAccountRepositoryCountWithUnknownSliceField(t *testing.T) {
-	db, mock, repo := setupMockDB(t)
+	db, mock, repo := setupAccountRepository(t)
 	defer db.Close()
 
 	ctx := context.Background()
@@ -1380,7 +1378,7 @@ func TestAccountRepositoryCountWithUnknownSliceField(t *testing.T) {
 
 	rows := sqlmock.NewRows([]string{"count"}).AddRow(2)
 
-	mock.ExpectQuery(`SELECT COUNT\(\*\) FROM accounts WHERE is_deleted = false AND user_id = \$1 AND unknown_slice IN \(\$2,\$3\)`).
+	mock.ExpectQuery(`SELECT COUNT\(\*\) FROM accounts WHERE deleted_at IS NULL AND user_id = \$1 AND unknown_slice IN \(\$2,\$3\)`).
 		WithArgs(userID, "value1", "value2").
 		WillReturnRows(rows)
 
@@ -1393,7 +1391,7 @@ func TestAccountRepositoryCountWithUnknownSliceField(t *testing.T) {
 
 // Test for slice field handling in unknown fields for FindMany
 func TestAccountRepositoryFindManyWithUnknownSliceField(t *testing.T) {
-	db, mock, repo := setupMockDB(t)
+	db, mock, repo := setupAccountRepository(t)
 	defer db.Close()
 
 	ctx := context.Background()
@@ -1407,12 +1405,12 @@ func TestAccountRepositoryFindManyWithUnknownSliceField(t *testing.T) {
 	}
 
 	rows := sqlmock.NewRows([]string{
-		"id", "name", "type", "balance", "user_id", "currency", "notes", "is_deleted", "created_at", "updated_at",
+		"id", "name", "type", "balance", "user_id", "currency", "notes", "deleted_at", "created_at", "updated_at",
 	}).AddRow(
-		uuid.New(), defaultAccountRepoTestName, "bank", 1000.0, userID, "USD", "Test notes", false, time.Now(), time.Now(),
+		uuid.New(), defaultAccountRepoTestName, "bank", 1000.0, userID, "USD", "Test notes", nil, time.Now(), time.Now(),
 	)
 
-	mock.ExpectQuery(`SELECT id, name, type, balance, user_id, currency, notes, is_deleted, created_at, updated_at FROM accounts WHERE is_deleted = false AND user_id = \$1 AND unknown_slice IN \(\$2,\$3\) ORDER BY created_at DESC`).
+	mock.ExpectQuery(`SELECT id, name, type, balance, user_id, currency, notes, deleted_at, created_at, updated_at FROM accounts WHERE deleted_at IS NULL AND user_id = \$1 AND unknown_slice IN \(\$2,\$3\) ORDER BY created_at DESC`).
 		WithArgs(userID, "value1", "value2").
 		WillReturnRows(rows)
 
@@ -1425,7 +1423,7 @@ func TestAccountRepositoryFindManyWithUnknownSliceField(t *testing.T) {
 
 // Test for slice field handling in unknown fields for GetTypeAggregations
 func TestAccountRepositoryGetTypeAggregationsWithUnknownSliceField(t *testing.T) {
-	db, mock, repo := setupMockDB(t)
+	db, mock, repo := setupAccountRepository(t)
 	defer db.Close()
 
 	ctx := context.Background()
@@ -1442,7 +1440,7 @@ func TestAccountRepositoryGetTypeAggregationsWithUnknownSliceField(t *testing.T)
 		"bank", 2, 500.0, 1500.0, 1000.0, 2000.0,
 	)
 
-	mock.ExpectQuery(`SELECT type as key, COUNT\(\*\) as count, COALESCE\(MIN\(balance\), 0\) as min_balance, COALESCE\(MAX\(balance\), 0\) as max_balance, COALESCE\(AVG\(balance\), 0\) as avg_balance, COALESCE\(SUM\(balance\), 0\) as sum_balance FROM accounts WHERE is_deleted = false AND user_id = \$1 AND unknown_slice IN \(\$2,\$3\) GROUP BY type ORDER BY type`).
+	mock.ExpectQuery(`SELECT type as key, COUNT\(\*\) as count, COALESCE\(MIN\(balance\), 0\) as min_balance, COALESCE\(MAX\(balance\), 0\) as max_balance, COALESCE\(AVG\(balance\), 0\) as avg_balance, COALESCE\(SUM\(balance\), 0\) as sum_balance FROM accounts WHERE deleted_at IS NULL AND user_id = \$1 AND unknown_slice IN \(\$2,\$3\) GROUP BY type ORDER BY type`).
 		WithArgs(userID, "value1", "value2").
 		WillReturnRows(rows)
 
@@ -1456,7 +1454,7 @@ func TestAccountRepositoryGetTypeAggregationsWithUnknownSliceField(t *testing.T)
 
 // Test for slice field handling in unknown fields for GetCurrencyAggregations
 func TestAccountRepositoryGetCurrencyAggregationsWithUnknownSliceField(t *testing.T) {
-	db, mock, repo := setupMockDB(t)
+	db, mock, repo := setupAccountRepository(t)
 	defer db.Close()
 
 	ctx := context.Background()
@@ -1473,7 +1471,7 @@ func TestAccountRepositoryGetCurrencyAggregationsWithUnknownSliceField(t *testin
 		"USD", 2, 500.0, 1500.0, 1000.0, 2000.0,
 	)
 
-	mock.ExpectQuery(`SELECT currency as key, COUNT\(\*\) as count, COALESCE\(MIN\(balance\), 0\) as min_balance, COALESCE\(MAX\(balance\), 0\) as max_balance, COALESCE\(AVG\(balance\), 0\) as avg_balance, COALESCE\(SUM\(balance\), 0\) as sum_balance FROM accounts WHERE is_deleted = false AND user_id = \$1 AND unknown_slice IN \(\$2,\$3\) GROUP BY currency ORDER BY currency`).
+	mock.ExpectQuery(`SELECT currency as key, COUNT\(\*\) as count, COALESCE\(MIN\(balance\), 0\) as min_balance, COALESCE\(MAX\(balance\), 0\) as max_balance, COALESCE\(AVG\(balance\), 0\) as avg_balance, COALESCE\(SUM\(balance\), 0\) as sum_balance FROM accounts WHERE deleted_at IS NULL AND user_id = \$1 AND unknown_slice IN \(\$2,\$3\) GROUP BY currency ORDER BY currency`).
 		WithArgs(userID, "value1", "value2").
 		WillReturnRows(rows)
 
@@ -1489,7 +1487,7 @@ func TestAccountRepositoryGetCurrencyAggregationsWithUnknownSliceField(t *testin
 
 // Test buildWhere with nil where and no excludeDeleted
 func TestAccountRepositoryFindUniqueNilWhereNoExcludeDeleted(t *testing.T) {
-	db, mock, repo := setupMockDB(t)
+	db, mock, repo := setupAccountRepository(t)
 	defer db.Close()
 
 	ctx := context.Background()
@@ -1500,11 +1498,11 @@ func TestAccountRepositoryFindUniqueNilWhereNoExcludeDeleted(t *testing.T) {
 	}
 
 	rows := sqlmock.NewRows([]string{
-		"id", "name", "type", "balance", "user_id", "currency", "notes", "is_deleted", "created_at", "updated_at",
+		"id", "name", "type", "balance", "user_id", "currency", "notes", "deleted_at", "created_at", "updated_at",
 	})
 
-	// This should generate a query without WHERE clause except for is_deleted = false
-	mock.ExpectQuery(`SELECT (.+) FROM accounts WHERE is_deleted = false LIMIT 1`).
+	// This should generate a query without WHERE clause except for deleted_at IS NULL
+	mock.ExpectQuery(`SELECT (.+) FROM accounts WHERE deleted_at IS NULL LIMIT 1`).
 		WillReturnRows(rows)
 
 	account, err := repo.FindUnique(ctx, params)
@@ -1516,7 +1514,7 @@ func TestAccountRepositoryFindUniqueNilWhereNoExcludeDeleted(t *testing.T) {
 
 // Test buildWhere with empty slice - it falls through to else clause
 func TestAccountRepositoryFindManyWithEmptySlice(t *testing.T) {
-	db, _, repo := setupMockDB(t)
+	db, _, repo := setupAccountRepository(t)
 	defer db.Close()
 
 	ctx := context.Background()
@@ -1538,7 +1536,7 @@ func TestAccountRepositoryFindManyWithEmptySlice(t *testing.T) {
 
 // Test Count with empty slice - it falls through to else clause
 func TestAccountRepositoryCountWithEmptySlice(t *testing.T) {
-	db, _, repo := setupMockDB(t)
+	db, _, repo := setupAccountRepository(t)
 	defer db.Close()
 
 	ctx := context.Background()
@@ -1558,7 +1556,7 @@ func TestAccountRepositoryCountWithEmptySlice(t *testing.T) {
 
 // Test for the case where len(conditions) == 0 after processing
 func TestAccountRepositoryFindManyEmptyConditionsAfterProcessing(t *testing.T) {
-	db, mock, repo := setupMockDB(t)
+	db, mock, repo := setupAccountRepository(t)
 	defer db.Close()
 
 	ctx := context.Background()
@@ -1577,8 +1575,8 @@ func TestAccountRepositoryFindManyEmptyConditionsAfterProcessing(t *testing.T) {
 		"BANK", 1, 1000.0, 1000.0, 1000.0, 1000.0,
 	)
 
-	// When type is skipped, no WHERE conditions should be added except is_deleted = false
-	mock.ExpectQuery(`SELECT type as key, COUNT\(\*\) as count, COALESCE\(MIN\(balance\), 0\) as min_balance, COALESCE\(MAX\(balance\), 0\) as max_balance, COALESCE\(AVG\(balance\), 0\) as avg_balance, COALESCE\(SUM\(balance\), 0\) as sum_balance FROM accounts WHERE is_deleted = false GROUP BY type ORDER BY type`).
+	// When type is skipped, no WHERE conditions should be added except deleted_at IS NULL
+	mock.ExpectQuery(`SELECT type as key, COUNT\(\*\) as count, COALESCE\(MIN\(balance\), 0\) as min_balance, COALESCE\(MAX\(balance\), 0\) as max_balance, COALESCE\(AVG\(balance\), 0\) as avg_balance, COALESCE\(SUM\(balance\), 0\) as sum_balance FROM accounts WHERE deleted_at IS NULL GROUP BY type ORDER BY type`).
 		WillReturnRows(rows)
 
 	aggregations, err := repo.GetTypeAggregations(ctx, params.Where)
@@ -1592,10 +1590,10 @@ func TestAccountRepositoryFindManyEmptyConditionsAfterProcessing(t *testing.T) {
 func TestBuildWhereNilWhereNoConditions(t *testing.T) {
 	// Test the case where where is nil and excludeDeleted is false
 	// This should return "", nil
-	clause, args := buildWhere(nil, whereBuildOpts{
-		fieldOrder:     []string{},
-		skipField:      "",
-		excludeDeleted: false, // This should result in no conditions
+	clause, args := util.BuildWhere(nil, util.WhereBuildOpts{
+		FieldOrder:     []string{},
+		SkipField:      "",
+		ExcludeDeleted: false, // This should result in no conditions
 	})
 
 	assert.Equal(t, "", clause)
@@ -1605,14 +1603,14 @@ func TestBuildWhereNilWhereNoConditions(t *testing.T) {
 // Test buildWhere with nil where but excludeDeleted true
 func TestBuildWhereNilWhereWithExcludeDeleted(t *testing.T) {
 	// Test the case where where is nil but excludeDeleted is true
-	// This should return " WHERE is_deleted = false", nil
-	clause, args := buildWhere(nil, whereBuildOpts{
-		fieldOrder:     []string{},
-		skipField:      "",
-		excludeDeleted: true,
+	// This should return " WHERE deleted_at IS NULL", nil
+	clause, args := util.BuildWhere(nil, util.WhereBuildOpts{
+		FieldOrder:     []string{},
+		SkipField:      "",
+		ExcludeDeleted: true,
 	})
 
-	assert.Equal(t, " WHERE is_deleted = false", clause)
+	assert.Equal(t, " WHERE deleted_at IS NULL", clause)
 	assert.Nil(t, args)
 }
 
@@ -1624,42 +1622,31 @@ func TestBuildWhereEmptySlice(t *testing.T) {
 		"type": []string{}, // Empty slice
 	}
 
-	clause, args := buildWhere(where, whereBuildOpts{
-		fieldOrder:     []string{"type"},
-		skipField:      "",
-		excludeDeleted: true,
+	clause, args := util.BuildWhere(where, util.WhereBuildOpts{
+		FieldOrder:     []string{"type"},
+		SkipField:      "",
+		ExcludeDeleted: true,
 	})
 
-	// Should have is_deleted = false AND type = $1 with empty slice as arg
-	assert.Equal(t, " WHERE is_deleted = false AND type = $1", clause)
+	// Should have deleted_at IS NULL AND type = $1 with empty slice as arg
+	assert.Equal(t, " WHERE deleted_at IS NULL AND type = $1", clause)
 	assert.Len(t, args, 1)
 	assert.Equal(t, []string{}, args[0])
 }
 
-func TestWhereBuilderAddSliceConditionEmptySlice(t *testing.T) {
-	builder := newWhereBuilder(whereBuildOpts{
-		excludeDeleted: false,
+func TestBuildWhereSliceCondition(t *testing.T) {
+	where := map[string]any{
+		"type": []string{"BANK", "CASH"},
+	}
+
+	clause, args := util.BuildWhere(where, util.WhereBuildOpts{
+		FieldOrder:     []string{"type"},
+		SkipField:      "",
+		ExcludeDeleted: true,
 	})
 
-	builder.addSliceCondition("type", []string{})
-
-	assert.Empty(t, builder.conditions)
-	assert.Empty(t, builder.args)
-	assert.Equal(t, 1, builder.argIndex) // arg index should remain untouched
-}
-
-func TestWhereBuilderAddSliceConditionPopulatesPlaceholders(t *testing.T) {
-	builder := newWhereBuilder(whereBuildOpts{
-		excludeDeleted: true,
-	})
-
-	builder.addSliceCondition("type", []string{"BANK", "CASH"})
-
-	require.Len(t, builder.conditions, 2) // includes is_deleted condition + IN clause
-	assert.Equal(t, isDeletedCondition, builder.conditions[0])
-	assert.Equal(t, "type IN ($1,$2)", builder.conditions[1])
-	assert.Equal(t, []any{"BANK", "CASH"}, builder.args)
-	assert.Equal(t, 3, builder.argIndex) // two values consumed
+	assert.Equal(t, " WHERE deleted_at IS NULL AND type IN ($1,$2)", clause)
+	assert.Equal(t, []any{"BANK", "CASH"}, args)
 }
 
 // Test buildWhere where all fields are skipped resulting in empty conditions
@@ -1669,15 +1656,71 @@ func TestBuildWhereAllFieldsSkipped(t *testing.T) {
 		"type": "BANK", // This will be skipped
 	}
 
-	clause, args := buildWhere(where, whereBuildOpts{
-		fieldOrder:     []string{"type"},
-		skipField:      "type", // Skip the only field we have
-		excludeDeleted: false,  // Don't add is_deleted condition
+	clause, args := util.BuildWhere(where, util.WhereBuildOpts{
+		FieldOrder:     []string{"type"},
+		SkipField:      "type", // Skip the only field we have
+		ExcludeDeleted: false,  // Don't add deleted_at condition
 	})
 
 	// Should return empty clause since all conditions are skipped
 	assert.Equal(t, "", clause)
 	assert.Empty(t, args)
+}
+
+type accountRowScanner struct {
+	row []any
+}
+
+func (s accountRowScanner) Scan(dest ...any) error {
+	if len(dest) != len(s.row) {
+		return fmt.Errorf("mismatched lengths")
+	}
+	for i, d := range dest {
+		switch target := d.(type) {
+		case *uuid.UUID:
+			*target = s.row[i].(uuid.UUID)
+		case *string:
+			*target = s.row[i].(string)
+		case **string:
+			if s.row[i] == nil {
+				*target = nil
+			} else {
+				val := s.row[i].(string)
+				*target = &val
+			}
+		case *model.AccountType:
+			*target = s.row[i].(model.AccountType)
+		case *float64:
+			*target = s.row[i].(float64)
+		case *sql.NullTime:
+			*target = s.row[i].(sql.NullTime)
+		case *time.Time:
+			*target = s.row[i].(time.Time)
+		default:
+			return fmt.Errorf("unsupported type %T", d)
+		}
+	}
+	return nil
+}
+
+func TestScanAccountSetsDeletedAt(t *testing.T) {
+	now := time.Now()
+	acc := accountRowScanner{row: []any{
+		uuid.New(),
+		defaultAccountRepoTestName,
+		model.AccountTypeBank,
+		100.0,
+		uuid.New(),
+		"USD",
+		nil,
+		sql.NullTime{Time: now, Valid: true},
+		now,
+		now,
+	}}
+
+	account, err := scanAccount(acc)
+	assert.NoError(t, err)
+	assert.NotNil(t, account.DeletedAt)
 }
 
 // Tests for new validation functions added for SQL injection prevention
@@ -1765,7 +1808,7 @@ func TestValidateGroupByColumnInvalidCases(t *testing.T) {
 }
 
 func TestAccountRepositoryFindManyInvalidOrderBy(t *testing.T) {
-	db, _, repo := setupMockDB(t)
+	db, _, repo := setupAccountRepository(t)
 	defer db.Close()
 
 	ctx := context.Background()
@@ -1787,7 +1830,7 @@ func TestAccountRepositoryFindManyInvalidOrderBy(t *testing.T) {
 }
 
 func TestAccountRepositoryGetAggregationsInvalidGroupBy(t *testing.T) {
-	db, _, repo := setupMockDB(t)
+	db, _, repo := setupAccountRepository(t)
 	defer db.Close()
 
 	ctx := context.Background()

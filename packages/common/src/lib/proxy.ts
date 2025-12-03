@@ -297,7 +297,6 @@ function evaluateCommonResult(
 				kind: "response",
 				response: redirectToAuth(request, result.url, result.redirect),
 			};
-		case "continue":
 		default:
 			if (
 				honorAuthRefererOnRoot &&

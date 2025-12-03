@@ -96,7 +96,7 @@ async function buildHeaders(
 
 	const authHeader = await resolveAuthHeader(init.auth);
 	if (authHeader) {
-		headers["Authorization"] = authHeader;
+		headers.Authorization = authHeader;
 	}
 
 	return headers;

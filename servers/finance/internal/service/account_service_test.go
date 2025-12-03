@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"testing"
+	"time"
 
 	"github.com/edwinhati/tagaroa/packages/shared/go/util"
 	"github.com/edwinhati/tagaroa/servers/finance/internal/model"
@@ -78,7 +79,6 @@ func TestAccountServiceCreateAccount(t *testing.T) {
 	ctx := context.Background()
 	userID := uuid.New()
 	inputAccount := &model.Account{
-		ID:       uuid.New(),
 		Name:     testAccountName,
 		Type:     model.AccountTypeBank,
 		Balance:  1000.0,
@@ -97,7 +97,6 @@ func TestAccountServiceCreateAccount(t *testing.T) {
 	assert.Equal(t, inputAccount.Balance, account.Balance)
 	assert.Equal(t, inputAccount.UserID, account.UserID)
 	assert.Equal(t, inputAccount.Currency, account.Currency)
-	assert.Equal(t, inputAccount.ID, account.ID)
 
 	mockRepo.AssertExpectations(t)
 }
@@ -109,7 +108,6 @@ func TestAccountServiceCreateAccountInvalidType(t *testing.T) {
 	ctx := context.Background()
 	userID := uuid.New()
 	inputAccount := &model.Account{
-		ID:       uuid.New(),
 		Name:     testAccountName,
 		Type:     "INVALID_TYPE",
 		Balance:  1000.0,
@@ -304,7 +302,7 @@ func TestAccountServiceUpdateAccountAllFields(t *testing.T) {
 	newBalance := 1500.0
 	newCurrency := "EUR"
 	newNotes := "Updated notes"
-	isDeleted := true
+	deletedAt := time.Now()
 
 	params := util.FindUniqueParams{
 		Where: map[string]any{
@@ -321,7 +319,7 @@ func TestAccountServiceUpdateAccountAllFields(t *testing.T) {
 		Currency:  &newCurrency,
 		Notes:     &newNotes,
 		Balance:   &newBalance,
-		IsDeleted: &isDeleted,
+		DeletedAt: &deletedAt,
 	}, userID)
 
 	assert.NoError(t, err)
@@ -330,7 +328,7 @@ func TestAccountServiceUpdateAccountAllFields(t *testing.T) {
 	assert.Equal(t, newBalance, account.Balance)
 	assert.Equal(t, newCurrency, account.Currency)
 	assert.Equal(t, &newNotes, account.Notes)
-	assert.True(t, account.IsDeleted)
+	assert.Equal(t, &deletedAt, account.DeletedAt)
 
 	mockRepo.AssertExpectations(t)
 }
@@ -344,7 +342,6 @@ func TestAccountServiceGetAccounts(t *testing.T) {
 
 	expectedAccounts := []*model.Account{
 		{
-			ID:       uuid.New(),
 			Name:     "Account 1",
 			Type:     model.AccountTypeBank,
 			Balance:  1000.0,
@@ -352,7 +349,6 @@ func TestAccountServiceGetAccounts(t *testing.T) {
 			UserID:   userID,
 		},
 		{
-			ID:       uuid.New(),
 			Name:     "Account 2",
 			Type:     model.AccountTypeCash,
 			Balance:  500.0,
@@ -526,7 +522,6 @@ func TestAccountServiceCreateAccountRepositoryError(t *testing.T) {
 	ctx := context.Background()
 	userID := uuid.New()
 	inputAccount := &model.Account{
-		ID:       uuid.New(),
 		Name:     testAccountName,
 		Type:     model.AccountTypeBank,
 		Balance:  1000.0,
@@ -784,7 +779,7 @@ func TestAccountServiceUpdateAccountFindUniqueError(t *testing.T) {
 	mockRepo.AssertExpectations(t)
 }
 
-func TestAccountServiceUpdateAccountIsDeletedFalse(t *testing.T) {
+func TestAccountServiceUpdateAccountDeletedAtNil(t *testing.T) {
 	mockRepo := new(MockAccountRepository)
 	service := NewAccountService(mockRepo)
 
@@ -792,16 +787,13 @@ func TestAccountServiceUpdateAccountIsDeletedFalse(t *testing.T) {
 	accountID := uuid.New()
 	userID := uuid.New()
 	existingAccount := &model.Account{
-		ID:        accountID,
-		Name:      testAccountName,
-		Type:      model.AccountTypeBank,
-		Balance:   1000.0,
-		Currency:  "USD",
-		UserID:    userID,
-		IsDeleted: false,
+		ID:       accountID,
+		Name:     testAccountName,
+		Type:     model.AccountTypeBank,
+		Balance:  1000.0,
+		Currency: "USD",
+		UserID:   userID,
 	}
-
-	isDeleted := false // Test the case where IsDeleted is false
 
 	params := util.FindUniqueParams{
 		Where: map[string]any{
@@ -813,13 +805,86 @@ func TestAccountServiceUpdateAccountIsDeletedFalse(t *testing.T) {
 	mockRepo.On("FindUnique", ctx, params).Return(existingAccount, nil)
 	mockRepo.On("Update", ctx, mock.AnythingOfType(mockModelAccountType)).Return(nil)
 
-	account, err := service.UpdateAccount(ctx, accountID, UpdateAccountInput{
-		IsDeleted: &isDeleted,
-	}, userID)
+	account, err := service.UpdateAccount(ctx, accountID, UpdateAccountInput{}, userID)
 
 	assert.NoError(t, err)
 	assert.NotNil(t, account)
-	assert.False(t, account.IsDeleted) // Should remain false
+	assert.Nil(t, account.DeletedAt) // Should remain nil when not provided
 
+	mockRepo.AssertExpectations(t)
+}
+
+func TestAccountServiceDeleteAccountSuccess(t *testing.T) {
+	mockRepo := new(MockAccountRepository)
+	service := NewAccountService(mockRepo)
+
+	ctx := context.Background()
+	accountID := uuid.New()
+	userID := uuid.New()
+	existing := &model.Account{ID: accountID, UserID: userID}
+
+	params := util.FindUniqueParams{Where: map[string]any{"id": accountID, "user_id": userID}}
+
+	mockRepo.On("FindUnique", ctx, params).Return(existing, nil)
+	mockRepo.On("Update", ctx, mock.AnythingOfType(mockModelAccountType)).Return(nil)
+
+	err := service.DeleteAccount(ctx, accountID, userID)
+
+	assert.NoError(t, err)
+	mockRepo.AssertExpectations(t)
+}
+
+func TestAccountServiceDeleteAccountNotFound(t *testing.T) {
+	mockRepo := new(MockAccountRepository)
+	service := NewAccountService(mockRepo)
+
+	ctx := context.Background()
+	accountID := uuid.New()
+	userID := uuid.New()
+
+	params := util.FindUniqueParams{Where: map[string]any{"id": accountID, "user_id": userID}}
+	mockRepo.On("FindUnique", ctx, params).Return((*model.Account)(nil), nil)
+
+	err := service.DeleteAccount(ctx, accountID, userID)
+
+	assert.ErrorIs(t, err, ErrAccountNotFound)
+	mockRepo.AssertExpectations(t)
+}
+
+func TestAccountServiceDeleteAccountFindUniqueError(t *testing.T) {
+	mockRepo := new(MockAccountRepository)
+	service := NewAccountService(mockRepo)
+
+	ctx := context.Background()
+	accountID := uuid.New()
+	userID := uuid.New()
+
+	params := util.FindUniqueParams{Where: map[string]any{"id": accountID, "user_id": userID}}
+	mockRepo.On("FindUnique", ctx, params).Return((*model.Account)(nil), fmt.Errorf("db down"))
+
+	err := service.DeleteAccount(ctx, accountID, userID)
+
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "failed to get account")
+	mockRepo.AssertExpectations(t)
+}
+
+func TestAccountServiceDeleteAccountUpdateError(t *testing.T) {
+	mockRepo := new(MockAccountRepository)
+	service := NewAccountService(mockRepo)
+
+	ctx := context.Background()
+	accountID := uuid.New()
+	userID := uuid.New()
+	existing := &model.Account{ID: accountID, UserID: userID}
+
+	params := util.FindUniqueParams{Where: map[string]any{"id": accountID, "user_id": userID}}
+	mockRepo.On("FindUnique", ctx, params).Return(existing, nil)
+	mockRepo.On("Update", ctx, mock.AnythingOfType(mockModelAccountType)).Return(fmt.Errorf("update failed"))
+
+	err := service.DeleteAccount(ctx, accountID, userID)
+
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "failed to delete account")
 	mockRepo.AssertExpectations(t)
 }

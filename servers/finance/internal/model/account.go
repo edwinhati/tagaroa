@@ -16,7 +16,7 @@ type Account struct {
 	UserID    uuid.UUID   `json:"user_id"`
 	Currency  string      `json:"currency"`
 	Notes     *string     `json:"notes,omitempty"`
-	IsDeleted bool        `json:"is_deleted"`
+	DeletedAt *time.Time  `json:"deleted_at,omitempty"`
 	CreatedAt time.Time   `json:"created_at"`
 	UpdatedAt time.Time   `json:"updated_at"`
 }

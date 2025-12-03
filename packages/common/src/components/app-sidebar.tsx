@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import React, { type ComponentProps, type ComponentType } from "react";
+import type { ComponentProps, ComponentType } from "react";
 
 import {
 	Sidebar,

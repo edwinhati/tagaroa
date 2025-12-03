@@ -185,7 +185,7 @@ func TestConfigLoadFromEnvEmptyValues(t *testing.T) {
 		"ENV", "PORT", "TRUSTED_ORIGINS", "LOG_LEVEL", "LOG_FORMAT", "LOG_ADD_SOURCE",
 		"DB_HOST", "DB_PORT", "DB_USER", "DB_PASSWORD", "DB_NAME", "DB_SLOW_THRESHOLD",
 		"OIDC_BASE_URL", "OIDC_CLIENT_ID", "OIDC_CLIENT_SECRET",
-		"SENTRY_DSN", "SENTRY_TRACES_SAMPLE_RATE",
+		"SENTRY_DSN", "SENTRY_TRACES_SAMPLE_RATE", "KAFKA_BROKERS", "KAFKA_CLIENT_ID",
 	}
 	unsetAll(t, keys...)
 
@@ -193,6 +193,8 @@ func TestConfigLoadFromEnvEmptyValues(t *testing.T) {
 	err := c.LoadFromEnv()
 	assert.NoError(t, err)
 	assertZeroConfig(t, c)
+	assert.Nil(t, c.Kafka.Brokers)
+	assert.Empty(t, c.Kafka.ClientID)
 }
 
 func TestLoadConfigInitializes(t *testing.T) {
@@ -205,5 +207,38 @@ func TestLoadConfigInitializes(t *testing.T) {
 		assert.NotNil(t, &cfg.Database)
 		assert.NotNil(t, &cfg.OIDC)
 		assert.NotNil(t, &cfg.Sentry)
+		assert.NotNil(t, &cfg.Kafka)
+	}
+}
+
+func TestConfigLoadFromEnvKafka(t *testing.T) {
+	withEnv(t, map[string]string{
+		"KAFKA_BROKERS":   "broker-a:9092, broker-b:9093 , ,broker-c:9094",
+		"KAFKA_CLIENT_ID": "finance-api",
+	})
+
+	c := &Config{}
+	err := c.LoadFromEnv()
+	assert.NoError(t, err)
+
+	assert.Equal(t, []string{"broker-a:9092", "broker-b:9093", "broker-c:9094"}, c.Kafka.Brokers)
+	assert.Equal(t, "finance-api", c.Kafka.ClientID)
+}
+
+func TestParseCSV(t *testing.T) {
+	tests := []struct {
+		name     string
+		input    string
+		expected []string
+	}{
+		{"empty string", "", []string{}},
+		{"single value", "broker:9092", []string{"broker:9092"}},
+		{"spaces and blanks", " a , , b ,c ", []string{"a", "b", "c"}},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			assert.Equal(t, tt.expected, parseCSV(tt.input))
+		})
 	}
 }

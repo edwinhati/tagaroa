@@ -1,12 +1,17 @@
 "use client";
 
+import { financeApi } from "@repo/common/lib/http";
 import type {
 	Account,
 	AccountResponse,
 	AccountsApiResponse,
 	PaginatedAccountsResult,
 } from "@repo/common/types/account";
-import { financeApi } from "@repo/common/lib/http";
+import {
+	mutationOptions,
+	queryOptions,
+	useQueryClient,
+} from "@tanstack/react-query";
 
 const mapAccount = (account: AccountResponse): Account => ({
 	id:
@@ -22,7 +27,7 @@ const mapAccount = (account: AccountResponse): Account => ({
 });
 
 // Fetch all accounts with pagination
-export const fetchAccounts = async (params?: {
+const fetchAccounts = async (params?: {
 	page?: number;
 	limit?: number;
 	filters?: Record<string, string[]>;
@@ -64,12 +69,12 @@ export const fetchAccounts = async (params?: {
 };
 
 // Fetch account types
-export const fetchAccountTypes = async (): Promise<string[]> => {
+const fetchAccountTypes = async (): Promise<string[]> => {
 	return financeApi.get<string[]>("/account/types");
 };
 
 // Create or update an account
-export const mutateAccount = async (account: Account): Promise<Account> => {
+const mutateAccount = async (account: Account): Promise<Account> => {
 	// Map frontend Account (camelCase) to backend payload (snake_case)
 	const payload = {
 		id: account.id,
@@ -92,6 +97,47 @@ export const mutateAccount = async (account: Account): Promise<Account> => {
 };
 
 // Delete an account
-export const deleteAccount = async (id: string): Promise<void> => {
+const deleteAccount = async (id: string): Promise<void> => {
 	await financeApi.delete(`/account/${id}`);
+};
+
+export const accountQueryOptions = (params?: {
+	page?: number;
+	limit?: number;
+	filters?: Record<string, string[]>;
+	search?: string;
+}) => {
+	return queryOptions({
+		queryKey: ["accounts", params],
+		queryFn: () => fetchAccounts(params),
+	});
+};
+
+export const accountMutationOptions = () => {
+	const queryClient = useQueryClient();
+
+	return mutationOptions({
+		mutationFn: mutateAccount,
+		onSettled: () => {
+			queryClient.invalidateQueries({ queryKey: ["accounts"] });
+		},
+	});
+};
+
+export const accountDeleteMutationOptions = () => {
+	const queryClient = useQueryClient();
+
+	return mutationOptions({
+		mutationFn: deleteAccount,
+		onSettled: () => {
+			queryClient.invalidateQueries({ queryKey: ["accounts"] });
+		},
+	});
+};
+
+export const accountTypesQueryOptions = () => {
+	return queryOptions({
+		queryKey: ["account-types"],
+		queryFn: fetchAccountTypes,
+	});
 };

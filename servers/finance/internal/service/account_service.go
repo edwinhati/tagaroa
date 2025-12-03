@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"slices"
+	"time"
 
 	"github.com/edwinhati/tagaroa/packages/shared/go/util"
 	"github.com/edwinhati/tagaroa/servers/finance/internal/model"
@@ -12,12 +13,11 @@ import (
 	"github.com/google/uuid"
 )
 
-// Shared error variables across all services
 var (
-	ErrAccessDenied       = errors.New("access denied")
-	ErrAccountNotFound    = errors.New("account not found")
-	ErrInvalidAmount      = errors.New("invalid amount")
-	ErrInvalidAccountType = errors.New("invalid account type")
+	ErrAccountAccessDenied  = errors.New("access denied")
+	ErrAccountNotFound      = errors.New("account not found")
+	ErrAccountInvalidAmount = errors.New("invalid amount")
+	ErrInvalidAccountType   = errors.New("invalid account type")
 )
 
 type GetAccountsParams struct {
@@ -42,7 +42,7 @@ type UpdateAccountInput struct {
 	Currency  *string
 	Notes     *string
 	Balance   *float64
-	IsDeleted *bool
+	DeletedAt *time.Time
 }
 
 type AccountService interface {
@@ -50,6 +50,7 @@ type AccountService interface {
 	GetAccount(ctx context.Context, id, userID uuid.UUID) (*model.Account, error)
 	GetAccounts(ctx context.Context, params GetAccountsParams) (*GetAccountsResult, error)
 	UpdateAccount(ctx context.Context, id uuid.UUID, input UpdateAccountInput, userID uuid.UUID) (*model.Account, error)
+	DeleteAccount(ctx context.Context, id uuid.UUID, userID uuid.UUID) error
 }
 
 type accountService struct {
@@ -209,8 +210,8 @@ func (s *accountService) UpdateAccount(ctx context.Context, id uuid.UUID, input 
 		account.Notes = input.Notes
 	}
 
-	if input.IsDeleted != nil && *input.IsDeleted {
-		account.IsDeleted = true
+	if input.DeletedAt != nil {
+		account.DeletedAt = input.DeletedAt
 	}
 
 	if err := s.accountRepo.Update(ctx, account); err != nil {
@@ -218,6 +219,32 @@ func (s *accountService) UpdateAccount(ctx context.Context, id uuid.UUID, input 
 	}
 
 	return account, nil
+}
+
+func (s *accountService) DeleteAccount(ctx context.Context, id uuid.UUID, userID uuid.UUID) error {
+	params := util.FindUniqueParams{
+		Where: map[string]any{
+			"id":      id,
+			"user_id": userID,
+		},
+	}
+
+	account, err := s.accountRepo.FindUnique(ctx, params)
+	if err != nil {
+		return fmt.Errorf("failed to get account: %w", err)
+	}
+	if account == nil {
+		return ErrAccountNotFound
+	}
+
+	now := time.Now()
+	account.DeletedAt = &now
+
+	if err := s.accountRepo.Update(ctx, account); err != nil {
+		return fmt.Errorf("failed to delete account: %w", err)
+	}
+
+	return nil
 }
 
 func isValidAccountType(accountType model.AccountType) bool {

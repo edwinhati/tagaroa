@@ -33,17 +33,30 @@ func NewAccountRepository(db *sql.DB) AccountRepository {
 /* ----------------------------- Utilities ----------------------------- */
 
 const accountSelectCols = `
-	id, name, type, balance, user_id, currency, notes, is_deleted, created_at, updated_at
+	id, name, type, balance, user_id, currency, notes, deleted_at, created_at, updated_at
 `
 
-const (
-	whereKeyword            = " WHERE "
-	equalsClauseFormat      = "%s = $%d"
-	inClauseFormat          = "%s IN (%s)"
-	searchConditionTemplate = "(LOWER(name) LIKE LOWER($%d) OR LOWER(COALESCE(notes, '')) LIKE LOWER($%d))"
-	searchLikeFormat        = "%%%v%%"
-	isDeletedCondition      = "is_deleted = false"
-)
+const accountSearchClause = "(LOWER(name) LIKE LOWER($%d) OR LOWER(COALESCE(notes, '')) LIKE LOWER($%d))"
+
+func scanAccount(scanner util.RowScanner) (*model.Account, error) {
+	var account model.Account
+	var deletedAt sql.NullTime
+
+	if err := scanner.Scan(
+		&account.ID, &account.Name, &account.Type, &account.Balance,
+		&account.UserID, &account.Currency, &account.Notes, &deletedAt,
+		&account.CreatedAt, &account.UpdatedAt,
+	); err != nil {
+		return nil, err
+	}
+
+	if deletedAt.Valid {
+		t := deletedAt.Time
+		account.DeletedAt = &t
+	}
+
+	return &account, nil
+}
 
 // Allowlisted columns for ORDER BY to prevent SQL injection
 var allowedOrderByColumns = map[string]bool{
@@ -54,6 +67,7 @@ var allowedOrderByColumns = map[string]bool{
 	"user_id":    true,
 	"currency":   true,
 	"notes":      true,
+	"deleted_at": true,
 	"created_at": true,
 	"updated_at": true,
 }
@@ -64,181 +78,12 @@ var allowedGroupByColumns = map[string]bool{
 	"currency": true,
 }
 
-type whereBuildOpts struct {
-	fieldOrder     []string // known fields in deterministic order
-	skipField      string   // exclude this field from filtering (for aggregations)
-	excludeDeleted bool     // always enforce is_deleted=false
-}
-
-type whereBuilder struct {
-	conditions []string
-	args       []any
-	argIndex   int
-	opts       whereBuildOpts
-	processed  map[string]struct{}
-}
-
-func newWhereBuilder(opts whereBuildOpts) *whereBuilder {
-	builder := &whereBuilder{
-		argIndex:  1,
-		opts:      opts,
-		processed: make(map[string]struct{}),
-	}
-	if opts.excludeDeleted {
-		builder.conditions = append(builder.conditions, isDeletedCondition)
-	}
-	return builder
-}
-
-func (b *whereBuilder) addSearchCondition(value any) {
-	searchTerm := fmt.Sprintf(searchLikeFormat, value)
-	b.conditions = append(
-		b.conditions,
-		fmt.Sprintf(searchConditionTemplate, b.argIndex, b.argIndex),
-	)
-	b.args = append(b.args, searchTerm)
-	b.argIndex++
-}
-
-func (b *whereBuilder) addSliceCondition(field string, slice []string) {
-	if len(slice) == 0 {
-		return
-	}
-	placeholders := make([]string, len(slice))
-	for i := range slice {
-		placeholders[i] = fmt.Sprintf("$%d", b.argIndex)
-		b.args = append(b.args, slice[i])
-		b.argIndex++
-	}
-	b.conditions = append(
-		b.conditions,
-		fmt.Sprintf(inClauseFormat, field, strings.Join(placeholders, ",")),
-	)
-}
-
-func (b *whereBuilder) addEqualsCondition(field string, value any) {
-	b.conditions = append(
-		b.conditions,
-		fmt.Sprintf(equalsClauseFormat, field, b.argIndex),
-	)
-	b.args = append(b.args, value)
-	b.argIndex++
-}
-
-func (b *whereBuilder) processField(field string, value any) {
-	if field == b.opts.skipField {
-		return
-	}
-
-	b.processed[field] = struct{}{}
-
-	if field == "search" {
-		b.addSearchCondition(value)
-		return
-	}
-
-	if slice, ok := value.([]string); ok {
-		if len(slice) == 0 {
-			b.addEqualsCondition(field, value)
-		} else {
-			b.addSliceCondition(field, slice)
-		}
-		return
-	}
-
-	b.addEqualsCondition(field, value)
-}
-
-func (b *whereBuilder) process(where map[string]any) {
-	if where == nil {
-		return
-	}
-	for _, field := range b.opts.fieldOrder {
-		if value, ok := where[field]; ok {
-			b.processField(field, value)
-		}
-	}
-	for field, value := range where {
-		if field == b.opts.skipField {
-			continue
-		}
-		if _, seen := b.processed[field]; seen {
-			continue
-		}
-		b.processField(field, value)
-	}
-}
-
-func (b *whereBuilder) clause() (string, []any) {
-	if len(b.conditions) == 0 {
-		return "", b.args
-	}
-	return whereKeyword + strings.Join(b.conditions, " AND "), b.args
-}
-
-// buildWhere constructs a WHERE clause and args with:
-// - deterministic processing order
-// - special handling for "search" across (name, notes) with LOWER/COALESCE
-// - slice values → IN (...)
-// - ability to skip a field (e.g., skip "type" when aggregating by type)
-func buildWhere(where map[string]any, opts whereBuildOpts) (clause string, args []any) {
-	builder := newWhereBuilder(opts)
-	builder.process(where)
-	return builder.clause()
-}
-
-// addOffsetLimit appends OFFSET/LIMIT placeholders preserving correct arg indexes.
-func addOffsetLimit(sb *strings.Builder, offset, limit int, currArgIdx int, args []any) (int, []any) {
-	if offset > 0 {
-		sb.WriteString(fmt.Sprintf(" OFFSET $%d", currArgIdx))
-		args = append(args, offset)
-		currArgIdx++
-	}
-	if limit > 0 {
-		sb.WriteString(fmt.Sprintf(" LIMIT $%d", currArgIdx))
-		args = append(args, limit)
-		currArgIdx++
-	}
-	return currArgIdx, args
-}
-
-// validateOrderBy validates and sanitizes ORDER BY clause to prevent SQL injection
 func validateOrderBy(orderBy string) (string, error) {
-	if orderBy == "" {
-		return "created_at DESC", nil
-	}
-
-	// Parse ORDER BY clause (column [ASC|DESC])
-	parts := strings.Fields(strings.TrimSpace(orderBy))
-	if len(parts) == 0 {
-		return "created_at DESC", nil
-	}
-
-	column := parts[0]
-	if !allowedOrderByColumns[column] {
-		return "", fmt.Errorf("invalid ORDER BY column: %s", column)
-	}
-
-	// Default to ASC if no direction specified
-	direction := "ASC"
-	if len(parts) > 1 {
-		dir := strings.ToUpper(parts[1])
-		if dir == "DESC" || dir == "ASC" {
-			direction = dir
-		} else {
-			return "", fmt.Errorf("invalid ORDER BY direction: %s", parts[1])
-		}
-	}
-
-	return fmt.Sprintf("%s %s", column, direction), nil
+	return util.ValidateOrderBy(orderBy, allowedOrderByColumns)
 }
 
-// validateGroupByColumn validates GROUP BY column to prevent SQL injection
 func validateGroupByColumn(column string) error {
-	if !allowedGroupByColumns[column] {
-		return fmt.Errorf("invalid GROUP BY column: %s", column)
-	}
-	return nil
+	return util.ValidateGroupByColumn(column, allowedGroupByColumns)
 }
 
 /* ----------------------------- CRUD ops ------------------------------ */
@@ -252,13 +97,13 @@ func (r *accountRepository) Create(ctx context.Context, account *model.Account) 
 	account.UpdatedAt = now
 
 	query := `
-		INSERT INTO accounts (id, name, type, balance, user_id, currency, notes, is_deleted, created_at, updated_at)
+		INSERT INTO accounts (id, name, type, balance, user_id, currency, notes, deleted_at, created_at, updated_at)
 		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
 	`
 
 	_, err := r.db.ExecContext(ctx, query,
 		account.ID, account.Name, account.Type, account.Balance,
-		account.UserID, account.Currency, account.Notes, account.IsDeleted,
+		account.UserID, account.Currency, account.Notes, account.DeletedAt,
 		account.CreatedAt, account.UpdatedAt,
 	)
 	return err
@@ -270,27 +115,23 @@ func (r *accountRepository) FindUnique(ctx context.Context, params util.FindUniq
 	sb.WriteString(strings.TrimSpace(accountSelectCols))
 	sb.WriteString(" FROM accounts")
 
-	whereClause, args := buildWhere(params.Where, whereBuildOpts{
-		fieldOrder:     []string{"user_id", "search", "type", "currency"},
-		skipField:      "",   // no skip
-		excludeDeleted: true, // always exclude deleted
+	whereClause, args := util.BuildWhere(params.Where, util.WhereBuildOpts{
+		FieldOrder:           []string{"user_id", "search", "type", "currency"},
+		SkipField:            "",   // no skip
+		ExcludeDeleted:       true, // always exclude deleted
+		SearchClauseTemplate: accountSearchClause,
 	})
 	sb.WriteString(whereClause)
 	sb.WriteString(" LIMIT 1")
 
-	var account model.Account
-	err := r.db.QueryRowContext(ctx, sb.String(), args...).Scan(
-		&account.ID, &account.Name, &account.Type, &account.Balance,
-		&account.UserID, &account.Currency, &account.Notes, &account.IsDeleted,
-		&account.CreatedAt, &account.UpdatedAt,
-	)
+	account, err := scanAccount(r.db.QueryRowContext(ctx, sb.String(), args...))
 	if err != nil {
 		if err == sql.ErrNoRows {
 			return nil, nil
 		}
 		return nil, err
 	}
-	return &account, nil
+	return account, nil
 }
 
 func (r *accountRepository) FindMany(ctx context.Context, params util.FindManyParams) ([]*model.Account, error) {
@@ -299,10 +140,11 @@ func (r *accountRepository) FindMany(ctx context.Context, params util.FindManyPa
 	sb.WriteString(strings.TrimSpace(accountSelectCols))
 	sb.WriteString(" FROM accounts")
 
-	whereClause, args := buildWhere(params.Where, whereBuildOpts{
-		fieldOrder:     []string{"user_id", "search", "type", "currency"},
-		skipField:      "",   // normal filtering
-		excludeDeleted: true, // always exclude deleted
+	whereClause, args := util.BuildWhere(params.Where, util.WhereBuildOpts{
+		FieldOrder:           []string{"user_id", "search", "type", "currency"},
+		SkipField:            "",   // normal filtering
+		ExcludeDeleted:       true, // always exclude deleted
+		SearchClauseTemplate: accountSearchClause,
 	})
 	sb.WriteString(whereClause)
 
@@ -315,7 +157,7 @@ func (r *accountRepository) FindMany(ctx context.Context, params util.FindManyPa
 
 	// Pagination (placeholders after WHERE args)
 	currIdx := len(args) + 1
-	currIdx, args = addOffsetLimit(&sb, params.Offset, params.Limit, currIdx, args)
+	_, args = util.AddOffsetLimit(&sb, params.Offset, params.Limit, currIdx, args)
 
 	rows, err := r.db.QueryContext(ctx, sb.String(), args...)
 	if err != nil {
@@ -325,15 +167,11 @@ func (r *accountRepository) FindMany(ctx context.Context, params util.FindManyPa
 
 	var accounts []*model.Account
 	for rows.Next() {
-		var a model.Account
-		if err := rows.Scan(
-			&a.ID, &a.Name, &a.Type, &a.Balance,
-			&a.UserID, &a.Currency, &a.Notes, &a.IsDeleted,
-			&a.CreatedAt, &a.UpdatedAt,
-		); err != nil {
+		account, err := scanAccount(rows)
+		if err != nil {
 			return nil, err
 		}
-		accounts = append(accounts, &a)
+		accounts = append(accounts, account)
 	}
 	if err := rows.Err(); err != nil {
 		return nil, err
@@ -345,10 +183,11 @@ func (r *accountRepository) Count(ctx context.Context, where map[string]any) (in
 	var sb strings.Builder
 	sb.WriteString("SELECT COUNT(*) FROM accounts")
 
-	whereClause, args := buildWhere(where, whereBuildOpts{
-		fieldOrder:     []string{"user_id", "search", "type", "currency"},
-		skipField:      "",   // count respects all filters
-		excludeDeleted: true, // exclude deleted
+	whereClause, args := util.BuildWhere(where, util.WhereBuildOpts{
+		FieldOrder:           []string{"user_id", "search", "type", "currency"},
+		SkipField:            "",   // count respects all filters
+		ExcludeDeleted:       true, // exclude deleted
+		SearchClauseTemplate: accountSearchClause,
 	})
 	sb.WriteString(whereClause)
 
@@ -364,13 +203,13 @@ func (r *accountRepository) Update(ctx context.Context, account *model.Account) 
 
 	query := `
 		UPDATE accounts
-		SET name = $2, type = $3, balance = $4, currency = $5, notes = $6, is_deleted = $7, updated_at = $8
+		SET name = $2, type = $3, balance = $4, currency = $5, notes = $6, deleted_at = $7, updated_at = $8
 		WHERE id = $1
 	`
 
 	_, err := r.db.ExecContext(ctx, query,
 		account.ID, account.Name, account.Type, account.Balance,
-		account.Currency, account.Notes, account.IsDeleted, account.UpdatedAt,
+		account.Currency, account.Notes, account.DeletedAt, account.UpdatedAt,
 	)
 	return err
 }
@@ -413,10 +252,11 @@ func (r *accountRepository) getAggregations(
 			COALESCE(SUM(balance), 0) as sum_balance
 		FROM accounts`)
 
-	whereClause, args := buildWhere(where, whereBuildOpts{
-		fieldOrder:     fieldOrder,
-		skipField:      skipFilter, // do not filter on the grouping field
-		excludeDeleted: true,
+	whereClause, args := util.BuildWhere(where, util.WhereBuildOpts{
+		FieldOrder:           fieldOrder,
+		SkipField:            skipFilter, // do not filter on the grouping field
+		ExcludeDeleted:       true,
+		SearchClauseTemplate: accountSearchClause,
 	})
 	sb.WriteString(whereClause)
 	sb.WriteString(`

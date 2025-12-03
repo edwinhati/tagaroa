@@ -6,9 +6,9 @@ import { DataTablePagination } from "@repo/common/components/data-table-paginati
 import { ServerSearchInput } from "@repo/common/components/data-table-search-input";
 import { Loading } from "@repo/common/components/loading";
 import {
-  deleteAccount as deleteAccountRequest,
-  fetchAccounts,
-  mutateAccount as mutateAccountRequest,
+  accountDeleteMutationOptions,
+  accountMutationOptions,
+  accountQueryOptions,
 } from "@repo/common/lib/query/account-query";
 import type {
   Account,
@@ -43,7 +43,7 @@ import {
   TableRow,
 } from "@repo/ui/components/table";
 import { cn } from "@repo/ui/lib/utils";
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useMutation, useQuery } from "@tanstack/react-query";
 import {
   type ColumnDef,
   type FilterFn,
@@ -111,42 +111,18 @@ function AccountDataTableContent() {
   );
   const [isInitialLoading, setIsInitialLoading] = useState(true);
 
-  const queryClient = useQueryClient();
+  const { mutate } = useMutation(accountMutationOptions());
 
-  const { mutate } = useMutation({
-    mutationKey: ["mutateAccount"],
-    mutationFn: mutateAccountRequest,
-    onSettled: () => {
-      queryClient.invalidateQueries({ queryKey: ["accounts"] });
-    },
-  });
+  const { mutate: deleteAccount } = useMutation(accountDeleteMutationOptions());
 
-  const { mutate: deleteAccount } = useMutation({
-    mutationKey: ["deleteAccount"],
-    mutationFn: deleteAccountRequest,
-    onSettled: () => {
-      queryClient.invalidateQueries({ queryKey: ["accounts"] });
-    },
-  });
-
-  const { data: accountsResponse, error } = useQuery({
-    queryKey: [
-      "accounts",
-      {
-        page: pagination.pageIndex + 1,
-        limit: pagination.pageSize,
-        filters: serverFilters,
-        search: searchQuery,
-      },
-    ],
-    queryFn: () =>
-      fetchAccounts({
-        page: pagination.pageIndex + 1,
-        limit: pagination.pageSize,
-        filters: serverFilters,
-        search: searchQuery,
-      }),
-  });
+  const { data: accountsResponse, error } = useQuery(
+    accountQueryOptions({
+      page: pagination.pageIndex + 1,
+      limit: pagination.pageSize,
+      filters: serverFilters,
+      search: searchQuery,
+    }),
+  );
 
   const columns: ColumnDef<Account>[] = useMemo(
     () => [
@@ -301,7 +277,6 @@ function AccountDataTableContent() {
   }, [aggregations]);
 
   // TanStack Table exposes functions that React Compiler cannot memoize; suppress rule locally.
-  // eslint-disable-next-line react-hooks/incompatible-library
   const table = useReactTable({
     data: tableData,
     columns,

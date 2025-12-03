@@ -1,0 +1,32 @@
+"use client";
+
+import { type ReactNode, createContext, useRef } from "react";
+import { createBudgetStore } from "@repo/common/stores/budget-store";
+
+export type BudgetStoreApi = ReturnType<typeof createBudgetStore>;
+
+export const BudgetStoreContext = createContext<BudgetStoreApi | undefined>(
+	undefined,
+);
+
+export interface BudgetProviderProps {
+	children: ReactNode;
+	month?: number;
+	year?: number;
+}
+
+export const BudgetProvider = ({
+	children,
+	month,
+	year,
+}: BudgetProviderProps) => {
+	const storeRef = useRef<BudgetStoreApi | undefined>(undefined);
+	if (!storeRef.current) {
+		storeRef.current = createBudgetStore({ month, year });
+	}
+	return (
+		<BudgetStoreContext.Provider value={storeRef.current}>
+			{children}
+		</BudgetStoreContext.Provider>
+	);
+};

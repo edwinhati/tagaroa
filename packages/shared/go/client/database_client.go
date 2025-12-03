@@ -32,10 +32,17 @@ func ConnectDatabase(host, user, password, name, port string) (*sql.DB, error) {
 	return db, nil
 }
 
-// SetupTestDB initializes a mock database for testing purposes.
-func SetupTestDB(t *testing.T) (*sql.DB, sqlmock.Sqlmock) {
+// SetupMockDB initializes a sqlmock-backed database for repository tests.
+func SetupMockDB(t *testing.T) (*sql.DB, sqlmock.Sqlmock) {
+	t.Helper()
+
 	db, mock, err := sqlmock.New()
 	assert.NoError(t, err)
 
 	return db, mock
+}
+
+// SetupTestDB is deprecated; prefer SetupMockDB for new tests.
+func SetupTestDB(t *testing.T) (*sql.DB, sqlmock.Sqlmock) {
+	return SetupMockDB(t)
 }
