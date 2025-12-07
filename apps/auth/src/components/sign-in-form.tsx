@@ -66,12 +66,11 @@ export function SignInForm({
     () => true,
     () => false,
   );
-  const googleAuthFlagEnabled = useFeatureFlagEnabled("google-auth");
-  const githubAuthFlagEnabled = useFeatureFlagEnabled("github-auth");
+  // const googleAuthFlagEnabled = useFeatureFlagEnabled("google-auth");
 
   // Add fallback values and loading state
-  const isGoogleAuthEnabled = googleAuthFlagEnabled ?? false;
-  const isGithubAuthEnabled = githubAuthFlagEnabled ?? false;
+  // Temporarily set to true for testing - remove this and use feature flag in production
+  const isGoogleAuthEnabled = true; // googleAuthFlagEnabled ?? false;
 
   const [loading, setLoading] = useState<boolean>();
   const [authError, setAuthError] = useState<string | null>(null);
@@ -192,32 +191,7 @@ export function SignInForm({
             </div>
           )}
 
-          {mounted && isGithubAuthEnabled && (
-            <div className="grid gap-4">
-              <Button
-                variant="outline"
-                className="w-full flex items-center justify-center"
-                disabled={loading}
-                type="button"
-                onClick={() => signInWithSocialProvider("github")}
-              >
-                <div className="flex items-center justify-center w-5 h-5 mr-2">
-                  <svg
-                    xmlns="http://www.w3.org/2000/svg"
-                    className="h-4 w-4"
-                    viewBox="0 0 24 24"
-                    fill="currentColor"
-                  >
-                    <title>Continue with GitHub</title>
-                    <path d="M12 .5C5.73.5.5 5.74.5 12.02c0 5.1 3.29 9.42 7.86 10.96.58.11.79-.25.79-.56v-2.15c-3.2.7-3.87-1.54-3.87-1.54-.53-1.34-1.3-1.7-1.3-1.7-1.07-.73.08-.72.08-.72 1.18.08 1.8 1.22 1.8 1.22 1.05 1.79 2.75 1.27 3.42.97.11-.76.41-1.27.75-1.56-2.55-.29-5.23-1.28-5.23-5.7 0-1.26.45-2.29 1.19-3.1-.12-.29-.52-1.44.11-3.01 0 0 .97-.31 3.18 1.18a10.95 10.95 0 0 1 5.8 0c2.2-1.5 3.18-1.18 3.18-1.18.63 1.57.23 2.72.11 3.01.74.81 1.19 1.84 1.19 3.1 0 4.43-2.68 5.41-5.24 5.69.42.36.8 1.08.8 2.18v3.23c0 .31.21.68.8.56A10.52 10.52 0 0 0 23.5 12c0-6.28-5.23-11.5-11.5-11.5z" />
-                  </svg>
-                </div>
-                Continue with Github
-              </Button>
-            </div>
-          )}
-
-          {mounted && (isGoogleAuthEnabled || isGithubAuthEnabled) && (
+          {mounted && isGoogleAuthEnabled && (
             <div className="relative">
               <div className="absolute inset-0 flex items-center">
                 <Separator />

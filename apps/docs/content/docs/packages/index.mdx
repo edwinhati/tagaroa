@@ -1,0 +1,270 @@
+---
+title: Shared Packages
+description: Reusable packages and libraries across the monorepo
+---
+
+# Shared Packages
+
+The Tagaroa monorepo includes several shared packages that provide reusable functionality across applications and services.
+
+## Overview
+
+Shared packages enable:
+- Code reuse across applications
+- Consistent UI/UX
+- Centralized configuration
+- Type safety
+- Faster development
+
+## Available Packages
+
+<Cards>
+  <Card title="Common Package" href="/docs/packages/common" />
+  <Card title="UI Package" description="Shared UI components" />
+  <Card title="Shared Package" description="Multi-language shared code" />
+  <Card title="PostHog Config" description="Analytics configuration" />
+  <Card title="Sentry Config" description="Error tracking configuration" />
+  <Card title="TypeScript Config" description="Shared TypeScript configs" />
+</Cards>
+
+## Package Structure
+
+```
+packages/
+├── common/               # Common utilities and hooks
+│   ├── src/
+│   │   ├── components/  # Shared React components
+│   │   ├── hooks/       # Custom React hooks
+│   │   ├── lib/         # Utilities and clients
+│   │   ├── providers/   # Context providers
+│   │   ├── stores/      # Zustand state stores
+│   │   └── types/       # TypeScript types
+│   └── package.json
+├── ui/                  # UI component library
+│   ├── src/
+│   │   ├── components/  # Radix UI components
+│   │   ├── hooks/       # UI-specific hooks
+│   │   ├── lib/         # UI utilities
+│   │   └── styles/      # Global styles
+│   └── package.json
+├── shared/              # Multi-language shared code
+│   ├── go/              # Go shared packages
+│   ├── hono/            # Hono/TypeScript shared code
+│   ├── proto/           # Protocol buffers
+│   └── rust/            # Rust shared code
+├── posthog-config/      # PostHog analytics setup
+├── sentry-config/       # Sentry error tracking setup
+└── typescript-config/   # Shared tsconfig.json files
+```
+
+## Using Packages
+
+### In Applications
+
+```json
+{
+  "dependencies": {
+    "@repo/common": "*",
+    "@repo/ui": "*",
+    "@repo/posthog-config": "*",
+    "@repo/sentry-config": "*",
+    "@repo/typescript-config": "*"
+  }
+}
+```
+
+### Importing from Packages
+
+```typescript
+// Import from common package
+import { AppNavbar, AppSidebar } from '@repo/common/components/app-navbar';
+import { authClient } from '@repo/common/lib/auth-client';
+import { useBudgetPeriod } from '@repo/common/hooks/use-budget-period';
+import type { Account, Budget } from '@repo/common/types';
+
+// Import from UI package
+import { Button } from '@repo/ui/components/button';
+import { Card } from '@repo/ui/components/card';
+import { Input } from '@repo/ui/components/input';
+import '@repo/ui/globals.css';
+
+// Import from config packages
+import { posthog } from '@repo/posthog-config';
+import { sentry } from '@repo/sentry-config';
+```
+
+## Development
+
+### Building Packages
+
+```bash
+# Build all packages
+turbo build --filter=./packages/*
+
+# Build specific package
+turbo build --filter=@repo/common
+```
+
+### Adding New Packages
+
+1. Create package directory:
+```bash
+mkdir -p packages/my-package/src
+cd packages/my-package
+```
+
+2. Initialize package.json:
+```json
+{
+  "name": "@repo/my-package",
+  "version": "0.0.0",
+  "private": true,
+  "main": "./src/index.ts",
+  "types": "./src/index.ts",
+  "exports": {
+    ".": "./src/index.ts"
+  }
+}
+```
+
+3. Add to workspace:
+```json
+// Root package.json
+{
+  "workspaces": [
+    "packages/*"
+  ]
+}
+```
+
+## Package Exports
+
+### Granular Exports
+
+Packages use granular exports for better tree-shaking:
+
+```json
+{
+  "exports": {
+    "./components/*": "./src/components/*.tsx",
+    "./hooks/*": "./src/hooks/*.ts",
+    "./lib/*": "./src/lib/*.ts"
+  }
+}
+```
+
+### Usage
+
+```typescript
+// Import specific component
+import { AppNavbar } from '@repo/common/components/app-navbar';
+
+// Import specific hook
+import { useBudgetPeriod } from '@repo/common/hooks/use-budget-period';
+
+// Import utility
+import { authClient } from '@repo/common/lib/auth-client';
+```
+
+
+
+
+
+## Best Practices
+
+1. **Keep Packages Focused**: Each package should have a single responsibility
+2. **Version Together**: Use workspace protocol for internal dependencies
+3. **Export Granularly**: Use specific exports for better tree-shaking
+4. **Type Everything**: Provide TypeScript types for all exports
+5. **Document APIs**: Add JSDoc comments for public APIs
+6. **Test Packages**: Write tests for shared functionality
+7. **Minimize Dependencies**: Keep package dependencies minimal
+
+## Package Details
+
+### Common Package (`@repo/common`)
+
+The primary shared package containing:
+- Shared React components (AppNavbar, AppSidebar, etc.)
+- Custom hooks (useBudgetPeriod, etc.)
+- Authentication utilities (authClient with Better Auth)
+- HTTP client configuration (React Query)
+- State management (Zustand stores)
+- TypeScript types for domain models
+
+For detailed documentation, see [Common Package](/docs/packages/common).
+
+### UI Package (`@repo/ui`)
+
+Shared UI component library built with:
+- **Radix UI**: Accessible component primitives
+- **Tailwind CSS 4**: Utility-first styling
+- **Motion**: Animation library
+- **Recharts**: Chart components
+- **Sonner**: Toast notifications
+
+Components include: Button, Card, Input, Dialog, Dropdown, Table, and more.
+
+### Shared Package (`@repo/shared`)
+
+Multi-language shared code:
+- **Go**: Shared Go packages for OIDC, Kafka, database utilities
+- **Hono**: Shared TypeScript/Hono middleware and utilities
+- **Proto**: Protocol buffer definitions
+- **Rust**: Shared Rust code
+
+### Config Packages
+
+- **posthog-config**: PostHog analytics configuration and initialization
+- **sentry-config**: Sentry error tracking setup
+- **typescript-config**: Shared TypeScript configurations (base, nextjs, react-library)
+
+## Dependency Management
+
+### Internal Dependencies
+
+```json
+{
+  "dependencies": {
+    "@repo/common": "*"
+  }
+}
+```
+
+### External Dependencies
+
+Keep external dependencies minimal and shared:
+
+```json
+{
+  "dependencies": {
+    "react": "^19.2.0",
+    "react-dom": "^19.2.0"
+  },
+  "peerDependencies": {
+    "react": "^19.2.0",
+    "react-dom": "^19.2.0"
+  }
+}
+```
+
+## Publishing
+
+Packages are private and not published to npm:
+
+```json
+{
+  "private": true
+}
+```
+
+For public packages, configure publishing:
+
+```json
+{
+  "private": false,
+  "publishConfig": {
+    "access": "public"
+  }
+}
+```

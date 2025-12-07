@@ -1,0 +1,196 @@
+---
+title: Admin App
+description: Administrative dashboard for user and system management
+---
+
+# Admin App
+
+Administrative dashboard for managing users, viewing analytics, and system administration.
+
+## Overview
+
+- **Port**: 3002
+- **Framework**: Next.js 16 with App Router
+- **Purpose**: User management, system administration, analytics
+
+## Features
+
+- User management (CRUD operations)
+- User data table with sorting and filtering
+- User detail sheets
+- Create user dialog
+- Role-based access control
+- Analytics integration
+- Protected routes
+
+## Project Structure
+
+```
+apps/admin/
+├── src/
+│   ├── app/
+│   │   ├── auth/           # Auth callback routes
+│   │   ├── layout.tsx
+│   │   ├── page.tsx
+│   │   └── template.tsx
+│   ├── components/
+│   │   ├── create-user-dialog.tsx
+│   │   ├── user-data-table.tsx
+│   │   └── user-detail-sheet.tsx
+│   ├── proxy.ts
+│   └── intrumentation-client.ts
+├── .env.example
+├── Dockerfile
+└── package.json
+```
+
+## Components
+
+### User Data Table
+Advanced data table with:
+- Sorting by columns
+- Filtering and search
+- Pagination
+- Bulk actions
+- Row selection
+- Built with TanStack Table
+
+### Create User Dialog
+Modal dialog for creating new users:
+- Form validation
+- Role assignment
+- Email verification
+- Error handling
+
+### User Detail Sheet
+Side sheet displaying detailed user information:
+- User profile
+- Activity history
+- Permissions
+- Edit capabilities
+
+## Development
+
+```bash
+# Run development server
+cd apps/admin
+bun run dev
+
+# Or from root
+turbo dev --filter=admin
+
+# Build for production
+bun run build
+```
+
+## Environment Variables
+
+```bash
+# apps/admin/.env
+NEXT_PUBLIC_API_URL=http://localhost:8080
+NEXT_PUBLIC_DASHBOARD_APP_URL=http://localhost:3002
+NEXT_PUBLIC_ALLOWED_REDIRECT_ORIGINS=http://localhost:3001
+NEXT_PUBLIC_POSTHOG_KEY=your-posthog-key
+NEXT_PUBLIC_POSTHOG_HOST=https://app.posthog.com
+```
+
+## Authentication
+
+The admin app requires authentication. Users are redirected to the auth app if not logged in.
+
+```typescript
+// Protected route example
+import { auth } from '@repo/common/lib/auth-client';
+
+export default async function AdminPage() {
+  const session = await auth();
+  
+  if (!session) {
+    redirect('/auth/sign-in');
+  }
+  
+  // Render admin content
+}
+```
+
+## User Management
+
+### List Users
+View all users in a paginated table with search and filters.
+
+### Create User
+Add new users with email, name, and role assignment.
+
+### Edit User
+Update user information, roles, and permissions.
+
+### Delete User
+Soft delete users (can be restored).
+
+## Data Table Features
+
+The user data table uses TanStack Table and includes:
+
+```typescript
+// Column definitions
+const columns = [
+  { accessorKey: 'email', header: 'Email' },
+  { accessorKey: 'name', header: 'Name' },
+  { accessorKey: 'role', header: 'Role' },
+  { accessorKey: 'createdAt', header: 'Created' },
+  { id: 'actions', cell: ActionsCell }
+];
+```
+
+Features:
+- Server-side pagination
+- Column sorting
+- Global search
+- Column filters
+- Row selection
+- Bulk operations
+
+## Dependencies
+
+Key dependencies:
+- `@tanstack/react-table`: 8.21.3 - Data table
+- `better-auth`: 1.4.5 - Authentication
+- `react-hook-form`: 7.67.0 - Forms
+- `zod`: 4.1.13 - Validation
+- `sonner`: 2.0.7 - Notifications
+
+## API Integration
+
+The admin app communicates with backend services:
+
+```typescript
+// Fetch users
+const { data: users } = useQuery({
+  queryKey: ['users'],
+  queryFn: () => fetch('/api/users').then(r => r.json())
+});
+
+// Create user
+const createUser = useMutation({
+  mutationFn: (user) => fetch('/api/users', {
+    method: 'POST',
+    body: JSON.stringify(user)
+  })
+});
+```
+
+## Security
+
+- Role-based access control (RBAC)
+- Protected API routes
+- CSRF protection
+- Input validation
+- Audit logging
+
+## Customization
+
+### Adding New Admin Features
+1. Create new route in `src/app/`
+2. Add navigation item to sidebar
+3. Implement components
+4. Connect to backend APIs

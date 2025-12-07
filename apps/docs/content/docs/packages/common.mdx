@@ -1,0 +1,520 @@
+---
+title: Common Package
+description: Shared utilities, hooks, components, and types
+---
+
+# Common Package
+
+Shared utilities, hooks, components, and types used across all applications in the monorepo.
+
+## Overview
+
+The common package provides:
+- Shared React components
+- Custom hooks
+- Authentication utilities
+- HTTP client
+- State management
+- TypeScript types
+- Query utilities
+
+## Structure
+
+```
+packages/common/
+├── src/
+│   ├── components/      # Shared components
+│   ├── hooks/           # Custom hooks
+│   ├── lib/             # Utilities
+│   ├── providers/       # Context providers
+│   ├── stores/          # Zustand stores
+│   └── types/           # TypeScript types
+└── package.json
+```
+
+## Components
+
+### App Layout Components
+
+#### AppNavbar
+
+Top navigation bar with user menu and theme switcher:
+
+```typescript
+import { AppNavbar } from '@repo/common/components/app-navbar';
+
+export function Layout({ children }) {
+  return (
+    <>
+      <AppNavbar />
+      {children}
+    </>
+  );
+}
+```
+
+#### AppSidebar
+
+Application sidebar with navigation:
+
+```typescript
+import { AppSidebar } from '@repo/common/components/app-sidebar';
+
+const navItems = [
+  { title: 'Dashboard', href: '/', icon: HomeIcon },
+  { title: 'Accounts', href: '/accounts', icon: WalletIcon },
+  { title: 'Budgets', href: '/budgets', icon: PieChartIcon },
+];
+
+export function Layout({ children }) {
+  return (
+    <div className="flex">
+      <AppSidebar items={navItems} />
+      <main>{children}</main>
+    </div>
+  );
+}
+```
+
+#### LayoutShell
+
+Complete layout shell with sidebar and navbar:
+
+```typescript
+import { LayoutShell } from '@repo/common/components/layout-shell';
+
+export function RootLayout({ children }) {
+  return (
+    <LayoutShell>
+      {children}
+    </LayoutShell>
+  );
+}
+```
+
+### Data Table Components
+
+#### DataTablePagination
+
+Pagination controls for data tables:
+
+```typescript
+import { DataTablePagination } from '@repo/common/components/data-table-pagination';
+
+export function Table({ table }) {
+  return (
+    <>
+      {/* Table content */}
+      <DataTablePagination table={table} />
+    </>
+  );
+}
+```
+
+#### DataTableSearchInput
+
+Search input for filtering tables:
+
+```typescript
+import { DataTableSearchInput } from '@repo/common/components/data-table-search-input';
+
+export function Table({ table }) {
+  return (
+    <DataTableSearchInput
+      table={table}
+      column="name"
+      placeholder="Search by name..."
+    />
+  );
+}
+```
+
+#### DataTableMultiSelectFilter
+
+Multi-select filter for table columns:
+
+```typescript
+import { DataTableMultiSelectFilter } from '@repo/common/components/data-table-multi-select-filter';
+
+export function Table({ table }) {
+  return (
+    <DataTableMultiSelectFilter
+      table={table}
+      column="status"
+      title="Status"
+      options={[
+        { label: 'Active', value: 'active' },
+        { label: 'Inactive', value: 'inactive' },
+      ]}
+    />
+  );
+}
+```
+
+### Utility Components
+
+#### CopyToClipboard
+
+Copy text to clipboard with feedback:
+
+```typescript
+import { CopyToClipboard } from '@repo/common/components/copy-to-clipboard';
+
+export function Component() {
+  return (
+    <CopyToClipboard text="Text to copy">
+      Copy
+    </CopyToClipboard>
+  );
+}
+```
+
+#### Loading
+
+Loading spinner component:
+
+```typescript
+import { Loading } from '@repo/common/components/loading';
+
+export function Component({ isLoading }) {
+  if (isLoading) return <Loading />;
+  return <div>Content</div>;
+}
+```
+
+#### Logo
+
+Application logo component:
+
+```typescript
+import { Logo } from '@repo/common/components/logo';
+
+export function Header() {
+  return (
+    <header>
+      <Logo />
+    </header>
+  );
+}
+```
+
+#### ThemeSwitcher
+
+Theme toggle button:
+
+```typescript
+import { ThemeSwitcher } from '@repo/common/components/theme-switcher';
+
+export function Header() {
+  return (
+    <header>
+      <ThemeSwitcher />
+    </header>
+  );
+}
+```
+
+#### UserMenu
+
+User dropdown menu:
+
+```typescript
+import { UserMenu } from '@repo/common/components/user-menu';
+
+export function Header() {
+  return (
+    <header>
+      <UserMenu />
+    </header>
+  );
+}
+```
+
+## Hooks
+
+### useBudgetPeriod
+
+Hook for managing budget periods:
+
+```typescript
+import { useBudgetPeriod } from '@repo/common/hooks/use-budget-period';
+
+export function BudgetComponent() {
+  const { period, setPeriod, startDate, endDate } = useBudgetPeriod();
+  
+  return (
+    <div>
+      <p>Period: {period}</p>
+      <p>Start: {startDate.toISOString()}</p>
+      <p>End: {endDate.toISOString()}</p>
+    </div>
+  );
+}
+```
+
+## Libraries
+
+### Authentication Client
+
+Better Auth client configuration:
+
+```typescript
+import { authClient } from '@repo/common/lib/auth-client';
+
+// Sign in
+await authClient.signIn.email({
+  email: 'user@example.com',
+  password: 'password',
+});
+
+// Sign out
+await authClient.signOut();
+
+// Get session
+const session = await authClient.getSession();
+
+// Social login
+await authClient.signIn.social({
+  provider: 'google',
+});
+```
+
+### HTTP Client
+
+Configured HTTP client with interceptors:
+
+```typescript
+import { httpClient } from '@repo/common/lib/http';
+
+// GET request
+const data = await httpClient.get('/api/accounts');
+
+// POST request
+const newAccount = await httpClient.post('/api/accounts', {
+  name: 'Checking',
+  type: 'checking',
+});
+
+// PUT request
+await httpClient.put(`/api/accounts/${id}`, updates);
+
+// DELETE request
+await httpClient.delete(`/api/accounts/${id}`);
+```
+
+### Proxy Configuration
+
+API proxy setup:
+
+```typescript
+import { createProxy } from '@repo/common/lib/proxy';
+
+export const apiProxy = createProxy({
+  baseURL: process.env.NEXT_PUBLIC_API_URL,
+  prefix: '/api',
+});
+```
+
+### Redirect Utilities
+
+Navigation helpers:
+
+```typescript
+import { redirectToAuth, redirectToDashboard } from '@repo/common/lib/redirect';
+
+// Redirect to auth
+redirectToAuth();
+
+// Redirect to dashboard
+redirectToDashboard();
+```
+
+### Query Utilities
+
+TanStack Query configuration:
+
+```typescript
+import { queryClient } from '@repo/common/lib/query/client';
+import { QueryClientProvider } from '@tanstack/react-query';
+
+export function App({ children }) {
+  return (
+    <QueryClientProvider client={queryClient}>
+      {children}
+    </QueryClientProvider>
+  );
+}
+```
+
+## Providers
+
+### AppProvider
+
+Main application provider with all contexts:
+
+```typescript
+import { AppProvider } from '@repo/common/providers/app-provider';
+
+export function RootLayout({ children }) {
+  return (
+    <AppProvider>
+      {children}
+    </AppProvider>
+  );
+}
+```
+
+### BudgetProvider
+
+Budget-specific context provider:
+
+```typescript
+import { BudgetProvider } from '@repo/common/providers/budget-provider';
+
+export function BudgetLayout({ children }) {
+  return (
+    <BudgetProvider>
+      {children}
+    </BudgetProvider>
+  );
+}
+```
+
+## State Management
+
+### Budget Store
+
+Zustand store for budget state:
+
+```typescript
+import { useBudgetStore } from '@repo/common/stores/budget-store';
+
+export function BudgetComponent() {
+  const { budgets, addBudget, updateBudget, deleteBudget } = useBudgetStore();
+  
+  const handleCreate = () => {
+    addBudget({
+      name: 'Groceries',
+      amount: 500,
+      period: 'monthly',
+    });
+  };
+  
+  return (
+    <div>
+      {budgets.map(budget => (
+        <div key={budget.id}>{budget.name}</div>
+      ))}
+    </div>
+  );
+}
+```
+
+## Types
+
+### Account Types
+
+```typescript
+import type { Account, AccountType } from '@repo/common/types/account';
+
+const account: Account = {
+  id: 'acc_123',
+  userId: 'user_456',
+  name: 'Checking',
+  type: 'checking',
+  balance: 1000,
+  currency: 'USD',
+  createdAt: new Date(),
+  updatedAt: new Date(),
+};
+```
+
+### Budget Types
+
+```typescript
+import type { Budget, BudgetPeriod } from '@repo/common/types/budget';
+
+const budget: Budget = {
+  id: 'bud_123',
+  userId: 'user_456',
+  name: 'Groceries',
+  amount: 500,
+  spent: 250,
+  category: 'food',
+  period: 'monthly',
+  startDate: new Date(),
+  endDate: new Date(),
+  createdAt: new Date(),
+  updatedAt: new Date(),
+};
+```
+
+## Usage Examples
+
+### Complete Page Example
+
+```typescript
+import { LayoutShell } from '@repo/common/components/layout-shell';
+import { Loading } from '@repo/common/components/loading';
+import { useQuery } from '@tanstack/react-query';
+import { httpClient } from '@repo/common/lib/http';
+import type { Account } from '@repo/common/types/account';
+
+export default function AccountsPage() {
+  const { data: accounts, isLoading } = useQuery({
+    queryKey: ['accounts'],
+    queryFn: () => httpClient.get<Account[]>('/api/accounts'),
+  });
+
+  if (isLoading) return <Loading />;
+
+  return (
+    <LayoutShell>
+      <div>
+        <h1>Accounts</h1>
+        {accounts?.map(account => (
+          <div key={account.id}>{account.name}</div>
+        ))}
+      </div>
+    </LayoutShell>
+  );
+}
+```
+
+### Authentication Example
+
+```typescript
+import { authClient } from '@repo/common/lib/auth-client';
+import { redirectToDashboard } from '@repo/common/lib/redirect';
+import { toast } from 'sonner';
+
+export async function handleSignIn(email: string, password: string) {
+  try {
+    await authClient.signIn.email({ email, password });
+    toast.success('Signed in successfully');
+    redirectToDashboard();
+  } catch (error) {
+    toast.error('Failed to sign in');
+  }
+}
+```
+
+## Dependencies
+
+Key dependencies:
+- `@tanstack/react-query`: ^5.90.11
+- `@tanstack/react-table`: ^8.21.3
+- `better-auth`: ^1.4.5
+- `zustand`: ^5.0.9
+- `next-themes`: ^0.4.6
+- `zod`: ^4.1.13
+
+## Best Practices
+
+1. **Use Typed Imports**: Import types separately
+2. **Leverage Hooks**: Use provided hooks for common functionality
+3. **Consistent State**: Use Zustand stores for global state
+4. **Type Safety**: Always use TypeScript types
+5. **Error Handling**: Handle errors consistently
+6. **Loading States**: Use Loading component
+7. **Authentication**: Use authClient for all auth operations

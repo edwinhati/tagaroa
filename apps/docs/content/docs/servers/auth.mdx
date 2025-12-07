@@ -1,0 +1,351 @@
+---
+title: Auth Server
+description: Authentication and authorization microservice
+---
+
+# Auth Server
+
+Central authentication and authorization service built with TypeScript, Hono, and Better Auth.
+
+## Overview
+
+- **Port**: 8081
+- **Technology**: TypeScript, Hono, Better Auth
+- **Database**: PostgreSQL with Drizzle ORM
+- **Purpose**: User authentication, session management, OAuth
+
+## Features
+
+- Email/password authentication
+- OAuth 2.0 / OIDC provider
+- Social login (Google, GitHub)
+- Session management
+- JWT token generation
+- CORS configuration
+- Rate limiting
+- Audit logging
+
+## Project Structure
+
+```
+servers/auth/
+├── src/
+│   ├── routes/
+│   │   ├── auth.ts         # Auth routes
+│   │   └── index.ts
+│   ├── middleware/
+│   │   ├── cors.ts         # CORS middleware
+│   │   └── index.ts
+│   ├── db/
+│   │   ├── schema.ts       # Database schema
+│   │   └── index.ts
+│   ├── __tests__/          # Test files
+│   ├── app.ts              # Hono app setup
+│   ├── auth.ts             # Better Auth config
+│   ├── config.ts           # Configuration
+│   ├── logger.ts           # Logging setup
+│   └── index.ts            # Entry point
+├── .env.example
+├── Dockerfile
+├── drizzle.config.ts
+└── package.json
+```
+
+## API Endpoints
+
+### Authentication
+
+```
+POST   /api/auth/sign-up          # Create new account
+POST   /api/auth/sign-in          # Sign in
+POST   /api/auth/sign-out         # Sign out
+GET    /api/auth/session          # Get current session
+POST   /api/auth/refresh          # Refresh token
+```
+
+### OAuth / OIDC
+
+```
+GET    /api/auth/authorize        # OAuth authorization
+POST   /api/auth/token            # Token endpoint
+GET    /api/auth/userinfo         # User info endpoint
+GET    /api/auth/.well-known/openid-configuration
+```
+
+### Social Login
+
+```
+GET    /api/auth/google           # Google OAuth
+GET    /api/auth/github           # GitHub OAuth
+GET    /api/auth/callback/:provider
+```
+
+## Configuration
+
+### Environment Variables
+
+```bash
+# servers/auth/.env
+PORT=8081
+BASE_URL=http://localhost:8080
+AUTH_APP_URL=http://localhost:3001
+TRUSTED_ORIGINS=http://localhost:3001,http://localhost:3002,http://localhost:3004
+
+# Database
+DATABASE_URL=postgresql://postgres:postgres@localhost:5432/auth
+
+# OAuth Providers
+GOOGLE_CLIENT_ID=your-google-client-id
+GOOGLE_CLIENT_SECRET=your-google-client-secret
+GITHUB_CLIENT_ID=your-github-client-id
+GITHUB_CLIENT_SECRET=your-github-client-secret
+
+# Security
+BETTER_AUTH_SECRET=your-secret-key
+NODE_ENV=development
+```
+
+### Better Auth Configuration
+
+```typescript
+// src/auth.ts
+import { betterAuth } from 'better-auth';
+import { drizzleAdapter } from 'better-auth/adapters/drizzle';
+
+export const auth = betterAuth({
+  database: drizzleAdapter(db, {
+    provider: 'pg'
+  }),
+  emailAndPassword: {
+    enabled: true,
+    requireEmailVerification: false
+  },
+  socialProviders: {
+    google: {
+      clientId: process.env.GOOGLE_CLIENT_ID,
+      clientSecret: process.env.GOOGLE_CLIENT_SECRET
+    },
+    github: {
+      clientId: process.env.GITHUB_CLIENT_ID,
+      clientSecret: process.env.GITHUB_CLIENT_SECRET
+    }
+  },
+  session: {
+    expiresIn: 60 * 60 * 24 * 7, // 7 days
+    updateAge: 60 * 60 * 24 // 1 day
+  }
+});
+```
+
+## Database Schema
+
+```typescript
+// src/db/schema.ts
+import { pgTable, text, timestamp, boolean } from 'drizzle-orm/pg-core';
+
+export const users = pgTable('users', {
+  id: text('id').primaryKey(),
+  email: text('email').notNull().unique(),
+  emailVerified: boolean('email_verified').default(false),
+  name: text('name'),
+  image: text('image'),
+  createdAt: timestamp('created_at').defaultNow(),
+  updatedAt: timestamp('updated_at').defaultNow()
+});
+
+export const sessions = pgTable('sessions', {
+  id: text('id').primaryKey(),
+  userId: text('user_id').references(() => users.id),
+  expiresAt: timestamp('expires_at').notNull(),
+  token: text('token').notNull(),
+  ipAddress: text('ip_address'),
+  userAgent: text('user_agent')
+});
+
+export const accounts = pgTable('accounts', {
+  id: text('id').primaryKey(),
+  userId: text('user_id').references(() => users.id),
+  provider: text('provider').notNull(),
+  providerAccountId: text('provider_account_id').notNull(),
+  accessToken: text('access_token'),
+  refreshToken: text('refresh_token'),
+  expiresAt: timestamp('expires_at')
+});
+```
+
+## Development
+
+### Running the Server
+
+```bash
+# Development with hot reload
+cd servers/auth
+bun run dev
+
+# Production
+bun run build
+bun run start
+```
+
+### Database Migrations
+
+```bash
+# Generate migration
+bunx drizzle-kit generate
+
+# Run migration
+bunx drizzle-kit migrate
+
+# Studio (GUI)
+bunx drizzle-kit studio
+```
+
+### Testing
+
+```bash
+# Run tests
+bun test
+
+# Watch mode
+bun test --watch
+
+# Coverage
+bun test --coverage
+```
+
+## Middleware
+
+### CORS
+
+```typescript
+// src/middleware/cors.ts
+import { cors } from 'hono/cors';
+
+export const corsMiddleware = cors({
+  origin: process.env.TRUSTED_ORIGINS?.split(',') || [],
+  credentials: true,
+  allowMethods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+  allowHeaders: ['Content-Type', 'Authorization']
+});
+```
+
+### Logging
+
+```typescript
+// src/logger.ts
+import { logger } from 'hono/logger';
+
+export const loggerMiddleware = logger((message) => {
+  console.log(JSON.stringify({
+    timestamp: new Date().toISOString(),
+    message
+  }));
+});
+```
+
+## Security
+
+### Password Hashing
+Uses bcrypt for secure password hashing.
+
+### JWT Tokens
+Signed JWT tokens with configurable expiration.
+
+### CSRF Protection
+CSRF tokens for state-changing operations.
+
+### Rate Limiting
+Rate limiting on authentication endpoints.
+
+### Session Security
+- Secure cookies (httpOnly, sameSite)
+- Session rotation
+- IP and user agent tracking
+
+## Integration
+
+### Client Integration
+
+```typescript
+// Frontend client
+import { createAuthClient } from 'better-auth/client';
+
+export const authClient = createAuthClient({
+  baseURL: 'http://localhost:8080/api/auth'
+});
+
+// Sign in
+await authClient.signIn.email({
+  email: 'user@example.com',
+  password: 'password'
+});
+
+// Get session
+const session = await authClient.getSession();
+```
+
+### Service Integration
+
+Other services validate tokens:
+
+```typescript
+// Validate JWT token
+import { verify } from 'jsonwebtoken';
+
+const token = req.headers.authorization?.split(' ')[1];
+const payload = verify(token, process.env.JWT_SECRET);
+```
+
+## Deployment
+
+### Docker
+
+```bash
+# Build
+docker build -t tagaroa/auth-server:latest -f servers/auth/Dockerfile .
+
+# Run
+docker run -p 8081:8081 --env-file servers/auth/.env tagaroa/auth-server:latest
+```
+
+### Environment Setup
+
+```bash
+# Initialize database
+make db-init
+
+# Run migrations
+cd servers/auth
+bunx drizzle-kit migrate
+```
+
+## Monitoring
+
+### Health Check
+
+```
+GET /api/auth/health
+```
+
+Response:
+```json
+{
+  "status": "ok",
+  "timestamp": "2024-01-01T00:00:00.000Z",
+  "database": "connected"
+}
+```
+
+### Logs
+
+Structured JSON logging:
+
+```json
+{
+  "level": "info",
+  "timestamp": "2024-01-01T00:00:00.000Z",
+  "message": "User signed in",
+  "userId": "user_123",
+  "ip": "192.168.1.1"
+}
+```

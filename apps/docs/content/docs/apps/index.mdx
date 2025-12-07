@@ -1,0 +1,88 @@
+---
+title: Applications
+description: Frontend applications in the Tagaroa platform
+---
+
+# Applications
+
+The Tagaroa platform includes multiple Next.js applications, each serving a specific purpose in the ecosystem.
+
+## Overview
+
+All applications are built with:
+- **Next.js 16** with App Router
+- **React 19** for UI
+- **Tailwind CSS 4** for styling
+- **Better Auth** for authentication
+- **PostHog** for analytics
+- **TypeScript** for type safety
+
+## Available Applications
+
+<Cards>
+  <Card title="Web App" href="/docs/apps/web" />
+  <Card title="Auth App" href="/docs/apps/auth" />
+  <Card title="Admin App" href="/docs/apps/admin" />
+  <Card title="Finance App" href="/docs/apps/finance" />
+  <Card title="Docs App" href="/docs/apps/docs" />
+</Cards>
+
+## Common Features
+
+### Shared Dependencies
+
+All apps use shared packages from the monorepo:
+- `@repo/common` - Common utilities and hooks
+
+### Development Ports
+
+| Application | Port | URL |
+|------------|------|-----|
+| Web | 3000 | http://localhost:3000 |
+| Auth | 3001 | http://localhost:3001 |
+| Admin | 3002 | http://localhost:3002 |
+| Finance | 3004 | http://localhost:3004 |
+| Docs | 3010 | http://localhost:3010 |
+
+### Running Applications
+
+```bash
+# Run all apps
+bun run dev
+
+# Run specific app
+turbo dev --filter=web
+turbo dev --filter=auth
+turbo dev --filter=admin
+turbo dev --filter=finance
+turbo dev --filter=docs
+
+# Build all apps
+bun run build
+
+# Build specific app
+turbo build --filter=web
+```
+
+### Environment Variables
+
+Each app requires environment variables. Copy `.env.example` to `.env` in each app directory:
+
+```bash
+# Common variables for all apps
+NEXT_PUBLIC_API_URL=http://localhost:8080
+NEXT_PUBLIC_POSTHOG_KEY=your-posthog-key
+NEXT_PUBLIC_POSTHOG_HOST=https://app.posthog.com
+```
+
+## Docker Support
+
+All apps include Dockerfiles for containerized deployment:
+
+```bash
+# Build Docker image for an app
+make docker-build-app APP=web
+
+# Or manually
+docker build -t tagaroa/web-app:latest -f apps/web/Dockerfile .
+```

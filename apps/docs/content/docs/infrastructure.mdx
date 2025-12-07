@@ -1,0 +1,489 @@
+---
+title: Infrastructure
+description: Infrastructure setup, deployment, and configuration
+---
+
+# Infrastructure
+
+Complete infrastructure setup for the Tagaroa platform including Docker, Kubernetes, and supporting services.
+
+## Overview
+
+The platform uses:
+- **Docker Compose**: Local development environment
+- **Kubernetes with Flux CD**: Production deployment with GitOps
+- **Traefik**: API gateway and reverse proxy
+- **PostgreSQL**: Primary database for all services
+- **Kafka**: Message queue for event-driven architecture
+- **MinIO**: S3-compatible object storage
+- **n8n**: Workflow automation and integration
+- **Drizzle Gateway**: Database proxy and connection pooling
+- **MetalLB**: Load balancer for bare-metal Kubernetes
+- **ingress-nginx**: Ingress controller for Kubernetes
+
+## Docker Compose
+
+### Services
+
+```yaml
+services:
+  # Database
+  postgres:
+    image: postgres:alpine
+    ports: ["5432:5432"]
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: postgres
+
+  # Message Queue
+  kafka:
+    image: confluentinc/cp-kafka:latest
+    ports: ["9092:9092"]
+
+  # Kafka UI
+  kafka-ui:
+    image: provectuslabs/kafka-ui:latest
+    ports: ["9090:8080"]
+    depends_on: [kafka]
+
+  # Object Storage
+  minio:
+    image: minio/minio:latest
+    ports: ["9000:9000", "9001:9001"]
+    command: server /data --console-address ":9001"
+
+  # Workflow Automation
+  n8n:
+    image: n8nio/n8n:latest
+    ports: ["5678:5678"]
+    depends_on: [postgres, kafka]
+
+  # API Gateway
+  traefik:
+    image: traefik:latest
+    ports: ["8080:80", "8000:8080"]
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+
+  # Drizzle Gateway
+  drizzle-gateway:
+    image: ghcr.io/drizzle-team/gateway:latest
+    ports: ["4983:4983"]
+    environment:
+      MASTERPASS: tagaroa
+
+  # Proxy services for Traefik routing
+  auth-proxy:
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.auth.rule=PathPrefix(`/api/auth`)"
+      - "traefik.http.services.auth-server.loadbalancer.server.url=http://host.docker.internal:8081"
+
+  finance-proxy:
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.finance.rule=PathPrefix(`/api/finance`)"
+      - "traefik.http.services.finance-server.loadbalancer.server.url=http://host.docker.internal:8082"
+      - "traefik.http.middlewares.finance-stripprefix.stripprefix.prefixes=/api/finance"
+```
+
+### Starting Services
+
+```bash
+# Start all services
+make docker-up
+
+# Or manually
+docker compose up -d
+
+# Initialize databases
+make db-init
+
+# View logs
+make docker-logs
+
+# Stop services
+make docker-down
+```
+
+### Service URLs
+
+| Service | URL | Credentials |
+|---------|-----|-------------|
+| PostgreSQL | localhost:5432 | postgres/postgres |
+| Kafka | localhost:9092 | - |
+| Kafka UI | http://localhost:9090 | - |
+| MinIO API | http://localhost:9000 | minioadmin/minioadmin |
+| MinIO Console | http://localhost:9001 | minioadmin/minioadmin |
+| n8n | http://localhost:5678 | admin/admin |
+| Traefik API Gateway | http://localhost:8080 | - |
+| Traefik Dashboard | http://localhost:8000 | - |
+| Drizzle Gateway | http://localhost:4983 | tagaroa |
+
+## Traefik Configuration
+
+### API Gateway
+
+Traefik routes requests to backend services:
+
+```yaml
+# Auth service routing
+auth-proxy:
+  labels:
+    - "traefik.enable=true"
+    - "traefik.http.routers.auth.rule=PathPrefix(`/api/auth`)"
+    - "traefik.http.routers.auth.entrypoints=web"
+    - "traefik.http.services.auth-server.loadbalancer.server.url=http://host.docker.internal:8081"
+
+# Finance service routing
+finance-proxy:
+  labels:
+    - "traefik.enable=true"
+    - "traefik.http.routers.finance.rule=PathPrefix(`/api/finance`)"
+    - "traefik.http.middlewares.finance-stripprefix.stripprefix.prefixes=/api/finance"
+    - "traefik.http.routers.finance.middlewares=finance-stripprefix"
+```
+
+### Request Flow
+
+```
+Client → Traefik (8080) → Backend Service
+  ↓
+/api/auth → Auth Server (8081)
+/api/finance → Finance Server (8082)
+/api/investment → Investment Server (8083)
+/api/storage → Storage Server (8084)
+```
+
+## Database Setup
+
+### Initialize Databases
+
+```bash
+# Create databases and users
+make db-init
+```
+
+This creates:
+- `auth` database for authentication
+- `finance` database for financial data
+- `investment` database for investments
+- `storage` database for file metadata
+- `n8n` database for workflow automation
+
+### Manual Setup
+
+```bash
+# Connect to PostgreSQL
+docker compose exec postgres psql -U postgres
+
+# Create database
+CREATE DATABASE auth;
+CREATE USER auth WITH PASSWORD 'auth';
+GRANT ALL PRIVILEGES ON DATABASE auth TO auth;
+```
+
+### Migrations
+
+Each service manages its own migrations:
+
+```bash
+# Auth server
+cd servers/auth
+bunx drizzle-kit migrate
+
+# Finance server
+cd servers/finance
+migrate -path db/migrations -database "postgresql://..." up
+
+# Investment server
+cd servers/investment
+sqlx migrate run
+```
+
+## Kafka Setup
+
+### Topics
+
+Kafka topics are auto-created:
+- `account.created`
+- `account.updated`
+- `account.deleted`
+- `budget.created`
+- `budget.updated`
+- `transaction.created`
+- `user.created`
+
+### Kafka UI
+
+Access Kafka UI at http://localhost:9090 to:
+- View topics
+- Browse messages
+- Monitor consumer groups
+- Manage configurations
+
+## MinIO Setup
+
+### Buckets
+
+Create buckets for file storage:
+
+```bash
+# Using mc (MinIO Client)
+mc alias set local http://localhost:9000 minioadmin minioadmin
+mc mb local/files
+mc mb local/avatars
+mc mb local/documents
+```
+
+### Access Policies
+
+```bash
+# Set public read policy
+mc policy set download local/avatars
+
+# Set private policy
+mc policy set private local/documents
+```
+
+### MinIO Console
+
+Access at http://localhost:9001:
+- Manage buckets
+- Upload/download files
+- Configure policies
+- Monitor usage
+
+## Kubernetes
+
+### Cluster Setup
+
+```bash
+# Setup bare-metal cluster with MetalLB and ingress-nginx
+make infra-setup-baremetal
+
+# Deploy MinIO
+make infra-deploy-minio
+```
+
+### Deployments
+
+```yaml
+# Example deployment
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: auth-server
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: auth-server
+  template:
+    metadata:
+      labels:
+        app: auth-server
+    spec:
+      containers:
+      - name: auth-server
+        image: tagaroa/auth-server:latest
+        ports:
+        - containerPort: 8081
+        env:
+        - name: DATABASE_URL
+          valueFrom:
+            secretKeyRef:
+              name: auth-secrets
+              key: database-url
+```
+
+### Services
+
+```yaml
+apiVersion: v1
+kind: Service
+metadata:
+  name: auth-server
+spec:
+  selector:
+    app: auth-server
+  ports:
+  - port: 8081
+    targetPort: 8081
+  type: ClusterIP
+```
+
+### Ingress
+
+```yaml
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: api-ingress
+spec:
+  rules:
+  - host: api.tagaroa.com
+    http:
+      paths:
+      - path: /api/auth
+        pathType: Prefix
+        backend:
+          service:
+            name: auth-server
+            port:
+              number: 8081
+```
+
+## Monitoring
+
+### Health Checks
+
+All services expose health endpoints:
+
+```bash
+# Auth server
+curl http://localhost:8081/api/auth/health
+
+# Finance server
+curl http://localhost:8082/api/v1/health
+
+# Investment server
+curl http://localhost:8083/api/v1/health
+```
+
+### Logs
+
+```bash
+# Docker Compose logs
+docker compose logs -f [service]
+
+# Kubernetes logs
+kubectl logs -f deployment/auth-server
+```
+
+### Metrics
+
+Services expose metrics for monitoring:
+- Request rates
+- Error rates
+- Response times
+- Database query performance
+
+## Security
+
+### Secrets Management
+
+```bash
+# Kubernetes secrets
+kubectl create secret generic auth-secrets \
+  --from-literal=database-url=postgresql://... \
+  --from-literal=jwt-secret=...
+
+# Docker secrets
+docker secret create db_password ./db_password.txt
+```
+
+### Network Policies
+
+```yaml
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: auth-server-policy
+spec:
+  podSelector:
+    matchLabels:
+      app: auth-server
+  policyTypes:
+  - Ingress
+  - Egress
+  ingress:
+  - from:
+    - podSelector:
+        matchLabels:
+          app: api-gateway
+    ports:
+    - protocol: TCP
+      port: 8081
+```
+
+## Backup and Recovery
+
+### Database Backups
+
+```bash
+# Backup PostgreSQL
+docker compose exec postgres pg_dump -U postgres auth > backup.sql
+
+# Restore
+docker compose exec -T postgres psql -U postgres auth < backup.sql
+```
+
+### MinIO Backups
+
+```bash
+# Backup bucket
+mc mirror local/files ./backup/files
+
+# Restore
+mc mirror ./backup/files local/files
+```
+
+## Scaling
+
+### Horizontal Scaling
+
+```bash
+# Scale Kubernetes deployment
+kubectl scale deployment auth-server --replicas=5
+
+# Docker Compose (limited)
+docker compose up -d --scale auth-server=3
+```
+
+### Load Balancing
+
+Traefik automatically load balances across replicas.
+
+## Troubleshooting
+
+### Common Issues
+
+**Database connection failed**
+```bash
+# Check PostgreSQL is running
+docker compose ps postgres
+
+# Check connection
+docker compose exec postgres psql -U postgres -c "SELECT 1"
+```
+
+**Kafka not connecting**
+```bash
+# Check Kafka is running
+docker compose ps kafka
+
+# List topics
+docker compose exec kafka kafka-topics --bootstrap-server localhost:9092 --list
+```
+
+**MinIO access denied**
+```bash
+# Check credentials
+mc alias list
+
+# Test connection
+mc ls local/
+```
+
+## Best Practices
+
+1. **Use Docker Compose for Development**: Fast iteration
+2. **Use Kubernetes for Production**: Scalability and reliability
+3. **Separate Databases**: One per service
+4. **Monitor Everything**: Logs, metrics, health checks
+5. **Backup Regularly**: Automated backups
+6. **Secure Secrets**: Never commit secrets
+7. **Network Isolation**: Use network policies
+8. **Resource Limits**: Set CPU and memory limits

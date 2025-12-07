@@ -9,12 +9,6 @@ updates:
       interval: "weekly"
     open-pull-requests-limit: 5
 
-  - package-ecosystem: "npm"
-    directory: "/servers/storage"
-    schedule:
-      interval: "weekly"
-    open-pull-requests-limit: 5
-
   # Go packages
   - package-ecosystem: "gomod"
     directory: "/packages/shared/go"

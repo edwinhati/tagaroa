@@ -1,0 +1,330 @@
+---
+title: Quick Start
+description: Get up and running with Tagaroa in minutes
+---
+
+# Quick Start
+
+Get the Tagaroa platform running on your local machine in just a few minutes.
+
+## Prerequisites
+
+Before you begin, ensure you have:
+
+- **Bun** 1.3.3 or higher
+- **Docker** and Docker Compose
+- **Git**
+- **Node.js** 18 or higher (for compatibility)
+
+## Installation
+
+### 1. Clone the Repository
+
+```bash
+git clone https://github.com/your-org/tagaroa.git
+cd tagaroa
+```
+
+### 2. Install Dependencies
+
+```bash
+bun install
+```
+
+This will install all dependencies for apps, servers, and packages.
+
+### 3. Setup Environment Files
+
+```bash
+make env-setup
+```
+
+Or manually copy environment files:
+
+```bash
+cp apps/auth/.env.example apps/auth/.env
+cp apps/admin/.env.example apps/admin/.env
+cp apps/finance/.env.example apps/finance/.env
+cp apps/web/.env.example apps/web/.env
+cp servers/auth/.env.example servers/auth/.env
+cp servers/finance/.env.example servers/finance/.env
+```
+
+### 4. Start Infrastructure Services
+
+```bash
+make docker-up
+```
+
+This starts:
+- PostgreSQL (port 5432)
+- Kafka (port 9092)
+- MinIO (ports 9000, 9001)
+- n8n (port 5678)
+- Traefik (ports 8080, 8000)
+
+### 5. Initialize Databases
+
+```bash
+make db-init
+```
+
+This creates databases for:
+- auth
+- finance
+- investment
+- files
+- n8n
+
+### 6. Run Database Migrations
+
+```bash
+# Auth server
+cd servers/auth
+bunx drizzle-kit migrate
+cd ../..
+
+# Finance server (if needed)
+cd servers/finance
+# Run migrations if you have them
+cd ../..
+```
+
+### 7. Start Development Servers
+
+```bash
+# Start all apps and servers
+bun run dev
+```
+
+This starts:
+- Web app (http://localhost:3000)
+- Auth app (http://localhost:3001)
+- Admin app (http://localhost:3002)
+- Finance app (http://localhost:3004)
+- Docs app (http://localhost:3010 - configured in package.json)
+
+### 8. Start Backend Services
+
+In separate terminals:
+
+```bash
+# Auth server (TypeScript/Bun)
+cd servers/auth
+bun run dev
+
+# Storage server (TypeScript/Bun)
+cd servers/storage
+bun run dev
+
+# Finance server (Go)
+cd servers/finance
+go run ./cmd/main.go
+
+# Investment server (Rust - optional)
+cd servers/investment
+cargo run
+
+# File server (Go - optional)
+cd file
+go run ./cmd/main.go
+```
+
+## Verify Installation
+
+### Check Frontend Apps
+
+- Web: http://localhost:3000
+- Auth: http://localhost:3001
+- Admin: http://localhost:3002
+- Finance: http://localhost:3004
+- Docs: http://localhost:3010
+
+### Check Backend Services
+
+```bash
+# Auth server (via Traefik)
+curl http://localhost:8080/api/auth/health
+
+# Finance server (via Traefik)
+curl http://localhost:8080/api/finance/health
+
+# Or directly
+curl http://localhost:8081  # Auth server
+curl http://localhost:8082  # Finance server
+curl http://localhost:8083  # Investment server
+curl http://localhost:8084  # Storage server
+```
+
+### Check Infrastructure
+
+- PostgreSQL: localhost:5432 (postgres/postgres)
+- Kafka: localhost:9092
+- Kafka UI: http://localhost:9090
+- MinIO API: http://localhost:9000
+- MinIO Console: http://localhost:9001 (minioadmin/minioadmin)
+- n8n: http://localhost:5678 (admin/admin)
+- Traefik API Gateway: http://localhost:8080
+- Traefik Dashboard: http://localhost:8000
+- Drizzle Gateway: http://localhost:4983
+
+## Next Steps
+
+### Create Your First User
+
+1. Navigate to http://localhost:3001 (Auth app)
+2. Click "Sign Up"
+3. Enter your email and password
+4. Sign in
+
+### Explore the Admin Dashboard
+
+1. Navigate to http://localhost:3002 (Admin app)
+2. Sign in with your credentials
+3. View and manage users
+
+### Try the Finance App
+
+1. Navigate to http://localhost:3004 (Finance app)
+2. Sign in with your credentials
+3. Create an account
+4. Create a budget
+5. Track transactions
+
+## Common Commands
+
+### Development
+
+```bash
+# Run all apps
+bun run dev
+
+# Run specific app
+turbo dev --filter=web
+
+# Run specific server
+cd servers/auth && bun run dev
+```
+
+### Building
+
+```bash
+# Build all
+make build
+
+# Build specific app
+turbo build --filter=web
+
+# Build specific server
+make build-server SERVER=finance
+```
+
+### Testing
+
+```bash
+# Run all tests
+make test
+
+# Run specific tests
+cd servers/auth && bun test
+cd servers/finance && go test ./...
+```
+
+### Linting
+
+```bash
+# Lint all code
+make lint
+
+# Lint specific workspace
+turbo lint --filter=web
+```
+
+### Docker
+
+```bash
+# Start services
+make docker-up
+
+# Stop services
+make docker-down
+
+# View logs
+make docker-logs
+
+# Build Docker images
+make docker-build
+```
+
+## Troubleshooting
+
+### Port Already in Use
+
+If you get a "port already in use" error:
+
+```bash
+# Find process using port
+lsof -i :3000
+
+# Kill process
+kill -9 <PID>
+```
+
+### Database Connection Failed
+
+```bash
+# Check PostgreSQL is running
+docker compose ps postgres
+
+# Restart PostgreSQL
+docker compose restart postgres
+```
+
+### Dependencies Not Installing
+
+```bash
+# Clear cache and reinstall
+rm -rf node_modules
+rm bun.lock
+bun install
+```
+
+### Build Failures
+
+```bash
+# Clear Turborepo cache
+turbo clean
+
+# Clear Next.js cache
+rm -rf apps/*/.next
+
+# Rebuild
+turbo build --force
+```
+
+## Development Tips
+
+1. **Use Turborepo**: Leverage caching with `turbo` commands
+2. **Hot Reload**: Changes auto-reload in development
+3. **Check Logs**: Use `docker compose logs -f` for infrastructure logs
+4. **Database GUI**: Use Drizzle Studio for database management
+5. **API Testing**: Use Traefik dashboard to test API routes
+
+## What's Next?
+
+<Cards>
+  <Card title="Development Guide" href="/docs/development" />
+  <Card title="Applications" href="/docs/apps" />
+  <Card title="Backend Services" href="/docs/servers" />
+  <Card title="Infrastructure" href="/docs/infrastructure" />
+</Cards>
+
+## Getting Help
+
+- Check the [Development Guide](/docs/development) for detailed information
+- Review [Infrastructure](/docs/infrastructure) for service configuration
+- See [Troubleshooting](/docs/development#troubleshooting) for common issues
+
+## Video Tutorial
+
+Coming soon: A video walkthrough of the setup process.

@@ -1,0 +1,505 @@
+---
+title: Investment Server
+description: Investment tracking microservice built with Rust
+---
+
+# Investment Server
+
+Investment tracking and portfolio management service built with Rust for high performance and safety.
+
+## Overview
+
+- **Port**: 8083
+- **Technology**: Rust with Actix-web
+- **Database**: PostgreSQL
+- **Purpose**: Investment portfolio tracking and analytics
+
+## Features
+
+- Portfolio management
+- Investment tracking
+- Performance analytics
+- Asset allocation
+- Historical data
+- Real-time updates
+- Type-safe operations
+- High performance
+
+## Project Structure
+
+```
+servers/investment/
+├── src/
+│   ├── config/
+│   │   └── loader.rs       # Configuration loader
+│   ├── model/
+│   │   ├── file.rs         # Data models
+│   │   └── mod.rs
+│   ├── repository/
+│   │   ├── file_repository.rs
+│   │   └── mod.rs
+│   ├── service/
+│   │   ├── file_service.rs
+│   │   └── mod.rs
+│   ├── util/
+│   │   └── mod.rs
+│   └── main.rs             # Entry point
+├── db/
+│   └── migrations/         # SQL migrations
+├── test/                   # Integration tests
+├── .env.example
+├── Cargo.toml
+└── Cargo.lock
+```
+
+## API Endpoints
+
+### Portfolios
+
+```
+GET    /api/v1/portfolios          # List portfolios
+POST   /api/v1/portfolios          # Create portfolio
+GET    /api/v1/portfolios/:id      # Get portfolio
+PUT    /api/v1/portfolios/:id      # Update portfolio
+DELETE /api/v1/portfolios/:id      # Delete portfolio
+```
+
+### Investments
+
+```
+GET    /api/v1/investments         # List investments
+POST   /api/v1/investments         # Add investment
+GET    /api/v1/investments/:id     # Get investment
+PUT    /api/v1/investments/:id     # Update investment
+DELETE /api/v1/investments/:id     # Remove investment
+```
+
+### Analytics
+
+```
+GET    /api/v1/analytics/performance    # Performance metrics
+GET    /api/v1/analytics/allocation     # Asset allocation
+GET    /api/v1/analytics/history        # Historical data
+```
+
+## Configuration
+
+### Environment Variables
+
+```bash
+# servers/investment/.env
+ENV=development
+PORT=8083
+
+# Database
+DATABASE_URL=postgresql://postgres:postgres@localhost:5432/investment
+
+# OIDC Authentication
+OIDC_BASE_URL=http://localhost:8080/api/auth
+OIDC_CLIENT_ID=http://localhost:8080
+OIDC_CLIENT_SECRET=investment-client-secret
+
+# CORS
+TRUSTED_ORIGINS=http://localhost:3001,http://localhost:3002,http://localhost:3004
+
+# Logging
+RUST_LOG=info
+```
+
+### Cargo Configuration
+
+```toml
+# Cargo.toml
+[package]
+name = "investment-server"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+actix-web = "4.4"
+actix-rt = "2.9"
+tokio = { version = "1.35", features = ["full"] }
+sqlx = { version = "0.7", features = ["postgres", "runtime-tokio-native-tls", "migrate"] }
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+dotenv = "0.15"
+chrono = { version = "0.4", features = ["serde"] }
+uuid = { version = "1.6", features = ["v4", "serde"] }
+env_logger = "0.11"
+log = "0.4"
+
+[dev-dependencies]
+actix-rt = "2.9"
+```
+
+## Data Models
+
+### Portfolio
+
+```rust
+// src/model/portfolio.rs
+use serde::{Deserialize, Serialize};
+use chrono::{DateTime, Utc};
+use uuid::Uuid;
+
+#[derive(Debug, Serialize, Deserialize, Clone)]
+pub struct Portfolio {
+    pub id: Uuid,
+    pub user_id: String,
+    pub name: String,
+    pub description: Option<String>,
+    pub total_value: f64,
+    pub created_at: DateTime<Utc>,
+    pub updated_at: DateTime<Utc>,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct CreatePortfolioRequest {
+    pub name: String,
+    pub description: Option<String>,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct UpdatePortfolioRequest {
+    pub name: Option<String>,
+    pub description: Option<String>,
+}
+```
+
+### Investment
+
+```rust
+// src/model/investment.rs
+#[derive(Debug, Serialize, Deserialize, Clone)]
+pub struct Investment {
+    pub id: Uuid,
+    pub portfolio_id: Uuid,
+    pub symbol: String,
+    pub name: String,
+    pub quantity: f64,
+    pub purchase_price: f64,
+    pub current_price: f64,
+    pub asset_type: AssetType,
+    pub purchase_date: DateTime<Utc>,
+    pub created_at: DateTime<Utc>,
+    pub updated_at: DateTime<Utc>,
+}
+
+#[derive(Debug, Serialize, Deserialize, Clone)]
+#[serde(rename_all = "lowercase")]
+pub enum AssetType {
+    Stock,
+    Bond,
+    ETF,
+    Crypto,
+    RealEstate,
+    Commodity,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct CreateInvestmentRequest {
+    pub portfolio_id: Uuid,
+    pub symbol: String,
+    pub name: String,
+    pub quantity: f64,
+    pub purchase_price: f64,
+    pub asset_type: AssetType,
+    pub purchase_date: DateTime<Utc>,
+}
+```
+
+## Architecture
+
+### Repository Pattern
+
+```rust
+// src/repository/portfolio_repository.rs
+use async_trait::async_trait;
+use sqlx::PgPool;
+use uuid::Uuid;
+
+#[async_trait]
+pub trait PortfolioRepository: Send + Sync {
+    async fn create(&self, portfolio: &Portfolio) -> Result<Portfolio, sqlx::Error>;
+    async fn find_by_id(&self, id: Uuid) -> Result<Option<Portfolio>, sqlx::Error>;
+    async fn find_by_user_id(&self, user_id: &str) -> Result<Vec<Portfolio>, sqlx::Error>;
+    async fn update(&self, portfolio: &Portfolio) -> Result<Portfolio, sqlx::Error>;
+    async fn delete(&self, id: Uuid) -> Result<bool, sqlx::Error>;
+}
+
+pub struct PostgresPortfolioRepository {
+    pool: PgPool,
+}
+
+impl PostgresPortfolioRepository {
+    pub fn new(pool: PgPool) -> Self {
+        Self { pool }
+    }
+}
+
+#[async_trait]
+impl PortfolioRepository for PostgresPortfolioRepository {
+    async fn create(&self, portfolio: &Portfolio) -> Result<Portfolio, sqlx::Error> {
+        sqlx::query_as!(
+            Portfolio,
+            r#"
+            INSERT INTO portfolios (id, user_id, name, description, total_value, created_at, updated_at)
+            VALUES ($1, $2, $3, $4, $5, $6, $7)
+            RETURNING *
+            "#,
+            portfolio.id,
+            portfolio.user_id,
+            portfolio.name,
+            portfolio.description,
+            portfolio.total_value,
+            portfolio.created_at,
+            portfolio.updated_at
+        )
+        .fetch_one(&self.pool)
+        .await
+    }
+    
+    // ... other methods
+}
+```
+
+### Service Layer
+
+```rust
+// src/service/portfolio_service.rs
+use crate::model::{Portfolio, CreatePortfolioRequest};
+use crate::repository::PortfolioRepository;
+use uuid::Uuid;
+use chrono::Utc;
+
+pub struct PortfolioService<R: PortfolioRepository> {
+    repository: R,
+}
+
+impl<R: PortfolioRepository> PortfolioService<R> {
+    pub fn new(repository: R) -> Self {
+        Self { repository }
+    }
+    
+    pub async fn create_portfolio(
+        &self,
+        user_id: String,
+        req: CreatePortfolioRequest,
+    ) -> Result<Portfolio, Box<dyn std::error::Error>> {
+        let portfolio = Portfolio {
+            id: Uuid::new_v4(),
+            user_id,
+            name: req.name,
+            description: req.description,
+            total_value: 0.0,
+            created_at: Utc::now(),
+            updated_at: Utc::now(),
+        };
+        
+        let created = self.repository.create(&portfolio).await?;
+        Ok(created)
+    }
+    
+    // ... other methods
+}
+```
+
+### HTTP Handlers
+
+```rust
+// src/handler/portfolio_handler.rs
+use actix_web::{web, HttpResponse, Result};
+use crate::service::PortfolioService;
+use crate::model::CreatePortfolioRequest;
+
+pub async fn create_portfolio(
+    service: web::Data<PortfolioService>,
+    req: web::Json<CreatePortfolioRequest>,
+    user_id: web::ReqData<String>,
+) -> Result<HttpResponse> {
+    match service.create_portfolio(user_id.into_inner(), req.into_inner()).await {
+        Ok(portfolio) => Ok(HttpResponse::Created().json(portfolio)),
+        Err(e) => Ok(HttpResponse::InternalServerError().json(json!({
+            "error": e.to_string()
+        }))),
+    }
+}
+
+pub async fn list_portfolios(
+    service: web::Data<PortfolioService>,
+    user_id: web::ReqData<String>,
+) -> Result<HttpResponse> {
+    match service.list_portfolios(user_id.into_inner()).await {
+        Ok(portfolios) => Ok(HttpResponse::Ok().json(portfolios)),
+        Err(e) => Ok(HttpResponse::InternalServerError().json(json!({
+            "error": e.to_string()
+        }))),
+    }
+}
+```
+
+## Development
+
+### Running the Server
+
+```bash
+# Development
+cd servers/investment
+cargo run
+
+# Or using npm script
+npm run dev
+
+# Build release
+cargo build --release
+
+# Run release binary
+./target/release/investment-server
+```
+
+### Testing
+
+```bash
+# Run all tests
+cargo test
+
+# Run with output
+cargo test -- --nocapture
+
+# Run specific test
+cargo test test_create_portfolio
+
+# Run integration tests
+cargo test --test integration
+
+# Generate coverage
+cargo tarpaulin --out Html
+```
+
+### Database Migrations
+
+```bash
+# Create migration
+sqlx migrate add create_portfolios_table
+
+# Run migrations
+sqlx migrate run
+
+# Revert migration
+sqlx migrate revert
+```
+
+## Authentication
+
+### JWT Middleware
+
+```rust
+// src/middleware/auth.rs
+use actix_web::{dev::ServiceRequest, Error, HttpMessage};
+use actix_web_httpauth::extractors::bearer::BearerAuth;
+
+pub async fn validator(
+    req: ServiceRequest,
+    credentials: BearerAuth,
+) -> Result<ServiceRequest, Error> {
+    let token = credentials.token();
+    
+    // Validate token with OIDC provider
+    match validate_token(token).await {
+        Ok(claims) => {
+            req.extensions_mut().insert(claims.sub);
+            Ok(req)
+        }
+        Err(_) => Err(actix_web::error::ErrorUnauthorized("Invalid token")),
+    }
+}
+```
+
+## Performance
+
+### Async Runtime
+Uses Tokio for async operations:
+- Non-blocking I/O
+- Concurrent request handling
+- Efficient resource usage
+
+### Database Connection Pooling
+SQLx connection pool for optimal database performance.
+
+### Zero-Cost Abstractions
+Rust's zero-cost abstractions ensure high performance without runtime overhead.
+
+## Deployment
+
+### Docker
+
+```bash
+# Build
+docker build -t tagaroa/investment-server:latest -f servers/investment/Dockerfile .
+
+# Run
+docker run -p 8083:8083 --env-file servers/investment/.env tagaroa/investment-server:latest
+```
+
+### Binary
+
+```bash
+# Build static binary
+cargo build --release --target x86_64-unknown-linux-musl
+
+# Run
+./target/x86_64-unknown-linux-musl/release/investment-server
+```
+
+## Monitoring
+
+### Health Check
+
+```rust
+pub async fn health_check() -> HttpResponse {
+    HttpResponse::Ok().json(json!({
+        "status": "ok",
+        "timestamp": Utc::now(),
+    }))
+}
+```
+
+### Logging
+
+```rust
+use log::{info, error, warn};
+
+info!("Portfolio created: {}", portfolio.id);
+error!("Failed to create portfolio: {}", err);
+warn!("Portfolio value below threshold");
+```
+
+## Error Handling
+
+```rust
+use thiserror::Error;
+
+#[derive(Error, Debug)]
+pub enum InvestmentError {
+    #[error("Portfolio not found")]
+    PortfolioNotFound,
+    
+    #[error("Invalid investment data: {0}")]
+    InvalidData(String),
+    
+    #[error("Database error: {0}")]
+    DatabaseError(#[from] sqlx::Error),
+    
+    #[error("Authentication error")]
+    AuthError,
+}
+```
+
+## Best Practices
+
+1. **Type Safety**: Leverage Rust's type system
+2. **Error Handling**: Use Result types consistently
+3. **Async/Await**: Use async for I/O operations
+4. **Testing**: Write comprehensive unit and integration tests
+5. **Documentation**: Document public APIs with rustdoc
+6. **Performance**: Profile and optimize hot paths

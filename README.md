@@ -1,126 +1,168 @@
-# Turborepo starter
+# Tagaroa
 
-This Turborepo starter is maintained by the Turborepo core team.
-
-## Using this example
-
-Run the following command:
-
-```sh
-npx create-turbo@latest
-```
+A comprehensive full-stack platform built as a Turborepo monorepo, featuring multiple applications, microservices, and shared packages for building modern web applications.
 
 ## What's inside?
 
 This Turborepo includes the following packages/apps:
 
-### Apps and Packages
+### Frontend Applications
 
-- `docs`: a [Next.js](https://nextjs.org/) app
-- `web`: another [Next.js](https://nextjs.org/) app
-- `@repo/ui`: a stub React component library shared by both `web` and `docs` applications
-- `@repo/eslint-config`: `eslint` configurations (includes `eslint-config-next` and `eslint-config-prettier`)
-- `@repo/typescript-config`: `tsconfig.json`s used throughout the monorepo
+- `web`: Main landing page (Next.js 16)
+- `auth`: Authentication app (Next.js 16)
+- `admin`: Admin dashboard (Next.js 16)
+- `finance`: Finance management app (Next.js 16)
+- `docs`: Documentation site (Next.js 16 with Fumadocs)
 
-Each package/app is 100% [TypeScript](https://www.typescriptlang.org/).
+### Backend Services
+
+- `servers/auth`: Authentication service (TypeScript/Hono/Bun)
+- `servers/finance`: Finance service (Go)
+- `servers/investment`: Investment service (Rust)
+- `servers/storage`: Storage service (TypeScript/Hono/Bun)
+
+### Shared Packages
+
+- `@repo/ui`: Shared UI component library (Radix UI + Tailwind CSS 4)
+- `@repo/common`: Common utilities, hooks, and stores
+- `@repo/shared`: Multi-language shared code (Go, Hono, Rust, Proto)
+- `@repo/posthog-config`: PostHog analytics configuration
+- `@repo/sentry-config`: Sentry error tracking configuration
+- `@repo/typescript-config`: Shared TypeScript configurations
+
+Each package/app is 100% [TypeScript](https://www.typescriptlang.org/), Go, or Rust.
+
+### Infrastructure
+
+- **Docker Compose**: PostgreSQL, Kafka, MinIO, n8n, Traefik
+- **Kubernetes**: Flux CD, MetalLB, ingress-nginx
+- **Database**: PostgreSQL with Drizzle ORM (TypeScript) and sqlx (Rust)
+- **Message Queue**: Kafka for event-driven architecture
+- **Storage**: MinIO for S3-compatible object storage
+- **API Gateway**: Traefik for routing and load balancing
 
 ### Utilities
 
 This Turborepo has some additional tools already setup for you:
 
+- [Bun](https://bun.sh/) for fast package management and runtime
 - [TypeScript](https://www.typescriptlang.org/) for static type checking
-- [ESLint](https://eslint.org/) for code linting
-- [Prettier](https://prettier.io) for code formatting
+- [Biome](https://biomejs.dev/) for code linting and formatting
+- [Turborepo](https://turborepo.com/) for efficient builds and caching
+
+### Quick Start
+
+```bash
+# Install dependencies
+bun install
+
+# Setup environment files
+make env-setup
+
+# Start infrastructure services
+make docker-up
+
+# Initialize databases
+make db-init
+
+# Run all apps in development
+bun run dev
+```
 
 ### Build
 
-To build all apps and packages, run the following command:
+To build all apps and packages:
 
-```
-cd my-turborepo
+```bash
+# Build all
+make build
 
-# With [global `turbo`](https://turborepo.com/docs/getting-started/installation#global-installation) installed (recommended)
+# Or using Turborepo
 turbo build
 
-# Without [global `turbo`](https://turborepo.com/docs/getting-started/installation#global-installation), use your package manager
-npx turbo build
-yarn dlx turbo build
-pnpm exec turbo build
+# Or using Bun
+bun run build
 ```
 
-You can build a specific package by using a [filter](https://turborepo.com/docs/crafting-your-repository/running-tasks#using-filters):
+Build specific packages:
 
-```
-# With [global `turbo`](https://turborepo.com/docs/getting-started/installation#global-installation) installed (recommended)
-turbo build --filter=docs
+```bash
+# Build specific app
+turbo build --filter=web
 
-# Without [global `turbo`](https://turborepo.com/docs/getting-started/installation#global-installation), use your package manager
-npx turbo build --filter=docs
-yarn exec turbo build --filter=docs
-pnpm exec turbo build --filter=docs
+# Build specific server
+make build-server SERVER=finance
 ```
 
 ### Develop
 
-To develop all apps and packages, run the following command:
+Run all frontend apps:
 
-```
-cd my-turborepo
-
-# With [global `turbo`](https://turborepo.com/docs/getting-started/installation#global-installation) installed (recommended)
-turbo dev
-
-# Without [global `turbo`](https://turborepo.com/docs/getting-started/installation#global-installation), use your package manager
-npx turbo dev
-yarn exec turbo dev
-pnpm exec turbo dev
+```bash
+bun run dev
 ```
 
-You can develop a specific package by using a [filter](https://turborepo.com/docs/crafting-your-repository/running-tasks#using-filters):
+Run specific app:
 
-```
-# With [global `turbo`](https://turborepo.com/docs/getting-started/installation#global-installation) installed (recommended)
+```bash
 turbo dev --filter=web
-
-# Without [global `turbo`](https://turborepo.com/docs/getting-started/installation#global-installation), use your package manager
-npx turbo dev --filter=web
-yarn exec turbo dev --filter=web
-pnpm exec turbo dev --filter=web
+turbo dev --filter=auth
 ```
 
-### Remote Caching
+Run backend services (in separate terminals):
 
-> [!TIP]
-> Vercel Remote Cache is free for all plans. Get started today at [vercel.com](https://vercel.com/signup?/signup?utm_source=remote-cache-sdk&utm_campaign=free_remote_cache).
+```bash
+# TypeScript/Bun services
+cd servers/auth && bun run dev
+cd servers/storage && bun run dev
 
-Turborepo can use a technique known as [Remote Caching](https://turborepo.com/docs/core-concepts/remote-caching) to share cache artifacts across machines, enabling you to share build caches with your team and CI/CD pipelines.
+# Go services
+cd servers/finance && go run ./cmd/main.go
+cd file && go run ./cmd/main.go
 
-By default, Turborepo will cache locally. To enable Remote Caching you will need an account with Vercel. If you don't have an account you can [create one](https://vercel.com/signup?utm_source=turborepo-examples), then enter the following commands:
-
-```
-cd my-turborepo
-
-# With [global `turbo`](https://turborepo.com/docs/getting-started/installation#global-installation) installed (recommended)
-turbo login
-
-# Without [global `turbo`](https://turborepo.com/docs/getting-started/installation#global-installation), use your package manager
-npx turbo login
-yarn exec turbo login
-pnpm exec turbo login
+# Rust service
+cd servers/investment && cargo run
 ```
 
-This will authenticate the Turborepo CLI with your [Vercel account](https://vercel.com/docs/concepts/personal-accounts/overview).
+### Testing
 
-Next, you can link your Turborepo to your Remote Cache by running the following command from the root of your Turborepo:
+```bash
+# Run all tests
+make test
 
+# Run specific tests
+cd servers/auth && bun test
+cd servers/finance && go test ./...
+cd servers/investment && cargo test
 ```
-# With [global `turbo`](https://turborepo.com/docs/getting-started/installation#global-installation) installed (recommended)
-turbo link
 
-# Without [global `turbo`](https://turborepo.com/docs/getting-started/installation#global-installation), use your package manager
-npx turbo link
-yarn exec turbo link
-pnpm exec turbo link
+### Linting
+
+```bash
+# Lint all code
+make lint
+
+# Or using Turborepo
+turbo lint
+
+# Or using Bun
+bun run lint
+```
+
+### Docker
+
+```bash
+# Start services
+make docker-up
+
+# Stop services
+make docker-down
+
+# View logs
+make docker-logs
+
+# Build Docker images
+make docker-build
 ```
 
 ## Useful Links

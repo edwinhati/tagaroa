@@ -1,0 +1,183 @@
+---
+title: Backend Services
+description: Microservices architecture and backend servers
+---
+
+# Backend Services
+
+The Tagaroa platform uses a microservices architecture with services built in TypeScript, Go, and Rust.
+
+## Overview
+
+The backend consists of multiple specialized services:
+
+- **Auth Server**: Authentication and authorization (TypeScript/Hono/Bun)
+- **Finance Server**: Financial data management (Go)
+- **Investment Server**: Investment tracking (Rust)
+- **Storage Server**: File storage and management (TypeScript/Hono/Bun)
+- **File Server**: File upload and object storage (Go)
+
+## Architecture
+
+```
+┌─────────────┐
+│   Traefik   │  API Gateway (Port 8080)
+│   Proxy     │
+└──────┬──────┘
+       │
+       ├─────► /api/auth      → Auth Server (8081)
+       ├─────► /api/finance   → Finance Server (8082)
+       ├─────► /api/investment → Investment Server (8083)
+       ├─────► /api/storage   → Storage Server (8084)
+       └─────► /api/files     → File Server (8085)
+```
+
+## Service Ports
+
+| Service | Port | Technology | Purpose |
+|---------|------|------------|---------|
+| Auth | 8081 | TypeScript/Hono/Bun | Authentication & authorization |
+| Finance | 8082 | Go | Finance management |
+| Investment | 8083 | Rust | Investment tracking |
+| Storage | 8084 | TypeScript/Hono/Bun | File storage metadata |
+| File | 8085 | Go | File upload & MinIO storage |
+
+## Common Features
+
+### Authentication
+All services integrate with the auth server for:
+- JWT token validation
+- OIDC authentication
+- Session management
+- Role-based access control
+
+### Database
+Services use PostgreSQL with separate databases:
+- `auth` - User accounts and sessions
+- `finance` - Financial data
+- `investment` - Investment data
+- `storage` - Storage metadata
+- `files` - File metadata (file server)
+- `n8n` - Workflow automation data
+
+### Message Queue
+Kafka for event-driven communication:
+- Account events
+- Transaction events
+- Audit logs
+- Notifications
+
+### Observability
+- Structured logging
+- Error tracking with Sentry
+- Health check endpoints
+- Metrics collection
+
+## Development
+
+### Running All Services
+
+```bash
+# Start infrastructure
+make docker-up
+make db-init
+
+# Run all servers (in separate terminals)
+cd servers/auth && bun run dev
+cd servers/storage && bun run dev
+cd servers/finance && go run ./cmd/main.go
+cd servers/investment && cargo run
+cd file && go run ./cmd/main.go
+```
+
+### Running Individual Services
+
+```bash
+# Auth server (TypeScript/Bun)
+cd servers/auth
+bun run dev
+
+# Storage server (TypeScript/Bun)
+cd servers/storage
+bun run dev
+
+# Finance server (Go)
+cd servers/finance
+go run ./cmd/main.go
+
+# Investment server (Rust)
+cd servers/investment
+cargo run
+
+# File server (Go)
+cd file
+go run ./cmd/main.go
+```
+
+## API Gateway
+
+Traefik routes requests to appropriate services:
+
+```yaml
+# docker-compose.yml
+auth-proxy:
+  labels:
+    - "traefik.http.routers.auth.rule=PathPrefix(`/api/auth`)"
+    - "traefik.http.services.auth-server.loadbalancer.server.url=http://host.docker.internal:8081"
+
+finance-proxy:
+  labels:
+    - "traefik.http.routers.finance.rule=PathPrefix(`/api/finance`)"
+    - "traefik.http.services.finance-server.loadbalancer.server.url=http://host.docker.internal:8082"
+```
+
+## Service Communication
+
+### REST APIs
+Primary communication method between services and clients.
+
+### Kafka Events
+Asynchronous event-driven communication:
+
+```
+Auth Service → Kafka → Finance Service
+             → Kafka → Investment Service
+             → Kafka → Notification Service
+```
+
+### Database
+Each service has its own database (database-per-service pattern).
+
+## Deployment
+
+### Docker
+
+Build all services:
+
+```bash
+make docker-build-servers
+```
+
+Build individual service:
+
+```bash
+make docker-build-server SERVER=finance
+```
+
+### Kubernetes
+
+Deploy to Kubernetes:
+
+```bash
+kubectl apply -f infra/k8s/
+```
+
+## Next Steps
+
+<Cards>
+  <Card title="Auth Server" href="/docs/servers/auth" />
+  <Card title="Finance Server" href="/docs/servers/finance" />
+  <Card title="Investment Server" href="/docs/servers/investment" />
+  <Card title="Storage Server" href="/docs/servers/storage" />
+  <Card title="File Server" href="/docs/servers/file" />
+</Cards>

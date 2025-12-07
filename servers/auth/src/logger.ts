@@ -235,7 +235,7 @@ export const httpMiddleware = (logger: Logger): MiddlewareHandler =>
 			c.res.headers.set("x-request-id", requestId);
 
 			// Log successful request
-			let statusColor = colors.green;
+			let statusColor: string = colors.green;
 			if (status >= 400) {
 				statusColor = colors.red;
 			} else if (status >= 300) {

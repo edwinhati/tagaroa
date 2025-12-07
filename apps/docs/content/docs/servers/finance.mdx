@@ -1,0 +1,438 @@
+---
+title: Finance Server
+description: Financial data management microservice built with Go
+---
+
+# Finance Server
+
+Financial data management service built with Go, handling accounts, budgets, and transactions.
+
+## Overview
+
+- **Port**: 8082
+- **Technology**: Go 1.24
+- **Database**: PostgreSQL
+- **Purpose**: Financial account and budget management
+
+## Features
+
+- Account management (CRUD)
+- Budget tracking and management
+- Transaction processing
+- Budget history and analytics
+- OIDC authentication
+- Kafka event publishing
+- RESTful API
+- Comprehensive testing
+
+## Project Structure
+
+```
+servers/finance/
+├── cmd/
+│   └── main.go             # Entry point
+├── internal/
+│   ├── config/
+│   │   ├── config.go       # Configuration
+│   │   └── config_test.go
+│   ├── model/
+│   │   ├── account.go      # Account model
+│   │   ├── account_test.go
+│   │   ├── budget.go       # Budget model
+│   │   └── budget_test.go
+│   ├── repository/
+│   │   ├── account_repository.go
+│   │   ├── account_repository_test.go
+│   │   ├── budget_repository.go
+│   │   └── budget_repository_test.go
+│   ├── service/
+│   │   ├── account_service.go
+│   │   ├── account_service_test.go
+│   │   ├── budget_service.go
+│   │   └── budget_service_test.go
+│   └── transport/
+│       ├── http_handler.go
+│       └── http_handler_test.go
+├── db/
+│   └── migrations/         # SQL migrations
+├── .env.example
+├── Dockerfile
+├── go.mod
+└── go.sum
+```
+
+## API Endpoints
+
+### Accounts
+
+```
+GET    /api/v1/accounts           # List accounts
+POST   /api/v1/accounts           # Create account
+GET    /api/v1/accounts/:id       # Get account
+PUT    /api/v1/accounts/:id       # Update account
+DELETE /api/v1/accounts/:id       # Delete account
+```
+
+### Budgets
+
+```
+GET    /api/v1/budgets            # List budgets
+POST   /api/v1/budgets            # Create budget
+GET    /api/v1/budgets/:id        # Get budget
+PUT    /api/v1/budgets/:id        # Update budget
+DELETE /api/v1/budgets/:id        # Delete budget
+GET    /api/v1/budgets/:id/history # Get budget history
+```
+
+### Health
+
+```
+GET    /api/v1/health             # Health check
+```
+
+## Configuration
+
+### Environment Variables
+
+```bash
+# servers/finance/.env
+ENV=development
+PORT=8082
+
+# Logging
+LOG_LEVEL=debug
+LOG_FORMAT=json
+LOG_ADD_SOURCE=false
+
+# Database
+DB_HOST=localhost
+DB_PORT=5432
+DB_USER=postgres
+DB_PASSWORD=postgres
+DB_NAME=finance
+DB_SLOW_THRESHOLD=200ms
+
+# OIDC Authentication
+OIDC_BASE_URL=http://localhost:8080/api/auth
+OIDC_CLIENT_ID=http://localhost:8080
+OIDC_CLIENT_SECRET=finance-client-secret
+
+# CORS
+TRUSTED_ORIGINS=http://localhost:3001,http://localhost:3002,http://localhost:3004
+
+# Sentry
+SENTRY_DSN=
+SENTRY_TRACES_SAMPLE_RATE=0
+
+# Kafka
+KAFKA_BROKERS=localhost:9092
+KAFKA_CLIENT_ID=finance-server
+```
+
+## Data Models
+
+### Account
+
+```go
+// internal/model/account.go
+type Account struct {
+    ID          string    `json:"id"`
+    UserID      string    `json:"userId"`
+    Name        string    `json:"name"`
+    Type        string    `json:"type"` // checking, savings, credit, investment
+    Balance     float64   `json:"balance"`
+    Currency    string    `json:"currency"`
+    CreatedAt   time.Time `json:"createdAt"`
+    UpdatedAt   time.Time `json:"updatedAt"`
+}
+
+type CreateAccountRequest struct {
+    Name     string  `json:"name" validate:"required"`
+    Type     string  `json:"type" validate:"required,oneof=checking savings credit investment"`
+    Balance  float64 `json:"balance"`
+    Currency string  `json:"currency" validate:"required,len=3"`
+}
+```
+
+### Budget
+
+```go
+// internal/model/budget.go
+type Budget struct {
+    ID          string    `json:"id"`
+    UserID      string    `json:"userId"`
+    Name        string    `json:"name"`
+    Amount      float64   `json:"amount"`
+    Spent       float64   `json:"spent"`
+    Category    string    `json:"category"`
+    Period      string    `json:"period"` // monthly, yearly, custom
+    StartDate   time.Time `json:"startDate"`
+    EndDate     time.Time `json:"endDate"`
+    CreatedAt   time.Time `json:"createdAt"`
+    UpdatedAt   time.Time `json:"updatedAt"`
+}
+
+type CreateBudgetRequest struct {
+    Name      string    `json:"name" validate:"required"`
+    Amount    float64   `json:"amount" validate:"required,gt=0"`
+    Category  string    `json:"category" validate:"required"`
+    Period    string    `json:"period" validate:"required,oneof=monthly yearly custom"`
+    StartDate time.Time `json:"startDate" validate:"required"`
+    EndDate   time.Time `json:"endDate" validate:"required,gtfield=StartDate"`
+}
+```
+
+## Architecture
+
+### Layered Architecture
+
+```
+HTTP Handler → Service → Repository → Database
+     ↓
+  Middleware
+     ↓
+Authentication
+```
+
+### Repository Pattern
+
+```go
+// internal/repository/account_repository.go
+type AccountRepository interface {
+    Create(ctx context.Context, account *Account) error
+    GetByID(ctx context.Context, id string) (*Account, error)
+    GetByUserID(ctx context.Context, userID string) ([]*Account, error)
+    Update(ctx context.Context, account *Account) error
+    Delete(ctx context.Context, id string) error
+}
+```
+
+### Service Layer
+
+```go
+// internal/service/account_service.go
+type AccountService interface {
+    CreateAccount(ctx context.Context, req *CreateAccountRequest) (*Account, error)
+    GetAccount(ctx context.Context, id string) (*Account, error)
+    ListAccounts(ctx context.Context, userID string) ([]*Account, error)
+    UpdateAccount(ctx context.Context, id string, req *UpdateAccountRequest) (*Account, error)
+    DeleteAccount(ctx context.Context, id string) error
+}
+```
+
+## Development
+
+### Running the Server
+
+```bash
+# Development
+cd servers/finance
+go run ./cmd/main.go
+
+# Build
+go build -o finance-server ./cmd/main.go
+
+# Or using Makefile
+make build-server SERVER=finance
+
+# Run built binary
+./build/bin/finance-server
+```
+
+### Testing
+
+```bash
+# Run all tests
+go test ./...
+
+# Run with coverage
+go test -cover ./...
+
+# Run specific package
+go test ./internal/service/...
+
+# Verbose output
+go test -v ./...
+
+# Generate coverage report
+go test -coverprofile=coverage.out ./...
+go tool cover -html=coverage.out
+```
+
+### Database Migrations
+
+```bash
+# Create migration
+migrate create -ext sql -dir db/migrations -seq create_accounts_table
+
+# Run migrations
+migrate -path db/migrations -database "postgresql://postgres:postgres@localhost:5432/finance?sslmode=disable" up
+
+# Rollback
+migrate -path db/migrations -database "postgresql://postgres:postgres@localhost:5432/finance?sslmode=disable" down
+```
+
+## Authentication
+
+### OIDC Integration
+
+```go
+// Middleware validates JWT tokens from auth server
+func AuthMiddleware(oidcConfig *OIDCConfig) gin.HandlerFunc {
+    return func(c *gin.Context) {
+        token := c.GetHeader("Authorization")
+        if token == "" {
+            c.AbortWithStatusJSON(401, gin.H{"error": "unauthorized"})
+            return
+        }
+        
+        // Validate token with OIDC provider
+        claims, err := validateToken(token, oidcConfig)
+        if err != nil {
+            c.AbortWithStatusJSON(401, gin.H{"error": "invalid token"})
+            return
+        }
+        
+        c.Set("userID", claims.Subject)
+        c.Next()
+    }
+}
+```
+
+## Event Publishing
+
+### Kafka Integration
+
+```go
+// Publish account created event
+func (s *accountService) CreateAccount(ctx context.Context, req *CreateAccountRequest) (*Account, error) {
+    account, err := s.repo.Create(ctx, req)
+    if err != nil {
+        return nil, err
+    }
+    
+    // Publish event
+    event := AccountCreatedEvent{
+        AccountID: account.ID,
+        UserID:    account.UserID,
+        Type:      account.Type,
+        Timestamp: time.Now(),
+    }
+    
+    s.kafka.Publish("account.created", event)
+    
+    return account, nil
+}
+```
+
+## Deployment
+
+### Docker
+
+```bash
+# Build
+docker build -t tagaroa/finance-server:latest -f servers/finance/Dockerfile .
+
+# Run
+docker run -p 8082:8082 --env-file servers/finance/.env tagaroa/finance-server:latest
+```
+
+### Binary
+
+```bash
+# Build static binary
+CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -a -installsuffix cgo -ldflags '-extldflags "-static"' -o finance-server ./cmd/main.go
+
+# Run
+./finance-server
+```
+
+## Monitoring
+
+### Health Check
+
+```
+GET /api/v1/health
+```
+
+Response:
+```json
+{
+  "status": "ok",
+  "timestamp": "2024-01-01T00:00:00Z",
+  "database": "connected",
+  "kafka": "connected"
+}
+```
+
+### Logging
+
+Structured JSON logging:
+
+```json
+{
+  "level": "info",
+  "timestamp": "2024-01-01T00:00:00Z",
+  "message": "Account created",
+  "accountId": "acc_123",
+  "userId": "user_456"
+}
+```
+
+### Metrics
+
+- Request duration
+- Error rates
+- Database query performance
+- Kafka publish latency
+
+## Testing
+
+### Unit Tests
+
+```go
+func TestAccountService_CreateAccount(t *testing.T) {
+    repo := &mockAccountRepository{}
+    service := NewAccountService(repo)
+    
+    req := &CreateAccountRequest{
+        Name:     "Checking",
+        Type:     "checking",
+        Balance:  1000.00,
+        Currency: "USD",
+    }
+    
+    account, err := service.CreateAccount(context.Background(), req)
+    
+    assert.NoError(t, err)
+    assert.NotEmpty(t, account.ID)
+    assert.Equal(t, req.Name, account.Name)
+}
+```
+
+### Integration Tests
+
+```go
+func TestAccountRepository_Integration(t *testing.T) {
+    db := setupTestDB(t)
+    defer db.Close()
+    
+    repo := NewAccountRepository(db)
+    
+    account := &Account{
+        ID:       "test_123",
+        UserID:   "user_456",
+        Name:     "Test Account",
+        Type:     "checking",
+        Balance:  500.00,
+        Currency: "USD",
+    }
+    
+    err := repo.Create(context.Background(), account)
+    assert.NoError(t, err)
+    
+    retrieved, err := repo.GetByID(context.Background(), account.ID)
+    assert.NoError(t, err)
+    assert.Equal(t, account.Name, retrieved.Name)
+}
+```
