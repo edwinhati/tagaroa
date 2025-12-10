@@ -11,7 +11,7 @@ on:
 env:
   REGISTRY: registry.gitlab.com/tagaroa
   GO_VERSION: "1.24.0"
-  BUN_VERSION: "1.3.3"
+  BUN_VERSION: "1.3.4"
   ENVIRONMENT: staging
 
 jobs:
