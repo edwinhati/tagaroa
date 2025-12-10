@@ -27,7 +27,6 @@ import { cn } from "@repo/ui/lib/utils";
 import { CircleAlert, Eye, EyeOff, Loader2, Mail } from "lucide-react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
-import { useFeatureFlagEnabled } from "posthog-js/react";
 import { useState, useSyncExternalStore } from "react";
 import { Controller, useForm } from "react-hook-form";
 import { toast } from "sonner";

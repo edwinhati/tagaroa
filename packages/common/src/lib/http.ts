@@ -5,193 +5,193 @@ import { authClient } from "@repo/common/lib/auth-client";
 type Service = "auth" | "finance" | "storage";
 
 function getApiUrl(service: Service, path: string): string {
-	const baseUrl = process.env.NEXT_PUBLIC_API_URL ?? "";
-	const servicePrefix: Record<Service, string> = {
-		auth: "auth",
-		finance: "finance",
-		storage: "storage",
-	};
+  const baseUrl = process.env.NEXT_PUBLIC_API_URL ?? "";
+  const servicePrefix: Record<Service, string> = {
+    auth: "auth",
+    finance: "finance",
+    storage: "storage",
+  };
 
-	return `${baseUrl}/api/${servicePrefix[service]}${path}`;
+  return `${baseUrl}/api/${servicePrefix[service]}${path}`;
 }
 
 export type ApiRequestInit = Omit<RequestInit, "headers" | "body"> & {
-	headers?: Record<string, string>;
-	// When provided, body will be JSON.stringified and Content-Type set accordingly
-	json?: unknown;
-	// When provided, body will be sent as FormData (for file uploads)
-	formData?: FormData;
-	// If false, do not attach Authorization header
-	auth?: boolean;
-	// If false, return the parsed response without unwrapping the { data, pagination, ... } envelope
-	unwrapData?: boolean;
+  headers?: Record<string, string>;
+  // When provided, body will be JSON.stringified and Content-Type set accordingly
+  json?: unknown;
+  // When provided, body will be sent as FormData (for file uploads)
+  formData?: FormData;
+  // If false, do not attach Authorization header
+  auth?: boolean;
+  // If false, return the parsed response without unwrapping the { data, pagination, ... } envelope
+  unwrapData?: boolean;
 };
 
 type JsonEnvelope<T> = { data?: T; error?: string } | T;
 
 export async function apiRequest<T = unknown>(
-	service: Service,
-	path: string,
-	init: ApiRequestInit = {},
+  service: Service,
+  path: string,
+  init: ApiRequestInit = {},
 ): Promise<T> {
-	const url = getApiUrl(service, path);
+  const url = getApiUrl(service, path);
 
-	const headers = await buildHeaders(init);
-	const body = buildBody(init, headers);
+  const headers = await buildHeaders(init);
+  const body = buildBody(init, headers);
 
-	const response = await fetch(url, {
-		...init,
-		headers,
-		body,
-	});
+  const response = await fetch(url, {
+    ...init,
+    headers,
+    body,
+  });
 
-	const unwrapData = init.unwrapData ?? true;
-	return handleResponse<T>(response, unwrapData);
+  const unwrapData = init.unwrapData ?? true;
+  return handleResponse<T>(response, unwrapData);
 }
 
 export const authApi = {
-	get: <T>(path: string, init: ApiRequestInit = {}) =>
-		apiRequest<T>("auth", path, { method: "GET", ...init }),
-	post: <T>(path: string, json?: unknown, init: ApiRequestInit = {}) =>
-		apiRequest<T>("auth", path, { method: "POST", json, ...init }),
+  get: <T>(path: string, init: ApiRequestInit = {}) =>
+    apiRequest<T>("auth", path, { method: "GET", ...init }),
+  post: <T>(path: string, json?: unknown, init: ApiRequestInit = {}) =>
+    apiRequest<T>("auth", path, { method: "POST", json, ...init }),
 };
 
 export const financeApi = {
-	get: <T>(path: string, init: ApiRequestInit = {}) =>
-		apiRequest<T>("finance", path, { method: "GET", ...init }),
-	post: <T>(path: string, json?: unknown, init: ApiRequestInit = {}) =>
-		apiRequest<T>("finance", path, { method: "POST", json, ...init }),
-	put: <T>(path: string, json?: unknown, init: ApiRequestInit = {}) =>
-		apiRequest<T>("finance", path, { method: "PUT", json, ...init }),
-	patch: <T>(path: string, json?: unknown, init: ApiRequestInit = {}) =>
-		apiRequest<T>("finance", path, { method: "PATCH", json, ...init }),
-	delete: <T>(path: string, init: ApiRequestInit = {}) =>
-		apiRequest<T>("finance", path, { method: "DELETE", ...init }),
+  get: <T>(path: string, init: ApiRequestInit = {}) =>
+    apiRequest<T>("finance", path, { method: "GET", ...init }),
+  post: <T>(path: string, json?: unknown, init: ApiRequestInit = {}) =>
+    apiRequest<T>("finance", path, { method: "POST", json, ...init }),
+  put: <T>(path: string, json?: unknown, init: ApiRequestInit = {}) =>
+    apiRequest<T>("finance", path, { method: "PUT", json, ...init }),
+  patch: <T>(path: string, json?: unknown, init: ApiRequestInit = {}) =>
+    apiRequest<T>("finance", path, { method: "PATCH", json, ...init }),
+  delete: <T>(path: string, init: ApiRequestInit = {}) =>
+    apiRequest<T>("finance", path, { method: "DELETE", ...init }),
 };
 
 export const storageApi = {
-	get: <T>(path: string, init: ApiRequestInit = {}) =>
-		apiRequest<T>("storage", path, { method: "GET", ...init }),
-	delete: <T>(path: string, init: ApiRequestInit = {}) =>
-		apiRequest<T>("storage", path, { method: "DELETE", ...init }),
-	post: <T>(path: string, json?: unknown, init: ApiRequestInit = {}) =>
-		apiRequest<T>("storage", path, { method: "POST", json, ...init }),
-	upload: <T>(file: File, init: ApiRequestInit = {}) => {
-		const formData = new FormData();
-		formData.append("file", file);
-		return apiRequest<T>("storage", "/upload", {
-			method: "POST",
-			formData,
-			...init,
-		});
-	},
+  get: <T>(path: string, init: ApiRequestInit = {}) =>
+    apiRequest<T>("storage", path, { method: "GET", ...init }),
+  delete: <T>(path: string, init: ApiRequestInit = {}) =>
+    apiRequest<T>("storage", path, { method: "DELETE", ...init }),
+  post: <T>(path: string, json?: unknown, init: ApiRequestInit = {}) =>
+    apiRequest<T>("storage", path, { method: "POST", json, ...init }),
+  upload: <T>(file: File, init: ApiRequestInit = {}) => {
+    const formData = new FormData();
+    formData.append("file", file);
+    return apiRequest<T>("storage", "/upload", {
+      method: "POST",
+      formData,
+      ...init,
+    });
+  },
 };
 
 async function buildHeaders(
-	init: ApiRequestInit,
+  init: ApiRequestInit,
 ): Promise<Record<string, string>> {
-	const headers: Record<string, string> = {
-		...(init.headers ?? {}),
-	};
+  const headers: Record<string, string> = {
+    ...(init.headers ?? {}),
+  };
 
-	const authHeader = await resolveAuthHeader(init.auth);
-	if (authHeader) {
-		headers.Authorization = authHeader;
-	}
+  const authHeader = await resolveAuthHeader(init.auth);
+  if (authHeader) {
+    headers.Authorization = authHeader;
+  }
 
-	return headers;
+  return headers;
 }
 
 async function resolveAuthHeader(
-	authEnabled?: boolean,
+  authEnabled?: boolean,
 ): Promise<string | undefined> {
-	if (authEnabled === false) {
-		return undefined;
-	}
+  if (authEnabled === false) {
+    return undefined;
+  }
 
-	const token = await fetchAccessToken();
-	return token ? `Bearer ${token}` : undefined;
+  const token = await fetchAccessToken();
+  return token ? `Bearer ${token}` : undefined;
 }
 
 async function fetchAccessToken(): Promise<string | undefined> {
-	try {
-		const { data: jwtData, error } = await authClient.token();
-		if (jwtData?.token) {
-			return jwtData.token;
-		}
-		if (error) {
-			console.warn("Failed to get JWT token:", error);
-		}
-	} catch (error) {
-		console.warn("Error getting JWT token:", error);
-	}
+  try {
+    const { data: jwtData, error } = await authClient.token();
+    if (jwtData?.token) {
+      return jwtData.token;
+    }
+    if (error) {
+      console.warn("Failed to get JWT token:", error);
+    }
+  } catch (error) {
+    console.warn("Error getting JWT token:", error);
+  }
 
-	const { data: session } = await authClient.getSession();
-	return session?.session.token;
+  const { data: session } = await authClient.getSession();
+  return session?.session.token;
 }
 
 function buildBody(
-	init: ApiRequestInit,
-	headers: Record<string, string>,
+  init: ApiRequestInit,
+  headers: Record<string, string>,
 ): BodyInit | undefined {
-	if (init.formData) {
-		return init.formData;
-	}
-	if (init.json !== undefined) {
-		headers["Content-Type"] = headers["Content-Type"] ?? "application/json";
-		return JSON.stringify(init.json);
-	}
-	return undefined;
+  if (init.formData) {
+    return init.formData;
+  }
+  if (init.json !== undefined) {
+    headers["Content-Type"] = headers["Content-Type"] ?? "application/json";
+    return JSON.stringify(init.json);
+  }
+  return undefined;
 }
 
 async function parseJsonResponse<T>(
-	response: Response,
+  response: Response,
 ): Promise<JsonEnvelope<T> | undefined> {
-	try {
-		return (await response.json()) as JsonEnvelope<T>;
-	} catch {
-		return undefined;
-	}
+  try {
+    return (await response.json()) as JsonEnvelope<T>;
+  } catch {
+    return undefined;
+  }
 }
 
 function extractErrorMessage<T>(
-	response: Response,
-	parsed?: JsonEnvelope<T>,
+  response: Response,
+  parsed?: JsonEnvelope<T>,
 ): string {
-	if (
-		parsed &&
-		typeof parsed === "object" &&
-		"error" in parsed &&
-		parsed.error
-	) {
-		return parsed.error;
-	}
-	return response.statusText || "Request failed";
+  if (
+    parsed &&
+    typeof parsed === "object" &&
+    "error" in parsed &&
+    parsed.error
+  ) {
+    return parsed.error;
+  }
+  return response.statusText || "Request failed";
 }
 
 function unwrapResponseData<T>(parsed?: JsonEnvelope<T>): T {
-	if (parsed && typeof parsed === "object" && "data" in parsed) {
-		if (parsed.data === undefined) {
-			throw new Error("Response payload missing data field");
-		}
-		return parsed.data;
-	}
-	return parsed as T;
+  if (parsed && typeof parsed === "object" && "data" in parsed) {
+    if (parsed.data === undefined) {
+      throw new Error("Response payload missing data field");
+    }
+    return parsed.data;
+  }
+  return parsed as T;
 }
 
 async function handleResponse<T>(
-	response: Response,
-	unwrapData: boolean,
+  response: Response,
+  unwrapData: boolean,
 ): Promise<T> {
-	const parsed = await parseJsonResponse<T>(response);
-	if (!response.ok) {
-		throw new Error(extractErrorMessage(response, parsed));
-	}
-	if (!unwrapData) {
-		if (parsed === undefined) {
-			throw new Error("Response payload missing body");
-		}
-		return parsed as T;
-	}
-	return unwrapResponseData(parsed);
+  const parsed = await parseJsonResponse<T>(response);
+  if (!response.ok) {
+    throw new Error(extractErrorMessage(response, parsed));
+  }
+  if (!unwrapData) {
+    if (parsed === undefined) {
+      throw new Error("Response payload missing body");
+    }
+    return parsed as T;
+  }
+  return unwrapResponseData(parsed);
 }
