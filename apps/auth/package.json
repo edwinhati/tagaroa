@@ -16,7 +16,7 @@
     "@repo/ui": "*",
     "better-auth": "^1.4.5",
     "lucide-react": "^0.556.0",
-    "next": "16.0.7",
+    "next": "16.0.9",
     "posthog-js": "^1.302.2",
     "react": "19.2.1",
     "react-dom": "19.2.1",
