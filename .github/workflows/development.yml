@@ -34,14 +34,14 @@ jobs:
           bun-version: ${{ env.BUN_VERSION }}
 
       - name: Cache Go modules
-        uses: actions/cache@v4
+        uses: actions/cache@v5
         with:
           path: ~/go/pkg/mod
           key: go-mod-${{ runner.os }}-${{ hashFiles('**/go.sum') }}
           restore-keys: go-mod-${{ runner.os }}-
 
       - name: Cache Bun dependencies
-        uses: actions/cache@v4
+        uses: actions/cache@v5
         with:
           path: |
             ~/.bun/install/cache
@@ -108,14 +108,14 @@ jobs:
           bun-version: ${{ env.BUN_VERSION }}
 
       - name: Cache Go modules
-        uses: actions/cache@v4
+        uses: actions/cache@v5
         with:
           path: ~/go/pkg/mod
           key: go-mod-${{ runner.os }}-${{ hashFiles('**/go.sum') }}
           restore-keys: go-mod-${{ runner.os }}-
 
       - name: Cache Bun dependencies
-        uses: actions/cache@v4
+        uses: actions/cache@v5
         with:
           path: |
             ~/.bun/install/cache
@@ -238,7 +238,7 @@ jobs:
           go-version: ${{ env.GO_VERSION }}
 
       - name: Cache dependencies
-        uses: actions/cache@v4
+        uses: actions/cache@v5
         with:
           path: ${{ matrix.runtime == 'bun' && '~/.bun/install/cache' || '~/go/pkg/mod' }}
           key: ${{ matrix.runtime == 'bun' && format('bun-{0}-{1}', runner.os, hashFiles('**/bun.lock')) || format('go-{0}-{1}', runner.os, hashFiles('**/go.sum')) }}
