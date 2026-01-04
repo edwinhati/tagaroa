@@ -1,9 +1,9 @@
-import { describe, expect, test, mock } from "bun:test";
+import { describe, expect, mock, test } from "bun:test";
 import {
-	S3Service,
-	type S3Config,
 	type S3ClientInterface,
+	type S3Config,
 	type S3File,
+	S3Service,
 } from "./s3-service";
 
 // Create mock S3 file
@@ -364,7 +364,7 @@ describe("S3Service", () => {
 		});
 
 		test("handles very long filenames", () => {
-			const longName = "a".repeat(200) + ".jpg";
+			const longName = `${"a".repeat(200)}.jpg`;
 			const key = S3Service.generateKey(longName);
 			expect(key).toContain(".jpg");
 		});

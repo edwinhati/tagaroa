@@ -1,4 +1,4 @@
-import { describe, expect, test, beforeEach, afterEach } from "bun:test";
+import { afterEach, beforeEach, describe, expect, test } from "bun:test";
 
 // Test helper functions directly by extracting them
 function getEnv(key: string, defaultValue?: string): string {
@@ -9,7 +9,10 @@ function getEnv(key: string, defaultValue?: string): string {
 	return value;
 }
 
-function getEnvOptional(key: string, defaultValue?: string): string | undefined {
+function getEnvOptional(
+	key: string,
+	defaultValue?: string,
+): string | undefined {
 	return process.env[key] || defaultValue;
 }
 

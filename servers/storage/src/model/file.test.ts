@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import type { File, CreateFileInput, UpdateFileInput } from "./file";
+import type { CreateFileInput, File, UpdateFileInput } from "./file";
 
 describe("File model types", () => {
 	test("File interface has correct structure", () => {

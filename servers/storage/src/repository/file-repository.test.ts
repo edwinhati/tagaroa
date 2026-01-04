@@ -1,11 +1,12 @@
-import { describe, expect, test, mock, beforeEach } from "bun:test";
+import { beforeEach, describe, expect, mock, test } from "bun:test";
+import type { CreateFileInput, File } from "../model/file";
 import { FileRepository } from "./file-repository";
-import type { File, CreateFileInput } from "../model/file";
 
 // Mock SQL database
 const createMockDb = () => {
 	const mockDb = mock(() => Promise.resolve([]));
 	mockDb.unsafe = mock(() => Promise.resolve([]));
+	// biome-ignore lint/suspicious/noExplicitAny: mock requires any type
 	return mockDb as any;
 };
 

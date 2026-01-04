@@ -1,7 +1,7 @@
-import { describe, expect, test, mock, beforeEach, spyOn } from "bun:test";
+import { beforeEach, describe, expect, mock, spyOn, test } from "bun:test";
 import { Hono } from "hono";
-import { createUploadRoutes } from "./upload";
 import type { File } from "../model/file";
+import { createUploadRoutes } from "./upload";
 
 // Suppress console.error during tests
 spyOn(console, "error").mockImplementation(() => {});
@@ -38,6 +38,7 @@ describe("Upload Routes", () => {
 
 	beforeEach(() => {
 		mockFileService = createMockFileService();
+		// biome-ignore lint/suspicious/noExplicitAny: mock service type
 		const routes = createUploadRoutes(mockFileService as any);
 		app = new Hono();
 		app.route("/upload", routes);
@@ -46,7 +47,10 @@ describe("Upload Routes", () => {
 	describe("POST /upload", () => {
 		test("uploads file successfully", async () => {
 			const formData = new FormData();
-			formData.append("file", new File(["test content"], "test.txt", { type: "text/plain" }));
+			formData.append(
+				"file",
+				new File(["test content"], "test.txt", { type: "text/plain" }),
+			);
 
 			const res = await app.request("/upload", {
 				method: "POST",
@@ -62,7 +66,10 @@ describe("Upload Routes", () => {
 
 		test("uploads file with prefix", async () => {
 			const formData = new FormData();
-			formData.append("file", new File(["test content"], "test.txt", { type: "text/plain" }));
+			formData.append(
+				"file",
+				new File(["test content"], "test.txt", { type: "text/plain" }),
+			);
 			formData.append("prefix", "documents");
 
 			const res = await app.request("/upload", {
@@ -186,8 +193,14 @@ describe("Upload Routes", () => {
 	describe("POST /upload/batch", () => {
 		test("uploads multiple files successfully", async () => {
 			const formData = new FormData();
-			formData.append("files", new File(["content1"], "file1.txt", { type: "text/plain" }));
-			formData.append("files", new File(["content2"], "file2.txt", { type: "text/plain" }));
+			formData.append(
+				"files",
+				new File(["content1"], "file1.txt", { type: "text/plain" }),
+			);
+			formData.append(
+				"files",
+				new File(["content2"], "file2.txt", { type: "text/plain" }),
+			);
 
 			const res = await app.request("/upload/batch", {
 				method: "POST",

@@ -1,6 +1,6 @@
-import { describe, expect, test, mock, beforeEach, spyOn } from "bun:test";
-import { FileService } from "./file-service";
+import { beforeEach, describe, expect, mock, spyOn, test } from "bun:test";
 import type { File } from "../model/file";
+import { FileService } from "./file-service";
 
 // Suppress console.error during tests
 spyOn(console, "error").mockImplementation(() => {});
@@ -14,13 +14,17 @@ const createMockRepository = () => ({
 	update: mock(() => Promise.resolve(null as File | null)),
 	softDelete: mock(() => Promise.resolve(false)),
 	getContentTypeAggregations: mock(() =>
-		Promise.resolve({} as Record<string, { count: number; total_size: number }>),
+		Promise.resolve(
+			{} as Record<string, { count: number; total_size: number }>,
+		),
 	),
 });
 
 // Create mock S3 service
 const createMockS3Service = () => ({
-	upload: mock(() => Promise.resolve({ url: "https://s3.com/file", key: "key" })),
+	upload: mock(() =>
+		Promise.resolve({ url: "https://s3.com/file", key: "key" }),
+	),
 	download: mock(() => Promise.resolve(new Blob())),
 	delete: mock(() => Promise.resolve()),
 	presignDownload: mock(() => "https://presigned-download.com"),
@@ -35,6 +39,7 @@ describe("FileService", () => {
 	beforeEach(() => {
 		mockRepository = createMockRepository();
 		mockS3Service = createMockS3Service();
+		// biome-ignore lint/suspicious/noExplicitAny: mock types for testing
 		fileService = new FileService(mockRepository as any, mockS3Service as any);
 	});
 

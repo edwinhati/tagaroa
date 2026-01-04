@@ -1,7 +1,7 @@
-import { describe, expect, test, mock, beforeEach, spyOn } from "bun:test";
+import { beforeEach, describe, expect, mock, spyOn, test } from "bun:test";
 import { Hono } from "hono";
-import { createFileRoutes } from "./files";
 import type { File } from "../model/file";
+import { createFileRoutes } from "./files";
 
 // Suppress console.error during tests
 spyOn(console, "error").mockImplementation(() => {});
@@ -11,14 +11,21 @@ const createMockFileService = () => ({
 	getFile: mock(() => Promise.resolve(null as File | null)),
 	getFileByKey: mock(() => Promise.resolve(null as File | null)),
 	listFiles: mock(() => Promise.resolve({ files: [] as File[], total: 0 })),
-	downloadFile: mock(() => Promise.resolve(null as { blob: Blob; file: File } | null)),
-	getDownloadUrl: mock(() => Promise.resolve(null as { url: string; file: File } | null)),
+	downloadFile: mock(() =>
+		Promise.resolve(null as { blob: Blob; file: File } | null),
+	),
+	getDownloadUrl: mock(() =>
+		Promise.resolve(null as { url: string; file: File } | null),
+	),
 	deleteFile: mock(() => Promise.resolve(false)),
 	getStats: mock(() =>
 		Promise.resolve({
 			totalFiles: 0,
 			totalSize: 0,
-			byContentType: {} as Record<string, { count: number; total_size: number }>,
+			byContentType: {} as Record<
+				string,
+				{ count: number; total_size: number }
+			>,
 		}),
 	),
 	uploadFile: mock(() => Promise.resolve({ file: {} as File, url: "" })),
@@ -32,6 +39,7 @@ describe("File Routes", () => {
 
 	beforeEach(() => {
 		mockFileService = createMockFileService();
+		// biome-ignore lint/suspicious/noExplicitAny: mock service type
 		const routes = createFileRoutes(mockFileService as any);
 		app = new Hono();
 		app.route("/files", routes);
@@ -70,7 +78,7 @@ describe("File Routes", () => {
 			const res = await app.request(
 				"/files?search=test&contentType=image/jpeg&limit=20&offset=10&orderBy=size%20DESC",
 			);
-			const json = await res.json();
+			const _json = await res.json();
 
 			expect(res.status).toBe(200);
 			expect(mockFileService.listFiles).toHaveBeenCalledWith({
