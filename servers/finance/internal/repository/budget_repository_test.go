@@ -606,3 +606,142 @@ func TestScanBudgetItemScanError(t *testing.T) {
 	_, err := scanBudgetItem(sliceRowScanner{})
 	assert.Error(t, err)
 }
+
+func TestBudgetRepositoryGetBudgetItemSpent(t *testing.T) {
+	db, mock, repo := setupBudgetRepository(t)
+	defer db.Close()
+
+	ctx := context.Background()
+	budgetItemID := uuid.New()
+
+	rows := sqlmock.NewRows([]string{"spent"}).AddRow(150.0)
+
+	mock.ExpectQuery(`SELECT COALESCE\(SUM\(amount\), 0\) FROM transactions`).
+		WithArgs(budgetItemID).
+		WillReturnRows(rows)
+
+	spent, err := repo.GetBudgetItemSpent(ctx, budgetItemID)
+
+	assert.NoError(t, err)
+	assert.Equal(t, 150.0, spent)
+	assert.NoError(t, mock.ExpectationsWereMet())
+}
+
+func TestBudgetRepositoryGetBudgetItemSpentError(t *testing.T) {
+	db, mock, repo := setupBudgetRepository(t)
+	defer db.Close()
+
+	ctx := context.Background()
+	budgetItemID := uuid.New()
+
+	mock.ExpectQuery(`SELECT COALESCE\(SUM\(amount\), 0\) FROM transactions`).
+		WithArgs(budgetItemID).
+		WillReturnError(fmt.Errorf("db error"))
+
+	spent, err := repo.GetBudgetItemSpent(ctx, budgetItemID)
+
+	assert.Error(t, err)
+	assert.Equal(t, 0.0, spent)
+	assert.NoError(t, mock.ExpectationsWereMet())
+}
+
+func TestBudgetRepositoryGetBudgetItemsSpent(t *testing.T) {
+	db, mock, repo := setupBudgetRepository(t)
+	defer db.Close()
+
+	ctx := context.Background()
+	budgetItemID1 := uuid.New()
+	budgetItemID2 := uuid.New()
+	budgetItemIDs := []uuid.UUID{budgetItemID1, budgetItemID2}
+
+	rows := sqlmock.NewRows([]string{"budget_item_id", "spent"}).
+		AddRow(budgetItemID1, 100.0).
+		AddRow(budgetItemID2, 200.0)
+
+	mock.ExpectQuery(`SELECT budget_item_id, COALESCE\(SUM\(amount\), 0\) as spent FROM transactions`).
+		WithArgs(budgetItemID1, budgetItemID2).
+		WillReturnRows(rows)
+
+	result, err := repo.GetBudgetItemsSpent(ctx, budgetItemIDs)
+
+	assert.NoError(t, err)
+	assert.Len(t, result, 2)
+	assert.Equal(t, 100.0, result[budgetItemID1])
+	assert.Equal(t, 200.0, result[budgetItemID2])
+	assert.NoError(t, mock.ExpectationsWereMet())
+}
+
+func TestBudgetRepositoryGetBudgetItemsSpentEmpty(t *testing.T) {
+	db, _, repo := setupBudgetRepository(t)
+	defer db.Close()
+
+	ctx := context.Background()
+	budgetItemIDs := []uuid.UUID{}
+
+	result, err := repo.GetBudgetItemsSpent(ctx, budgetItemIDs)
+
+	assert.NoError(t, err)
+	assert.Empty(t, result)
+}
+
+func TestBudgetRepositoryGetBudgetItemsSpentError(t *testing.T) {
+	db, mock, repo := setupBudgetRepository(t)
+	defer db.Close()
+
+	ctx := context.Background()
+	budgetItemIDs := []uuid.UUID{uuid.New()}
+
+	mock.ExpectQuery(`SELECT budget_item_id, COALESCE\(SUM\(amount\), 0\) as spent FROM transactions`).
+		WillReturnError(fmt.Errorf("db error"))
+
+	result, err := repo.GetBudgetItemsSpent(ctx, budgetItemIDs)
+
+	assert.Error(t, err)
+	assert.Nil(t, result)
+	assert.NoError(t, mock.ExpectationsWereMet())
+}
+
+func TestBudgetRepositoryGetBudgetItemsSpentScanError(t *testing.T) {
+	db, mock, repo := setupBudgetRepository(t)
+	defer db.Close()
+
+	ctx := context.Background()
+	budgetItemIDs := []uuid.UUID{uuid.New()}
+
+	rows := sqlmock.NewRows([]string{"budget_item_id", "spent"}).
+		AddRow("invalid-uuid", "not-a-number")
+
+	mock.ExpectQuery(`SELECT budget_item_id, COALESCE\(SUM\(amount\), 0\) as spent FROM transactions`).
+		WillReturnRows(rows)
+
+	result, err := repo.GetBudgetItemsSpent(ctx, budgetItemIDs)
+
+	assert.Error(t, err)
+	assert.Nil(t, result)
+}
+
+func TestBudgetRepositoryGetBudgetItemsSpentInitializesZero(t *testing.T) {
+	db, mock, repo := setupBudgetRepository(t)
+	defer db.Close()
+
+	ctx := context.Background()
+	budgetItemID1 := uuid.New()
+	budgetItemID2 := uuid.New()
+	budgetItemIDs := []uuid.UUID{budgetItemID1, budgetItemID2}
+
+	// Only return data for one item
+	rows := sqlmock.NewRows([]string{"budget_item_id", "spent"}).
+		AddRow(budgetItemID1, 100.0)
+
+	mock.ExpectQuery(`SELECT budget_item_id, COALESCE\(SUM\(amount\), 0\) as spent FROM transactions`).
+		WithArgs(budgetItemID1, budgetItemID2).
+		WillReturnRows(rows)
+
+	result, err := repo.GetBudgetItemsSpent(ctx, budgetItemIDs)
+
+	assert.NoError(t, err)
+	assert.Len(t, result, 2)
+	assert.Equal(t, 100.0, result[budgetItemID1])
+	assert.Equal(t, 0.0, result[budgetItemID2]) // Should be initialized to 0
+	assert.NoError(t, mock.ExpectationsWereMet())
+}

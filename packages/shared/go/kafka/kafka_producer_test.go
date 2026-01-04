@@ -17,7 +17,7 @@ func TestProducerPublish(t *testing.T) {
 		return w
 	}
 
-	prod, err := NewProducer(Config{Brokers: []string{"localhost:9092"}}, WithWriterFactory(factory))
+	prod, err := NewProducer(Config{Brokers: []string{"localhost:29092"}}, WithWriterFactory(factory))
 	require.NoError(t, err)
 
 	payload := []byte(`{"id":"123"}`)
@@ -40,7 +40,7 @@ func TestProducerPublish(t *testing.T) {
 }
 
 func TestProducerPublishFailsWithoutTopic(t *testing.T) {
-	prod, err := NewProducer(Config{Brokers: []string{"localhost:9092"}}, WithWriterFactory(func(string) writer {
+	prod, err := NewProducer(Config{Brokers: []string{"localhost:29092"}}, WithWriterFactory(func(string) writer {
 		return &fakeWriter{}
 	}))
 	require.NoError(t, err)
@@ -56,7 +56,7 @@ func TestProducerReusesWriterPerTopic(t *testing.T) {
 		return &fakeWriter{}
 	}
 
-	prod, err := NewProducer(Config{Brokers: []string{"localhost:9092"}}, WithWriterFactory(factory))
+	prod, err := NewProducer(Config{Brokers: []string{"localhost:29092"}}, WithWriterFactory(factory))
 	require.NoError(t, err)
 
 	for i := 0; i < 3; i++ {
@@ -85,7 +85,7 @@ func TestProducerCloseAggregatesErrors(t *testing.T) {
 		}
 	}
 
-	prod, err := NewProducer(Config{Brokers: []string{"localhost:9092"}}, WithWriterFactory(factory))
+	prod, err := NewProducer(Config{Brokers: []string{"localhost:29092"}}, WithWriterFactory(factory))
 	require.NoError(t, err)
 
 	require.NoError(t, prod.Publish(context.Background(), Message{Topic: "a", Value: []byte("1")}))

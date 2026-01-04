@@ -78,14 +78,6 @@ var allowedGroupByColumns = map[string]bool{
 	"currency": true,
 }
 
-func validateOrderBy(orderBy string) (string, error) {
-	return util.ValidateOrderBy(orderBy, allowedOrderByColumns)
-}
-
-func validateGroupByColumn(column string) error {
-	return util.ValidateGroupByColumn(column, allowedGroupByColumns)
-}
-
 /* ----------------------------- CRUD ops ------------------------------ */
 
 func (r *accountRepository) Create(ctx context.Context, account *model.Account) error {
@@ -149,7 +141,7 @@ func (r *accountRepository) FindMany(ctx context.Context, params util.FindManyPa
 	sb.WriteString(whereClause)
 
 	// ORDER BY - validate to prevent SQL injection
-	orderBy, err := validateOrderBy(params.OrderBy)
+	orderBy, err := util.ValidateOrderBy(params.OrderBy, allowedOrderByColumns)
 	if err != nil {
 		return nil, fmt.Errorf("invalid ORDER BY clause: %w", err)
 	}
@@ -235,7 +227,7 @@ func (r *accountRepository) getAggregations(
 ) (map[string]util.AggregationResult, error) {
 
 	// Validate GROUP BY column to prevent SQL injection
-	if err := validateGroupByColumn(groupBy); err != nil {
+	if err := util.ValidateGroupByColumn(groupBy, allowedGroupByColumns); err != nil {
 		return nil, fmt.Errorf("invalid aggregation groupBy: %w", err)
 	}
 

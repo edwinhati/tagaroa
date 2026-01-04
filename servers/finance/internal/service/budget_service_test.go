@@ -6,7 +6,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/edwinhati/tagaroa/packages/shared/go/kafka"
 	"github.com/edwinhati/tagaroa/packages/shared/go/util"
 	"github.com/edwinhati/tagaroa/servers/finance/internal/model"
 	"github.com/google/uuid"
@@ -61,17 +60,18 @@ func (m *MockBudgetRepository) UpdateItem(ctx context.Context, item *model.Budge
 	return args.Error(0)
 }
 
-type mockProducer struct {
-	mock.Mock
+func (m *MockBudgetRepository) GetBudgetItemSpent(ctx context.Context, budgetItemID uuid.UUID) (float64, error) {
+	args := m.Called(ctx, budgetItemID)
+	return args.Get(0).(float64), args.Error(1)
 }
 
-func (m *mockProducer) Publish(ctx context.Context, msg kafka.Message) error {
-	args := m.Called(ctx, msg)
-	return args.Error(0)
-}
-
-func (m *mockProducer) Close() error {
-	return nil
+func (m *MockBudgetRepository) GetBudgetItemsSpent(ctx context.Context, budgetItemIDs []uuid.UUID) (map[uuid.UUID]float64, error) {
+	args := m.Called(ctx, budgetItemIDs)
+	var result map[uuid.UUID]float64
+	if v := args.Get(0); v != nil {
+		result = v.(map[uuid.UUID]float64)
+	}
+	return result, args.Error(1)
 }
 
 func float64Ptr(v float64) *float64 {
@@ -80,8 +80,7 @@ func float64Ptr(v float64) *float64 {
 
 func TestBudgetServiceCreateBudget(t *testing.T) {
 	mockRepo := new(MockBudgetRepository)
-	producer := new(mockProducer)
-	service := NewBudgetService(producer, mockRepo)
+	service := NewBudgetService(mockRepo)
 
 	ctx := context.Background()
 	userID := uuid.New()
@@ -97,10 +96,6 @@ func TestBudgetServiceCreateBudget(t *testing.T) {
 
 	mockRepo.On("Create", ctx, mock.AnythingOfType("*model.Budget")).Return(nil)
 	mockRepo.On("CreateItem", ctx, mock.AnythingOfType("*model.BudgetItem")).Return(nil).Times(len(model.BudgetCategories()))
-	producer.On("Publish", ctx, mock.MatchedBy(func(msg kafka.Message) bool {
-		return msg.Topic == "create-budget-item" &&
-			string(msg.Key) == budgetID.String()
-	})).Return(nil)
 
 	budget, err := service.CreateBudget(ctx, inputBudget)
 
@@ -113,38 +108,11 @@ func TestBudgetServiceCreateBudget(t *testing.T) {
 	assert.Equal(t, inputBudget.Currency, budget.Currency)
 
 	mockRepo.AssertExpectations(t)
-	producer.AssertExpectations(t)
-}
-
-func TestBudgetServiceCreateBudgetWithoutProducer(t *testing.T) {
-	mockRepo := new(MockBudgetRepository)
-	service := NewBudgetService(nil, mockRepo)
-
-	ctx := context.Background()
-	userID := uuid.New()
-	inputBudget := &model.Budget{
-		ID:       uuid.New(),
-		Month:    6,
-		Year:     2025,
-		Amount:   2000,
-		UserID:   userID,
-		Currency: "IDR",
-	}
-
-	mockRepo.On("Create", ctx, mock.AnythingOfType("*model.Budget")).Return(nil)
-	mockRepo.On("CreateItem", ctx, mock.AnythingOfType("*model.BudgetItem")).Return(nil).Times(len(model.BudgetCategories()))
-
-	result, err := service.CreateBudget(ctx, inputBudget)
-
-	assert.NoError(t, err)
-	assert.Equal(t, inputBudget, result)
-	mockRepo.AssertExpectations(t)
 }
 
 func TestBudgetServiceCreateBudgetRepositoryError(t *testing.T) {
 	mockRepo := new(MockBudgetRepository)
-	producer := new(mockProducer)
-	service := NewBudgetService(producer, mockRepo)
+	service := NewBudgetService(mockRepo)
 
 	ctx := context.Background()
 	userID := uuid.New()
@@ -171,8 +139,7 @@ func TestBudgetServiceCreateBudgetRepositoryError(t *testing.T) {
 
 func TestBudgetServiceCreateBudgetItem(t *testing.T) {
 	mockRepo := new(MockBudgetRepository)
-	producer := new(mockProducer)
-	service := NewBudgetService(producer, mockRepo)
+	service := NewBudgetService(mockRepo)
 
 	ctx := context.Background()
 	budgetID := uuid.New()
@@ -190,13 +157,11 @@ func TestBudgetServiceCreateBudgetItem(t *testing.T) {
 	assert.NoError(t, err)
 	assert.Equal(t, item, result)
 	mockRepo.AssertExpectations(t)
-	producer.AssertNotCalled(t, "Publish", mock.Anything)
 }
 
 func TestBudgetServiceCreateBudgetItemRepositoryError(t *testing.T) {
 	mockRepo := new(MockBudgetRepository)
-	producer := new(mockProducer)
-	service := NewBudgetService(producer, mockRepo)
+	service := NewBudgetService(mockRepo)
 
 	ctx := context.Background()
 	budgetId := uuid.New()
@@ -215,43 +180,11 @@ func TestBudgetServiceCreateBudgetItemRepositoryError(t *testing.T) {
 	assert.Nil(t, result)
 	assert.Contains(t, err.Error(), "failed to create budget item")
 	mockRepo.AssertExpectations(t)
-	producer.AssertNotCalled(t, "Publish", mock.Anything)
-}
-
-func TestBudgetServiceCreateBudgetPublishError(t *testing.T) {
-	mockRepo := new(MockBudgetRepository)
-	producer := new(mockProducer)
-	service := NewBudgetService(producer, mockRepo)
-
-	ctx := context.Background()
-	userID := uuid.New()
-	budgetID := uuid.New()
-	inputBudget := &model.Budget{
-		ID:       budgetID,
-		Month:    1,
-		Year:     2024,
-		Amount:   500,
-		UserID:   userID,
-		Currency: "USD",
-	}
-
-	mockRepo.On("Create", ctx, mock.AnythingOfType("*model.Budget")).Return(nil)
-	mockRepo.On("CreateItem", ctx, mock.AnythingOfType("*model.BudgetItem")).Return(nil).Times(len(model.BudgetCategories()))
-	producer.On("Publish", ctx, mock.AnythingOfType("kafka.Message")).Return(fmt.Errorf("publisher down"))
-
-	budget, err := service.CreateBudget(ctx, inputBudget)
-
-	assert.Error(t, err)
-	assert.Nil(t, budget)
-	assert.Contains(t, err.Error(), "failed to publish budget created event")
-
-	mockRepo.AssertExpectations(t)
-	producer.AssertExpectations(t)
 }
 
 func TestBudgetServiceCreateBudgetItemCreationError(t *testing.T) {
 	mockRepo := new(MockBudgetRepository)
-	service := NewBudgetService(nil, mockRepo)
+	service := NewBudgetService(mockRepo)
 
 	ctx := context.Background()
 	userID := uuid.New()
@@ -277,7 +210,7 @@ func TestBudgetServiceCreateBudgetItemCreationError(t *testing.T) {
 
 func TestBudgetServiceUpdateBudget(t *testing.T) {
 	mockRepo := new(MockBudgetRepository)
-	service := NewBudgetService(nil, mockRepo)
+	service := NewBudgetService(mockRepo)
 
 	ctx := context.Background()
 	userID := uuid.New()
@@ -309,7 +242,7 @@ func TestBudgetServiceUpdateBudget(t *testing.T) {
 
 func TestBudgetServiceUpdateBudgetNotFound(t *testing.T) {
 	mockRepo := new(MockBudgetRepository)
-	service := NewBudgetService(nil, mockRepo)
+	service := NewBudgetService(mockRepo)
 
 	ctx := context.Background()
 	userID := uuid.New()
@@ -325,7 +258,7 @@ func TestBudgetServiceUpdateBudgetNotFound(t *testing.T) {
 
 func TestBudgetServiceUpdateBudgetFindUniqueError(t *testing.T) {
 	mockRepo := new(MockBudgetRepository)
-	service := NewBudgetService(nil, mockRepo)
+	service := NewBudgetService(mockRepo)
 
 	ctx := context.Background()
 	userID := uuid.New()
@@ -342,7 +275,7 @@ func TestBudgetServiceUpdateBudgetFindUniqueError(t *testing.T) {
 
 func TestBudgetServiceUpdateBudgetUpdateError(t *testing.T) {
 	mockRepo := new(MockBudgetRepository)
-	service := NewBudgetService(nil, mockRepo)
+	service := NewBudgetService(mockRepo)
 
 	ctx := context.Background()
 	userID := uuid.New()
@@ -362,7 +295,7 @@ func TestBudgetServiceUpdateBudgetUpdateError(t *testing.T) {
 
 func TestBudgetServiceGetBudget(t *testing.T) {
 	mockRepo := new(MockBudgetRepository)
-	service := NewBudgetService(nil, mockRepo)
+	service := NewBudgetService(mockRepo)
 
 	ctx := context.Background()
 	userID := uuid.New()
@@ -380,7 +313,7 @@ func TestBudgetServiceGetBudget(t *testing.T) {
 
 func TestBudgetServiceGetBudgetNotFound(t *testing.T) {
 	mockRepo := new(MockBudgetRepository)
-	service := NewBudgetService(nil, mockRepo)
+	service := NewBudgetService(mockRepo)
 
 	ctx := context.Background()
 	userID := uuid.New()
@@ -396,7 +329,7 @@ func TestBudgetServiceGetBudgetNotFound(t *testing.T) {
 
 func TestBudgetServiceGetBudgetError(t *testing.T) {
 	mockRepo := new(MockBudgetRepository)
-	service := NewBudgetService(nil, mockRepo)
+	service := NewBudgetService(mockRepo)
 
 	ctx := context.Background()
 	userID := uuid.New()
@@ -413,7 +346,7 @@ func TestBudgetServiceGetBudgetError(t *testing.T) {
 
 func TestBudgetServiceGetBudgets(t *testing.T) {
 	mockRepo := new(MockBudgetRepository)
-	service := NewBudgetService(nil, mockRepo)
+	service := NewBudgetService(mockRepo)
 
 	ctx := context.Background()
 	userID := uuid.New()
@@ -456,7 +389,7 @@ func TestBudgetServiceGetBudgets(t *testing.T) {
 
 func TestBudgetServiceGetBudgetsCountError(t *testing.T) {
 	mockRepo := new(MockBudgetRepository)
-	service := NewBudgetService(nil, mockRepo)
+	service := NewBudgetService(mockRepo)
 
 	ctx := context.Background()
 	userID := uuid.New()
@@ -474,7 +407,7 @@ func TestBudgetServiceGetBudgetsCountError(t *testing.T) {
 
 func TestBudgetServiceGetBudgetsFindManyError(t *testing.T) {
 	mockRepo := new(MockBudgetRepository)
-	service := NewBudgetService(nil, mockRepo)
+	service := NewBudgetService(mockRepo)
 
 	ctx := context.Background()
 	userID := uuid.New()
@@ -494,7 +427,7 @@ func TestBudgetServiceGetBudgetsFindManyError(t *testing.T) {
 
 func TestBudgetServiceUpdateBudgetItem(t *testing.T) {
 	mockRepo := new(MockBudgetRepository)
-	service := NewBudgetService(nil, mockRepo)
+	service := NewBudgetService(mockRepo)
 
 	ctx := context.Background()
 	userID := uuid.New()
@@ -514,7 +447,7 @@ func TestBudgetServiceUpdateBudgetItem(t *testing.T) {
 
 func TestBudgetServiceUpdateBudgetItemMissingBudgetID(t *testing.T) {
 	mockRepo := new(MockBudgetRepository)
-	service := NewBudgetService(nil, mockRepo)
+	service := NewBudgetService(mockRepo)
 
 	ctx := context.Background()
 	item := &model.BudgetItem{ID: uuid.New(), Allocation: 10}
@@ -526,7 +459,7 @@ func TestBudgetServiceUpdateBudgetItemMissingBudgetID(t *testing.T) {
 
 func TestBudgetServiceUpdateBudgetItemFindUniqueError(t *testing.T) {
 	mockRepo := new(MockBudgetRepository)
-	service := NewBudgetService(nil, mockRepo)
+	service := NewBudgetService(mockRepo)
 
 	ctx := context.Background()
 	userID := uuid.New()
@@ -545,7 +478,7 @@ func TestBudgetServiceUpdateBudgetItemFindUniqueError(t *testing.T) {
 
 func TestBudgetServiceUpdateBudgetItemAccessDenied(t *testing.T) {
 	mockRepo := new(MockBudgetRepository)
-	service := NewBudgetService(nil, mockRepo)
+	service := NewBudgetService(mockRepo)
 
 	ctx := context.Background()
 	userID := uuid.New()
@@ -563,7 +496,7 @@ func TestBudgetServiceUpdateBudgetItemAccessDenied(t *testing.T) {
 
 func TestBudgetServiceUpdateBudgetItemUpdateError(t *testing.T) {
 	mockRepo := new(MockBudgetRepository)
-	service := NewBudgetService(nil, mockRepo)
+	service := NewBudgetService(mockRepo)
 
 	ctx := context.Background()
 	userID := uuid.New()
@@ -578,5 +511,75 @@ func TestBudgetServiceUpdateBudgetItemUpdateError(t *testing.T) {
 
 	assert.Error(t, err)
 	assert.Contains(t, err.Error(), "failed to update budget item")
+	mockRepo.AssertExpectations(t)
+}
+
+func TestBudgetServiceGetBudgetWithSpentAmounts(t *testing.T) {
+	mockRepo := new(MockBudgetRepository)
+	service := NewBudgetService(mockRepo)
+
+	ctx := context.Background()
+	userID := uuid.New()
+	budgetID := uuid.New()
+	budgetItemID1 := uuid.New()
+	budgetItemID2 := uuid.New()
+
+	budget := &model.Budget{
+		ID:     budgetID,
+		UserID: userID,
+		Month:  1,
+		Year:   2024,
+		BudgetItems: []model.BudgetItem{
+			{ID: budgetItemID1, Category: "Food", Allocation: 500},
+			{ID: budgetItemID2, Category: "Transport", Allocation: 200},
+		},
+	}
+
+	spentMap := map[uuid.UUID]float64{
+		budgetItemID1: 150.0,
+		budgetItemID2: 50.0,
+	}
+
+	params := util.FindUniqueParams{Where: map[string]any{"month": 1, "year": 2024, "user_id": userID}}
+	mockRepo.On("FindUnique", ctx, params).Return(budget, nil)
+	mockRepo.On("GetBudgetItemsSpent", ctx, []uuid.UUID{budgetItemID1, budgetItemID2}).Return(spentMap, nil)
+
+	res, err := service.GetBudget(ctx, 1, 2024, userID)
+
+	assert.NoError(t, err)
+	assert.NotNil(t, res)
+	assert.Equal(t, 150.0, res.BudgetItems[0].Spent)
+	assert.Equal(t, 50.0, res.BudgetItems[1].Spent)
+	mockRepo.AssertExpectations(t)
+}
+
+func TestBudgetServiceGetBudgetSpentError(t *testing.T) {
+	mockRepo := new(MockBudgetRepository)
+	service := NewBudgetService(mockRepo)
+
+	ctx := context.Background()
+	userID := uuid.New()
+	budgetID := uuid.New()
+	budgetItemID := uuid.New()
+
+	budget := &model.Budget{
+		ID:     budgetID,
+		UserID: userID,
+		Month:  1,
+		Year:   2024,
+		BudgetItems: []model.BudgetItem{
+			{ID: budgetItemID, Category: "Food", Allocation: 500},
+		},
+	}
+
+	params := util.FindUniqueParams{Where: map[string]any{"month": 1, "year": 2024, "user_id": userID}}
+	mockRepo.On("FindUnique", ctx, params).Return(budget, nil)
+	mockRepo.On("GetBudgetItemsSpent", ctx, []uuid.UUID{budgetItemID}).Return((map[uuid.UUID]float64)(nil), fmt.Errorf("db error"))
+
+	res, err := service.GetBudget(ctx, 1, 2024, userID)
+
+	assert.Error(t, err)
+	assert.Nil(t, res)
+	assert.Contains(t, err.Error(), "failed to get budget items spent")
 	mockRepo.AssertExpectations(t)
 }

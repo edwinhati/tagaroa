@@ -1741,7 +1741,7 @@ func TestValidateOrderByValidCases(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			result, err := validateOrderBy(tt.input)
+			result, err := util.ValidateOrderBy(tt.input, allowedOrderByColumns)
 			assert.NoError(t, err)
 			assert.Equal(t, tt.expected, result)
 		})
@@ -1762,7 +1762,7 @@ func TestValidateOrderByInvalidCases(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			result, err := validateOrderBy(tt.input)
+			result, err := util.ValidateOrderBy(tt.input, allowedOrderByColumns)
 			assert.Error(t, err)
 			assert.Equal(t, "", result)
 			assert.Contains(t, err.Error(), tt.expectedErr)
@@ -1781,7 +1781,7 @@ func TestValidateGroupByColumnValidCases(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			err := validateGroupByColumn(tt.column)
+			err := util.ValidateGroupByColumn(tt.column, allowedGroupByColumns)
 			assert.NoError(t, err)
 		})
 	}
@@ -1800,7 +1800,7 @@ func TestValidateGroupByColumnInvalidCases(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			err := validateGroupByColumn(tt.column)
+			err := util.ValidateGroupByColumn(tt.column, allowedGroupByColumns)
 			assert.Error(t, err)
 			assert.Contains(t, err.Error(), tt.expectedErr)
 		})
@@ -1851,20 +1851,20 @@ func TestAccountRepositoryCoverageEdgeCases(t *testing.T) {
 	// These are already tested individually, but this ensures integration
 
 	// Test validateOrderBy with whitespace
-	result, err := validateOrderBy("  name  ASC  ")
+	result, err := util.ValidateOrderBy("  name  ASC  ", allowedOrderByColumns)
 	assert.NoError(t, err)
 	assert.Equal(t, orderByNameASC, result)
 
 	// Test validateOrderBy with just whitespace
-	result, err = validateOrderBy("   ")
+	result, err = util.ValidateOrderBy("   ", allowedOrderByColumns)
 	assert.NoError(t, err)
 	assert.Equal(t, "created_at DESC", result)
 
 	// Test validateGroupByColumn with valid columns
-	err = validateGroupByColumn("type")
+	err = util.ValidateGroupByColumn("type", allowedGroupByColumns)
 	assert.NoError(t, err)
 
-	err = validateGroupByColumn("currency")
+	err = util.ValidateGroupByColumn("currency", allowedGroupByColumns)
 	assert.NoError(t, err)
 }
 

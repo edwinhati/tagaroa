@@ -28,7 +28,7 @@ func TestConsumerConsumesAndCommits(t *testing.T) {
 
 	consumer, err := NewConsumer(
 		ConsumerConfig{
-			Brokers: []string{"localhost:9092"},
+			Brokers: []string{"localhost:29092"},
 			GroupID: "group-a",
 			Topics:  []string{"topic-a"},
 		},
@@ -65,7 +65,7 @@ func TestConsumerStopsOnHandlerError(t *testing.T) {
 
 	consumer, err := NewConsumer(
 		ConsumerConfig{
-			Brokers: []string{"localhost:9092"},
+			Brokers: []string{"localhost:29092"},
 			GroupID: "group-a",
 			Topics:  []string{"topic-a"},
 		},
@@ -99,7 +99,7 @@ func TestConsumerRetriesOnRebalance(t *testing.T) {
 
 	consumer, err := NewConsumer(
 		ConsumerConfig{
-			Brokers: []string{"localhost:9092"},
+			Brokers: []string{"localhost:29092"},
 			GroupID: "group-a",
 			Topics:  []string{"topic-a"},
 		},
@@ -131,7 +131,7 @@ func TestConsumerPropagatesCommitError(t *testing.T) {
 
 	consumer, err := NewConsumer(
 		ConsumerConfig{
-			Brokers: []string{"localhost:9092"},
+			Brokers: []string{"localhost:29092"},
 			GroupID: "group-a",
 			Topics:  []string{"topic-a"},
 		},

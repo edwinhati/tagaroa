@@ -26,6 +26,7 @@ type BudgetItem struct {
 	Allocation float64    `json:"allocation"`
 	BudgetID   *uuid.UUID `json:"budget_id"`
 	Category   string     `json:"category"`
+	Spent      float64    `json:"spent"`
 	DeletedAt  *time.Time `json:"deleted_at,omitempty"`
 	CreatedAt  time.Time  `json:"created_at"`
 	UpdatedAt  time.Time  `json:"updated_at"`

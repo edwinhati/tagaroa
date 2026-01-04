@@ -15,7 +15,6 @@ import (
 	"golang.org/x/time/rate"
 
 	"github.com/edwinhati/tagaroa/packages/shared/go/client"
-	"github.com/edwinhati/tagaroa/packages/shared/go/kafka"
 	"github.com/edwinhati/tagaroa/packages/shared/go/middleware"
 	"github.com/edwinhati/tagaroa/packages/shared/go/router"
 	"github.com/edwinhati/tagaroa/packages/shared/go/util"
@@ -27,8 +26,7 @@ import (
 )
 
 var (
-	mustInitKafkaProducerFn = initKafkaProducer
-	logFatalfFn             = log.Fatalf
+	logFatalfFn = log.Fatalf
 )
 
 var runFn = run
@@ -52,13 +50,10 @@ func run() error {
 	defer db.Close()
 
 	oidcClient := mustInitOIDCClient(ctx, cfg)
-	kafkaProducer := mustInitKafkaProducerFn(cfg)
-	defer kafkaProducer.Close()
 
 	handler := buildHTTPHandler(
 		db,
 		oidcClient,
-		kafkaProducer,
 		parseAllowedOrigins(cfg.Server.TrustedOrigins),
 	)
 
@@ -102,7 +97,7 @@ func parseAllowedOrigins(trustedOrigins string) []string {
 		return nil
 	}
 	var origins []string
-	for _, origin := range strings.Split(trustedOrigins, ",") {
+	for origin := range strings.SplitSeq(trustedOrigins, ",") {
 		if trimmed := strings.TrimSpace(origin); trimmed != "" {
 			origins = append(origins, trimmed)
 		}
@@ -140,35 +135,22 @@ func mustInitOIDCClient(ctx context.Context, cfg *config.Config) *client.OIDCCli
 	return oidcClient
 }
 
-func initKafkaProducer(cfg *config.Config) kafka.Producer {
-	if len(cfg.Kafka.Brokers) == 0 {
-		log.Fatal("KAFKA_BROKERS is required to start the finance server")
-	}
-
-	producer, err := kafka.NewProducer(kafka.Config{
-		Brokers:  cfg.Kafka.Brokers,
-		ClientID: cfg.Kafka.ClientID,
-	})
-	if err != nil {
-		log.Fatalf("Failed to init Kafka producer: %v", err)
-	}
-	return producer
-}
-
 func buildHTTPHandler(
 	db *sql.DB,
 	oidcClient *client.OIDCClient,
-	kafkaProducer kafka.Producer,
 	allowedOrigins []string,
 ) http.Handler {
 	accountRepo := repository.NewAccountRepository(db)
+	transactionRepo := repository.NewTransactionRepository(db)
 	budgetRepo := repository.NewBudgetRepository(db)
 	accountService := service.NewAccountService(accountRepo)
-	budgetService := service.NewBudgetService(kafkaProducer, budgetRepo)
+	transactionService := service.NewTransactionService(transactionRepo, accountRepo)
+	budgetService := service.NewBudgetService(budgetRepo)
 
 	router := router.NewRouter()
 	httphandler.NewAccountHandler(oidcClient, accountService).SetupRoutes(router)
 	httphandler.NewBudgetHandler(oidcClient, budgetService).SetupRoutes(router)
+	httphandler.NewTransactionHandler(oidcClient, transactionService).SetupRoutes(router)
 
 	return applyMiddlewares(router, allowedOrigins)
 }

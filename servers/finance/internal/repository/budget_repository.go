@@ -3,6 +3,7 @@ package repository
 import (
 	"context"
 	"database/sql"
+	"fmt"
 	"strings"
 	"time"
 
@@ -19,6 +20,8 @@ type BudgetRepository interface {
 	Count(ctx context.Context, where map[string]any) (int, error)
 	CreateItem(ctx context.Context, budgetItem *model.BudgetItem) error
 	UpdateItem(ctx context.Context, budgetItem *model.BudgetItem) error
+	GetBudgetItemSpent(ctx context.Context, budgetItemID uuid.UUID) (float64, error)
+	GetBudgetItemsSpent(ctx context.Context, budgetItemIDs []uuid.UUID) (map[uuid.UUID]float64, error)
 }
 
 type budgetRepository struct {
@@ -276,4 +279,72 @@ func (r *budgetRepository) UpdateItem(ctx context.Context, budgetItem *model.Bud
 
 	_, err := r.db.ExecContext(ctx, query, budgetItem.Allocation, budgetItem.Category, budgetItem.UpdatedAt, budgetItem.ID)
 	return err
+}
+
+// GetBudgetItemSpent calculates the total spent amount for a budget item
+// by summing all EXPENSE transactions linked to it
+func (r *budgetRepository) GetBudgetItemSpent(ctx context.Context, budgetItemID uuid.UUID) (float64, error) {
+	query := `
+		SELECT COALESCE(SUM(amount), 0)
+		FROM transactions
+		WHERE budget_item_id = $1
+		  AND type = 'EXPENSE'
+		  AND deleted_at IS NULL
+	`
+
+	var spent float64
+	if err := r.db.QueryRowContext(ctx, query, budgetItemID).Scan(&spent); err != nil {
+		return 0, err
+	}
+	return spent, nil
+}
+
+// GetBudgetItemsSpent calculates the total spent amount for multiple budget items
+// Returns a map of budget_item_id -> spent amount
+func (r *budgetRepository) GetBudgetItemsSpent(ctx context.Context, budgetItemIDs []uuid.UUID) (map[uuid.UUID]float64, error) {
+	if len(budgetItemIDs) == 0 {
+		return make(map[uuid.UUID]float64), nil
+	}
+
+	// Build placeholders for IN clause
+	placeholders := make([]string, len(budgetItemIDs))
+	args := make([]any, len(budgetItemIDs))
+	for i, id := range budgetItemIDs {
+		placeholders[i] = fmt.Sprintf("$%d", i+1)
+		args[i] = id
+	}
+
+	query := fmt.Sprintf(`
+		SELECT budget_item_id, COALESCE(SUM(amount), 0) as spent
+		FROM transactions
+		WHERE budget_item_id IN (%s)
+		  AND type = 'EXPENSE'
+		  AND deleted_at IS NULL
+		GROUP BY budget_item_id
+	`, strings.Join(placeholders, ", "))
+
+	rows, err := r.db.QueryContext(ctx, query, args...)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	result := make(map[uuid.UUID]float64)
+	for rows.Next() {
+		var budgetItemID uuid.UUID
+		var spent float64
+		if err := rows.Scan(&budgetItemID, &spent); err != nil {
+			return nil, err
+		}
+		result[budgetItemID] = spent
+	}
+
+	// Initialize zero for items with no transactions
+	for _, id := range budgetItemIDs {
+		if _, exists := result[id]; !exists {
+			result[id] = 0
+		}
+	}
+
+	return result, nil
 }

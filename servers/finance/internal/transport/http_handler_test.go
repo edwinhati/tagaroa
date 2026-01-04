@@ -1116,3 +1116,545 @@ func mustJSON(v any) []byte {
 	b, _ := json.Marshal(v)
 	return b
 }
+
+/* ----------------------- Transaction Handler Tests ----------------------- */
+
+const (
+	transactionPath           = "/transaction"
+	transactionsPath          = "/transactions"
+	transactionPathWithPrefix = "/transaction/"
+	transactionTypesPath      = "/transaction/types"
+)
+
+type MockTransactionService struct{ mock.Mock }
+
+func (m *MockTransactionService) CreateTransaction(ctx context.Context, transaction *model.Transaction) (*model.Transaction, error) {
+	args := m.Called(ctx, transaction)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).(*model.Transaction), args.Error(1)
+}
+
+func (m *MockTransactionService) GetTransaction(ctx context.Context, id, userID uuid.UUID) (*model.Transaction, error) {
+	args := m.Called(ctx, id, userID)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).(*model.Transaction), args.Error(1)
+}
+
+func (m *MockTransactionService) GetTransactions(ctx context.Context, params service.GetTransactionsParams) (*service.GetTransactionsResult, error) {
+	args := m.Called(ctx, params)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).(*service.GetTransactionsResult), args.Error(1)
+}
+
+func (m *MockTransactionService) UpdateTransaction(ctx context.Context, id uuid.UUID, input service.UpdateTransactionInput, userID uuid.UUID) (*model.Transaction, error) {
+	args := m.Called(ctx, id, input, userID)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).(*model.Transaction), args.Error(1)
+}
+
+func (m *MockTransactionService) DeleteTransaction(ctx context.Context, id uuid.UUID, userID uuid.UUID) error {
+	args := m.Called(ctx, id, userID)
+	return args.Error(0)
+}
+
+func setupTransactionHandler(t *testing.T) (*TransactionHandler, *MockTransactionService) {
+	mockSvc := new(MockTransactionService)
+	mockOIDC := &client.OIDCClient{}
+	return NewTransactionHandler(mockOIDC, mockSvc), mockSvc
+}
+
+func transactionPathWithID(id uuid.UUID) string {
+	return transactionPathWithPrefix + id.String()
+}
+
+func TestTransactionHandlerCreateTransaction(t *testing.T) {
+	handler, mockSvc := setupTransactionHandler(t)
+	userID := uuid.New()
+	accountID := uuid.New()
+
+	okReq := CreateTransactionRequest{
+		Amount:    100.0,
+		Date:      time.Now(),
+		Type:      model.TransactionTypeExpense,
+		Currency:  "USD",
+		AccountID: accountID,
+	}
+
+	t.Run("success", func(t *testing.T) {
+		mockSvc.On("CreateTransaction", mock.Anything, mock.AnythingOfType("*model.Transaction")).
+			Return(&model.Transaction{ID: uuid.New(), UserID: userID}, nil).Once()
+
+		req := authedReq("POST", transactionPath, okReq, userID)
+		resp := perform(handler.CreateTransaction, req)
+		assert.Equal(t, http.StatusOK, resp.Code) // Handler returns 200, not 201
+		mockSvc.AssertExpectations(t)
+	})
+
+	t.Run("invalid type", func(t *testing.T) {
+		mockSvc.ExpectedCalls = nil
+		mockSvc.Calls = nil
+		mockSvc.On("CreateTransaction", mock.Anything, mock.AnythingOfType("*model.Transaction")).
+			Return((*model.Transaction)(nil), service.ErrInvalidTransactionType).Once()
+
+		req := authedReq("POST", transactionPath, okReq, userID)
+		resp := perform(handler.CreateTransaction, req)
+		assert.Equal(t, http.StatusBadRequest, resp.Code)
+		mockSvc.AssertExpectations(t)
+	})
+
+	t.Run(serviceErrorCaseName, func(t *testing.T) {
+		mockSvc.ExpectedCalls = nil
+		mockSvc.Calls = nil
+		mockSvc.On("CreateTransaction", mock.Anything, mock.AnythingOfType("*model.Transaction")).
+			Return((*model.Transaction)(nil), fmt.Errorf("fail")).Once()
+
+		req := authedReq("POST", transactionPath, okReq, userID)
+		resp := perform(handler.CreateTransaction, req)
+		assert.Equal(t, http.StatusInternalServerError, resp.Code)
+		mockSvc.AssertExpectations(t)
+	})
+
+	t.Run(invalidJSONBody, func(t *testing.T) {
+		req := rawReq("POST", transactionPath, []byte(invalidJSONBody))
+		ctx := context.WithValue(req.Context(), util.UserIDKey, userID.String())
+		req = req.WithContext(ctx)
+		resp := perform(handler.CreateTransaction, req)
+		assert.Equal(t, http.StatusBadRequest, resp.Code)
+	})
+
+	t.Run(noUserIDCaseName, func(t *testing.T) {
+		req := rawReq("POST", transactionPath, mustJSON(okReq))
+		resp := perform(handler.CreateTransaction, req)
+		assert.Equal(t, http.StatusUnauthorized, resp.Code)
+	})
+}
+
+func TestTransactionHandlerGetTransaction(t *testing.T) {
+	handler, mockSvc := setupTransactionHandler(t)
+	userID := uuid.New()
+	transactionID := uuid.New()
+
+	t.Run("success", func(t *testing.T) {
+		mockSvc.On("GetTransaction", mock.Anything, transactionID, userID).
+			Return(&model.Transaction{ID: transactionID, UserID: userID}, nil).Once()
+
+		req := authedReq("GET", transactionPathWithID(transactionID), nil, userID)
+		req.SetPathValue("id", transactionID.String())
+		resp := perform(handler.GetTransaction, req)
+		assert.Equal(t, http.StatusOK, resp.Code)
+		mockSvc.AssertExpectations(t)
+	})
+
+	t.Run("not found", func(t *testing.T) {
+		mockSvc.ExpectedCalls = nil
+		mockSvc.Calls = nil
+		mockSvc.On("GetTransaction", mock.Anything, transactionID, userID).
+			Return((*model.Transaction)(nil), service.ErrTransactionNotFound).Once()
+
+		req := authedReq("GET", transactionPathWithID(transactionID), nil, userID)
+		req.SetPathValue("id", transactionID.String())
+		resp := perform(handler.GetTransaction, req)
+		assert.Equal(t, http.StatusNotFound, resp.Code)
+		mockSvc.AssertExpectations(t)
+	})
+
+	t.Run("access denied", func(t *testing.T) {
+		mockSvc.ExpectedCalls = nil
+		mockSvc.Calls = nil
+		mockSvc.On("GetTransaction", mock.Anything, transactionID, userID).
+			Return((*model.Transaction)(nil), service.ErrTransactionAccessDenied).Once()
+
+		req := authedReq("GET", transactionPathWithID(transactionID), nil, userID)
+		req.SetPathValue("id", transactionID.String())
+		resp := perform(handler.GetTransaction, req)
+		assert.Equal(t, http.StatusForbidden, resp.Code)
+		mockSvc.AssertExpectations(t)
+	})
+
+	t.Run(serviceErrorCaseName, func(t *testing.T) {
+		mockSvc.ExpectedCalls = nil
+		mockSvc.Calls = nil
+		mockSvc.On("GetTransaction", mock.Anything, transactionID, userID).
+			Return((*model.Transaction)(nil), fmt.Errorf("fail")).Once()
+
+		req := authedReq("GET", transactionPathWithID(transactionID), nil, userID)
+		req.SetPathValue("id", transactionID.String())
+		resp := perform(handler.GetTransaction, req)
+		assert.Equal(t, http.StatusInternalServerError, resp.Code)
+		mockSvc.AssertExpectations(t)
+	})
+
+	t.Run(invalidUUIDCaseName, func(t *testing.T) {
+		req := authedReq("GET", transactionPathWithPrefix+invalidUUIDValue, nil, userID)
+		req.SetPathValue("id", invalidUUIDValue)
+		resp := perform(handler.GetTransaction, req)
+		assert.Equal(t, http.StatusBadRequest, resp.Code)
+	})
+
+	t.Run(noUserIDCaseName, func(t *testing.T) {
+		req := rawReq("GET", transactionPathWithID(transactionID), nil)
+		req.SetPathValue("id", transactionID.String())
+		resp := perform(handler.GetTransaction, req)
+		assert.Equal(t, http.StatusUnauthorized, resp.Code)
+	})
+}
+
+func TestTransactionHandlerGetTransactions(t *testing.T) {
+	handler, mockSvc := setupTransactionHandler(t)
+	userID := uuid.New()
+
+	t.Run("success", func(t *testing.T) {
+		mockSvc.On("GetTransactions", mock.Anything, mock.AnythingOfType("service.GetTransactionsParams")).
+			Return(&service.GetTransactionsResult{Transactions: []*model.Transaction{}, Total: 0}, nil).Once()
+
+		req := authedReq("GET", transactionsPath+"?page=1&limit=10", nil, userID)
+		resp := perform(handler.GetTransactions, req)
+		assert.Equal(t, http.StatusOK, resp.Code)
+		mockSvc.AssertExpectations(t)
+	})
+
+	t.Run("with filters", func(t *testing.T) {
+		mockSvc.ExpectedCalls = nil
+		mockSvc.Calls = nil
+		mockSvc.On("GetTransactions", mock.Anything, mock.AnythingOfType("service.GetTransactionsParams")).
+			Return(&service.GetTransactionsResult{Transactions: []*model.Transaction{}, Total: 0}, nil).Once()
+
+		req := authedReq("GET", transactionsPath+"?type=EXPENSE&currency=USD&account=Bank&category=Food&start_date=2024-01-01&end_date=2024-12-31", nil, userID)
+		resp := perform(handler.GetTransactions, req)
+		assert.Equal(t, http.StatusOK, resp.Code)
+		mockSvc.AssertExpectations(t)
+	})
+
+	t.Run("with aggregations", func(t *testing.T) {
+		mockSvc.ExpectedCalls = nil
+		mockSvc.Calls = nil
+		mockSvc.On("GetTransactions", mock.Anything, mock.AnythingOfType("service.GetTransactionsParams")).
+			Return(&service.GetTransactionsResult{
+				Transactions: []*model.Transaction{},
+				Total:        0,
+				TypeAggregations: map[string]util.AggregationResult{
+					"EXPENSE": {Count: 5, Sum: 500},
+				},
+				CurrencyAggregations: map[string]util.AggregationResult{
+					"USD": {Count: 5, Sum: 500},
+				},
+				AccountAggregations: map[string]util.AggregationResult{
+					"Bank": {Count: 3, Sum: 300},
+				},
+				CategoryAggregations: map[string]util.AggregationResult{
+					"Food": {Count: 2, Sum: 200},
+				},
+			}, nil).Once()
+
+		req := authedReq("GET", transactionsPath, nil, userID)
+		resp := perform(handler.GetTransactions, req)
+		assert.Equal(t, http.StatusOK, resp.Code)
+		mockSvc.AssertExpectations(t)
+	})
+
+	t.Run(serviceErrorCaseName, func(t *testing.T) {
+		mockSvc.ExpectedCalls = nil
+		mockSvc.Calls = nil
+		mockSvc.On("GetTransactions", mock.Anything, mock.AnythingOfType("service.GetTransactionsParams")).
+			Return((*service.GetTransactionsResult)(nil), fmt.Errorf("fail")).Once()
+
+		req := authedReq("GET", transactionsPath, nil, userID)
+		resp := perform(handler.GetTransactions, req)
+		assert.Equal(t, http.StatusInternalServerError, resp.Code)
+		mockSvc.AssertExpectations(t)
+	})
+
+	t.Run(noUserIDCaseName, func(t *testing.T) {
+		req := rawReq("GET", transactionsPath, nil)
+		resp := perform(handler.GetTransactions, req)
+		assert.Equal(t, http.StatusUnauthorized, resp.Code)
+	})
+}
+
+func TestTransactionHandlerGetTransactionTypes(t *testing.T) {
+	handler, _ := setupTransactionHandler(t)
+	userID := uuid.New()
+
+	req := authedReq("GET", transactionTypesPath, nil, userID)
+	resp := perform(handler.GetTransactionTypes, req)
+	assert.Equal(t, http.StatusOK, resp.Code)
+}
+
+func TestTransactionHandlerUpdateTransaction(t *testing.T) {
+	handler, mockSvc := setupTransactionHandler(t)
+	userID := uuid.New()
+	transactionID := uuid.New()
+	newAmount := 200.0
+	reqBody := UpdateTransactionRequest{Amount: &newAmount}
+
+	t.Run("success", func(t *testing.T) {
+		mockSvc.On("UpdateTransaction", mock.Anything, transactionID, mock.AnythingOfType("service.UpdateTransactionInput"), userID).
+			Return(&model.Transaction{ID: transactionID, UserID: userID}, nil).Once()
+
+		req := authedReq("PUT", transactionPathWithID(transactionID), reqBody, userID)
+		req.SetPathValue("id", transactionID.String())
+		resp := perform(handler.UpdateTransaction, req)
+		assert.Equal(t, http.StatusOK, resp.Code)
+		mockSvc.AssertExpectations(t)
+	})
+
+	t.Run("not found", func(t *testing.T) {
+		mockSvc.ExpectedCalls = nil
+		mockSvc.Calls = nil
+		mockSvc.On("UpdateTransaction", mock.Anything, transactionID, mock.AnythingOfType("service.UpdateTransactionInput"), userID).
+			Return((*model.Transaction)(nil), service.ErrTransactionNotFound).Once()
+
+		req := authedReq("PUT", transactionPathWithID(transactionID), reqBody, userID)
+		req.SetPathValue("id", transactionID.String())
+		resp := perform(handler.UpdateTransaction, req)
+		assert.Equal(t, http.StatusNotFound, resp.Code)
+		mockSvc.AssertExpectations(t)
+	})
+
+	t.Run("access denied", func(t *testing.T) {
+		mockSvc.ExpectedCalls = nil
+		mockSvc.Calls = nil
+		mockSvc.On("UpdateTransaction", mock.Anything, transactionID, mock.AnythingOfType("service.UpdateTransactionInput"), userID).
+			Return((*model.Transaction)(nil), service.ErrTransactionAccessDenied).Once()
+
+		req := authedReq("PUT", transactionPathWithID(transactionID), reqBody, userID)
+		req.SetPathValue("id", transactionID.String())
+		resp := perform(handler.UpdateTransaction, req)
+		assert.Equal(t, http.StatusForbidden, resp.Code)
+		mockSvc.AssertExpectations(t)
+	})
+
+	t.Run(serviceErrorCaseName, func(t *testing.T) {
+		mockSvc.ExpectedCalls = nil
+		mockSvc.Calls = nil
+		mockSvc.On("UpdateTransaction", mock.Anything, transactionID, mock.AnythingOfType("service.UpdateTransactionInput"), userID).
+			Return((*model.Transaction)(nil), fmt.Errorf("fail")).Once()
+
+		req := authedReq("PUT", transactionPathWithID(transactionID), reqBody, userID)
+		req.SetPathValue("id", transactionID.String())
+		resp := perform(handler.UpdateTransaction, req)
+		assert.Equal(t, http.StatusInternalServerError, resp.Code)
+		mockSvc.AssertExpectations(t)
+	})
+
+	t.Run(invalidUUIDCaseName, func(t *testing.T) {
+		req := authedReq("PUT", transactionPathWithPrefix+invalidUUIDValue, reqBody, userID)
+		req.SetPathValue("id", invalidUUIDValue)
+		resp := perform(handler.UpdateTransaction, req)
+		assert.Equal(t, http.StatusBadRequest, resp.Code)
+	})
+
+	t.Run(invalidJSONBody, func(t *testing.T) {
+		req := rawReq("PUT", transactionPathWithID(transactionID), []byte(invalidJSONBody))
+		ctx := context.WithValue(req.Context(), util.UserIDKey, userID.String())
+		req = req.WithContext(ctx)
+		req.SetPathValue("id", transactionID.String())
+		resp := perform(handler.UpdateTransaction, req)
+		assert.Equal(t, http.StatusBadRequest, resp.Code)
+	})
+
+	t.Run(noUserIDCaseName, func(t *testing.T) {
+		req := rawReq("PUT", transactionPathWithID(transactionID), mustJSON(reqBody))
+		req.SetPathValue("id", transactionID.String())
+		resp := perform(handler.UpdateTransaction, req)
+		assert.Equal(t, http.StatusUnauthorized, resp.Code)
+	})
+}
+
+func TestTransactionHandlerDeleteTransaction(t *testing.T) {
+	handler, mockSvc := setupTransactionHandler(t)
+	userID := uuid.New()
+	transactionID := uuid.New()
+	transaction := &model.Transaction{ID: transactionID, UserID: userID}
+
+	t.Run("success", func(t *testing.T) {
+		// Handler calls GetTransaction first, then DeleteTransaction
+		mockSvc.On("GetTransaction", mock.Anything, transactionID, userID).
+			Return(transaction, nil).Once()
+		mockSvc.On("DeleteTransaction", mock.Anything, transactionID, userID).
+			Return(nil).Once()
+
+		req := authedReq("DELETE", transactionPathWithID(transactionID), nil, userID)
+		req.SetPathValue("id", transactionID.String())
+		resp := perform(handler.DeleteTransaction, req)
+		assert.Equal(t, http.StatusOK, resp.Code)
+		mockSvc.AssertExpectations(t)
+	})
+
+	t.Run("get not found", func(t *testing.T) {
+		mockSvc.ExpectedCalls = nil
+		mockSvc.Calls = nil
+		mockSvc.On("GetTransaction", mock.Anything, transactionID, userID).
+			Return((*model.Transaction)(nil), service.ErrTransactionNotFound).Once()
+
+		req := authedReq("DELETE", transactionPathWithID(transactionID), nil, userID)
+		req.SetPathValue("id", transactionID.String())
+		resp := perform(handler.DeleteTransaction, req)
+		assert.Equal(t, http.StatusNotFound, resp.Code)
+		mockSvc.AssertExpectations(t)
+	})
+
+	t.Run("get access denied", func(t *testing.T) {
+		mockSvc.ExpectedCalls = nil
+		mockSvc.Calls = nil
+		mockSvc.On("GetTransaction", mock.Anything, transactionID, userID).
+			Return((*model.Transaction)(nil), service.ErrTransactionAccessDenied).Once()
+
+		req := authedReq("DELETE", transactionPathWithID(transactionID), nil, userID)
+		req.SetPathValue("id", transactionID.String())
+		resp := perform(handler.DeleteTransaction, req)
+		assert.Equal(t, http.StatusForbidden, resp.Code)
+		mockSvc.AssertExpectations(t)
+	})
+
+	t.Run("get error", func(t *testing.T) {
+		mockSvc.ExpectedCalls = nil
+		mockSvc.Calls = nil
+		mockSvc.On("GetTransaction", mock.Anything, transactionID, userID).
+			Return((*model.Transaction)(nil), fmt.Errorf("fail")).Once()
+
+		req := authedReq("DELETE", transactionPathWithID(transactionID), nil, userID)
+		req.SetPathValue("id", transactionID.String())
+		resp := perform(handler.DeleteTransaction, req)
+		assert.Equal(t, http.StatusInternalServerError, resp.Code)
+		mockSvc.AssertExpectations(t)
+	})
+
+	t.Run("delete not found", func(t *testing.T) {
+		mockSvc.ExpectedCalls = nil
+		mockSvc.Calls = nil
+		mockSvc.On("GetTransaction", mock.Anything, transactionID, userID).
+			Return(transaction, nil).Once()
+		mockSvc.On("DeleteTransaction", mock.Anything, transactionID, userID).
+			Return(service.ErrTransactionNotFound).Once()
+
+		req := authedReq("DELETE", transactionPathWithID(transactionID), nil, userID)
+		req.SetPathValue("id", transactionID.String())
+		resp := perform(handler.DeleteTransaction, req)
+		assert.Equal(t, http.StatusNotFound, resp.Code)
+		mockSvc.AssertExpectations(t)
+	})
+
+	t.Run("delete access denied", func(t *testing.T) {
+		mockSvc.ExpectedCalls = nil
+		mockSvc.Calls = nil
+		mockSvc.On("GetTransaction", mock.Anything, transactionID, userID).
+			Return(transaction, nil).Once()
+		mockSvc.On("DeleteTransaction", mock.Anything, transactionID, userID).
+			Return(service.ErrTransactionAccessDenied).Once()
+
+		req := authedReq("DELETE", transactionPathWithID(transactionID), nil, userID)
+		req.SetPathValue("id", transactionID.String())
+		resp := perform(handler.DeleteTransaction, req)
+		assert.Equal(t, http.StatusForbidden, resp.Code)
+		mockSvc.AssertExpectations(t)
+	})
+
+	t.Run("delete error", func(t *testing.T) {
+		mockSvc.ExpectedCalls = nil
+		mockSvc.Calls = nil
+		mockSvc.On("GetTransaction", mock.Anything, transactionID, userID).
+			Return(transaction, nil).Once()
+		mockSvc.On("DeleteTransaction", mock.Anything, transactionID, userID).
+			Return(fmt.Errorf("fail")).Once()
+
+		req := authedReq("DELETE", transactionPathWithID(transactionID), nil, userID)
+		req.SetPathValue("id", transactionID.String())
+		resp := perform(handler.DeleteTransaction, req)
+		assert.Equal(t, http.StatusInternalServerError, resp.Code)
+		mockSvc.AssertExpectations(t)
+	})
+
+	t.Run(invalidUUIDCaseName, func(t *testing.T) {
+		req := authedReq("DELETE", transactionPathWithPrefix+invalidUUIDValue, nil, userID)
+		req.SetPathValue("id", invalidUUIDValue)
+		resp := perform(handler.DeleteTransaction, req)
+		assert.Equal(t, http.StatusBadRequest, resp.Code)
+	})
+
+	t.Run(noUserIDCaseName, func(t *testing.T) {
+		req := rawReq("DELETE", transactionPathWithID(transactionID), nil)
+		req.SetPathValue("id", transactionID.String())
+		resp := perform(handler.DeleteTransaction, req)
+		assert.Equal(t, http.StatusUnauthorized, resp.Code)
+	})
+}
+
+func TestTransactionHandlerSetupRoutes(t *testing.T) {
+	handler, _ := setupTransactionHandler(t)
+	r := router.NewRouter()
+
+	handler.SetupRoutes(r)
+}
+
+func TestConvertTransactionAggregations(t *testing.T) {
+	t.Run("nil result returns nil", func(t *testing.T) {
+		assert.Nil(t, convertTransactionAggregations(nil))
+	})
+
+	t.Run("empty aggregations return nil", func(t *testing.T) {
+		result := &service.GetTransactionsResult{}
+		assert.Nil(t, convertTransactionAggregations(result))
+	})
+
+	t.Run("populates all aggregation buckets", func(t *testing.T) {
+		result := &service.GetTransactionsResult{
+			TypeAggregations: map[string]util.AggregationResult{
+				"EXPENSE": {Count: 2, Sum: 200},
+			},
+			CurrencyAggregations: map[string]util.AggregationResult{
+				"USD": {Count: 3, Sum: 300},
+			},
+			AccountAggregations: map[string]util.AggregationResult{
+				"Bank": {Count: 4, Sum: 400},
+			},
+			CategoryAggregations: map[string]util.AggregationResult{
+				"Food": {Count: 5, Sum: 500},
+			},
+		}
+
+		got := convertTransactionAggregations(result)
+		require.NotNil(t, got)
+		assert.Len(t, *got, 4)
+
+		typeBuckets, ok := (*got)["type"]
+		require.True(t, ok)
+		assert.Len(t, typeBuckets, 1)
+		assert.Equal(t, "EXPENSE", typeBuckets[0].Key)
+
+		currencyBuckets, ok := (*got)["currency"]
+		require.True(t, ok)
+		assert.Len(t, currencyBuckets, 1)
+		assert.Equal(t, "USD", currencyBuckets[0].Key)
+
+		accountBuckets, ok := (*got)["account"]
+		require.True(t, ok)
+		assert.Len(t, accountBuckets, 1)
+		assert.Equal(t, "Bank", accountBuckets[0].Key)
+
+		categoryBuckets, ok := (*got)["category"]
+		require.True(t, ok)
+		assert.Len(t, categoryBuckets, 1)
+		assert.Equal(t, "Food", categoryBuckets[0].Key)
+	})
+
+	t.Run("partial aggregations", func(t *testing.T) {
+		result := &service.GetTransactionsResult{
+			TypeAggregations: map[string]util.AggregationResult{
+				"INCOME": {Count: 1, Sum: 100},
+			},
+		}
+
+		got := convertTransactionAggregations(result)
+		require.NotNil(t, got)
+		assert.Len(t, *got, 1)
+	})
+}

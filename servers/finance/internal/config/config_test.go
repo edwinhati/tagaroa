@@ -213,7 +213,7 @@ func TestLoadConfigInitializes(t *testing.T) {
 
 func TestConfigLoadFromEnvKafka(t *testing.T) {
 	withEnv(t, map[string]string{
-		"KAFKA_BROKERS":   "broker-a:9092, broker-b:9093 , ,broker-c:9094",
+		"KAFKA_BROKERS":   "broker-a:29092, broker-b:9093 , ,broker-c:9094",
 		"KAFKA_CLIENT_ID": "finance-api",
 	})
 
@@ -221,7 +221,7 @@ func TestConfigLoadFromEnvKafka(t *testing.T) {
 	err := c.LoadFromEnv()
 	assert.NoError(t, err)
 
-	assert.Equal(t, []string{"broker-a:9092", "broker-b:9093", "broker-c:9094"}, c.Kafka.Brokers)
+	assert.Equal(t, []string{"broker-a:29092", "broker-b:9093", "broker-c:9094"}, c.Kafka.Brokers)
 	assert.Equal(t, "finance-api", c.Kafka.ClientID)
 }
 
@@ -232,7 +232,7 @@ func TestParseCSV(t *testing.T) {
 		expected []string
 	}{
 		{"empty string", "", []string{}},
-		{"single value", "broker:9092", []string{"broker:9092"}},
+		{"single value", "broker:29092", []string{"broker:29092"}},
 		{"spaces and blanks", " a , , b ,c ", []string{"a", "b", "c"}},
 	}
 

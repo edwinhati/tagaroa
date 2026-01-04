@@ -5,7 +5,6 @@ import (
 	"errors"
 	"fmt"
 
-	"github.com/edwinhati/tagaroa/packages/shared/go/kafka"
 	"github.com/edwinhati/tagaroa/packages/shared/go/util"
 	"github.com/edwinhati/tagaroa/servers/finance/internal/model"
 	"github.com/edwinhati/tagaroa/servers/finance/internal/repository"
@@ -47,16 +46,13 @@ type BudgetService interface {
 }
 
 type budgetService struct {
-	producer   kafka.Producer
 	budgetRepo repository.BudgetRepository
 }
 
 func NewBudgetService(
-	producer kafka.Producer,
 	budgetRepo repository.BudgetRepository,
 ) BudgetService {
 	return &budgetService{
-		producer:   producer,
 		budgetRepo: budgetRepo,
 	}
 }
@@ -77,16 +73,6 @@ func (s *budgetService) CreateBudget(ctx context.Context, budget *model.Budget) 
 
 		if _, err := s.CreateBudgetItem(ctx, item); err != nil {
 			return nil, fmt.Errorf("failed to create budget item: %w", err)
-		}
-	}
-
-	if s.producer != nil {
-		msg := kafka.Message{
-			Topic: "create-budget-item",
-			Key:   []byte(budget.ID.String()),
-		}
-		if err := s.producer.Publish(ctx, msg); err != nil {
-			return nil, fmt.Errorf("failed to publish budget created event: %w", err)
 		}
 	}
 
@@ -146,6 +132,23 @@ func (s *budgetService) GetBudget(ctx context.Context, month, year int, userID u
 
 	if budget == nil {
 		return nil, ErrBudgetNotFound
+	}
+
+	// Populate spent amounts for budget items
+	if len(budget.BudgetItems) > 0 {
+		budgetItemIDs := make([]uuid.UUID, len(budget.BudgetItems))
+		for i, item := range budget.BudgetItems {
+			budgetItemIDs[i] = item.ID
+		}
+
+		spentMap, err := s.budgetRepo.GetBudgetItemsSpent(ctx, budgetItemIDs)
+		if err != nil {
+			return nil, fmt.Errorf("failed to get budget items spent: %w", err)
+		}
+
+		for i := range budget.BudgetItems {
+			budget.BudgetItems[i].Spent = spentMap[budget.BudgetItems[i].ID]
+		}
 	}
 
 	return budget, nil
