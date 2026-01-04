@@ -82,9 +82,10 @@ function Field({
 	className,
 	orientation = "vertical",
 	...props
-}: React.ComponentProps<"fieldset"> & VariantProps<typeof fieldVariants>) {
+}: React.ComponentProps<"div"> & VariantProps<typeof fieldVariants>) {
 	return (
-		<fieldset
+		<div
+			role="group"
 			data-slot="field"
 			data-orientation={orientation}
 			className={cn(fieldVariants({ orientation }), className)}
@@ -203,19 +204,16 @@ function FieldError({
 			...new Map(errors.map((error) => [error?.message, error])).values(),
 		];
 
-		const uniqueMessages = uniqueErrors
-			.map((error) => error?.message)
-			.filter((message): message is string => Boolean(message));
-
-		if (uniqueMessages.length === 1) {
-			return uniqueMessages[0];
+		if (uniqueErrors?.length == 1) {
+			return uniqueErrors[0]?.message;
 		}
 
 		return (
 			<ul className="ml-4 flex list-disc flex-col gap-1">
-				{uniqueMessages.map((message) => (
-					<li key={message}>{message}</li>
-				))}
+				{uniqueErrors.map(
+					(error, index) =>
+						error?.message && <li key={index}>{error.message}</li>,
+				)}
 			</ul>
 		);
 	}, [children, errors]);

@@ -1,4 +1,4 @@
-import type * as React from "react";
+import * as React from "react";
 import { Slot as SlotPrimitive } from "radix-ui";
 import { ChevronRight, MoreHorizontal } from "lucide-react";
 
@@ -49,19 +49,14 @@ function BreadcrumbLink({
 	);
 }
 
-function BreadcrumbPage({
-	className,
-	href,
-	...props
-}: React.ComponentProps<"a">) {
+function BreadcrumbPage({ className, ...props }: React.ComponentProps<"span">) {
 	return (
-		<a
+		<span
 			data-slot="breadcrumb-page"
+			role="link"
 			aria-disabled="true"
 			aria-current="page"
-			tabIndex={href ? undefined : 0}
 			className={cn("text-foreground font-normal", className)}
-			href={href}
 			{...props}
 		/>
 	);
