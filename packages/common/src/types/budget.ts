@@ -4,6 +4,7 @@ import { z } from "zod";
 export const budgetItemSchema = z.object({
   id: z.string().optional(),
   allocation: z.number(),
+  spent: z.number().optional().default(0),
   category: z.string(),
   deletedAt: z.iso.datetime().nullable().optional(),
 });
@@ -19,11 +20,14 @@ export const budgetSchema = z.object({
 });
 
 export type Budget = z.infer<typeof budgetSchema>;
+export type BudgetInput = z.input<typeof budgetSchema>;
 export type BudgetItem = z.infer<typeof budgetItemSchema>;
+export type BudgetItemInput = z.input<typeof budgetItemSchema>;
 
 export type BudgetItemResponse = {
   id: string;
   allocation: number;
+  spent: number;
   budget_id?: string;
   category: string;
   deleted_at: string | null;

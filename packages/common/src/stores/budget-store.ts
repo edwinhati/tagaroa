@@ -19,7 +19,10 @@ export const getDefaultPeriod = (): { month: number; year: number } => {
         ? 1
         : currentMonth + 1
       : currentMonth;
-  const year = today.getFullYear();
+  const year =
+    currentDate > 25 && currentMonth === 12
+      ? today.getFullYear() + 1
+      : today.getFullYear();
   return { month, year };
 };
 

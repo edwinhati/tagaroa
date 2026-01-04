@@ -21,6 +21,7 @@ const mapBudgetItem = (item: BudgetItemResponse): BudgetItem => ({
       ? String(item.id)
       : undefined,
   allocation: item.allocation,
+  spent: item.spent ?? 0,
   category: item.category,
   deletedAt: item.deleted_at ?? null,
 });

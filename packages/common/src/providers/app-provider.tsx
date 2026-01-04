@@ -1,13 +1,12 @@
 "use client";
 
-import React from "react";
-import { useEffect } from "react";
-import { ThemeProvider } from "next-themes";
 import { Toaster } from "@repo/ui/components/sonner";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-
+import { ThemeProvider } from "next-themes";
 import posthog from "posthog-js";
 import { PostHogProvider } from "posthog-js/react";
+import type React from "react";
+import { useEffect } from "react";
 
 const queryClient = new QueryClient();
 type AppProviderProps = Readonly<{ children: React.ReactNode }>;

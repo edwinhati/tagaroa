@@ -1,5 +1,5 @@
+import type { AggregationItem, PaginationInfo } from "@repo/common/types";
 import { z } from "zod";
-import type { PaginationInfo, AggregationItem } from "@repo/common/types";
 
 export const accountSchema = z.object({
   id: z.string().optional(),

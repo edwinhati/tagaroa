@@ -1,16 +1,15 @@
 "use client";
 
-import React, { useId } from "react";
-import { FilterIcon } from "lucide-react";
-
+import { Button } from "@repo/ui/components/button";
+import { Checkbox } from "@repo/ui/components/checkbox";
+import { Label } from "@repo/ui/components/label";
 import {
   Popover,
   PopoverContent,
   PopoverTrigger,
 } from "@repo/ui/components/popover";
-import { Label } from "@repo/ui/components/label";
-import { Button } from "@repo/ui/components/button";
-import { Checkbox } from "@repo/ui/components/checkbox";
+import { FilterIcon } from "lucide-react";
+import React, { useId } from "react";
 
 export type DataTableMultiSelectOption = Readonly<{
   value: string;

@@ -1,11 +1,10 @@
 "use client";
 
+import { Input } from "@repo/ui/components/input";
+import { cn } from "@repo/ui/lib/utils";
 import type { Table } from "@tanstack/react-table";
 import { CircleXIcon, ListFilterIcon, SearchIcon } from "lucide-react";
 import React, { useCallback, useId, useMemo, useRef } from "react";
-
-import { cn } from "@repo/ui/lib/utils";
-import { Input } from "@repo/ui/components/input";
 
 // Client-side (table-based) search props
 export type DataTableSearchInputProps<TData> = Readonly<{

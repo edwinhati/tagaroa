@@ -1,7 +1,6 @@
 import type { User } from "better-auth";
-import type { UserWithRole } from "better-auth/plugins/admin";
-
 import { getSessionCookie } from "better-auth/cookies";
+import type { UserWithRole } from "better-auth/plugins/admin";
 import { type NextRequest, NextResponse } from "next/server";
 
 type Options = {
@@ -27,8 +26,10 @@ async function fetchUserSession<T extends User = User>(
         headers: {
           Cookie: `better-auth.session_token=${sessionCookie}`,
         },
-        // timeout to prevent hanging requests
-        signal: AbortSignal.timeout(5000),
+        // Increase timeout to 10 seconds to handle slow connections
+        signal: AbortSignal.timeout(10000),
+        // Don't cache the session check
+        cache: "no-store",
       },
     );
 
@@ -141,6 +142,13 @@ async function handleCommonProxyLogic(
 
   const sessionCookie = getSessionCookie(request);
 
+  // Construct public URL for redirect (use x-forwarded-host or fallback to request URL)
+  const forwardedHost = request.headers.get("x-forwarded-host");
+  const forwardedProto = request.headers.get("x-forwarded-proto") || "http";
+  const publicUrl = forwardedHost
+    ? `${forwardedProto}://${forwardedHost}${pathname}${searchParams.toString() ? `?${searchParams.toString()}` : ""}`
+    : request.nextUrl.href;
+
   if (!sessionCookie) {
     if (pathname === "/") {
       return { type: "auth-redirect" as const, url: authAppUrl };
@@ -149,7 +157,7 @@ async function handleCommonProxyLogic(
       return {
         type: "auth-redirect" as const,
         url: authAppUrl,
-        redirect: request.nextUrl.href,
+        redirect: publicUrl,
       };
     }
     return { type: "auth-redirect" as const, url: authAppUrl };
@@ -341,7 +349,17 @@ async function fetchUserOrRedirect<UserT extends User | UserWithRole>(
 }
 
 function computeRedirectTarget(request: NextRequest): string | undefined {
-  return request.nextUrl.pathname === "/" ? undefined : request.nextUrl.href;
+  if (request.nextUrl.pathname === "/") return undefined;
+
+  // Construct public URL for redirect (use x-forwarded-host or fallback to request URL)
+  const forwardedHost = request.headers.get("x-forwarded-host");
+  const forwardedProto = request.headers.get("x-forwarded-proto") || "http";
+  const { pathname, searchParams } = request.nextUrl;
+
+  if (forwardedHost) {
+    return `${forwardedProto}://${forwardedHost}${pathname}${searchParams.toString() ? `?${searchParams.toString()}` : ""}`;
+  }
+  return request.nextUrl.href;
 }
 
 function enforceVerificationRequirement(

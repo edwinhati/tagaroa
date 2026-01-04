@@ -1,24 +1,24 @@
 "use client";
 
-import React from "react";
-import type { ComponentType, ReactNode } from "react";
-import Link from "next/link";
 import {
-  ResizablePanelGroup,
-  ResizablePanel,
   ResizableHandle,
+  ResizablePanel,
+  ResizablePanelGroup,
 } from "@repo/ui/components/resizable";
 import {
-  SidebarHeader,
-  SidebarSeparator,
   SidebarContent,
   SidebarGroup,
-  SidebarGroupLabel,
   SidebarGroupContent,
+  SidebarGroupLabel,
+  SidebarHeader,
   SidebarMenu,
-  SidebarMenuItem,
   SidebarMenuButton,
+  SidebarMenuItem,
+  SidebarSeparator,
 } from "@repo/ui/components/sidebar";
+import Link from "next/link";
+import type { ComponentType, ReactNode } from "react";
+import React from "react";
 
 type ContentPanelMenuItem = {
   name: string;

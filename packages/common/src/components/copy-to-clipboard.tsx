@@ -1,12 +1,10 @@
 "use client";
 
-import React, { useState } from "react";
-import { cn } from "@repo/ui/lib/utils";
-
-import { toast } from "sonner";
 import { Button } from "@repo/ui/components/button";
-
-import { CopyIcon, CheckIcon } from "lucide-react";
+import { cn } from "@repo/ui/lib/utils";
+import { CheckIcon, CopyIcon } from "lucide-react";
+import React, { useState } from "react";
+import { toast } from "sonner";
 
 type CopyToClipboardProps = Readonly<{
   text: string;

@@ -1,15 +1,13 @@
 "use client";
 
-import React from "react";
-import Link from "next/link";
-import type { ComponentProps, ComponentType } from "react";
-
+import { Logo } from "@repo/common/components/logo";
+import { ThemeSwitcher } from "@repo/common/components/theme-switcher";
 import {
   Sidebar,
-  SidebarHeader,
   SidebarContent,
   SidebarFooter,
   SidebarGroup,
+  SidebarHeader,
   SidebarMenu,
   SidebarMenuButton,
   SidebarMenuItem,
@@ -17,9 +15,9 @@ import {
   SidebarTrigger,
   useSidebar,
 } from "@repo/ui/components/sidebar";
-
-import { Logo } from "@repo/common/components/logo";
-import { ThemeSwitcher } from "@repo/common/components/theme-switcher";
+import Link from "next/link";
+import type { ComponentProps, ComponentType } from "react";
+import React from "react";
 
 type AppSidebarProps = Readonly<
   ComponentProps<typeof Sidebar> & {

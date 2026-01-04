@@ -1,19 +1,6 @@
 "use client";
 
-import React, { useState } from "react";
-
-import {
-  BoltIcon,
-  BookOpenIcon,
-  Layers2Icon,
-  LogOutIcon,
-  PinIcon,
-  UserPenIcon,
-  UserXIcon,
-} from "lucide-react";
-
-import { toast } from "sonner";
-import type { SessionWithImpersonatedBy } from "better-auth/plugins/admin";
+import { authClient } from "@repo/common/lib/auth-client";
 import {
   Avatar,
   AvatarFallback,
@@ -29,8 +16,18 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@repo/ui/components/dropdown-menu";
-
-import { authClient } from "@repo/common/lib/auth-client";
+import type { SessionWithImpersonatedBy } from "better-auth/plugins/admin";
+import {
+  BoltIcon,
+  BookOpenIcon,
+  Layers2Icon,
+  LogOutIcon,
+  PinIcon,
+  UserPenIcon,
+  UserXIcon,
+} from "lucide-react";
+import React, { useState } from "react";
+import { toast } from "sonner";
 
 const getBrowserLocation = () =>
   typeof globalThis !== "undefined"

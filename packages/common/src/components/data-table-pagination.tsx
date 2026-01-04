@@ -1,13 +1,12 @@
 "use client";
 
-import React, { type ReactNode } from "react";
 import { Button } from "@repo/ui/components/button";
+import { Label } from "@repo/ui/components/label";
 import {
-  ChevronFirstIcon,
-  ChevronLastIcon,
-  ChevronLeftIcon,
-  ChevronRightIcon,
-} from "lucide-react";
+  Pagination,
+  PaginationContent,
+  PaginationItem,
+} from "@repo/ui/components/pagination";
 import {
   Select,
   SelectContent,
@@ -15,13 +14,14 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@repo/ui/components/select";
-import {
-  Pagination,
-  PaginationContent,
-  PaginationItem,
-} from "@repo/ui/components/pagination";
-import { Label } from "@repo/ui/components/label";
 import type { Table } from "@tanstack/react-table";
+import {
+  ChevronFirstIcon,
+  ChevronLastIcon,
+  ChevronLeftIcon,
+  ChevronRightIcon,
+} from "lucide-react";
+import React, { type ReactNode } from "react";
 
 export type DataTablePaginationProps<TData> = Readonly<{
   table: Table<TData>;

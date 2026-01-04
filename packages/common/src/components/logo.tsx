@@ -1,4 +1,5 @@
 import React from "react";
+
 type LogoProps = Readonly<{
   size?: number | string;
 }>;
