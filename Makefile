@@ -101,6 +101,84 @@ env-setup: ## Setup environment files from examples
 		fi; \
 	done
 
+.PHONY: setup-local-dev
+setup-local-dev: env-setup setup-domains ## Run complete local development setup (env files + domains)
+	@echo "$(GREEN)🎉 Local development setup complete!$(NC)"
+	@echo ""
+	@echo "$(BLUE)📋 Next steps:$(NC)"
+	@echo "  1. Start infrastructure: $(YELLOW)make docker-up$(NC)"
+	@echo "  2. Initialize databases: $(YELLOW)make db-init$(NC)"
+	@echo "  3. Start development servers: $(YELLOW)bun run dev$(NC)"
+	@echo ""
+	@echo "$(BLUE)🌍 Your applications will be available at:$(NC)"
+	@echo "  • Main App:     http://tagaroa.local"
+	@echo "  • Auth App:     http://auth.tagaroa.local"
+	@echo "  • Admin App:    http://admin.tagaroa.local"
+	@echo "  • Finance App:  http://finance.tagaroa.local"
+	@echo "  • Docs App:     http://docs.tagaroa.local"
+	@echo ""
+	@echo "$(BLUE)🔧 Backend APIs:$(NC)"
+	@echo "  • Auth API:     http://tagaroa.local/api/auth"
+	@echo "  • Finance API:  http://tagaroa.local/api/finance"
+	@echo "  • Storage API:  http://tagaroa.local/api/storage"
+	@echo ""
+	@echo "$(BLUE)📊 Infrastructure:$(NC)"
+	@echo "  • Traefik Dashboard: http://localhost:8080"
+	@echo "  • Kafka UI:          http://localhost:9090"
+	@echo "  • MinIO Console:     http://localhost:9001"
+	@echo "  • n8n:               http://localhost:5678"
+
+.PHONY: setup-domains
+setup-domains: ## Setup local .local domains in /etc/hosts
+	@echo "$(BLUE)🌐 Setting up local domains...$(NC)"
+	@HOSTS_FILE="/etc/hosts"; \
+	BACKUP_FILE="/etc/hosts.tagaroa.backup"; \
+	DOMAINS="tagaroa.local auth.tagaroa.local admin.tagaroa.local finance.tagaroa.local docs.tagaroa.local"; \
+	if [ ! -f "$$BACKUP_FILE" ]; then \
+		echo "Creating backup of hosts file..."; \
+		sudo cp "$$HOSTS_FILE" "$$BACKUP_FILE"; \
+	fi; \
+	NEEDS_UPDATE=false; \
+	for domain in $$DOMAINS; do \
+		if ! grep -q "$$domain" "$$HOSTS_FILE"; then \
+			NEEDS_UPDATE=true; \
+			break; \
+		fi; \
+	done; \
+	if [ "$$NEEDS_UPDATE" = true ]; then \
+		echo "Adding Tagaroa domains to $$HOSTS_FILE..."; \
+		if ! grep -q "# Tagaroa Local Development" "$$HOSTS_FILE"; then \
+			echo "" | sudo tee -a "$$HOSTS_FILE" > /dev/null; \
+			echo "# Tagaroa Local Development" | sudo tee -a "$$HOSTS_FILE" > /dev/null; \
+		fi; \
+		for domain in $$DOMAINS; do \
+			if ! grep -q "$$domain" "$$HOSTS_FILE"; then \
+				echo "127.0.0.1    $$domain" | sudo tee -a "$$HOSTS_FILE" > /dev/null; \
+				echo "$(GREEN)Added: $$domain$(NC)"; \
+			else \
+				echo "$(YELLOW)Already exists: $$domain$(NC)"; \
+			fi; \
+		done; \
+		echo "$(GREEN)Local domains setup complete!$(NC)"; \
+	else \
+		echo "$(YELLOW)All domains already configured.$(NC)"; \
+	fi; \
+	echo ""; \
+	echo "$(BLUE)Available URLs:$(NC)"; \
+	echo "  http://tagaroa.local - Main app"; \
+	echo "  http://auth.tagaroa.local - Auth app"; \
+	echo "  http://admin.tagaroa.local - Admin dashboard"; \
+	echo "  http://finance.tagaroa.local - Finance app"; \
+	echo "  http://docs.tagaroa.local - Documentation"; \
+	echo "  http://tagaroa.local/api/auth - Auth API"; \
+	echo "  http://tagaroa.local/api/finance - Finance API"; \
+	echo "  http://tagaroa.local/api/storage - Storage API"; \
+	echo ""; \
+	echo "Traefik Dashboard: http://localhost:8080"; \
+	echo ""; \
+	echo "To remove these domains later, restore from backup:"; \
+	echo "  sudo cp $$BACKUP_FILE $$HOSTS_FILE"
+
 # =============================================================================
 # BUILD COMMANDS
 # =============================================================================
@@ -164,6 +242,19 @@ clean: ## Clean all build artifacts
 # =============================================================================
 # QUALITY COMMANDS
 # =============================================================================
+
+.PHONY: format
+format: ## Format all code (Node.js, Go, Rust)
+	@echo "$(BLUE)Formatting code...$(NC)"
+	@$(NODE_PKG_MANAGER) run format 2>/dev/null || echo "$(YELLOW)No format script for Node.js$(NC)"
+	@gofmt -w ./packages/shared/go/ ./servers/finance/
+	@if [ -f "./packages/shared/rust/Cargo.toml" ]; then \
+		cargo fmt --manifest-path ./packages/shared/rust/Cargo.toml; \
+	fi
+	@if [ -f "./servers/investment/Cargo.toml" ]; then \
+		cargo fmt --manifest-path ./servers/investment/Cargo.toml; \
+	fi
+	@echo "$(GREEN)Code formatting complete!$(NC)"
 
 .PHONY: lint
 lint: lint-node lint-go ## Run all lint checks

@@ -42,6 +42,19 @@ export const auth = betterAuth({
 	emailAndPassword: {
 		enabled: true,
 	},
+	advanced: {
+		crossSubDomainCookies: {
+			enabled: true,
+			domain: process.env.BASE_URL?.replace(/^https?:\/\//, ""),
+		},
+		ipAddress: {
+			// Support multiple IP headers for different proxy setups
+			ipAddressHeaders: ["x-forwarded-for", "x-real-ip", "cf-connecting-ip"],
+		},
+		database: {
+			generateId: () => crypto.randomUUID(),
+		},
+	},
 	socialProviders: {
 		google: {
 			clientId: process.env.GOOGLE_CLIENT_ID as string,
@@ -87,15 +100,6 @@ export const auth = betterAuth({
 				window: 60,
 				max: 200, // Higher limit for userinfo endpoint
 			},
-		},
-	},
-	advanced: {
-		ipAddress: {
-			// Support multiple IP headers for different proxy setups
-			ipAddressHeaders: ["x-forwarded-for", "x-real-ip", "cf-connecting-ip"],
-		},
-		database: {
-			generateId: () => crypto.randomUUID(),
 		},
 	},
 	plugins: [
