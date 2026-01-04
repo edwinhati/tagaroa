@@ -13,19 +13,19 @@
     "@repo/common": "*",
     "@repo/posthog-config": "*",
     "@repo/ui": "*",
-    "lucide-react": "^0.556.0",
-    "next": "16.0.8",
-    "react": "19.2.1",
-    "react-dom": "19.2.1"
+    "lucide-react": "^0.562.0",
+    "next": "16.1.1",
+    "react": "19.2.3",
+    "react-dom": "19.2.3"
   },
   "devDependencies": {
     "@repo/typescript-config": "*",
-    "@biomejs/biome": "2.3.8",
-    "@tailwindcss/postcss": "^4",
-    "@types/node": "^24.10.2",
+    "@biomejs/biome": "2.3.11",
+    "@tailwindcss/postcss": "^4.1.18",
+    "@types/node": "^25.0.3",
     "@types/react": "19.2.7",
     "@types/react-dom": "19.2.3",
-    "tailwindcss": "^4",
+    "tailwindcss": "^4.1.18",
     "typescript": "^5"
   }
 }
