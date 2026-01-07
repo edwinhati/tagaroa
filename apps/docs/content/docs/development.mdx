@@ -11,10 +11,9 @@ Complete guide for setting up your development environment and contributing to t
 
 ### Required Tools
 
-- **Bun**: 1.3.4+ (package manager and runtime)
+- **Bun**: 1.3.5+ (package manager and runtime)
 - **Node.js**: 18+ (for compatibility)
 - **Go**: 1.24+ (for Go services)
-- **Rust**: Latest stable (for Rust services - optional)
 - **Docker**: Latest with Docker Compose (for infrastructure)
 - **Git**: Latest
 
@@ -25,7 +24,7 @@ Complete guide for setting up your development environment and contributing to t
 - **PostgreSQL Client (psql)**: For database management
 - **MinIO Client (mc)**: For object storage management
 - **Delve**: For Go debugging
-- **rust-lldb**: For Rust debugging
+- **Rust**: Latest stable (for Investment service - in development)
 
 ## Installation
 
@@ -122,7 +121,6 @@ turbo dev --filter=docs
 cd servers/auth && bun run dev           # TypeScript/Bun
 cd servers/storage && bun run dev        # TypeScript/Bun
 cd servers/finance && go run ./cmd/main.go  # Go
-cd servers/investment && cargo run       # Rust
 cd file && go run ./cmd/main.go          # Go
 ```
 
@@ -135,12 +133,13 @@ tagaroa/
 │   ├── auth/         # Auth app (Port 3001)
 │   ├── admin/        # Admin dashboard (Port 3002)
 │   ├── finance/      # Finance app (Port 3004)
+│   ├── investment/   # Investment app (Port 3005)
 │   └── docs/         # Documentation (Port 3010)
 ├── servers/          # Backend services
 │   ├── auth/         # Auth service (TypeScript/Bun, Port 8081)
 │   ├── finance/      # Finance service (Go, Port 8082)
-│   ├── investment/   # Investment service (Rust, Port 8083)
-│   └── storage/      # Storage service (TypeScript/Bun, Port 8084)
+│   ├── storage/      # Storage service (TypeScript/Bun, Port 8084)
+│   └── investment/   # Investment service (Rust, Port 8083) - In Development
 ├── packages/         # Shared packages
 │   ├── ui/           # UI components (Radix UI, Tailwind)
 │   ├── common/       # Common utilities, hooks, stores
@@ -185,7 +184,6 @@ make test
 # Run specific tests
 cd servers/auth && bun test
 cd servers/finance && go test ./...
-cd servers/investment && cargo test
 ```
 
 ### 5. Build
@@ -333,11 +331,6 @@ go test -cover ./...
 
 cd file
 go test ./...
-
-# Rust tests
-cd servers/investment
-cargo test
-cargo test -- --nocapture
 ```
 
 ## Debugging
@@ -369,14 +362,6 @@ go install github.com/go-delve/delve/cmd/dlv@latest
 # Debug
 cd servers/finance
 dlv debug ./cmd/main.go
-```
-
-#### Rust (LLDB)
-
-```bash
-# Debug with LLDB
-cd servers/investment
-rust-lldb target/debug/investment-server
 ```
 
 ## Database Management
@@ -411,21 +396,6 @@ migrate -path db/migrations -database "postgresql://..." up
 
 # Rollback
 migrate -path db/migrations -database "postgresql://..." down
-```
-
-#### Investment Server (sqlx)
-
-```bash
-cd servers/investment
-
-# Create migration
-sqlx migrate add migration_name
-
-# Run migrations
-sqlx migrate run
-
-# Revert
-sqlx migrate revert
 ```
 
 ### Database Access
@@ -476,7 +446,7 @@ PORT=8082
 DB_HOST=localhost
 DB_NAME=finance
 OIDC_BASE_URL=http://localhost:8080/api/auth
-KAFKA_BROKERS=localhost:9092
+KAFKA_BROKERS=localhost:29092
 ```
 
 ## Common Tasks
@@ -608,4 +578,3 @@ turbo build --force
 - [Next.js Docs](https://nextjs.org/docs)
 - [Bun Docs](https://bun.sh/docs)
 - [Go Docs](https://go.dev/doc/)
-- [Rust Book](https://doc.rust-lang.org/book/)

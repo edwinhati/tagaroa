@@ -1,0 +1,90 @@
+---
+title: Investment App
+description: Investment portfolio management application
+---
+
+# Investment App
+
+> ⚠️ **In Development**: This application is currently under active development.
+
+Investment portfolio management application for tracking portfolios, assets, and performance analytics.
+
+## Overview
+
+- **Port**: 3005
+- **Framework**: Next.js 16 with App Router
+- **Purpose**: Investment tracking, portfolio management, performance analytics
+
+## Planned Features
+
+- Portfolio management
+- Investment tracking
+- Performance analytics
+- Asset allocation visualization
+- Historical data and trends
+- Real-time market data integration
+
+## Project Structure
+
+```
+apps/investment/
+├── src/
+│   ├── app/
+│   │   ├── portfolios/     # Portfolio management
+│   │   ├── investments/    # Investment tracking
+│   │   ├── analytics/      # Performance analytics
+│   │   ├── layout.tsx
+│   │   └── page.tsx
+│   ├── components/
+│   └── lib/
+├── .env.example
+├── Dockerfile
+└── package.json
+```
+
+## Development
+
+```bash
+# Run development server
+cd apps/investment
+bun run dev
+
+# Or from root
+turbo dev --filter=investment
+
+# Build for production
+bun run build
+```
+
+## Environment Variables
+
+```bash
+# apps/investment/.env
+NEXT_PUBLIC_API_URL=http://localhost:8080
+NEXT_PUBLIC_POSTHOG_KEY=your-posthog-key
+NEXT_PUBLIC_POSTHOG_HOST=https://app.posthog.com
+```
+
+## Backend Integration
+
+Will communicate with the investment server (Rust) once available:
+
+```typescript
+// Planned API endpoints
+GET    /api/investment/portfolios
+POST   /api/investment/portfolios
+PUT    /api/investment/portfolios/:id
+DELETE /api/investment/portfolios/:id
+
+GET    /api/investment/investments
+POST   /api/investment/investments
+PUT    /api/investment/investments/:id
+DELETE /api/investment/investments/:id
+
+GET    /api/investment/analytics/performance
+GET    /api/investment/analytics/allocation
+```
+
+## Status
+
+This application is currently in the planning and development phase. Check back for updates as features are implemented.

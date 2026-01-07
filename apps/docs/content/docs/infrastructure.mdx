@@ -39,7 +39,7 @@ services:
   # Message Queue
   kafka:
     image: confluentinc/cp-kafka:latest
-    ports: ["9092:9092"]
+    ports: ["29092:29092"]
 
   # Kafka UI
   kafka-ui:
@@ -112,7 +112,7 @@ make docker-down
 | Service | URL | Credentials |
 |---------|-----|-------------|
 | PostgreSQL | localhost:5432 | postgres/postgres |
-| Kafka | localhost:9092 | - |
+| Kafka | localhost:29092 | - |
 | Kafka UI | http://localhost:9090 | - |
 | MinIO API | http://localhost:9000 | minioadmin/minioadmin |
 | MinIO Console | http://localhost:9001 | minioadmin/minioadmin |
@@ -465,7 +465,7 @@ docker compose exec postgres psql -U postgres -c "SELECT 1"
 docker compose ps kafka
 
 # List topics
-docker compose exec kafka kafka-topics --bootstrap-server localhost:9092 --list
+docker compose exec kafka kafka-topics --bootstrap-server localhost:29092 --list
 ```
 
 **MinIO access denied**

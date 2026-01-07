@@ -24,6 +24,7 @@ All applications are built with:
   <Card title="Auth App" href="/docs/apps/auth" />
   <Card title="Admin App" href="/docs/apps/admin" />
   <Card title="Finance App" href="/docs/apps/finance" />
+  <Card title="Investment App" href="/docs/apps/investment" />
   <Card title="Docs App" href="/docs/apps/docs" />
 </Cards>
 
@@ -42,6 +43,7 @@ All apps use shared packages from the monorepo:
 | Auth | 3001 | http://localhost:3001 |
 | Admin | 3002 | http://localhost:3002 |
 | Finance | 3004 | http://localhost:3004 |
+| Investment | 3005 | http://localhost:3005 |
 | Docs | 3010 | http://localhost:3010 |
 
 ### Running Applications
@@ -55,6 +57,7 @@ turbo dev --filter=web
 turbo dev --filter=auth
 turbo dev --filter=admin
 turbo dev --filter=finance
+turbo dev --filter=investment
 turbo dev --filter=docs
 
 # Build all apps

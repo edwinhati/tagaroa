@@ -15,12 +15,14 @@ export default async function Page(props: PageProps<"/docs/[[...slug]]">) {
 	const page = source.getPage(params.slug);
 	if (!page) notFound();
 
-	const MDX = page.data.body;
+	// biome-ignore lint/suspicious/noExplicitAny: Fumadocs page data structure is dynamic
+	const pageData = page.data as any;
+	const MDX = pageData.body || pageData.default;
 
 	return (
-		<DocsPage toc={page.data.toc} full={page.data.full}>
-			<DocsTitle>{page.data.title}</DocsTitle>
-			<DocsDescription>{page.data.description}</DocsDescription>
+		<DocsPage toc={pageData.toc} full={pageData.full}>
+			<DocsTitle>{pageData.title}</DocsTitle>
+			<DocsDescription>{pageData.description}</DocsDescription>
 			<DocsBody>
 				<MDX
 					components={getMDXComponents({
