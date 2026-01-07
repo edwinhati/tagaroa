@@ -1,3 +1,14 @@
+# [0.4.0](https://github.com/edwinhati/tagaroa/compare/v0.3.0...v0.4.0) (2026-01-07)
+
+
+### Features
+
+* **auth:** Update environment config and add cross-subdomain cookie support ([179d1c6](https://github.com/edwinhati/tagaroa/commit/179d1c6eee9071f83794d1b86102373a17dee365))
+* **common:** Add file upload and transaction management features ([1387313](https://github.com/edwinhati/tagaroa/commit/13873133cc725041bb456218f93e9667d188bf36))
+* **finance:** Add transaction management system and remove Kafka dependency ([edcfc77](https://github.com/edwinhati/tagaroa/commit/edcfc773825d07b0c035ce4de6ed61c7b7d0b7d0))
+* **finance:** Add transaction management UI with data table and form ([0b0dc71](https://github.com/edwinhati/tagaroa/commit/0b0dc71dcdaad64448c6538ee3dfe5c0a6daa419))
+* **storage:** Add storage server with file management and S3 integration ([047d4f8](https://github.com/edwinhati/tagaroa/commit/047d4f8fbd67686b0fc70caf7b818d9857657113))
+
 # [0.3.0](https://github.com/edwinhati/tagaroa/compare/v0.2.1...v0.3.0) (2025-12-03)
 
 
