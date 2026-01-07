@@ -2,7 +2,11 @@
 
 import { zodResolver } from "@hookform/resolvers/zod";
 import { budgetMutationOptions } from "@repo/common/lib/query/budget-query";
-import { type Budget, budgetSchema } from "@repo/common/types/budget";
+import {
+  type Budget,
+  type BudgetInput,
+  budgetSchema,
+} from "@repo/common/types/budget";
 import { Button } from "@repo/ui/components/button";
 import {
   Dialog,
@@ -50,7 +54,7 @@ export function BudgetFormDialog({
 }: BudgetFormDialogProps) {
   const [open, setOpen] = useState(false);
 
-  const form = useForm<Budget>({
+  const form = useForm<BudgetInput>({
     resolver: zodResolver(budgetSchema),
     defaultValues: initialData
       ? {

@@ -221,11 +221,7 @@ function BudgetHistoryDataTableContent() {
 
   // Show initial loading state only on first load
   if (isInitialLoading) {
-    return (
-      <div className="flex justify-center items-center h-full">
-        <Loading />
-      </div>
-    );
+    return <BudgetHistoryTableSkeleton />;
   }
 
   return (
@@ -407,6 +403,58 @@ function BudgetHistoryDataTableContent() {
             : undefined
         }
       />
+    </div>
+  );
+}
+
+function BudgetHistoryTableSkeleton() {
+  return (
+    <div className="space-y-4">
+      <div className="flex items-center justify-between">
+        <div className="flex flex-1 items-center space-x-2">
+          <Skeleton className="h-8 w-[100px]" />
+        </div>
+      </div>
+      <div className="rounded-md border">
+        <Table>
+          <TableHeader>
+            <TableRow>
+              {[
+                "period",
+                "category",
+                "budgeted",
+                "spent",
+                "remaining",
+                "actions",
+              ].map((col) => (
+                <TableHead key={`header-${col}`}>
+                  <Skeleton className="h-4 w-full" />
+                </TableHead>
+              ))}
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {Array.from({ length: 5 }, (_, i) => `budget-skeleton-${i}`).map(
+              (id) => (
+                <TableRow key={id}>
+                  {[
+                    "period",
+                    "category",
+                    "budgeted",
+                    "spent",
+                    "remaining",
+                    "actions",
+                  ].map((col) => (
+                    <TableCell key={`${id}-${col}`}>
+                      <Skeleton className="h-4 w-full" />
+                    </TableCell>
+                  ))}
+                </TableRow>
+              ),
+            )}
+          </TableBody>
+        </Table>
+      </div>
     </div>
   );
 }

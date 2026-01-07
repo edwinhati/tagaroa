@@ -3,19 +3,19 @@
 import { DataTableBulkDeleteDialog } from "@repo/common/components/data-table-bulk-delete-dialog";
 import { DataTableMultiSelectFilter } from "@repo/common/components/data-table-multi-select-filter";
 import { DataTablePagination } from "@repo/common/components/data-table-pagination";
-import { ServerSearchInput } from "@repo/common/components/data-table-search-input";
 import { Loading } from "@repo/common/components/loading";
+import { useBudgetPeriod } from "@repo/common/hooks/use-budget-period";
 import {
-  accountDeleteMutationOptions,
-  accountMutationOptions,
-  accountQueryOptions,
-} from "@repo/common/lib/query/account-query";
+  transactionDeleteMutationOptions,
+  transactionQueryOptions,
+} from "@repo/common/lib/query/transaction-query";
 import type {
-  Account,
-  PaginatedAccountsResult,
-} from "@repo/common/types/account";
+  PaginatedTransactionsResult,
+  Transaction,
+} from "@repo/common/types/transaction";
 import { Badge } from "@repo/ui/components/badge";
 import { Button } from "@repo/ui/components/button";
+import { Calendar } from "@repo/ui/components/calendar";
 import { Checkbox } from "@repo/ui/components/checkbox";
 import {
   DropdownMenu,
@@ -33,6 +33,11 @@ import {
   EmptyHeader,
   EmptyTitle,
 } from "@repo/ui/components/empty";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@repo/ui/components/popover";
 import { Skeleton } from "@repo/ui/components/skeleton";
 import {
   Table,
@@ -42,11 +47,9 @@ import {
   TableHeader,
   TableRow,
 } from "@repo/ui/components/table";
-import { cn } from "@repo/ui/lib/utils";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import {
   type ColumnDef,
-  type FilterFn,
   flexRender,
   getCoreRowModel,
   getSortedRowModel,
@@ -54,16 +57,35 @@ import {
   type Row,
   useReactTable,
 } from "@tanstack/react-table";
+import { format } from "date-fns";
 import {
+  CalendarIcon,
   ChevronDownIcon,
   ChevronUpIcon,
   EllipsisIcon,
   PlusIcon,
 } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
-import { AccountFormDialog } from "@/components/account-form-dialog";
+import type { DateRange } from "react-day-picker";
+import { TransactionFormDialog } from "./transaction-form-dialog";
 
-export function AccountDataTable() {
+// Extended transaction type with related data
+type TransactionWithRelations = Transaction & {
+  account?: {
+    id: string;
+    name: string;
+    type: string;
+    balance: number;
+    currency: string;
+  };
+  budget_item?: {
+    id: string;
+    allocation: number;
+    category: string;
+  };
+};
+
+export function TransactionDataTable() {
   const [isMounted, setIsMounted] = useState(false);
 
   useEffect(() => {
@@ -79,22 +101,10 @@ export function AccountDataTable() {
     );
   }
 
-  return <AccountDataTableContent />;
+  return <TransactionDataTableContent />;
 }
 
-// Custom filter function for multi-column searching
-const multiColumnFilterFn: FilterFn<Account> = (
-  row,
-  _columnId,
-  filterValue,
-) => {
-  const searchableRowContent =
-    `${row.original.name} ${row.original.type}`.toLowerCase();
-  const searchTerm = (filterValue ?? "").toLowerCase();
-  return searchableRowContent.includes(searchTerm);
-};
-
-function AccountDataTableContent() {
+function TransactionDataTableContent() {
   const [pagination, setPagination] = useState<PaginationState>({
     pageIndex: 0,
     pageSize: 5,
@@ -102,29 +112,43 @@ function AccountDataTableContent() {
   const [serverFilters, setServerFilters] = useState<Record<string, string[]>>(
     {},
   );
-  const [searchQuery, setSearchQuery] = useState<string>("");
+
   const [openPopovers, setOpenPopovers] = useState<Record<string, boolean>>({});
 
   // Stable data state to prevent re-renders during refetch
-  const [stableData, setStableData] = useState<PaginatedAccountsResult | null>(
-    null,
-  );
+  const [stableData, setStableData] =
+    useState<PaginatedTransactionsResult | null>(null);
   const [isInitialLoading, setIsInitialLoading] = useState(true);
 
-  const { mutate } = useMutation(accountMutationOptions());
+  const { month, year } = useBudgetPeriod((s) => ({
+    month: s.month,
+    year: s.year,
+  }));
 
-  const { mutate: deleteAccount } = useMutation(accountDeleteMutationOptions());
+  const [range, setRange] = useState<DateRange | undefined>({
+    from: new Date(
+      month === 1 ? year - 1 : year,
+      month === 1 ? 11 : month - 2,
+      25,
+    ),
+    to: new Date(year, month - 1, 25),
+  });
 
-  const { data: accountsResponse, error } = useQuery(
-    accountQueryOptions({
+  const { mutate: deleteTransaction } = useMutation(
+    transactionDeleteMutationOptions(),
+  );
+
+  const { data: transactionsResponse, error } = useQuery(
+    transactionQueryOptions({
       page: pagination.pageIndex + 1,
       limit: pagination.pageSize,
       filters: serverFilters,
-      search: searchQuery,
+      startDate: range?.from,
+      endDate: range?.to,
     }),
   );
 
-  const columns: ColumnDef<Account>[] = useMemo(
+  const columns: ColumnDef<TransactionWithRelations>[] = useMemo(
     () => [
       {
         id: "select",
@@ -148,20 +172,18 @@ function AccountDataTableContent() {
           />
         ),
         size: 28,
+        enableSorting: false,
+        enableHiding: false,
       },
       {
-        header: "Name",
-        accessorKey: "name",
+        header: "Date",
+        accessorKey: "date",
         cell: ({ row }) => (
-          <div className="font-medium">{row.getValue("name")}</div>
+          <div className="font-medium">
+            {format(row.getValue("date"), "MMM dd, yyyy")}
+          </div>
         ),
-        size: 180,
-        filterFn: multiColumnFilterFn,
-      },
-      {
-        header: "Notes",
-        accessorKey: "notes",
-        size: 220,
+        size: 120,
       },
       {
         header: "Type",
@@ -176,10 +198,10 @@ function AccountDataTableContent() {
         size: 100,
       },
       {
-        header: "Balance",
-        accessorKey: "balance",
+        header: "Amount",
+        accessorKey: "amount",
         cell: ({ row }) => {
-          const amount = Number.parseFloat(row.getValue("balance"));
+          const amount = Number.parseFloat(row.getValue("amount"));
           const formatted = new Intl.NumberFormat(
             row.original.currency === "IDR" ? "id-ID" : "en-US",
             {
@@ -189,40 +211,80 @@ function AccountDataTableContent() {
           ).format(amount);
           return formatted;
         },
-        size: 120,
+        size: 150,
+      },
+      {
+        header: "Account",
+        accessorFn: (row) => row.account?.name,
+        cell: ({ row }) => {
+          const account = row.original.account;
+          return <div className="font-medium">{account?.name || "—"}</div>;
+        },
+        size: 150,
+      },
+      {
+        header: "Category",
+        accessorFn: (row) => row.budget_item?.category,
+        cell: ({ row }) => {
+          const budgetItem = row.original.budget_item;
+          return (
+            <div className="text-muted-foreground">
+              {budgetItem?.category || "—"}
+            </div>
+          );
+        },
+        size: 150,
+      },
+      {
+        header: "Currency",
+        accessorKey: "currency",
+        cell: ({ row }) => (
+          <Badge variant="outline">{row.getValue("currency")}</Badge>
+        ),
+        size: 100,
+      },
+      {
+        header: "Notes",
+        accessorKey: "notes",
+        cell: ({ row }) => {
+          const notes = row.getValue("notes") as string;
+          return (
+            <div className="max-w-[200px] truncate text-muted-foreground">
+              {notes || "—"}
+            </div>
+          );
+        },
+        size: 220,
       },
       {
         id: "actions",
         header: () => <span className="sr-only">Actions</span>,
         cell: ({ row }) => (
-          <RowActions
-            row={row}
-            mutateAccount={mutate}
-            deleteAccount={deleteAccount}
-          />
+          <RowActions row={row} deleteTransaction={deleteTransaction} />
         ),
         size: 60,
+        enableHiding: false,
       },
     ],
-    [deleteAccount, mutate],
+    [deleteTransaction],
   );
 
   // Update stable data only when new data arrives, not during loading
   useEffect(() => {
-    if (accountsResponse && !error) {
+    if (transactionsResponse && !error) {
       setStableData({
-        accounts: accountsResponse.accounts || [],
-        pagination: accountsResponse.pagination,
-        aggregations: accountsResponse.aggregations || {},
+        transactions: transactionsResponse.transactions || [],
+        pagination: transactionsResponse.pagination,
+        aggregations: transactionsResponse.aggregations || {},
       });
       setIsInitialLoading(false);
     }
-  }, [accountsResponse, error]);
+  }, [transactionsResponse, error]);
 
   // Use stable data to prevent re-renders during refetch
   const tableData = useMemo(
-    () => stableData?.accounts ?? [],
-    [stableData?.accounts],
+    () => (stableData?.transactions ?? []) as TransactionWithRelations[],
+    [stableData?.transactions],
   );
 
   const paginationInfo = stableData?.pagination;
@@ -231,19 +293,8 @@ function AccountDataTableContent() {
     [stableData?.aggregations],
   );
   const showLoadingState = isInitialLoading;
-  const skeletonRowKeys = useMemo(
-    () =>
-      Array.from({ length: pagination.pageSize }, (_, index) => {
-        return `accounts-loading-${pagination.pageIndex}-${index}`;
-      }),
-    [pagination.pageIndex, pagination.pageSize],
-  );
 
-  // Check if there are any active filters or search
-  const hasActiveFilters =
-    Object.keys(serverFilters).length > 0 || searchQuery.length > 0;
-
-  // Check if there's truly no data (no accounts at all for the user)
+  // Check if there's truly no data (no transactions at all for the user)
   const hasTotalData = (paginationInfo?.total ?? 0) > 0;
 
   // Memoize filter options to prevent re-ordering and popover closing
@@ -294,7 +345,7 @@ function AccountDataTableContent() {
     const selectedRows = table.getSelectedRowModel().rows;
 
     for (const row of selectedRows) {
-      deleteAccount(row.original.id as string);
+      deleteTransaction(row.original.id as string);
     }
 
     table.resetRowSelection();
@@ -348,18 +399,12 @@ function AccountDataTableContent() {
     });
   };
 
-  const handleSearchChange = (value: string) => {
-    setSearchQuery(value);
-    // Reset to first page when search changes
-    setPagination((prev) => ({ ...prev, pageIndex: 0 }));
-  };
-
   // Show error state
   if (error) {
     return (
       <div className="space-y-4">
         <div className="text-red-500">
-          Error loading accounts: {error.message}
+          Error loading transactions: {error.message}
         </div>
       </div>
     );
@@ -367,7 +412,7 @@ function AccountDataTableContent() {
 
   // Show initial loading state only on first load
   if (isInitialLoading) {
-    return <AccountTableSkeleton />;
+    return <TransactionTableSkeleton />;
   }
 
   return (
@@ -375,13 +420,34 @@ function AccountDataTableContent() {
       {/* Filters */}
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div className="flex items-center gap-3">
-          <ServerSearchInput
-            value={searchQuery}
-            onChange={handleSearchChange}
-            placeholder="Search accounts..."
-            className="min-w-60"
-            aria-label="Search accounts"
-          />
+          <Popover>
+            <PopoverTrigger asChild>
+              <Button variant="outline">
+                <CalendarIcon />
+                {range?.from &&
+                  range?.to &&
+                  `${range.from.toLocaleDateString()} - ${range.to.toLocaleDateString()}`}
+              </Button>
+            </PopoverTrigger>
+            <PopoverContent
+              className="w-auto overflow-hidden p-0 ml-4"
+              align="end"
+            >
+              <Calendar
+                className="w-full"
+                mode="range"
+                defaultMonth={range?.from}
+                selected={range}
+                onSelect={setRange}
+                fixedWeeks
+                showOutsideDays
+                numberOfMonths={2}
+                disabled={{
+                  after: new Date(),
+                }}
+              />
+            </PopoverContent>
+          </Popover>
           {/* Dynamic filters based on aggregations */}
           {Object.entries(filterOptions).map(([filterKey, options]) => (
             <DataTableMultiSelectFilter
@@ -410,7 +476,14 @@ function AccountDataTableContent() {
             description={`This action cannot be undone. This will permanently delete ${selectedCount} selected ${selectedCount === 1 ? "row" : "rows"}.`}
             buttonClassName="ml-auto"
           />
-          <AccountFormDialog />
+          <TransactionFormDialog
+            trigger={
+              <Button size="sm">
+                <PlusIcon className="mr-2 h-4 w-4" />
+                Add Transaction
+              </Button>
+            }
+          />
         </div>
       </div>
 
@@ -447,10 +520,7 @@ function AccountDataTableContent() {
                     headerContent = (
                       <button
                         type="button"
-                        className={cn(
-                          "flex h-full items-center justify-between gap-2 select-none",
-                          "cursor-pointer",
-                        )}
+                        className="flex h-full items-center justify-between gap-2 select-none cursor-pointer"
                         onClick={toggleSorting}
                       >
                         {headerLabel}
@@ -488,22 +558,7 @@ function AccountDataTableContent() {
           <TableBody>
             {(() => {
               if (showLoadingState) {
-                return skeletonRowKeys.map((rowKey) => (
-                  <TableRow key={rowKey} className="pointer-events-none">
-                    {columns.map((column, cellIndex) => {
-                      const columnKey = resolveColumnKey(column, cellIndex);
-                      return (
-                        <TableCell key={`${columnKey}-${rowKey}`}>
-                          <Skeleton
-                            className={
-                              cellIndex === 0 ? "h-4 w-4 rounded" : "h-5 w-full"
-                            }
-                          />
-                        </TableCell>
-                      );
-                    })}
-                  </TableRow>
-                ));
+                return <TransactionTableSkeletonRows />;
               }
 
               if (hasRows) {
@@ -524,7 +579,8 @@ function AccountDataTableContent() {
                 ));
               }
 
-              const renderEmptyState = !hasTotalData && !hasActiveFilters;
+              const renderEmptyState =
+                !hasTotalData && !(Object.keys(serverFilters).length > 0);
               return (
                 <TableRow>
                   <TableCell colSpan={columns.length} className="h-96">
@@ -532,15 +588,15 @@ function AccountDataTableContent() {
                       {renderEmptyState ? (
                         <Empty>
                           <EmptyHeader>
-                            <EmptyTitle>No Accounts Yet</EmptyTitle>
+                            <EmptyTitle>No Transactions Yet</EmptyTitle>
                             <EmptyDescription>
-                              You haven&apos;t added any accounts yet. Get
-                              started by adding your first account to track your
-                              finances.
+                              You haven&apos;t added any transactions yet. Get
+                              started by adding your first transaction to track
+                              your finances.
                             </EmptyDescription>
                           </EmptyHeader>
                           <EmptyContent>
-                            <AccountFormDialog
+                            <TransactionFormDialog
                               trigger={
                                 <Button size="sm">
                                   <PlusIcon
@@ -548,7 +604,7 @@ function AccountDataTableContent() {
                                     size={16}
                                     aria-hidden="true"
                                   />
-                                  Add account
+                                  Add transaction
                                 </Button>
                               }
                             />
@@ -595,72 +651,20 @@ function AccountDataTableContent() {
   );
 }
 
-type RowActionsProps = Readonly<{
-  row: Row<Account>;
-  mutateAccount: (account: Account) => void;
-  deleteAccount: (id: string) => void;
-}>;
-
-function RowActions({ row, mutateAccount, deleteAccount }: RowActionsProps) {
-  return (
-    <DropdownMenu>
-      <DropdownMenuTrigger asChild>
-        <div className="flex justify-end">
-          <Button
-            size="icon"
-            variant="ghost"
-            className="shadow-none"
-            aria-label="Edit item"
-          >
-            <EllipsisIcon size={16} aria-hidden="true" />
-          </Button>
-        </div>
-      </DropdownMenuTrigger>
-      <DropdownMenuContent align="end">
-        <DropdownMenuGroup>
-          <AccountFormDialog
-            initialData={row.original}
-            trigger={
-              <DropdownMenuItem onSelect={(e) => e.preventDefault()}>
-                <span>Edit</span>
-                <DropdownMenuShortcut>⌘E</DropdownMenuShortcut>
-              </DropdownMenuItem>
-            }
-          />
-          <DropdownMenuItem
-            onSelect={(e) => {
-              e.preventDefault();
-              const a = row.original;
-              mutateAccount({
-                name: `${a.name} (Copy)`,
-                type: a.type,
-                balance: a.balance,
-                currency: a.currency,
-                notes: a.notes,
-              } as Account);
-            }}
-          >
-            <span>Duplicate</span>
-            <DropdownMenuShortcut>⌘D</DropdownMenuShortcut>
-          </DropdownMenuItem>
-        </DropdownMenuGroup>
-        <DropdownMenuSeparator />
-        <DropdownMenuItem
-          onSelect={(e) => {
-            e.preventDefault();
-            deleteAccount(row.original.id as string);
-          }}
-          className="text-destructive focus:text-destructive"
-        >
-          <span>Delete</span>
-          <DropdownMenuShortcut>⌘⌫</DropdownMenuShortcut>
-        </DropdownMenuItem>
-      </DropdownMenuContent>
-    </DropdownMenu>
+function TransactionTableSkeleton() {
+  const headerKeys = Array.from(
+    { length: 9 },
+    (_, i) => `transaction-header-${i}`,
   );
-}
+  const rowKeys = Array.from(
+    { length: 5 },
+    (_, i) => `transaction-skeleton-row-${i}`,
+  );
+  const cellKeys = Array.from(
+    { length: 9 },
+    (_, j) => `transaction-skeleton-cell-${j}`,
+  );
 
-function AccountTableSkeleton() {
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
@@ -678,32 +682,18 @@ function AccountTableSkeleton() {
         <Table>
           <TableHeader>
             <TableRow>
-              {[
-                "name",
-                "type",
-                "currency",
-                "balance",
-                "created",
-                "actions",
-              ].map((col) => (
-                <TableHead key={`header-${col}`}>
+              {headerKeys.map((headerKey) => (
+                <TableHead key={headerKey}>
                   <Skeleton className="h-4 w-full" />
                 </TableHead>
               ))}
             </TableRow>
           </TableHeader>
           <TableBody>
-            {Array.from({ length: 5 }, (_, i) => `skeleton-${i}`).map((id) => (
-              <TableRow key={id}>
-                {[
-                  "name",
-                  "type",
-                  "currency",
-                  "balance",
-                  "created",
-                  "actions",
-                ].map((col) => (
-                  <TableCell key={`${id}-${col}`}>
+            {rowKeys.map((rowKey) => (
+              <TableRow key={rowKey}>
+                {cellKeys.map((cellKey) => (
+                  <TableCell key={`${rowKey}-${cellKey}`}>
                     <Skeleton className="h-4 w-full" />
                   </TableCell>
                 ))}
@@ -716,19 +706,77 @@ function AccountTableSkeleton() {
   );
 }
 
-const resolveColumnKey = (
-  column: ColumnDef<Account>,
-  fallbackIndex: number,
-) => {
-  if (column.id) {
-    return column.id;
-  }
-  if ("accessorKey" in column) {
-    const accessorKey = (column as { accessorKey?: string | number })
-      .accessorKey;
-    if (accessorKey !== undefined) {
-      return accessorKey.toString();
-    }
-  }
-  return `col-${fallbackIndex}`;
-};
+function TransactionTableSkeletonRows() {
+  const skeletonRows = Array.from(
+    { length: 5 },
+    (_, i) => `transaction-skeleton-row-${i}`,
+  );
+  const skeletonCells = Array.from(
+    { length: 9 },
+    (_, j) => `transaction-skeleton-cell-${j}`,
+  );
+
+  return (
+    <>
+      {skeletonRows.map((rowKey) => (
+        <TableRow key={rowKey} className="pointer-events-none">
+          {skeletonCells.map((cellKey, j) => (
+            <TableCell key={`${rowKey}-${cellKey}`}>
+              <Skeleton
+                className={j === 0 ? "h-4 w-4 rounded" : "h-5 w-full"}
+              />
+            </TableCell>
+          ))}
+        </TableRow>
+      ))}
+    </>
+  );
+}
+
+type RowActionsProps = Readonly<{
+  row: Row<TransactionWithRelations>;
+  deleteTransaction: (id: string) => void;
+}>;
+
+function RowActions({ row, deleteTransaction }: RowActionsProps) {
+  return (
+    <DropdownMenu>
+      <DropdownMenuTrigger asChild>
+        <div className="flex justify-end">
+          <Button
+            size="icon"
+            variant="ghost"
+            className="shadow-none"
+            aria-label="Edit item"
+          >
+            <EllipsisIcon size={16} aria-hidden="true" />
+          </Button>
+        </div>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent align="end">
+        <DropdownMenuGroup>
+          <TransactionFormDialog
+            initialData={row.original}
+            trigger={
+              <DropdownMenuItem onSelect={(e) => e.preventDefault()}>
+                <span>Edit</span>
+                <DropdownMenuShortcut>⌘E</DropdownMenuShortcut>
+              </DropdownMenuItem>
+            }
+          />
+        </DropdownMenuGroup>
+        <DropdownMenuSeparator />
+        <DropdownMenuItem
+          onSelect={(e) => {
+            e.preventDefault();
+            deleteTransaction(row.original.id as string);
+          }}
+          className="text-destructive focus:text-destructive"
+        >
+          <span>Delete</span>
+          <DropdownMenuShortcut>⌘⌫</DropdownMenuShortcut>
+        </DropdownMenuItem>
+      </DropdownMenuContent>
+    </DropdownMenu>
+  );
+}

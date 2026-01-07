@@ -101,7 +101,11 @@ function BudgetDataTableContent() {
   }));
 
   const [range, setRange] = useState<DateRange | undefined>({
-    from: new Date(year, month - 2, 25),
+    from: new Date(
+      month === 1 ? year - 1 : year,
+      month === 1 ? 11 : month - 2,
+      25,
+    ),
     to: new Date(year, month - 1, 25),
   });
 
@@ -173,13 +177,6 @@ function BudgetDataTableContent() {
   }, [tableData.amount, totalAllocated]);
 
   const showLoadingState = isInitialLoading;
-  const skeletonRowKeys = useMemo(
-    () =>
-      Array.from({ length: pagination.pageSize }, (_, index) => {
-        return `accounts-loading-${pagination.pageIndex}-${index}`;
-      }),
-    [pagination.pageIndex, pagination.pageSize],
-  );
 
   // Check if there's truly no data (no accounts at all for the user)
   const hasTotalData = (budgetResponse?.items?.length ?? 0) > 0;
@@ -256,16 +253,21 @@ function BudgetDataTableContent() {
         header: "Remaining",
         accessorKey: "remaining",
         cell: ({ row }) => {
-          const allocation = Number.parseFloat(row.getValue("allocation"));
+          const allocation = Number.parseFloat(row.getValue("allocation")) || 0;
+          const spent = row.original.spent || 0;
+          const remaining = allocation - spent;
           const formatted = new Intl.NumberFormat(
             tableData.currency === "IDR" ? "id-ID" : "en-US",
             {
               style: "currency",
               currency: tableData.currency,
             },
-          ).format(allocation - 0);
-          // Number.parseFloat(row.getValue("spent"))
-          return formatted;
+          ).format(remaining);
+          return (
+            <span className={cn(remaining < 0 && "text-destructive")}>
+              {formatted}
+            </span>
+          );
         },
         size: 120,
         enableSorting: false,
@@ -373,9 +375,9 @@ function BudgetDataTableContent() {
             <PopoverTrigger asChild>
               <Button variant="outline">
                 <CalendarIcon />
-                {range?.from && range?.to
-                  ? `${range.from.toLocaleDateString()} - ${range.to.toLocaleDateString()}`
-                  : "June 2025"}
+                {range?.from &&
+                  range?.to &&
+                  `${range.from.toLocaleDateString()} - ${range.to.toLocaleDateString()}`}
               </Button>
             </PopoverTrigger>
             <PopoverContent
@@ -501,22 +503,7 @@ function BudgetDataTableContent() {
           <TableBody>
             {(() => {
               if (showLoadingState) {
-                return skeletonRowKeys.map((rowKey) => (
-                  <TableRow key={rowKey} className="pointer-events-none">
-                    {columns.map((column, cellIndex) => {
-                      const columnKey = resolveColumnKey(column, cellIndex);
-                      return (
-                        <TableCell key={`${columnKey}-${rowKey}`}>
-                          <Skeleton
-                            className={
-                              cellIndex === 0 ? "h-4 w-4 rounded" : "h-5 w-full"
-                            }
-                          />
-                        </TableCell>
-                      );
-                    })}
-                  </TableRow>
-                ));
+                return <BudgetTableSkeletonRows />;
               }
 
               if (hasRows) {
@@ -838,19 +825,29 @@ const formatCurrency = (value: number) => {
   }).format(value);
 };
 
-const resolveColumnKey = (
-  column: ColumnDef<BudgetItem>,
-  fallbackIndex: number,
-) => {
-  if (column.id) {
-    return column.id;
-  }
-  if ("accessorKey" in column) {
-    const accessorKey = (column as { accessorKey?: string | number })
-      .accessorKey;
-    if (accessorKey !== undefined) {
-      return accessorKey.toString();
-    }
-  }
-  return `col-${fallbackIndex}`;
-};
+function BudgetTableSkeletonRows() {
+  const skeletonRows = Array.from(
+    { length: 5 },
+    (_, i) => `budget-skeleton-row-${i}`,
+  );
+  const skeletonCells = Array.from(
+    { length: 5 },
+    (_, j) => `budget-skeleton-cell-${j}`,
+  );
+
+  return (
+    <>
+      {skeletonRows.map((rowKey) => (
+        <TableRow key={rowKey} className="pointer-events-none">
+          {skeletonCells.map((cellKey, j) => (
+            <TableCell key={`${rowKey}-${cellKey}`}>
+              <Skeleton
+                className={j === 0 ? "h-4 w-4 rounded" : "h-5 w-full"}
+              />
+            </TableCell>
+          ))}
+        </TableRow>
+      ))}
+    </>
+  );
+}
