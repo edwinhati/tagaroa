@@ -13,6 +13,7 @@ import {
 import { Badge } from "@repo/ui/components/badge";
 import { Button } from "@repo/ui/components/button";
 import { Checkbox } from "@repo/ui/components/checkbox";
+import { Skeleton } from "@repo/ui/components/skeleton";
 import {
   Table,
   TableBody,
@@ -37,12 +38,7 @@ import {
   type VisibilityState,
 } from "@tanstack/react-table";
 import type { UserWithRole } from "better-auth/plugins/admin";
-import {
-  ChevronDownIcon,
-  ChevronUpIcon,
-  EllipsisIcon,
-  LoaderIcon,
-} from "lucide-react";
+import { ChevronDownIcon, ChevronUpIcon, EllipsisIcon } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { CreateUserDialog } from "@/components/create-user-dialog";
 import { UserDetailSheet } from "@/components/user-detail-sheet";
@@ -434,14 +430,6 @@ export function UserDataTable() {
   const tableRows = table.getRowModel().rows;
   const hasRows = tableRows.length > 0;
   const selectedCount = table.getSelectedRowModel().rows.length;
-  const emptyStateContent = loading ? (
-    <Button variant="outline" disabled>
-      <LoaderIcon size="16" className="animate-spin" />
-      Loading
-    </Button>
-  ) : (
-    "No results."
-  );
 
   // Server-side filter handlers
   const handleServerFilterChange = useCallback(
@@ -661,7 +649,9 @@ export function UserDataTable() {
             ))}
           </TableHeader>
           <TableBody>
-            {hasRows ? (
+            {loading ? (
+              <UserTableSkeletonRows />
+            ) : hasRows ? (
               tableRows.map((row) => (
                 <TableRow
                   key={row.id}
@@ -685,7 +675,7 @@ export function UserDataTable() {
                   colSpan={columns.length}
                   className="h-24 text-center"
                 >
-                  {emptyStateContent}
+                  No results.
                 </TableCell>
               </TableRow>
             )}
@@ -709,6 +699,35 @@ export function UserDataTable() {
       {/* Total count display */}
       <div className="text-sm text-muted-foreground">Total: {total} users</div>
     </div>
+  );
+}
+
+function UserTableSkeletonRows() {
+  return (
+    <>
+      {Array.from({ length: 10 }, (_, i) => `user-skeleton-${i}`).map((id) => (
+        <TableRow key={id} className="pointer-events-none">
+          {[
+            "checkbox",
+            "name",
+            "email",
+            "role",
+            "status",
+            "created",
+            "updated",
+            "lastLogin",
+            "actions",
+            "extra",
+          ].map((col, j) => (
+            <TableCell key={`${id}-${col}`}>
+              <Skeleton
+                className={j === 0 ? "h-4 w-4 rounded" : "h-5 w-full"}
+              />
+            </TableCell>
+          ))}
+        </TableRow>
+      ))}
+    </>
   );
 }
 
