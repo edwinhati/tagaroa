@@ -1,5 +1,6 @@
 "use client";
 
+import { Loading } from "@repo/common/components/loading";
 import { authClient } from "@repo/common/lib/auth-client";
 import { Badge } from "@repo/ui/components/badge";
 import { Button } from "@repo/ui/components/button";
@@ -12,9 +13,9 @@ import {
 import { Separator } from "@repo/ui/components/separator";
 import { CheckIcon, MailIcon, ShieldIcon, UserIcon, XIcon } from "lucide-react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { useEffect, useState } from "react";
+import { Suspense, useEffect, useState } from "react";
 
-export default function ConsentPage() {
+function ConsentPageContent() {
   const searchParams = useSearchParams();
   const router = useRouter();
   const [loading, setLoading] = useState(false);
@@ -190,5 +191,22 @@ export default function ConsentPage() {
         </CardContent>
       </Card>
     </div>
+  );
+}
+
+export default function ConsentPage() {
+  return (
+    <Suspense
+      fallback={
+        <div
+          className="fixed inset-0 flex items-center justify-center"
+          style={{ height: "100vh", width: "100vw" }}
+        >
+          <Loading />
+        </div>
+      }
+    >
+      <ConsentPageContent />
+    </Suspense>
   );
 }

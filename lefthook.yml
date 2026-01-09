@@ -1,0 +1,37 @@
+# Lefthook configuration
+# See: https://github.com/evilmartians/lefthook/blob/master/docs/configuration.md
+
+pre-commit:
+  parallel: true
+  commands:
+    format-and-lint:
+      glob: "*.{js,ts,jsx,tsx,json,css,md}"
+      run: biome check --write --no-errors-on-unmatched {staged_files}
+      stage_fixed: true
+    format-go:
+      glob: "**/*.go"
+      run: gofmt -w {staged_files}
+      stage_fixed: true
+    test-go-coverage:
+      glob: "servers/finance/**/*.go"
+      run: |
+        cd servers/finance
+        go test ./... -coverprofile=coverage.out -covermode=atomic
+        COVERAGE=$(go tool cover -func=coverage.out | grep total | awk '{print substr($3, 1, length($3)-1)}')
+        echo "Go Coverage: $COVERAGE%"
+        THRESHOLD=90
+        if [ "$(echo "$COVERAGE < $THRESHOLD" | bc -l)" -eq 1 ]; then
+          echo "❌ Coverage $COVERAGE% is below $THRESHOLD% threshold"
+          exit 1
+        fi
+        echo "✅ Coverage $COVERAGE% meets $THRESHOLD% threshold"
+    test-storage:
+      glob: "servers/storage/**/*.ts"
+      run: cd servers/storage && bun test
+
+pre-push:
+  commands:
+    lint:
+      run: bun run lint
+    type-check:
+      run: bun run check-types

@@ -3,6 +3,8 @@
 	"scripts": {
 		"dev": "go run ./cmd/main.go",
 		"build": "go build -o finance-server ./cmd/main.go",
-		"start": "./finance-server"
+		"start": "./finance-server",
+		"test": "go test ./... -v",
+		"test:coverage": "go test ./... -coverprofile=coverage.out -covermode=atomic && go tool cover -func=coverage.out"
 	}
 }

@@ -179,7 +179,7 @@ export async function proxy(request: NextRequest): Promise<NextResponse> {
 }
 
 // proxy Config
-export const config = {
+export const proxyConfig = {
   matcher: [
     String.raw`/((?!api|_next/static|_next/image|favicon\.ico|.*\.png$).*)`,
   ],

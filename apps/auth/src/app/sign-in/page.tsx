@@ -1,5 +1,7 @@
+import { Loading } from "@repo/common/components/loading";
 import { Logo } from "@repo/common/components/logo";
 import Link from "next/link";
+import { Suspense } from "react";
 import { SignInForm } from "@/components/sign-in-form";
 
 export default function SignInPage() {
@@ -15,7 +17,18 @@ export default function SignInPage() {
             Tagaroa
           </span>
         </Link>
-        <SignInForm />
+        <Suspense
+          fallback={
+            <div
+              className="fixed inset-0 flex items-center justify-center"
+              style={{ height: "100vh", width: "100vw" }}
+            >
+              <Loading />
+            </div>
+          }
+        >
+          <SignInForm />
+        </Suspense>
       </div>
     </div>
   );

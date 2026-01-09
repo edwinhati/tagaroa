@@ -212,7 +212,7 @@ function BudgetHistoryDataTableContent() {
     getSortedRowModel: getSortedRowModel(),
     // Remove client-side pagination since we're using server-side
     manualPagination: true,
-    pageCount: paginationInfo?.total_pages ?? 0,
+    pageCount: paginationInfo?.totalPages ?? 0,
     onPaginationChange: setPagination,
     state: {
       pagination,
@@ -414,9 +414,9 @@ function BudgetHistoryDataTableContent() {
             ? {
                 total: paginationInfo.total,
                 page: paginationInfo.page,
-                totalPages: paginationInfo.total_pages,
-                hasNext: paginationInfo.has_next,
-                hasPrev: paginationInfo.has_prev,
+                totalPages: paginationInfo.totalPages,
+                hasNext: paginationInfo.page < paginationInfo.totalPages,
+                hasPrev: paginationInfo.page > 1,
               }
             : undefined
         }

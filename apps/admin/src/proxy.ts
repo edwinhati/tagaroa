@@ -8,7 +8,7 @@ const proxy = createAdminProxy({
 
 export default proxy;
 
-export const config = {
+export const proxyConfig = {
   matcher: [
     /*
      * Match all request paths except for the ones starting with:
