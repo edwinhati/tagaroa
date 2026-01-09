@@ -3,7 +3,7 @@ import posthog from "posthog-js";
 export function initPostHog(key?: string, host?: string) {
 	const hasWindow =
 		typeof globalThis !== "undefined" &&
-		typeof (globalThis as { window?: Window }).window !== "undefined";
+		(globalThis as { window?: Window }).window !== undefined;
 
 	if (hasWindow && key) {
 		posthog.init(key, {

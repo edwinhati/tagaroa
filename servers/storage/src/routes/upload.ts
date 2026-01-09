@@ -24,7 +24,9 @@ export const createUploadRoutes = (fileService: FileService) => {
 			}
 
 			// Optional: Get prefix from form data
-			const prefix = formData.get("prefix")?.toString();
+			const prefixValue = formData.get("prefix");
+			const prefix =
+				prefixValue instanceof File ? undefined : prefixValue?.toString();
 
 			// Upload file
 			const result = await fileService.uploadFile({
@@ -126,13 +128,15 @@ export const createUploadRoutes = (fileService: FileService) => {
 				);
 			}
 
-			const prefix = formData.get("prefix")?.toString();
+			const prefixValue = formData.get("prefix");
+			const prefix =
+				prefixValue instanceof File ? undefined : prefixValue?.toString();
 
 			// Upload all files
 			const results = await Promise.all(
 				files.map(async (file) => {
 					if (!(file instanceof File)) {
-						throw new Error("Invalid file in batch");
+						throw new TypeError("Invalid file in batch");
 					}
 
 					return await fileService.uploadFile({

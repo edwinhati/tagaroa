@@ -15,21 +15,16 @@ import {
 } from "lucide-react";
 
 import { Button } from "@repo/ui/components/button";
-import {
-  formatBytes,
-  useFileUpload,
-  type FileWithPreview,
-} from "@repo/common/hooks/use-file-upload";
+import { formatBytes, useFileUpload } from "@repo/common/hooks/use-file-upload";
+export type { FileWithPreview } from "@repo/common/hooks/use-file-upload";
 import React, { useMemo } from "react";
-
-// Re-export the type for convenience
-export type { FileWithPreview };
+import type { FileWithPreview } from "@repo/common/hooks/use-file-upload";
 
 const getFileIcon = (file: {
   file: File | { type: string; name: string; url?: string };
 }) => {
-  const fileType = file.file instanceof File ? file.file.type : file.file.type;
-  const fileName = file.file instanceof File ? file.file.name : file.file.name;
+  const fileType = file.file.type;
+  const fileName = file.file.name;
 
   const iconMap = {
     pdf: {
@@ -82,8 +77,8 @@ const getFileIcon = (file: {
 const getFilePreview = (file: {
   file: File | { type: string; name: string; url?: string };
 }) => {
-  const fileType = file.file instanceof File ? file.file.type : file.file.type;
-  const fileName = file.file instanceof File ? file.file.name : file.file.name;
+  const fileType = file.file.type;
+  const fileName = file.file.name;
 
   const renderImage = (src: string) => (
     <img
@@ -93,22 +88,20 @@ const getFilePreview = (file: {
     />
   );
 
+  const renderImageContent = () => {
+    if (file.file instanceof File) {
+      const previewUrl = URL.createObjectURL(file.file);
+      return renderImage(previewUrl);
+    }
+    if (file.file.url) {
+      return renderImage(file.file.url);
+    }
+    return <ImageIcon className="size-5 opacity-60" />;
+  };
+
   return (
     <div className="relative flex aspect-square items-center justify-center overflow-hidden rounded-t-[inherit] bg-accent">
-      {fileType.startsWith("image/") ? (
-        file.file instanceof File ? (
-          (() => {
-            const previewUrl = URL.createObjectURL(file.file);
-            return renderImage(previewUrl);
-          })()
-        ) : file.file.url ? (
-          renderImage(file.file.url)
-        ) : (
-          <ImageIcon className="size-5 opacity-60" />
-        )
-      ) : (
-        getFileIcon(file)
-      )}
+      {fileType.startsWith("image/") ? renderImageContent() : getFileIcon(file)}
     </div>
   );
 };
@@ -133,15 +126,15 @@ export function FileUpload({
   accept = "*",
   multiple = true,
   disabled = false,
-}: FileUploadProps) {
+}: Readonly<FileUploadProps>) {
   const maxSize = maxSizeMB * 1024 * 1024;
 
   const initialFiles = useMemo(() => {
     return value.map((f) => ({
       id: f.id,
-      name: f.file instanceof File ? f.file.name : f.file.name,
-      size: f.file instanceof File ? f.file.size : f.file.size,
-      type: f.file instanceof File ? f.file.type : f.file.type,
+      name: f.file.name,
+      size: f.file.size,
+      type: f.file.type,
       url: f.preview || "",
     }));
   }, [value]);

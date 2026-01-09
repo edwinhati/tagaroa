@@ -16,7 +16,7 @@ export function AppProvider({ children }: AppProviderProps) {
     // Initialize PostHog if not already initialized
     const hasWindow =
       typeof globalThis !== "undefined" &&
-      typeof (globalThis as { window?: Window }).window !== "undefined";
+      (globalThis as { window?: Window }).window !== undefined;
 
     if (hasWindow && !posthog.__loaded) {
       const key = process.env.NEXT_PUBLIC_POSTHOG_KEY;

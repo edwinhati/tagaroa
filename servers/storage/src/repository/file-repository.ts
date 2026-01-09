@@ -21,7 +21,7 @@ export interface FindManyParams {
 }
 
 export class FileRepository {
-	private db: SQL;
+	private readonly db: SQL;
 
 	constructor(db?: SQL) {
 		this.db = db || sql;
@@ -64,7 +64,11 @@ export class FileRepository {
 		}
 
 		if (where.search) {
-			const searchPattern = `%${where.search}%`;
+			const searchValue =
+				typeof where.search === "object"
+					? JSON.stringify(where.search)
+					: String(where.search);
+			const searchPattern = `%${searchValue}%`;
 			conditions.push(
 				`(LOWER(original_name) LIKE LOWER($${paramIndex}) OR LOWER(key) LIKE LOWER($${paramIndex}))`,
 			);
@@ -218,7 +222,6 @@ export class FileRepository {
 		values.push(now);
 
 		values.push(id);
-
 		const query = `
       UPDATE files
       SET ${updates.join(", ")}

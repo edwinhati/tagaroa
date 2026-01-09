@@ -12,8 +12,8 @@ export const createFileRoutes = (fileService: FileService) => {
 		try {
 			const search = c.req.query("search");
 			const contentType = c.req.query("contentType");
-			const limit = parseInt(c.req.query("limit") || "50", 10);
-			const offset = parseInt(c.req.query("offset") || "0", 10);
+			const limit = Number.parseInt(c.req.query("limit") || "50", 10);
+			const offset = Number.parseInt(c.req.query("offset") || "0", 10);
 			const orderBy = c.req.query("orderBy") || "created_at DESC";
 
 			const result = await fileService.listFiles({
@@ -153,7 +153,7 @@ export const createFileRoutes = (fileService: FileService) => {
 	app.get("/:id/url", async (c) => {
 		try {
 			const id = c.req.param("id");
-			const expiresIn = parseInt(c.req.query("expiresIn") || "3600", 10);
+			const expiresIn = Number.parseInt(c.req.query("expiresIn") || "3600", 10);
 
 			const result = await fileService.getDownloadUrl(id, expiresIn);
 

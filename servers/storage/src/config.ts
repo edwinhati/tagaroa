@@ -36,7 +36,7 @@ function getEnvOptional(
 }
 
 export const config: Config = {
-	port: parseInt(getEnv("PORT", "8084"), 10),
+	port: Number.parseInt(getEnv("PORT", "8084"), 10),
 	env: getEnv("ENV", "development"),
 	isDevelopment: getEnv("ENV", "development") === "development",
 	isProduction: getEnv("ENV", "development") === "production",

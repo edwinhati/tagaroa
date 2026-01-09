@@ -18,6 +18,26 @@ const (
 	defaultOrderByClause = "created_at DESC"
 	minQueryLimit        = 5
 	maxQueryLimit        = 50
+
+	// Error messages
+	errMsgAccessDenied                 = "Access denied"
+	errMsgTransactionNotFound          = "Transaction not found"
+	errMsgTransactionAccessDenied      = "You don't have permission to access this transaction"
+	errMsgFailedToGetTransaction       = "Failed to get transaction"
+	errMsgFailedToUpdateTransaction    = "Failed to update transaction"
+	errMsgFailedToDeleteTransaction    = "Failed to delete transaction"
+	errMsgAccountNotFound              = "Account not found"
+	errMsgAccountAccessDenied          = "You don't have permission to access this account"
+	errMsgFailedToGetAccount           = "Failed to get account"
+	errMsgFailedToUpdateAccount        = "Failed to update account"
+	errMsgFailedToDeleteAccount        = "Failed to delete account"
+	errMsgBudgetNotFound               = "Budget not found"
+	errMsgBudgetAccessDenied           = "You don't have permission to access this budget"
+	errMsgBudgetUpdateAccessDenied     = "You don't have permission to update this budget"
+	errMsgBudgetItemUpdateAccessDenied = "You don't have permission to update this budget item"
+	errMsgFailedToGetBudget            = "Failed to get budget"
+	errMsgFailedToUpdateBudget         = "Failed to update budget"
+	errMsgFailedToUpdateBudgetItem     = "Failed to update budget item"
 )
 
 type CreateAccountRequest struct {
@@ -126,11 +146,11 @@ func (h *AccountHandler) GetAccount(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		switch err {
 		case service.ErrAccountNotFound:
-			util.WriteErrorResponse(w, http.StatusNotFound, "Account not found", err.Error())
+			util.WriteErrorResponse(w, http.StatusNotFound, errMsgAccountNotFound, err.Error())
 		case service.ErrAccountAccessDenied:
-			util.WriteErrorResponse(w, http.StatusForbidden, "Access denied", "You don't have permission to access this account")
+			util.WriteErrorResponse(w, http.StatusForbidden, errMsgAccessDenied, errMsgAccountAccessDenied)
 		default:
-			util.WriteErrorResponse(w, http.StatusInternalServerError, "Failed to get account", err.Error())
+			util.WriteErrorResponse(w, http.StatusInternalServerError, errMsgFailedToGetAccount, err.Error())
 		}
 		return
 	}
@@ -194,11 +214,11 @@ func (h *AccountHandler) UpdateAccount(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		switch err {
 		case service.ErrAccountNotFound:
-			util.WriteErrorResponse(w, http.StatusNotFound, "Account not found", err.Error())
+			util.WriteErrorResponse(w, http.StatusNotFound, errMsgAccountNotFound, err.Error())
 		case service.ErrAccountAccessDenied:
-			util.WriteErrorResponse(w, http.StatusForbidden, "Access denied", "You don't have permission to access this account")
+			util.WriteErrorResponse(w, http.StatusForbidden, errMsgAccessDenied, errMsgAccountAccessDenied)
 		default:
-			util.WriteErrorResponse(w, http.StatusInternalServerError, "Failed to update account", err.Error())
+			util.WriteErrorResponse(w, http.StatusInternalServerError, errMsgFailedToUpdateAccount, err.Error())
 		}
 		return
 	}
@@ -221,11 +241,11 @@ func (h *AccountHandler) DeleteAccount(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		switch err {
 		case service.ErrAccountNotFound:
-			util.WriteErrorResponse(w, http.StatusNotFound, "Account not found", err.Error())
+			util.WriteErrorResponse(w, http.StatusNotFound, errMsgAccountNotFound, err.Error())
 		case service.ErrAccountAccessDenied:
-			util.WriteErrorResponse(w, http.StatusForbidden, "Access denied", "You don't have permission to access this account")
+			util.WriteErrorResponse(w, http.StatusForbidden, errMsgAccessDenied, errMsgAccountAccessDenied)
 		default:
-			util.WriteErrorResponse(w, http.StatusInternalServerError, "Failed to get account", err.Error())
+			util.WriteErrorResponse(w, http.StatusInternalServerError, errMsgFailedToGetAccount, err.Error())
 		}
 		return
 	}
@@ -234,11 +254,11 @@ func (h *AccountHandler) DeleteAccount(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		switch err {
 		case service.ErrAccountNotFound:
-			util.WriteErrorResponse(w, http.StatusNotFound, "Account not found", err.Error())
+			util.WriteErrorResponse(w, http.StatusNotFound, errMsgAccountNotFound, err.Error())
 		case service.ErrAccountAccessDenied:
-			util.WriteErrorResponse(w, http.StatusForbidden, "Access denied", "You don't have permission to access this account")
+			util.WriteErrorResponse(w, http.StatusForbidden, errMsgAccessDenied, errMsgAccountAccessDenied)
 		default:
-			util.WriteErrorResponse(w, http.StatusInternalServerError, "Failed to delete account", err.Error())
+			util.WriteErrorResponse(w, http.StatusInternalServerError, errMsgFailedToDeleteAccount, err.Error())
 		}
 		return
 	}
@@ -337,11 +357,11 @@ func (h *BudgetHandler) GetBudget(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		switch err {
 		case service.ErrBudgetNotFound:
-			util.WriteJSONResponse(w, http.StatusOK, (*model.Budget)(nil), "Budget not found")
+			util.WriteJSONResponse(w, http.StatusOK, (*model.Budget)(nil), errMsgBudgetNotFound)
 		case service.ErrBudgetAccessDenied:
-			util.WriteErrorResponse(w, http.StatusForbidden, "Access denied", "You don't have permission to access this budget")
+			util.WriteErrorResponse(w, http.StatusForbidden, errMsgAccessDenied, errMsgBudgetAccessDenied)
 		default:
-			util.WriteErrorResponse(w, http.StatusInternalServerError, "Failed to get budget", err.Error())
+			util.WriteErrorResponse(w, http.StatusInternalServerError, errMsgFailedToGetBudget, err.Error())
 		}
 		return
 	}
@@ -396,11 +416,11 @@ func (h *BudgetHandler) UpdateBudget(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		switch err {
 		case service.ErrBudgetNotFound:
-			util.WriteErrorResponse(w, http.StatusNotFound, "Budget not found", err.Error())
+			util.WriteErrorResponse(w, http.StatusNotFound, errMsgBudgetNotFound, err.Error())
 		case service.ErrBudgetAccessDenied:
-			util.WriteErrorResponse(w, http.StatusForbidden, "Access denied", "You don't have permission to update this budget")
+			util.WriteErrorResponse(w, http.StatusForbidden, errMsgAccessDenied, errMsgBudgetUpdateAccessDenied)
 		default:
-			util.WriteErrorResponse(w, http.StatusInternalServerError, "Failed to update budget", err.Error())
+			util.WriteErrorResponse(w, http.StatusInternalServerError, errMsgFailedToUpdateBudget, err.Error())
 		}
 		return
 	}
@@ -442,11 +462,11 @@ func (h *BudgetHandler) UpdateBudgetItem(w http.ResponseWriter, r *http.Request)
 	if err != nil {
 		switch err {
 		case service.ErrBudgetNotFound:
-			util.WriteErrorResponse(w, http.StatusNotFound, "Budget not found", err.Error())
+			util.WriteErrorResponse(w, http.StatusNotFound, errMsgBudgetNotFound, err.Error())
 		case service.ErrBudgetAccessDenied:
-			util.WriteErrorResponse(w, http.StatusForbidden, "Access denied", "You don't have permission to update this budget item")
+			util.WriteErrorResponse(w, http.StatusForbidden, errMsgAccessDenied, errMsgBudgetItemUpdateAccessDenied)
 		default:
-			util.WriteErrorResponse(w, http.StatusInternalServerError, "Failed to update budget item", err.Error())
+			util.WriteErrorResponse(w, http.StatusInternalServerError, errMsgFailedToUpdateBudgetItem, err.Error())
 		}
 		return
 	}
@@ -570,11 +590,11 @@ func (h *TransactionHandler) GetTransaction(w http.ResponseWriter, r *http.Reque
 	if err != nil {
 		switch err {
 		case service.ErrTransactionNotFound:
-			util.WriteErrorResponse(w, http.StatusNotFound, "Transaction not found", err.Error())
+			util.WriteErrorResponse(w, http.StatusNotFound, errMsgTransactionNotFound, err.Error())
 		case service.ErrTransactionAccessDenied:
-			util.WriteErrorResponse(w, http.StatusForbidden, "Access denied", "You don't have permission to access this transaction")
+			util.WriteErrorResponse(w, http.StatusForbidden, errMsgAccessDenied, errMsgTransactionAccessDenied)
 		default:
-			util.WriteErrorResponse(w, http.StatusInternalServerError, "Failed to get transaction", err.Error())
+			util.WriteErrorResponse(w, http.StatusInternalServerError, errMsgFailedToGetTransaction, err.Error())
 		}
 		return
 	}
@@ -644,11 +664,11 @@ func (h *TransactionHandler) UpdateTransaction(w http.ResponseWriter, r *http.Re
 	if err != nil {
 		switch err {
 		case service.ErrTransactionNotFound:
-			util.WriteErrorResponse(w, http.StatusNotFound, "Transaction not found", err.Error())
+			util.WriteErrorResponse(w, http.StatusNotFound, errMsgTransactionNotFound, err.Error())
 		case service.ErrTransactionAccessDenied:
-			util.WriteErrorResponse(w, http.StatusForbidden, "Access denied", "You don't have permission to access this transaction")
+			util.WriteErrorResponse(w, http.StatusForbidden, errMsgAccessDenied, errMsgTransactionAccessDenied)
 		default:
-			util.WriteErrorResponse(w, http.StatusInternalServerError, "Failed to update transaction", err.Error())
+			util.WriteErrorResponse(w, http.StatusInternalServerError, errMsgFailedToUpdateTransaction, err.Error())
 		}
 		return
 	}
@@ -672,11 +692,11 @@ func (h *TransactionHandler) DeleteTransaction(w http.ResponseWriter, r *http.Re
 	if err != nil {
 		switch err {
 		case service.ErrTransactionNotFound:
-			util.WriteErrorResponse(w, http.StatusNotFound, "Transaction not found", err.Error())
+			util.WriteErrorResponse(w, http.StatusNotFound, errMsgTransactionNotFound, err.Error())
 		case service.ErrTransactionAccessDenied:
-			util.WriteErrorResponse(w, http.StatusForbidden, "Access denied", "You don't have permission to access this transaction")
+			util.WriteErrorResponse(w, http.StatusForbidden, errMsgAccessDenied, errMsgTransactionAccessDenied)
 		default:
-			util.WriteErrorResponse(w, http.StatusInternalServerError, "Failed to get transaction", err.Error())
+			util.WriteErrorResponse(w, http.StatusInternalServerError, errMsgFailedToGetTransaction, err.Error())
 		}
 		return
 	}
@@ -685,11 +705,11 @@ func (h *TransactionHandler) DeleteTransaction(w http.ResponseWriter, r *http.Re
 	if err != nil {
 		switch err {
 		case service.ErrTransactionNotFound:
-			util.WriteErrorResponse(w, http.StatusNotFound, "Transaction not found", err.Error())
+			util.WriteErrorResponse(w, http.StatusNotFound, errMsgTransactionNotFound, err.Error())
 		case service.ErrTransactionAccessDenied:
-			util.WriteErrorResponse(w, http.StatusForbidden, "Access denied", "You don't have permission to access this transaction")
+			util.WriteErrorResponse(w, http.StatusForbidden, errMsgAccessDenied, errMsgTransactionAccessDenied)
 		default:
-			util.WriteErrorResponse(w, http.StatusInternalServerError, "Failed to delete transaction", err.Error())
+			util.WriteErrorResponse(w, http.StatusInternalServerError, errMsgFailedToDeleteTransaction, err.Error())
 		}
 		return
 	}

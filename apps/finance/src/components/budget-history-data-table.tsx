@@ -30,10 +30,73 @@ import {
   getCoreRowModel,
   getSortedRowModel,
   type PaginationState,
+  type Row,
   useReactTable,
 } from "@tanstack/react-table";
 import { ChevronDownIcon, ChevronUpIcon } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
+
+// Cell renderer components - defined outside to avoid recreation on each render
+const BudgetHistorySelectHeaderCell = ({
+  table,
+}: {
+  table: ReturnType<typeof useReactTable<Budget>>;
+}) => (
+  <Checkbox
+    checked={
+      table.getIsAllPageRowsSelected() ||
+      (table.getIsSomePageRowsSelected() && "indeterminate")
+    }
+    onCheckedChange={(value) => table.toggleAllPageRowsSelected(!!value)}
+    aria-label="Select all"
+  />
+);
+
+const BudgetHistorySelectRowCell = ({ row }: { row: Row<Budget> }) => (
+  <Checkbox
+    checked={row.getIsSelected()}
+    onCheckedChange={(value) => row.toggleSelected(!!value)}
+    aria-label="Select row"
+  />
+);
+
+const MonthCell = ({ row }: { row: Row<Budget> }) => {
+  const month = row.original.month;
+  const year = new Date().getFullYear();
+  const date = new Date(year, month - 1);
+  return <span>{date.toLocaleString("en-US", { month: "long" })}</span>;
+};
+
+const YearCell = ({ row }: { row: Row<Budget> }) => {
+  const year = row.original.year;
+  return <span>{year}</span>;
+};
+
+const AmountCell = ({ row }: { row: Row<Budget> }) => {
+  const formatted = new Intl.NumberFormat(
+    row.original.currency === "IDR" ? "id-ID" : "en-US",
+    {
+      style: "currency",
+      currency: row.original.currency,
+    },
+  ).format(row.original.amount);
+  return formatted;
+};
+
+const BalanceCell = ({ row }: { row: Row<Budget> }) => {
+  const formatted = new Intl.NumberFormat(
+    row.original.currency === "IDR" ? "id-ID" : "en-US",
+    {
+      style: "currency",
+      currency: row.original.currency,
+    },
+  ).format(0);
+  return formatted;
+};
+
+const BudgetHistoryActionsHeaderCell = () => (
+  <span className="sr-only">Actions</span>
+);
 
 export function BudgetHistoryDataTable() {
   const [isMounted, setIsMounted] = useState(false);
@@ -77,79 +140,34 @@ function BudgetHistoryDataTableContent() {
     () => [
       {
         id: "select",
-        header: ({ table }) => (
-          <Checkbox
-            checked={
-              table.getIsAllPageRowsSelected() ||
-              (table.getIsSomePageRowsSelected() && "indeterminate")
-            }
-            onCheckedChange={(value) =>
-              table.toggleAllPageRowsSelected(!!value)
-            }
-            aria-label="Select all"
-          />
-        ),
-        cell: ({ row }) => (
-          <Checkbox
-            checked={row.getIsSelected()}
-            onCheckedChange={(value) => row.toggleSelected(!!value)}
-            aria-label="Select row"
-          />
-        ),
+        header: BudgetHistorySelectHeaderCell,
+        cell: BudgetHistorySelectRowCell,
         size: 28,
         enableSorting: false,
       },
       {
         id: "month",
         header: "Month",
-        cell: ({ row }) => {
-          const month = row.original.month;
-          const year = new Date().getFullYear();
-          const date = new Date(year, month - 1);
-
-          return <span>{date.toLocaleString("en-US", { month: "long" })}</span>;
-        },
+        cell: MonthCell,
       },
       {
         id: "year",
         header: "Year",
-        cell: ({ row }) => {
-          const year = row.original.year;
-
-          return <span>{year}</span>;
-        },
+        cell: YearCell,
       },
       {
         id: "amount",
         header: "Amount",
-        cell: ({ row }) => {
-          const formatted = new Intl.NumberFormat(
-            row.original.currency === "IDR" ? "id-ID" : "en-US",
-            {
-              style: "currency",
-              currency: row.original.currency,
-            },
-          ).format(row.original.amount);
-          return formatted;
-        },
+        cell: AmountCell,
       },
       {
         id: "balance",
         header: "Balance",
-        cell: ({ row }) => {
-          const formatted = new Intl.NumberFormat(
-            row.original.currency === "IDR" ? "id-ID" : "en-US",
-            {
-              style: "currency",
-              currency: row.original.currency,
-            },
-          ).format(0);
-          return formatted;
-        },
+        cell: BalanceCell,
       },
       {
         id: "actions",
-        header: () => <span className="sr-only">Actions</span>,
+        header: BudgetHistoryActionsHeaderCell,
         // cell: ({ row }) => <RowActions row={row} />,
         size: 60,
       },

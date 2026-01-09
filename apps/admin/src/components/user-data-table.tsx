@@ -138,7 +138,7 @@ function createUserColumns(onRefresh: () => void): ColumnDef<User>[] {
       header: "Email Status",
       accessorKey: "emailVerified",
       cell: ({ row }) => {
-        const verified = row.getValue("emailVerified") as boolean;
+        const verified = row.getValue("emailVerified");
         return (
           <Badge variant={verified ? "default" : "destructive"}>
             {verified ? "Verified" : "Unverified"}
@@ -151,13 +151,14 @@ function createUserColumns(onRefresh: () => void): ColumnDef<User>[] {
       header: "Role",
       accessorKey: "role",
       cell: ({ row }) => {
-        const role = row.getValue("role") as string;
+        const role = row.getValue("role");
+        const roleStr = typeof role === "string" ? role : "";
         return (
           <Badge
             className="capitalize"
-            variant={role === "admin" ? "default" : "secondary"}
+            variant={roleStr === "admin" ? "default" : "secondary"}
           >
-            {role || "user"}
+            {roleStr || "user"}
           </Badge>
         );
       },
@@ -176,16 +177,20 @@ function createUserColumns(onRefresh: () => void): ColumnDef<User>[] {
       header: "Ban Reason",
       accessorKey: "banReason",
       cell: ({ row }) => {
-        const banReason = row.getValue("banReason") as string | null;
+        const banReason = row.getValue("banReason");
         const banned = row.original.banned;
 
         if (!banned || !banReason) {
           return renderEmptyValue();
         }
 
+        const banReasonStr =
+          typeof banReason === "object"
+            ? JSON.stringify(banReason)
+            : String(banReason);
         return (
-          <div className="max-w-[200px] truncate text-sm" title={banReason}>
-            {banReason}
+          <div className="max-w-[200px] truncate text-sm" title={banReasonStr}>
+            {banReasonStr}
           </div>
         );
       },
@@ -195,14 +200,14 @@ function createUserColumns(onRefresh: () => void): ColumnDef<User>[] {
       header: "Ban Expires",
       accessorKey: "banExpires",
       cell: ({ row }) => {
-        const banExpires = row.getValue("banExpires") as Date | string | null;
+        const banExpires = row.getValue("banExpires");
         const banned = row.original.banned;
 
         if (!banned || !banExpires) {
           return renderEmptyValue();
         }
 
-        const expiryDate = new Date(banExpires);
+        const expiryDate = new Date(banExpires as Date | string);
         const isExpired = expiryDate < new Date();
 
         return (
@@ -649,9 +654,9 @@ export function UserDataTable() {
             ))}
           </TableHeader>
           <TableBody>
-            {loading ? (
-              <UserTableSkeletonRows />
-            ) : hasRows ? (
+            {loading && <UserTableSkeletonRows />}
+            {!loading &&
+              hasRows &&
               tableRows.map((row) => (
                 <TableRow
                   key={row.id}
@@ -668,8 +673,8 @@ export function UserDataTable() {
                     </TableCell>
                   ))}
                 </TableRow>
-              ))
-            ) : (
+              ))}
+            {!loading && !hasRows && (
               <TableRow>
                 <TableCell
                   colSpan={columns.length}

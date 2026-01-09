@@ -1,5 +1,11 @@
-import type { PaginationInfo } from "@repo/common/types";
 import { z } from "zod";
+
+export type PaginationInfo = {
+  page: number;
+  pageSize: number;
+  total: number;
+  totalPages: number;
+};
 
 export const budgetItemSchema = z.object({
   id: z.string().optional(),

@@ -145,8 +145,10 @@ async function handleCommonProxyLogic(
   // Construct public URL for redirect (use x-forwarded-host or fallback to request URL)
   const forwardedHost = request.headers.get("x-forwarded-host");
   const forwardedProto = request.headers.get("x-forwarded-proto") || "http";
+  const queryString = searchParams.toString();
+  const queryPart = queryString ? `?${queryString}` : "";
   const publicUrl = forwardedHost
-    ? `${forwardedProto}://${forwardedHost}${pathname}${searchParams.toString() ? `?${searchParams.toString()}` : ""}`
+    ? `${forwardedProto}://${forwardedHost}${pathname}${queryPart}`
     : request.nextUrl.href;
 
   if (!sessionCookie) {
@@ -357,7 +359,9 @@ function computeRedirectTarget(request: NextRequest): string | undefined {
   const { pathname, searchParams } = request.nextUrl;
 
   if (forwardedHost) {
-    return `${forwardedProto}://${forwardedHost}${pathname}${searchParams.toString() ? `?${searchParams.toString()}` : ""}`;
+    const queryString = searchParams.toString();
+    const queryPart = queryString ? `?${queryString}` : "";
+    return `${forwardedProto}://${forwardedHost}${pathname}${queryPart}`;
   }
   return request.nextUrl.href;
 }

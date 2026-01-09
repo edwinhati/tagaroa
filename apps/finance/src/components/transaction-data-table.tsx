@@ -85,6 +85,93 @@ type TransactionWithRelations = Transaction & {
   };
 };
 
+// Cell renderer components - defined outside to avoid recreation on each render
+const TransactionSelectHeaderCell = ({
+  table,
+}: {
+  table: ReturnType<typeof useReactTable<TransactionWithRelations>>;
+}) => (
+  <Checkbox
+    checked={
+      table.getIsAllPageRowsSelected() ||
+      (table.getIsSomePageRowsSelected() && "indeterminate")
+    }
+    onCheckedChange={(value) => table.toggleAllPageRowsSelected(!!value)}
+    aria-label="Select all"
+  />
+);
+
+const TransactionSelectRowCell = ({
+  row,
+}: {
+  row: Row<TransactionWithRelations>;
+}) => (
+  <Checkbox
+    checked={row.getIsSelected()}
+    onCheckedChange={(value) => row.toggleSelected(!!value)}
+    aria-label="Select row"
+  />
+);
+
+const DateCell = ({ row }: { row: Row<TransactionWithRelations> }) => (
+  <div className="font-medium">
+    {format(row.getValue("date"), "MMM dd, yyyy")}
+  </div>
+);
+
+const TypeCell = ({ row }: { row: Row<TransactionWithRelations> }) => {
+  const typeValue = row.getValue("type")?.toString().replaceAll("_", "-");
+  return <Badge variant="outline">{typeValue}</Badge>;
+};
+
+const AmountCell = ({ row }: { row: Row<TransactionWithRelations> }) => {
+  const amount = Number.parseFloat(row.getValue("amount"));
+  const formatted = new Intl.NumberFormat(
+    row.original.currency === "IDR" ? "id-ID" : "en-US",
+    {
+      style: "currency",
+      currency: row.original.currency,
+    },
+  ).format(amount);
+  return formatted;
+};
+
+const AccountCell = ({ row }: { row: Row<TransactionWithRelations> }) => {
+  const account = row.original.account;
+  return <div className="font-medium">{account?.name || "—"}</div>;
+};
+
+const CategoryCell = ({ row }: { row: Row<TransactionWithRelations> }) => {
+  const budgetItem = row.original.budget_item;
+  return (
+    <div className="text-muted-foreground">{budgetItem?.category || "—"}</div>
+  );
+};
+
+const CurrencyCell = ({ row }: { row: Row<TransactionWithRelations> }) => (
+  <Badge variant="outline">{row.getValue("currency")}</Badge>
+);
+
+const NotesCell = ({ row }: { row: Row<TransactionWithRelations> }) => {
+  const notes = row.getValue("notes");
+  if (!notes) {
+    return (
+      <div className="max-w-[200px] truncate text-muted-foreground">—</div>
+    );
+  }
+  const notesStr =
+    typeof notes === "object" ? JSON.stringify(notes) : String(notes);
+  return (
+    <div className="max-w-[200px] truncate text-muted-foreground">
+      {notesStr}
+    </div>
+  );
+};
+
+const TransactionActionsHeaderCell = () => (
+  <span className="sr-only">Actions</span>
+);
+
 export function TransactionDataTable() {
   const [isMounted, setIsMounted] = useState(false);
 
@@ -152,25 +239,8 @@ function TransactionDataTableContent() {
     () => [
       {
         id: "select",
-        header: ({ table }) => (
-          <Checkbox
-            checked={
-              table.getIsAllPageRowsSelected() ||
-              (table.getIsSomePageRowsSelected() && "indeterminate")
-            }
-            onCheckedChange={(value) =>
-              table.toggleAllPageRowsSelected(!!value)
-            }
-            aria-label="Select all"
-          />
-        ),
-        cell: ({ row }) => (
-          <Checkbox
-            checked={row.getIsSelected()}
-            onCheckedChange={(value) => row.toggleSelected(!!value)}
-            aria-label="Select row"
-          />
-        ),
+        header: TransactionSelectHeaderCell,
+        cell: TransactionSelectRowCell,
         size: 28,
         enableSorting: false,
         enableHiding: false,
@@ -178,87 +248,48 @@ function TransactionDataTableContent() {
       {
         header: "Date",
         accessorKey: "date",
-        cell: ({ row }) => (
-          <div className="font-medium">
-            {format(row.getValue("date"), "MMM dd, yyyy")}
-          </div>
-        ),
+        cell: DateCell,
         size: 120,
       },
       {
         header: "Type",
         accessorKey: "type",
-        cell: ({ row }) => {
-          const typeValue = row
-            .getValue("type")
-            ?.toString()
-            .replaceAll("_", "-");
-          return <Badge variant="outline">{typeValue}</Badge>;
-        },
+        cell: TypeCell,
         size: 100,
       },
       {
         header: "Amount",
         accessorKey: "amount",
-        cell: ({ row }) => {
-          const amount = Number.parseFloat(row.getValue("amount"));
-          const formatted = new Intl.NumberFormat(
-            row.original.currency === "IDR" ? "id-ID" : "en-US",
-            {
-              style: "currency",
-              currency: row.original.currency,
-            },
-          ).format(amount);
-          return formatted;
-        },
+        cell: AmountCell,
         size: 150,
       },
       {
         header: "Account",
         accessorFn: (row) => row.account?.name,
-        cell: ({ row }) => {
-          const account = row.original.account;
-          return <div className="font-medium">{account?.name || "—"}</div>;
-        },
+        cell: AccountCell,
         size: 150,
       },
       {
         header: "Category",
         accessorFn: (row) => row.budget_item?.category,
-        cell: ({ row }) => {
-          const budgetItem = row.original.budget_item;
-          return (
-            <div className="text-muted-foreground">
-              {budgetItem?.category || "—"}
-            </div>
-          );
-        },
+        cell: CategoryCell,
         size: 150,
       },
       {
         header: "Currency",
         accessorKey: "currency",
-        cell: ({ row }) => (
-          <Badge variant="outline">{row.getValue("currency")}</Badge>
-        ),
+        cell: CurrencyCell,
         size: 100,
       },
       {
         header: "Notes",
         accessorKey: "notes",
-        cell: ({ row }) => {
-          const notes = row.getValue("notes") as string;
-          return (
-            <div className="max-w-[200px] truncate text-muted-foreground">
-              {notes || "—"}
-            </div>
-          );
-        },
+        cell: NotesCell,
         size: 220,
       },
       {
         id: "actions",
-        header: () => <span className="sr-only">Actions</span>,
+        header: TransactionActionsHeaderCell,
         cell: ({ row }) => (
           <RowActions row={row} deleteTransaction={deleteTransaction} />
         ),
@@ -580,7 +611,7 @@ function TransactionDataTableContent() {
               }
 
               const renderEmptyState =
-                !hasTotalData && !(Object.keys(serverFilters).length > 0);
+                !hasTotalData && Object.keys(serverFilters).length <= 0;
               return (
                 <TableRow>
                   <TableCell colSpan={columns.length} className="h-96">

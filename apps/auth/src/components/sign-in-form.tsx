@@ -44,32 +44,30 @@ const signInFormSchema = z.object({
 type SignInFormValues = z.infer<typeof signInFormSchema>;
 
 const subscribeToClient = (callback: () => void) => {
-  const id =
-    typeof window !== "undefined"
-      ? window.requestAnimationFrame(() => callback())
+  const globalWindow =
+    typeof globalThis !== "undefined"
+      ? (globalThis as { window?: Window }).window
       : undefined;
-
-  return () => {
-    if (id !== undefined) {
-      window.cancelAnimationFrame(id);
-    }
-  };
+  if (globalWindow) {
+    const id = globalWindow.requestAnimationFrame(() => callback());
+    return () => {
+      globalWindow.cancelAnimationFrame(id);
+    };
+  }
+  return () => {};
 };
 
 export function SignInForm({
   className,
   ...props
-}: React.ComponentPropsWithoutRef<"div">) {
+}: Readonly<React.ComponentPropsWithoutRef<"div">>) {
   const mounted = useSyncExternalStore(
     subscribeToClient,
     () => true,
     () => false,
   );
-  // const googleAuthFlagEnabled = useFeatureFlagEnabled("google-auth");
 
-  // Add fallback values and loading state
-  // Temporarily set to true for testing - remove this and use feature flag in production
-  const isGoogleAuthEnabled = true; // googleAuthFlagEnabled ?? false;
+  const isGoogleAuthEnabled = true;
 
   const [loading, setLoading] = useState<boolean>();
   const [authError, setAuthError] = useState<string | null>(null);

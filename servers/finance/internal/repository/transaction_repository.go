@@ -12,6 +12,29 @@ import (
 	"github.com/google/uuid"
 )
 
+// SQL column alias replacements for transaction queries
+const (
+	colID        = " id"
+	colUserID    = " user_id"
+	colType      = " type"
+	colCurrency  = " currency"
+	colDeletedAt = " deleted_at"
+	colAccount   = " account"
+	colCategory  = " category"
+
+	colTransactionID        = " t.id"
+	colTransactionUserID    = " t.user_id"
+	colTransactionType      = " t.type"
+	colTransactionCurrency  = " t.currency"
+	colTransactionDeletedAt = " t.deleted_at"
+	colAccountName          = " a.name"
+	colBudgetItemCategory   = " bi.category"
+
+	// JOIN clauses
+	joinAccounts    = " LEFT JOIN accounts a ON t.account_id = a.id"
+	joinBudgetItems = " LEFT JOIN budget_items bi ON t.budget_item_id = bi.id"
+)
+
 type TransactionRepository interface {
 	Create(ctx context.Context, transaction *model.Transaction) error
 	FindUnique(ctx context.Context, params util.FindUniqueParams) (*model.Transaction, error)
@@ -93,6 +116,18 @@ func filterDateParams(where map[string]any) map[string]any {
 		}
 	}
 	return filtered
+}
+
+// applyTransactionColumnAliases replaces generic column names with table-prefixed aliases
+func applyTransactionColumnAliases(whereClause string) string {
+	whereClause = strings.ReplaceAll(whereClause, colID, colTransactionID)
+	whereClause = strings.ReplaceAll(whereClause, colUserID, colTransactionUserID)
+	whereClause = strings.ReplaceAll(whereClause, colType, colTransactionType)
+	whereClause = strings.ReplaceAll(whereClause, colCurrency, colTransactionCurrency)
+	whereClause = strings.ReplaceAll(whereClause, colDeletedAt, colTransactionDeletedAt)
+	whereClause = strings.ReplaceAll(whereClause, colAccount, colAccountName)
+	whereClause = strings.ReplaceAll(whereClause, colCategory, colBudgetItemCategory)
+	return whereClause
 }
 
 func scanTransaction(scanner util.RowScanner) (*model.Transaction, error) {
@@ -213,8 +248,8 @@ func (r *transactionRepository) FindUnique(ctx context.Context, params util.Find
 	sb.WriteString("SELECT ")
 	sb.WriteString(strings.TrimSpace(transactionSelectCols))
 	sb.WriteString(" FROM transactions t")
-	sb.WriteString(" LEFT JOIN accounts a ON t.account_id = a.id")
-	sb.WriteString(" LEFT JOIN budget_items bi ON t.budget_item_id = bi.id")
+	sb.WriteString(joinAccounts)
+	sb.WriteString(joinBudgetItems)
 
 	filteredWhere := filterDateParams(params.Where)
 	whereClause, args := util.BuildWhere(filteredWhere, util.WhereBuildOpts{
@@ -224,12 +259,7 @@ func (r *transactionRepository) FindUnique(ctx context.Context, params util.Find
 	})
 
 	whereClause, args = addDateRangeFilters(whereClause, args, params.Where)
-
-	whereClause = strings.ReplaceAll(whereClause, " id", " t.id")
-	whereClause = strings.ReplaceAll(whereClause, " user_id", " t.user_id")
-	whereClause = strings.ReplaceAll(whereClause, " type", " t.type")
-	whereClause = strings.ReplaceAll(whereClause, " currency", " t.currency")
-	whereClause = strings.ReplaceAll(whereClause, " deleted_at", " t.deleted_at")
+	whereClause = applyTransactionColumnAliases(whereClause)
 
 	sb.WriteString(whereClause)
 	sb.WriteString(" LIMIT 1")
@@ -249,8 +279,8 @@ func (r *transactionRepository) FindMany(ctx context.Context, params util.FindMa
 	sb.WriteString("SELECT ")
 	sb.WriteString(strings.TrimSpace(transactionSelectCols))
 	sb.WriteString(" FROM transactions t")
-	sb.WriteString(" LEFT JOIN accounts a ON t.account_id = a.id")
-	sb.WriteString(" LEFT JOIN budget_items bi ON t.budget_item_id = bi.id")
+	sb.WriteString(joinAccounts)
+	sb.WriteString(joinBudgetItems)
 
 	filteredWhere := filterDateParams(params.Where)
 	whereClause, args := util.BuildWhere(filteredWhere, util.WhereBuildOpts{
@@ -260,14 +290,7 @@ func (r *transactionRepository) FindMany(ctx context.Context, params util.FindMa
 	})
 
 	whereClause, args = addDateRangeFilters(whereClause, args, params.Where)
-
-	whereClause = strings.ReplaceAll(whereClause, " id", " t.id")
-	whereClause = strings.ReplaceAll(whereClause, " user_id", " t.user_id")
-	whereClause = strings.ReplaceAll(whereClause, " type", " t.type")
-	whereClause = strings.ReplaceAll(whereClause, " currency", " t.currency")
-	whereClause = strings.ReplaceAll(whereClause, " deleted_at", " t.deleted_at")
-	whereClause = strings.ReplaceAll(whereClause, " account", " a.name")
-	whereClause = strings.ReplaceAll(whereClause, " category", " bi.category")
+	whereClause = applyTransactionColumnAliases(whereClause)
 
 	sb.WriteString(whereClause)
 
@@ -303,8 +326,8 @@ func (r *transactionRepository) FindMany(ctx context.Context, params util.FindMa
 func (r *transactionRepository) Count(ctx context.Context, where map[string]any) (int, error) {
 	var sb strings.Builder
 	sb.WriteString("SELECT COUNT(*) FROM transactions t")
-	sb.WriteString(" LEFT JOIN accounts a ON t.account_id = a.id")
-	sb.WriteString(" LEFT JOIN budget_items bi ON t.budget_item_id = bi.id")
+	sb.WriteString(joinAccounts)
+	sb.WriteString(joinBudgetItems)
 
 	filteredWhere := filterDateParams(where)
 	whereClause, args := util.BuildWhere(filteredWhere, util.WhereBuildOpts{
@@ -314,14 +337,7 @@ func (r *transactionRepository) Count(ctx context.Context, where map[string]any)
 	})
 
 	whereClause, args = addDateRangeFilters(whereClause, args, where)
-
-	whereClause = strings.ReplaceAll(whereClause, " id", " t.id")
-	whereClause = strings.ReplaceAll(whereClause, " user_id", " t.user_id")
-	whereClause = strings.ReplaceAll(whereClause, " type", " t.type")
-	whereClause = strings.ReplaceAll(whereClause, " currency", " t.currency")
-	whereClause = strings.ReplaceAll(whereClause, " deleted_at", " t.deleted_at")
-	whereClause = strings.ReplaceAll(whereClause, " account", " a.name")
-	whereClause = strings.ReplaceAll(whereClause, " category", " bi.category")
+	whereClause = applyTransactionColumnAliases(whereClause)
 
 	sb.WriteString(whereClause)
 
@@ -399,9 +415,9 @@ func (r *transactionRepository) getAggregations(
 			COALESCE(MAX(t.amount), 0) as max_amount,
 			COALESCE(AVG(t.amount), 0) as avg_amount,
 			COALESCE(SUM(t.amount), 0) as sum_amount
-		FROM transactions t
-		LEFT JOIN accounts a ON t.account_id = a.id
-		LEFT JOIN budget_items bi ON t.budget_item_id = bi.id`)
+		FROM transactions t`)
+	sb.WriteString(joinAccounts)
+	sb.WriteString(joinBudgetItems)
 
 	filteredWhere := filterDateParams(where)
 	whereClause, args := util.BuildWhere(filteredWhere, util.WhereBuildOpts{
@@ -411,14 +427,7 @@ func (r *transactionRepository) getAggregations(
 	})
 
 	whereClause, args = addDateRangeFilters(whereClause, args, where)
-
-	whereClause = strings.ReplaceAll(whereClause, " id", " t.id")
-	whereClause = strings.ReplaceAll(whereClause, " user_id", " t.user_id")
-	whereClause = strings.ReplaceAll(whereClause, " type", " t.type")
-	whereClause = strings.ReplaceAll(whereClause, " currency", " t.currency")
-	whereClause = strings.ReplaceAll(whereClause, " deleted_at", " t.deleted_at")
-	whereClause = strings.ReplaceAll(whereClause, " account", " a.name")
-	whereClause = strings.ReplaceAll(whereClause, " category", " bi.category")
+	whereClause = applyTransactionColumnAliases(whereClause)
 
 	sb.WriteString(whereClause)
 

@@ -34,7 +34,7 @@ export interface S3ClientInterface {
 }
 
 export class S3Service {
-	private client: S3ClientInterface;
+	private readonly client: S3ClientInterface;
 
 	constructor(config: S3Config, client?: S3ClientInterface) {
 		this.client =
@@ -177,7 +177,7 @@ export class S3Service {
 	static generateKey(originalName: string, prefix?: string): string {
 		const timestamp = Date.now();
 		const random = crypto.randomUUID().split("-")[0];
-		const sanitized = originalName.replace(/[^a-zA-Z0-9.-]/g, "_");
+		const sanitized = originalName.replaceAll(/[^a-zA-Z0-9.-]/g, "_");
 		const key = prefix
 			? `${prefix}/${timestamp}-${random}-${sanitized}`
 			: `${timestamp}-${random}-${sanitized}`;

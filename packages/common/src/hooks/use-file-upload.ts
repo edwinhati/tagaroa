@@ -98,20 +98,15 @@ export const useFileUpload = (
 
   const validateFile = useCallback(
     (file: File | FileMetadata): string | null => {
-      if (file instanceof File) {
-        if (file.size > maxSize) {
-          return `File "${file.name}" exceeds the maximum size of ${formatBytes(maxSize)}.`;
-        }
-      } else {
-        if (file.size > maxSize) {
-          return `File "${file.name}" exceeds the maximum size of ${formatBytes(maxSize)}.`;
-        }
+      // Check file size (same logic for both File and FileMetadata)
+      if (file.size > maxSize) {
+        return `File "${file.name}" exceeds the maximum size of ${formatBytes(maxSize)}.`;
       }
 
       if (accept !== "*") {
         const acceptedTypes = accept.split(",").map((type) => type.trim());
         const fileType = file instanceof File ? file.type || "" : file.type;
-        const fileExtension = `.${file instanceof File ? file.name.split(".").pop() : file.name.split(".").pop()}`;
+        const fileExtension = `.${file.name.split(".").pop()}`;
 
         const isAccepted = acceptedTypes.some((type) => {
           if (type.startsWith(".")) {
@@ -125,7 +120,7 @@ export const useFileUpload = (
         });
 
         if (!isAccepted) {
-          return `File "${file instanceof File ? file.name : file.name}" is not an accepted file type.`;
+          return `File "${file.name}" is not an accepted file type.`;
         }
       }
 
@@ -260,9 +255,9 @@ export const useFileUpload = (
           // Call the onFilesAdded callback with the newly added valid files
           onFilesAdded?.(validFiles);
 
-          const newFiles = !multiple
-            ? validFiles
-            : [...clearedErrorsState.files, ...validFiles];
+          const newFiles = multiple
+            ? [...clearedErrorsState.files, ...validFiles]
+            : validFiles;
 
           // Schedule onFilesChange to run after state update
           setTimeout(() => onFilesChange?.(newFiles), 0);
@@ -368,13 +363,13 @@ export const useFileUpload = (
 
       if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
         // In single file mode, only use the first file
-        if (!multiple) {
+        if (multiple) {
+          addFiles(e.dataTransfer.files);
+        } else {
           const file = e.dataTransfer.files[0];
           if (file) {
             addFiles([file]);
           }
-        } else {
-          addFiles(e.dataTransfer.files);
         }
       }
     },
@@ -402,8 +397,8 @@ export const useFileUpload = (
         ...props,
         type: "file" as const,
         onChange: handleFileChange,
-        accept: props.accept || accept,
-        multiple: props.multiple !== undefined ? props.multiple : multiple,
+        accept: props.accept ?? accept,
+        multiple: props.multiple ?? multiple,
         // Cast to `any` to prevent mismatched React ref type errors across workspaces
         ref: inputRef as unknown,
       };
@@ -440,7 +435,7 @@ export const formatBytes = (bytes: number, decimals = 2): string => {
   const i = Math.floor(Math.log(bytes) / Math.log(k));
 
   // Ensure the index is within bounds of the sizes array
-  const sizeIndex = Math.min(i, sizes.length - 1);
+  const sizeIndex = Math.max(0, Math.min(i, sizes.length - 1));
   const unit = sizes[sizeIndex] || "Bytes";
 
   return `${Number.parseFloat((bytes / k ** i).toFixed(dm))} ${unit}`;

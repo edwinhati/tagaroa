@@ -21,9 +21,7 @@ export const BudgetProvider = ({
   year,
 }: BudgetProviderProps) => {
   const storeRef = useRef<BudgetStoreApi | undefined>(undefined);
-  if (!storeRef.current) {
-    storeRef.current = createBudgetStore({ month, year });
-  }
+  storeRef.current ??= createBudgetStore({ month, year });
   return (
     <BudgetStoreContext.Provider value={storeRef.current}>
       {children}

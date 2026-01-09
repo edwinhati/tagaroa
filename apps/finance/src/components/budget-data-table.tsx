@@ -67,6 +67,82 @@ import { NumericFormat } from "react-number-format";
 import { toast } from "sonner";
 import { BudgetFormDialog } from "./budget-form-dialog";
 
+// Cell renderer components - defined outside to avoid recreation on each render
+const BudgetSelectHeaderCell = ({
+  table,
+}: {
+  table: ReturnType<typeof useReactTable<BudgetItem>>;
+}) => (
+  <Checkbox
+    checked={
+      table.getIsAllPageRowsSelected() ||
+      (table.getIsSomePageRowsSelected() && "indeterminate")
+    }
+    onCheckedChange={(value) => table.toggleAllPageRowsSelected(!!value)}
+    aria-label="Select all"
+  />
+);
+
+const BudgetSelectRowCell = ({ row }: { row: Row<BudgetItem> }) => (
+  <Checkbox
+    checked={row.getIsSelected()}
+    onCheckedChange={(value) => row.toggleSelected(!!value)}
+    aria-label="Select row"
+  />
+);
+
+const CategoryCell = ({ row }: { row: Row<BudgetItem> }) => {
+  const categoryValue = row
+    .getValue("category")
+    ?.toString()
+    .replaceAll("_", "-");
+  return categoryValue;
+};
+
+const BudgetActionsHeaderCell = () => <span className="sr-only">Actions</span>;
+
+const BudgetActionsCell = () => (
+  <div className="flex justify-end gap-2">
+    <Button
+      variant="ghost"
+      size="sm"
+      className="text-xs"
+      onClick={() => {
+        // TODO: Implement show related transactions functionality
+        toast.info("Feature coming soon", {
+          description: "Related transactions view will be available soon",
+        });
+      }}
+    >
+      <Rows4Icon className="h-3 w-3 mr-1" />
+      View Transactions
+    </Button>
+  </div>
+);
+
+// Remaining cell component - receives currency via column meta
+const RemainingCell = ({
+  row,
+  currency,
+}: {
+  row: Row<BudgetItem>;
+  currency: string;
+}) => {
+  const allocation = Number.parseFloat(row.getValue("allocation")) || 0;
+  const spent = row.original.spent || 0;
+  const remaining = allocation - spent;
+  const formatted = new Intl.NumberFormat(
+    currency === "IDR" ? "id-ID" : "en-US",
+    {
+      style: "currency",
+      currency: currency,
+    },
+  ).format(remaining);
+  return (
+    <span className={cn(remaining < 0 && "text-destructive")}>{formatted}</span>
+  );
+};
+
 export function BudgetDataTable() {
   const [isMounted, setIsMounted] = useState(false);
 
@@ -181,29 +257,31 @@ function BudgetDataTableContent() {
   // Check if there's truly no data (no accounts at all for the user)
   const hasTotalData = (budgetResponse?.items?.length ?? 0) > 0;
 
+  // Memoized handler for budget item updates
+  const handleBudgetItemUpdate = useMemo(
+    () => (itemId: string, newAllocation: number, category: string) => {
+      if (!tableData.id) {
+        toast.error("Cannot update budget item", {
+          description: "Missing budget ID",
+        });
+        return;
+      }
+      updateBudgetItem({
+        itemId,
+        allocation: newAllocation,
+        budgetId: tableData.id,
+        category,
+      });
+    },
+    [tableData.id, updateBudgetItem],
+  );
+
   const columns: ColumnDef<BudgetItem>[] = useMemo(
     () => [
       {
         id: "select",
-        header: ({ table }) => (
-          <Checkbox
-            checked={
-              table.getIsAllPageRowsSelected() ||
-              (table.getIsSomePageRowsSelected() && "indeterminate")
-            }
-            onCheckedChange={(value) =>
-              table.toggleAllPageRowsSelected(!!value)
-            }
-            aria-label="Select all"
-          />
-        ),
-        cell: ({ row }) => (
-          <Checkbox
-            checked={row.getIsSelected()}
-            onCheckedChange={(value) => row.toggleSelected(!!value)}
-            aria-label="Select row"
-          />
-        ),
+        header: BudgetSelectHeaderCell,
+        cell: BudgetSelectRowCell,
         size: 28,
         enableSorting: false,
         enableHiding: false,
@@ -211,94 +289,53 @@ function BudgetDataTableContent() {
       {
         header: "Category",
         accessorKey: "category",
-        cell: ({ row }) => {
-          const categoryValue = row
-            .getValue("category")
-            ?.toString()
-            .replaceAll("_", "-");
-          return categoryValue;
-        },
+        cell: CategoryCell,
         size: 100,
         enableSorting: false,
       },
       {
         header: "Allocation",
         accessorKey: "allocation",
-        cell: ({ row }) => {
-          return (
-            <EditableCell
-              row={row}
-              value={row.getValue("allocation")}
-              onUpdate={(itemId, newAllocation) => {
-                if (!tableData.id || !row.original.id) {
-                  toast.error("Cannot update budget item", {
-                    description: "Missing budget or item ID",
-                  });
-                  return;
-                }
-                updateBudgetItem({
-                  itemId,
-                  allocation: newAllocation,
-                  budgetId: tableData.id,
-                  category: row.original.category,
+        cell: ({ row }) => (
+          <EditableCell
+            row={row}
+            value={row.getValue("allocation")}
+            onUpdate={(itemId, newAllocation) => {
+              if (!row.original.id) {
+                toast.error("Cannot update budget item", {
+                  description: "Missing item ID",
                 });
-              }}
-            />
-          );
-        },
+                return;
+              }
+              handleBudgetItemUpdate(
+                itemId,
+                newAllocation,
+                row.original.category,
+              );
+            }}
+          />
+        ),
         size: 120,
         enableSorting: false,
       },
       {
         header: "Remaining",
         accessorKey: "remaining",
-        cell: ({ row }) => {
-          const allocation = Number.parseFloat(row.getValue("allocation")) || 0;
-          const spent = row.original.spent || 0;
-          const remaining = allocation - spent;
-          const formatted = new Intl.NumberFormat(
-            tableData.currency === "IDR" ? "id-ID" : "en-US",
-            {
-              style: "currency",
-              currency: tableData.currency,
-            },
-          ).format(remaining);
-          return (
-            <span className={cn(remaining < 0 && "text-destructive")}>
-              {formatted}
-            </span>
-          );
-        },
+        cell: ({ row }) => (
+          <RemainingCell row={row} currency={tableData.currency} />
+        ),
         size: 120,
         enableSorting: false,
       },
       {
         id: "actions",
-        header: () => <span className="sr-only">Actions</span>,
-        cell: () => (
-          <div className="flex justify-end gap-2">
-            <Button
-              variant="ghost"
-              size="sm"
-              className="text-xs"
-              onClick={() => {
-                // TODO: Implement show related transactions functionality
-                toast.info("Feature coming soon", {
-                  description:
-                    "Related transactions view will be available soon",
-                });
-              }}
-            >
-              <Rows4Icon className="h-3 w-3 mr-1" />
-              View Transactions
-            </Button>
-          </div>
-        ),
+        header: BudgetActionsHeaderCell,
+        cell: BudgetActionsCell,
         size: 100,
         enableSorting: false,
       },
     ],
-    [tableData.currency, tableData.id, updateBudgetItem],
+    [tableData.currency, handleBudgetItemUpdate],
   );
 
   // TanStack Table exposes functions that React Compiler cannot memoize; suppress rule locally.

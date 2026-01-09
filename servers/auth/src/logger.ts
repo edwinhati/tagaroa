@@ -89,7 +89,8 @@ function formatTimestamp(): string {
 
 const formatMessage = (message: unknown): string => {
 	if (typeof message === "string") return message;
-	if (typeof message === "object") return JSON.stringify(message, null, 2);
+	if (message !== null && typeof message === "object")
+		return JSON.stringify(message, null, 2);
 	return String(message);
 };
 const [CONTEXT_PREFIX, CONTEXT_SUFFIX] = (() => {

@@ -13,16 +13,21 @@ export const getDefaultPeriod = (): { month: number; year: number } => {
   const today = new Date();
   const currentMonth = today.getMonth() + 1;
   const currentDate = today.getDate();
-  const month =
-    currentDate > 25
-      ? currentMonth === 12
-        ? 1
-        : currentMonth + 1
-      : currentMonth;
-  const year =
-    currentDate > 25 && currentMonth === 12
-      ? today.getFullYear() + 1
-      : today.getFullYear();
+
+  const isNextMonth = currentDate > 25;
+  const isDecember = currentMonth === 12;
+
+  let month: number;
+  let year: number;
+
+  if (isNextMonth) {
+    month = isDecember ? 1 : currentMonth + 1;
+    year = isDecember ? today.getFullYear() + 1 : today.getFullYear();
+  } else {
+    month = currentMonth;
+    year = today.getFullYear();
+  }
+
   return { month, year };
 };
 

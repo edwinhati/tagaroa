@@ -12,6 +12,13 @@ import (
 	"github.com/google/uuid"
 )
 
+// Budget field order constants
+const budgetSkipFieldSearch = "search"
+
+var budgetFieldOrderDefault = []string{"user_id", "month", "year"}
+var budgetFieldOrderWithID = []string{"id", "user_id", "month", "year"}
+var budgetItemFieldOrder = []string{"budget_id"}
+
 type BudgetRepository interface {
 	Create(ctx context.Context, budget *model.Budget) error
 	Update(ctx context.Context, budget *model.Budget) error
@@ -138,9 +145,9 @@ func (r *budgetRepository) FindMany(ctx context.Context, params util.FindManyPar
 	sb.WriteString(" FROM budgets")
 
 	whereClause, args := util.BuildWhere(params.Where, util.WhereBuildOpts{
-		FieldOrder:     []string{"user_id", "month", "year"},
-		SkipField:      "search", // budgets do not support text search
-		ExcludeDeleted: true,     // always exclude deleted budgets
+		FieldOrder:     budgetFieldOrderDefault,
+		SkipField:      budgetSkipFieldSearch, // budgets do not support text search
+		ExcludeDeleted: true,                  // always exclude deleted budgets
 	})
 	sb.WriteString(whereClause)
 	sb.WriteString(" ORDER BY year ASC, month ASC")
@@ -176,8 +183,8 @@ func (r *budgetRepository) FindUnique(ctx context.Context, params util.FindUniqu
 	sb.WriteString(" FROM budgets")
 
 	whereClause, args := util.BuildWhere(params.Where, util.WhereBuildOpts{
-		FieldOrder:     []string{"id", "user_id", "month", "year"},
-		SkipField:      "search",
+		FieldOrder:     budgetFieldOrderWithID,
+		SkipField:      budgetSkipFieldSearch,
 		ExcludeDeleted: true,
 	})
 	sb.WriteString(whereClause)
@@ -201,8 +208,8 @@ func (r *budgetRepository) FindUnique(ctx context.Context, params util.FindUniqu
 	whereClause, args = util.BuildWhere(map[string]any{
 		"budget_id": budget.ID,
 	}, util.WhereBuildOpts{
-		FieldOrder:     []string{"budget_id"},
-		SkipField:      "search",
+		FieldOrder:     budgetItemFieldOrder,
+		SkipField:      budgetSkipFieldSearch,
 		ExcludeDeleted: true,
 	})
 	sb.WriteString(whereClause)
@@ -233,8 +240,8 @@ func (r *budgetRepository) Count(ctx context.Context, where map[string]any) (int
 	sb.WriteString("SELECT COUNT(*) FROM budgets")
 
 	whereClause, args := util.BuildWhere(where, util.WhereBuildOpts{
-		FieldOrder:     []string{"id", "user_id", "month", "year"},
-		SkipField:      "search",
+		FieldOrder:     budgetFieldOrderWithID,
+		SkipField:      budgetSkipFieldSearch,
 		ExcludeDeleted: true,
 	})
 	sb.WriteString(whereClause)

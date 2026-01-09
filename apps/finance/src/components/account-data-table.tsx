@@ -63,6 +63,53 @@ import {
 import { useEffect, useMemo, useState } from "react";
 import { AccountFormDialog } from "@/components/account-form-dialog";
 
+// Cell renderer components - defined outside to avoid recreation on each render
+const SelectHeaderCell = ({
+  table,
+}: {
+  table: ReturnType<typeof useReactTable<Account>>;
+}) => (
+  <Checkbox
+    checked={
+      table.getIsAllPageRowsSelected() ||
+      (table.getIsSomePageRowsSelected() && "indeterminate")
+    }
+    onCheckedChange={(value) => table.toggleAllPageRowsSelected(!!value)}
+    aria-label="Select all"
+  />
+);
+
+const SelectRowCell = ({ row }: { row: Row<Account> }) => (
+  <Checkbox
+    checked={row.getIsSelected()}
+    onCheckedChange={(value) => row.toggleSelected(!!value)}
+    aria-label="Select row"
+  />
+);
+
+const NameCell = ({ row }: { row: Row<Account> }) => (
+  <div className="font-medium">{row.getValue("name")}</div>
+);
+
+const TypeCell = ({ row }: { row: Row<Account> }) => {
+  const typeValue = row.getValue("type")?.toString().replaceAll("_", "-");
+  return <Badge variant="outline">{typeValue}</Badge>;
+};
+
+const BalanceCell = ({ row }: { row: Row<Account> }) => {
+  const amount = Number.parseFloat(row.getValue("balance"));
+  const formatted = new Intl.NumberFormat(
+    row.original.currency === "IDR" ? "id-ID" : "en-US",
+    {
+      style: "currency",
+      currency: row.original.currency,
+    },
+  ).format(amount);
+  return formatted;
+};
+
+const ActionsHeaderCell = () => <span className="sr-only">Actions</span>;
+
 export function AccountDataTable() {
   const [isMounted, setIsMounted] = useState(false);
 
@@ -128,33 +175,14 @@ function AccountDataTableContent() {
     () => [
       {
         id: "select",
-        header: ({ table }) => (
-          <Checkbox
-            checked={
-              table.getIsAllPageRowsSelected() ||
-              (table.getIsSomePageRowsSelected() && "indeterminate")
-            }
-            onCheckedChange={(value) =>
-              table.toggleAllPageRowsSelected(!!value)
-            }
-            aria-label="Select all"
-          />
-        ),
-        cell: ({ row }) => (
-          <Checkbox
-            checked={row.getIsSelected()}
-            onCheckedChange={(value) => row.toggleSelected(!!value)}
-            aria-label="Select row"
-          />
-        ),
+        header: SelectHeaderCell,
+        cell: SelectRowCell,
         size: 28,
       },
       {
         header: "Name",
         accessorKey: "name",
-        cell: ({ row }) => (
-          <div className="font-medium">{row.getValue("name")}</div>
-        ),
+        cell: NameCell,
         size: 180,
         filterFn: multiColumnFilterFn,
       },
@@ -166,34 +194,18 @@ function AccountDataTableContent() {
       {
         header: "Type",
         accessorKey: "type",
-        cell: ({ row }) => {
-          const typeValue = row
-            .getValue("type")
-            ?.toString()
-            .replaceAll("_", "-");
-          return <Badge variant="outline">{typeValue}</Badge>;
-        },
+        cell: TypeCell,
         size: 100,
       },
       {
         header: "Balance",
         accessorKey: "balance",
-        cell: ({ row }) => {
-          const amount = Number.parseFloat(row.getValue("balance"));
-          const formatted = new Intl.NumberFormat(
-            row.original.currency === "IDR" ? "id-ID" : "en-US",
-            {
-              style: "currency",
-              currency: row.original.currency,
-            },
-          ).format(amount);
-          return formatted;
-        },
+        cell: BalanceCell,
         size: 120,
       },
       {
         id: "actions",
-        header: () => <span className="sr-only">Actions</span>,
+        header: ActionsHeaderCell,
         cell: ({ row }) => (
           <RowActions
             row={row}

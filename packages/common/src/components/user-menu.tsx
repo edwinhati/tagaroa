@@ -29,10 +29,14 @@ import {
 import React, { useState } from "react";
 import { toast } from "sonner";
 
-const getBrowserLocation = () =>
-  typeof globalThis !== "undefined"
+const getBrowserLocation = () => {
+  const hasWindow =
+    typeof globalThis !== "undefined" &&
+    (globalThis as { location?: Location }).location !== undefined;
+  return hasWindow
     ? (globalThis as { location?: Location }).location
     : undefined;
+};
 
 export function UserMenu() {
   const { data: session } = authClient.useSession();

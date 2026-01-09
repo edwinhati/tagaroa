@@ -16,8 +16,8 @@ export interface UploadResult {
 
 export class FileService {
 	constructor(
-		private fileRepository: FileRepository,
-		private s3Service: S3Service,
+		private readonly fileRepository: FileRepository,
+		private readonly s3Service: S3Service,
 	) {}
 
 	/**
