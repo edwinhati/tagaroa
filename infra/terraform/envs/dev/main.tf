@@ -62,4 +62,9 @@ module "talos" {
   # Tailscale Configuration
   enable_tailscale   = var.enable_tailscale
   tailscale_auth_key = var.tailscale_auth_key
+
+  # MetalLB Configuration
+  enable_metallb       = var.enable_metallb
+  metallb_helm_version = var.metallb_helm_version
+  metallb_ip_range     = var.metallb_ip_range
 }

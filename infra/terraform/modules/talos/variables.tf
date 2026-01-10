@@ -185,3 +185,22 @@ variable "enable_tailscale" {
   type        = bool
   default     = false
 }
+
+# MetalLB Configuration
+variable "enable_metallb" {
+  description = "Enable MetalLB for LoadBalancer services"
+  type        = bool
+  default     = true
+}
+
+variable "metallb_helm_version" {
+  description = "MetalLB Helm chart version"
+  type        = string
+  default     = "0.15.3"
+}
+
+variable "metallb_ip_range" {
+  description = "IP address range for MetalLB LoadBalancer services (e.g., 10.10.10.200-10.10.10.250)"
+  type        = string
+  default     = "10.10.10.200-10.10.10.250"
+}

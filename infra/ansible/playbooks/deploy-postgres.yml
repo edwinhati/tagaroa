@@ -1,0 +1,31 @@
+---
+# Deploy PostgreSQL (includes CNPG operator as dependency)
+
+- name: Deploy PostgreSQL
+  hosts: localhost
+  connection: local
+  gather_facts: false
+
+  vars_files:
+    - "../group_vars/all.yml"
+
+  pre_tasks:
+    - name: Verify kubeconfig exists
+      ansible.builtin.stat:
+        path: "{{ k8s_kubeconfig }}"
+      register: kubeconfig_file
+      failed_when: not kubeconfig_file.stat.exists
+
+  roles:
+    - role: common
+    - role: minio # Required for backups
+    - role: cnpg
+    - role: postgres
+
+  post_tasks:
+    - name: PostgreSQL deployment complete
+      ansible.builtin.debug:
+        msg: |
+          ✅ PostgreSQL deployed successfully!
+          Namespace: {{ postgres_namespace }}
+          Instances: {{ postgres_instances }}

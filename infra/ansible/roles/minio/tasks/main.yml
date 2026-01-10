@@ -1,0 +1,57 @@
+---
+# MinIO Role Tasks
+
+- name: Create MinIO secret
+  kubernetes.core.k8s:
+    kubeconfig: "{{ k8s_kubeconfig }}"
+    state: present
+    definition: "{{ lookup('template', 'secret.yaml.j2') | from_yaml }}"
+
+- name: Add Bitnami Helm repository
+  kubernetes.core.helm_repository:
+    name: bitnami
+    repo_url: "oci://registry-1.docker.io/bitnamicharts"
+  when: false # OCI repos don't need explicit add
+
+- name: Deploy MinIO via Helm
+  kubernetes.core.helm:
+    kubeconfig: "{{ k8s_kubeconfig }}"
+    name: minio
+    chart_ref: oci://registry-1.docker.io/bitnamicharts/minio
+    chart_version: "{{ minio_helm_version }}"
+    release_namespace: "{{ minio_namespace }}"
+    create_namespace: true
+    wait: true
+    timeout: "{{ k8s_wait_timeout }}s"
+    values:
+      image:
+        registry: "{{ minio_image.registry }}"
+        repository: "{{ minio_image.repository }}"
+        tag: "{{ minio_image.tag }}"
+      console:
+        image:
+          registry: "{{ minio_console_image.registry }}"
+          repository: "{{ minio_console_image.repository }}"
+          tag: "{{ minio_console_image.tag }}"
+      auth:
+        existingSecret: minio-secret
+        rootUser: "{{ minio_root_user }}"
+        rootPassword: "{{ minio_root_password }}"
+      defaultBuckets: "{{ minio_default_buckets }}"
+      persistence:
+        enabled: true
+        storageClass: "{{ k8s_storage_class }}"
+        size: "{{ minio_storage_size }}"
+
+- name: Wait for MinIO to be ready
+  kubernetes.core.k8s_info:
+    kubeconfig: "{{ k8s_kubeconfig }}"
+    kind: Pod
+    namespace: "{{ minio_namespace }}"
+    label_selectors:
+      - "app.kubernetes.io/name=minio"
+    wait: true
+    wait_condition:
+      type: Ready
+      status: "True"
+    wait_timeout: "{{ k8s_wait_timeout }}"

@@ -61,6 +61,55 @@ resource "null_resource" "post_deployment_config" {
       echo 'Storage disabled, skipping Longhorn'
       %{ endif }
 
+      # Deploy MetalLB for LoadBalancer support
+      %{ if var.enable_metallb }
+      echo "Setting up MetalLB..."
+      
+      # Create namespace with privileged labels
+      kubectl create namespace metallb-system --dry-run=client -o yaml | kubectl apply -f -
+      kubectl label namespace metallb-system pod-security.kubernetes.io/enforce=privileged pod-security.kubernetes.io/audit=privileged pod-security.kubernetes.io/warn=privileged --overwrite
+      
+      # Add MetalLB Helm repo and install
+      helm repo add metallb https://metallb.github.io/metallb 2>/dev/null || true
+      helm repo update
+      helm upgrade --install metallb metallb/metallb \
+        --namespace metallb-system \
+        --version ${var.metallb_helm_version} \
+        --wait --timeout 5m
+      
+      # Wait for MetalLB to be ready
+      echo "Waiting for MetalLB controller..."
+      kubectl wait --for=condition=available --timeout=120s deployment/metallb-controller -n metallb-system
+      
+      # Create IPAddressPool
+      cat <<EOF | kubectl apply -f -
+apiVersion: metallb.io/v1beta1
+kind: IPAddressPool
+metadata:
+  name: default-pool
+  namespace: metallb-system
+spec:
+  addresses:
+    - ${var.metallb_ip_range}
+EOF
+
+      # Create L2Advertisement
+      cat <<EOF | kubectl apply -f -
+apiVersion: metallb.io/v1beta1
+kind: L2Advertisement
+metadata:
+  name: default-l2
+  namespace: metallb-system
+spec:
+  ipAddressPools:
+    - default-pool
+EOF
+
+      echo "MetalLB deployed with IP range: ${var.metallb_ip_range}"
+      %{ else }
+      echo 'MetalLB disabled, skipping'
+      %{ endif }
+
       # Configure Tailscale if enabled
       %{ if var.enable_tailscale && var.tailscale_auth_key != "" }
       echo "Configuring Tailscale..."

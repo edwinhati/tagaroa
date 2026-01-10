@@ -1,0 +1,19 @@
+---
+# MinIO Role Defaults
+
+minio_namespace: minio
+minio_helm_version: "17.0.21"
+minio_storage_size: "10Gi"
+minio_root_user: minioadmin
+minio_root_password: minioadmin
+minio_default_buckets: "default"
+
+minio_image:
+  registry: docker.io
+  repository: bitnamilegacy/minio
+  tag: "2025.7.23-debian-12-r5"
+
+minio_console_image:
+  registry: docker.io
+  repository: bitnamilegacy/minio-object-browser
+  tag: "2.0.2-debian-12-r4"

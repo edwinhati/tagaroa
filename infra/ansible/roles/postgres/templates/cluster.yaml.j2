@@ -1,0 +1,60 @@
+apiVersion: postgresql.cnpg.io/v1
+kind: Cluster
+metadata:
+  name: postgres
+  namespace: {{ postgres_namespace }}
+spec:
+  instances: {{ postgres_instances }}
+  imageName: {{ postgres_image }}
+  primaryUpdateStrategy: unsupervised
+  enableSuperuserAccess: true
+
+  storage:
+    size: {{ postgres_storage_size }}
+    storageClass: {{ k8s_storage_class }}
+
+  bootstrap:
+    initdb:
+      database: {{ postgres_database }}
+      owner: {{ postgres_username }}
+      secret:
+        name: pg-secret
+
+  postgresql:
+    parameters:
+{% for key, value in postgres_parameters.items() %}
+      {{ key }}: "{{ value }}"
+{% endfor %}
+
+  resources:
+    requests:
+      cpu: {{ postgres_resources.requests.cpu }}
+      memory: {{ postgres_resources.requests.memory }}
+    limits:
+      cpu: "{{ postgres_resources.limits.cpu }}"
+      memory: {{ postgres_resources.limits.memory }}
+
+  affinity:
+    enablePodAntiAffinity: true
+    topologyKey: kubernetes.io/hostname
+
+  monitoring:
+    enablePodMonitor: {{ cnpg_monitoring_enabled | lower }}
+{% if postgres_backup_enabled %}
+
+  backup:
+    retentionPolicy: "{{ postgres_backup_retention }}"
+    barmanObjectStore:
+      destinationPath: "s3://postgres-backups/"
+      endpointURL: "http://minio.{{ minio_namespace }}.svc.cluster.local:9000"
+      s3Credentials:
+        accessKeyId:
+          name: minio-secret
+          key: root-user
+        secretAccessKey:
+          name: minio-secret
+          key: root-password
+      wal:
+        compression: snappy
+        maxParallel: 8
+{% endif %}

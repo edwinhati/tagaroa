@@ -1,0 +1,59 @@
+---
+# Kong Gateway Role Defaults
+
+kong_namespace: kong
+kong_helm_version: "2.48.0"
+kong_gateway_api_version: "v1.2.0"
+
+# Kong Mode: traditional, hybrid (control/data plane), or dbless
+kong_mode: dbless
+
+# Kong Proxy Settings
+kong_proxy:
+  http:
+    enabled: true
+    servicePort: 80
+  tls:
+    enabled: true
+    servicePort: 443
+
+# Kong Admin API
+kong_admin:
+  enabled: true
+  http:
+    enabled: true
+  tls:
+    enabled: false
+
+# Kong Manager (GUI)
+kong_manager:
+  enabled: true
+
+# Gateway API Support
+kong_gateway_api:
+  enabled: true
+
+# Resource Limits
+kong_resources:
+  requests:
+    cpu: 100m
+    memory: 128Mi
+  limits:
+    cpu: "1"
+    memory: 512Mi
+
+# Ingress Controller Settings
+kong_ingress_controller:
+  enabled: true
+  installCRDs: true
+
+# Service Type (LoadBalancer, NodePort, ClusterIP)
+kong_service_type: LoadBalancer
+
+# Environment variables for Kong
+kong_env:
+  database: "off"
+  proxy_access_log: /dev/stdout
+  admin_access_log: /dev/stdout
+  proxy_error_log: /dev/stderr
+  admin_error_log: /dev/stderr

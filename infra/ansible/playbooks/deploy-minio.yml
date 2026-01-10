@@ -1,0 +1,26 @@
+---
+# Deploy MinIO Only
+
+- name: Deploy MinIO
+  hosts: localhost
+  connection: local
+  gather_facts: false
+
+  vars_files:
+    - "../group_vars/all.yml"
+
+  pre_tasks:
+    - name: Verify kubeconfig exists
+      ansible.builtin.stat:
+        path: "{{ k8s_kubeconfig }}"
+      register: kubeconfig_file
+      failed_when: not kubeconfig_file.stat.exists
+
+  roles:
+    - role: common
+    - role: minio
+
+  post_tasks:
+    - name: MinIO deployment complete
+      ansible.builtin.debug:
+        msg: "✅ MinIO deployed successfully in namespace: {{ minio_namespace }}"

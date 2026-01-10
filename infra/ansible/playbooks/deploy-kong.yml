@@ -1,0 +1,31 @@
+---
+# Deploy Kong Gateway Only
+
+- name: Deploy Kong Gateway
+  hosts: localhost
+  connection: local
+  gather_facts: false
+
+  vars_files:
+    - "../group_vars/all.yml"
+
+  pre_tasks:
+    - name: Verify kubeconfig exists
+      ansible.builtin.stat:
+        path: "{{ k8s_kubeconfig }}"
+      register: kubeconfig_file
+      failed_when: not kubeconfig_file.stat.exists
+
+  roles:
+    - role: kong
+
+  post_tasks:
+    - name: Kong Gateway deployment complete
+      ansible.builtin.debug:
+        msg: |
+          ✅ Kong Gateway deployed successfully!
+
+          Useful commands:
+          - kubectl get pods -n {{ kong_namespace }}
+          - kubectl get svc -n {{ kong_namespace }}
+          - kubectl get gatewayclasses
