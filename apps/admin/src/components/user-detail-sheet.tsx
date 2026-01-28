@@ -50,6 +50,7 @@ import {
   useState,
 } from "react";
 import { toast } from "sonner";
+import { setCookie } from "@/utils/cookies";
 
 interface UserDetailSheetProps {
   user: UserWithRole | null;
@@ -1116,8 +1117,7 @@ function useUserDetailActions({
 
       toast.success("Impersonation started. Redirecting...");
       if (result.sessionToken) {
-        // biome-ignore lint/suspicious/noDocumentCookie: cookie required for cross-app session
-        document.cookie = `better-auth.session_token=${result.sessionToken}; path=/;`;
+        setCookie("better-auth.session_token", result.sessionToken, "/");
       }
       navigateTo("/dashboard");
     } catch (error) {

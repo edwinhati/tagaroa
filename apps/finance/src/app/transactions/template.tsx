@@ -1,7 +1,6 @@
 "use client";
 
 import { ContentPanel } from "@repo/common/components/content-panel";
-import { BudgetProvider } from "@repo/common/providers/budget-provider";
 
 type TransactionTemplateProps = Readonly<{ children: React.ReactNode }>;
 
@@ -15,14 +14,12 @@ export default function TransactionTemplate({
     },
   ];
   return (
-    <BudgetProvider>
-      <ContentPanel
-        contentTitle="Transaction Management"
-        contentLabel="Overview"
-        menu={menu}
-      >
-        {children}
-      </ContentPanel>
-    </BudgetProvider>
+    <ContentPanel
+      contentTitle="Transaction Management"
+      contentLabel="Overview"
+      menu={menu}
+    >
+      {children}
+    </ContentPanel>
   );
 }

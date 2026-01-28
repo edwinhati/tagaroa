@@ -22,7 +22,7 @@ import React from "react";
 
 type ContentPanelMenuItem = {
   name: string;
-  icon?: ComponentType;
+  icon?: ComponentType<{ className?: string }>;
   href: string;
 };
 
@@ -58,7 +58,7 @@ export function ContentPanel({
                   <SidebarMenuItem key={item.href}>
                     <Link href={item.href}>
                       <SidebarMenuButton>
-                        {item.icon && <item.icon />}
+                        {item.icon && <item.icon className="h-4 w-4" />}
                         <span>{item.name}</span>
                       </SidebarMenuButton>
                     </Link>

@@ -2,117 +2,117 @@ import { type SQL, sql } from "bun";
 import type { CreateFileInput, File, UpdateFileInput } from "../model/file";
 
 export interface FindUniqueParams {
-	where: {
-		id?: string;
-		key?: string;
-		url?: string;
-		search?: string;
-	};
+  where: {
+    id?: string;
+    key?: string;
+    url?: string;
+    search?: string;
+  };
 }
 
 export interface FindManyParams {
-	where?: {
-		search?: string;
-		content_type?: string;
-	};
-	orderBy?: string;
-	offset?: number;
-	limit?: number;
+  where?: {
+    search?: string;
+    content_type?: string;
+  };
+  orderBy?: string;
+  offset?: number;
+  limit?: number;
 }
 
 export class FileRepository {
-	private readonly db: SQL;
+  private readonly db: SQL;
 
-	constructor(db?: SQL) {
-		this.db = db || sql;
-	}
+  constructor(db?: SQL) {
+    this.db = db || sql;
+  }
 
-	private readonly selectCols = `
+  private readonly selectCols = `
     id, url, key, size, content_type, original_name, 
     deleted_at, created_at, updated_at
   `;
 
-	private buildWhere(where: Record<string, unknown>): {
-		clause: string;
-		values: unknown[];
-	} {
-		const conditions: string[] = [];
-		const values: unknown[] = [];
-		let paramIndex = 1;
+  private buildWhere(where: Record<string, unknown>): {
+    clause: string;
+    values: unknown[];
+  } {
+    const conditions: string[] = [];
+    const values: unknown[] = [];
+    let paramIndex = 1;
 
-		// Always exclude deleted records
-		conditions.push("deleted_at IS NULL");
+    // Always exclude deleted records
+    conditions.push("deleted_at IS NULL");
 
-		if (where.id) {
-			conditions.push(`id = $${paramIndex++}`);
-			values.push(where.id);
-		}
+    if (where.id) {
+      conditions.push(`id = $${paramIndex++}`);
+      values.push(where.id);
+    }
 
-		if (where.key) {
-			conditions.push(`key = $${paramIndex++}`);
-			values.push(where.key);
-		}
+    if (where.key) {
+      conditions.push(`key = $${paramIndex++}`);
+      values.push(where.key);
+    }
 
-		if (where.url) {
-			conditions.push(`url = $${paramIndex++}`);
-			values.push(where.url);
-		}
+    if (where.url) {
+      conditions.push(`url = $${paramIndex++}`);
+      values.push(where.url);
+    }
 
-		if (where.content_type) {
-			conditions.push(`content_type = $${paramIndex++}`);
-			values.push(where.content_type);
-		}
+    if (where.content_type) {
+      conditions.push(`content_type = $${paramIndex++}`);
+      values.push(where.content_type);
+    }
 
-		if (where.search) {
-			const searchValue =
-				typeof where.search === "object"
-					? JSON.stringify(where.search)
-					: String(where.search);
-			const searchPattern = `%${searchValue}%`;
-			conditions.push(
-				`(LOWER(original_name) LIKE LOWER($${paramIndex}) OR LOWER(key) LIKE LOWER($${paramIndex}))`,
-			);
-			values.push(searchPattern);
-			paramIndex++;
-		}
+    if (where.search) {
+      const searchValue =
+        typeof where.search === "object"
+          ? JSON.stringify(where.search)
+          : String(where.search);
+      const searchPattern = `%${searchValue}%`;
+      conditions.push(
+        `(LOWER(original_name) LIKE LOWER($${paramIndex}) OR LOWER(key) LIKE LOWER($${paramIndex}))`,
+      );
+      values.push(searchPattern);
+      paramIndex++;
+    }
 
-		const clause =
-			conditions.length > 0 ? ` WHERE ${conditions.join(" AND ")}` : "";
-		return { clause, values };
-	}
+    const clause =
+      conditions.length > 0 ? ` WHERE ${conditions.join(" AND ")}` : "";
+    return { clause, values };
+  }
 
-	private validateOrderBy(orderBy: string): string {
-		const allowedColumns = new Set([
-			"id",
-			"url",
-			"key",
-			"size",
-			"content_type",
-			"original_name",
-			"created_at",
-			"updated_at",
-		]);
+  private validateOrderBy(orderBy: string): string {
+    const allowedColumns = new Set([
+      "id",
+      "url",
+      "key",
+      "size",
+      "content_type",
+      "original_name",
+      "created_at",
+      "updated_at",
+    ]);
 
-		const parts = orderBy.trim().split(/\s+/);
-		const column = parts[0];
-		const direction = parts[1]?.toUpperCase() || "ASC";
+    const parts = orderBy.trim().split(/\s+/);
+    const column = parts[0];
+    const direction = parts[1]?.toUpperCase() || "ASC";
 
-		if (!allowedColumns.has(column)) {
-			throw new Error(`Invalid ORDER BY column: ${column}`);
-		}
+    if (!allowedColumns.has(column)) {
+      throw new Error(`Invalid ORDER BY column: ${column}`);
+    }
 
-		if (direction !== "ASC" && direction !== "DESC") {
-			throw new Error(`Invalid ORDER BY direction: ${direction}`);
-		}
+    if (direction !== "ASC" && direction !== "DESC") {
+      throw new Error(`Invalid ORDER BY direction: ${direction}`);
+    }
 
-		return `${column} ${direction}`;
-	}
+    return `${column} ${direction}`;
+  }
 
-	async create(input: CreateFileInput): Promise<File> {
-		const id = input.id || crypto.randomUUID();
-		const now = new Date();
+  async create(input: CreateFileInput): Promise<File> {
+    const id = input.id || crypto.randomUUID();
+    const now = new Date();
 
-		const [file] = await this.db`
+    const [file] = await this.db`
       INSERT INTO files (
         id, url, key, size, content_type, original_name,
         created_at, updated_at
@@ -126,34 +126,34 @@ export class FileRepository {
         deleted_at, created_at, updated_at
     `;
 
-		return file as File;
-	}
+    return file as File;
+  }
 
-	async findUnique(params: FindUniqueParams): Promise<File | null> {
-		const { clause, values } = this.buildWhere(params.where);
+  async findUnique(params: FindUniqueParams): Promise<File | null> {
+    const { clause, values } = this.buildWhere(params.where);
 
-		const query = `
+    const query = `
       SELECT ${this.selectCols}
       FROM files
       ${clause}
       LIMIT 1
     `;
 
-		const [file] = await this.db.unsafe(query, values);
-		return file ? (file as File) : null;
-	}
+    const [file] = await this.db.unsafe(query, values);
+    return file ? (file as File) : null;
+  }
 
-	async findMany(params: FindManyParams): Promise<File[]> {
-		const {
-			where = {},
-			orderBy = "created_at DESC",
-			offset = 0,
-			limit = 50,
-		} = params;
-		const { clause, values } = this.buildWhere(where);
+  async findMany(params: FindManyParams): Promise<File[]> {
+    const {
+      where = {},
+      orderBy = "created_at DESC",
+      offset = 0,
+      limit = 50,
+    } = params;
+    const { clause, values } = this.buildWhere(where);
 
-		const validatedOrderBy = this.validateOrderBy(orderBy);
-		const query = `
+    const validatedOrderBy = this.validateOrderBy(orderBy);
+    const query = `
       SELECT ${this.selectCols}
       FROM files
       ${clause}
@@ -161,90 +161,90 @@ export class FileRepository {
       LIMIT $${values.length + 1} OFFSET $${values.length + 2}
     `;
 
-		const files = await this.db.unsafe(query, [...values, limit, offset]);
-		return files as File[];
-	}
+    const files = await this.db.unsafe(query, [...values, limit, offset]);
+    return files as File[];
+  }
 
-	async count(where: Record<string, unknown> = {}): Promise<number> {
-		const { clause, values } = this.buildWhere(where);
+  async count(where: Record<string, unknown> = {}): Promise<number> {
+    const { clause, values } = this.buildWhere(where);
 
-		const query = `
+    const query = `
       SELECT COUNT(*) as count
       FROM files
       ${clause}
     `;
 
-		const [result] = await this.db.unsafe(query, values);
-		return Number(result.count);
-	}
+    const [result] = await this.db.unsafe(query, values);
+    return Number(result.count);
+  }
 
-	async update(id: string, input: UpdateFileInput): Promise<File | null> {
-		const updates: string[] = [];
-		const values: unknown[] = [];
-		let paramIndex = 1;
+  async update(id: string, input: UpdateFileInput): Promise<File | null> {
+    const updates: string[] = [];
+    const values: unknown[] = [];
+    let paramIndex = 1;
 
-		if (input.url !== undefined) {
-			updates.push(`url = $${paramIndex++}`);
-			values.push(input.url);
-		}
+    if (input.url !== undefined) {
+      updates.push(`url = $${paramIndex++}`);
+      values.push(input.url);
+    }
 
-		if (input.key !== undefined) {
-			updates.push(`key = $${paramIndex++}`);
-			values.push(input.key);
-		}
+    if (input.key !== undefined) {
+      updates.push(`key = $${paramIndex++}`);
+      values.push(input.key);
+    }
 
-		if (input.size !== undefined) {
-			updates.push(`size = $${paramIndex++}`);
-			values.push(input.size);
-		}
+    if (input.size !== undefined) {
+      updates.push(`size = $${paramIndex++}`);
+      values.push(input.size);
+    }
 
-		if (input.content_type !== undefined) {
-			updates.push(`content_type = $${paramIndex++}`);
-			values.push(input.content_type);
-		}
+    if (input.content_type !== undefined) {
+      updates.push(`content_type = $${paramIndex++}`);
+      values.push(input.content_type);
+    }
 
-		if (input.original_name !== undefined) {
-			updates.push(`original_name = $${paramIndex++}`);
-			values.push(input.original_name);
-		}
+    if (input.original_name !== undefined) {
+      updates.push(`original_name = $${paramIndex++}`);
+      values.push(input.original_name);
+    }
 
-		if (input.deleted_at !== undefined) {
-			updates.push(`deleted_at = $${paramIndex++}`);
-			values.push(input.deleted_at);
-		}
+    if (input.deleted_at !== undefined) {
+      updates.push(`deleted_at = $${paramIndex++}`);
+      values.push(input.deleted_at);
+    }
 
-		if (updates.length === 0) {
-			return this.findUnique({ where: { id } });
-		}
+    if (updates.length === 0) {
+      return this.findUnique({ where: { id } });
+    }
 
-		const now = new Date();
-		updates.push(`updated_at = $${paramIndex++}`);
-		values.push(now);
+    const now = new Date();
+    updates.push(`updated_at = $${paramIndex++}`);
+    values.push(now);
 
-		values.push(id);
-		const query = `
+    values.push(id);
+    const query = `
       UPDATE files
       SET ${updates.join(", ")}
       WHERE id = $${paramIndex} AND deleted_at IS NULL
       RETURNING ${this.selectCols}
     `;
 
-		const [file] = await this.db.unsafe(query, values);
-		return file ? (file as File) : null;
-	}
+    const [file] = await this.db.unsafe(query, values);
+    return file ? (file as File) : null;
+  }
 
-	async softDelete(id: string): Promise<boolean> {
-		const now = new Date();
-		const result = await this.update(id, { deleted_at: now });
-		return result !== null;
-	}
+  async softDelete(id: string): Promise<boolean> {
+    const now = new Date();
+    const result = await this.update(id, { deleted_at: now });
+    return result !== null;
+  }
 
-	async getContentTypeAggregations(
-		where: Record<string, unknown> = {},
-	): Promise<Record<string, { count: number; total_size: number }>> {
-		const { clause, values } = this.buildWhere(where);
+  async getContentTypeAggregations(
+    where: Record<string, unknown> = {},
+  ): Promise<Record<string, { count: number; total_size: number }>> {
+    const { clause, values } = this.buildWhere(where);
 
-		const query = `
+    const query = `
       SELECT
         content_type as key,
         COUNT(*) as count,
@@ -255,17 +255,17 @@ export class FileRepository {
       ORDER BY content_type
     `;
 
-		const rows = await this.db.unsafe(query, values);
-		const aggregations: Record<string, { count: number; total_size: number }> =
-			{};
+    const rows = await this.db.unsafe(query, values);
+    const aggregations: Record<string, { count: number; total_size: number }> =
+      {};
 
-		for (const row of rows) {
-			aggregations[row.key] = {
-				count: Number(row.count),
-				total_size: Number(row.total_size),
-			};
-		}
+    for (const row of rows) {
+      aggregations[row.key] = {
+        count: Number(row.count),
+        total_size: Number(row.total_size),
+      };
+    }
 
-		return aggregations;
-	}
+    return aggregations;
+  }
 }

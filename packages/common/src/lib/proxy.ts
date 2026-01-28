@@ -16,9 +16,48 @@ type RoleBasedOptions = {
   requireAdmin?: boolean; // shorthand for admin-only access
 };
 
+// Simple in-memory cache for session data
+const sessionCache = new Map<
+  string,
+  { user: User | UserWithRole | null; timestamp: number }
+>();
+const SESSION_CACHE_TTL = 30000; // 30 seconds
+
+function getCachedSession<T extends User = User>(
+  sessionCookie: string,
+): T | null | undefined {
+  const cached = sessionCache.get(sessionCookie);
+  if (cached && Date.now() - cached.timestamp < SESSION_CACHE_TTL) {
+    return cached.user as T | null;
+  }
+  return undefined; // undefined means cache miss
+}
+
+function setCachedSession(
+  sessionCookie: string,
+  user: User | UserWithRole | null,
+) {
+  sessionCache.set(sessionCookie, { user, timestamp: Date.now() });
+  // Cleanup old entries periodically
+  if (sessionCache.size > 100) {
+    const now = Date.now();
+    for (const [key, value] of sessionCache) {
+      if (now - value.timestamp > SESSION_CACHE_TTL) {
+        sessionCache.delete(key);
+      }
+    }
+  }
+}
+
 async function fetchUserSession<T extends User = User>(
   sessionCookie: string,
 ): Promise<T | null> {
+  // Check cache first
+  const cached = getCachedSession<T>(sessionCookie);
+  if (cached !== undefined) {
+    return cached;
+  }
+
   try {
     const response = await fetch(
       `${process.env.NEXT_PUBLIC_API_URL}/api/auth/get-session`,
@@ -26,9 +65,8 @@ async function fetchUserSession<T extends User = User>(
         headers: {
           Cookie: `better-auth.session_token=${sessionCookie}`,
         },
-        // Increase timeout to 10 seconds to handle slow connections
-        signal: AbortSignal.timeout(10000),
-        // Don't cache the session check
+        // Reduced timeout - fail fast instead of blocking
+        signal: AbortSignal.timeout(3000),
         cache: "no-store",
       },
     );
@@ -37,19 +75,25 @@ async function fetchUserSession<T extends User = User>(
       console.warn(
         `Auth session fetch failed: ${response.status} ${response.statusText}`,
       );
+      setCachedSession(sessionCookie, null);
       return null;
     }
 
     const data = await response.json();
+    const user = (data.user as T) || null;
 
-    // Extract user from the response structure
-    return (data.user as T) || null;
+    // Cache the result
+    setCachedSession(sessionCookie, user);
+
+    return user;
   } catch (error) {
     if (error instanceof Error && error.name === "TimeoutError") {
       console.error("Auth session fetch timeout");
     } else {
       console.error("Error fetching user profile:", error);
     }
+    // Cache failures briefly to prevent hammering a down service
+    setCachedSession(sessionCookie, null);
     return null;
   }
 }

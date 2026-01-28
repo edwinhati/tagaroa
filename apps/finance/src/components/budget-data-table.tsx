@@ -12,6 +12,7 @@ import {
 import type { Budget, BudgetItem } from "@repo/common/types/budget";
 import { Button } from "@repo/ui/components/button";
 import { Calendar } from "@repo/ui/components/calendar";
+import { Card, CardContent } from "@repo/ui/components/card";
 import { Checkbox } from "@repo/ui/components/checkbox";
 import {
   Empty,
@@ -52,19 +53,24 @@ import {
   useReactTable,
 } from "@tanstack/react-table";
 import {
+  AlertTriangle,
   CalendarIcon,
   CheckIcon,
   ChevronDownIcon,
   ChevronUpIcon,
+  CreditCard,
+  List,
   PencilIcon,
   PlusIcon,
-  Rows4Icon,
+  TrendingUp,
+  Wallet,
   XIcon,
 } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import type { DateRange } from "react-day-picker";
 import { NumericFormat } from "react-number-format";
 import { toast } from "sonner";
+import { TransactionsByCategoryDialog } from "@/components/transactions-by-category-dialog";
 import { BudgetFormDialog } from "./budget-form-dialog";
 
 // Cell renderer components - defined outside to avoid recreation on each render
@@ -101,24 +107,109 @@ const CategoryCell = ({ row }: { row: Row<BudgetItem> }) => {
 
 const BudgetActionsHeaderCell = () => <span className="sr-only">Actions</span>;
 
-const BudgetActionsCell = () => (
-  <div className="flex justify-end gap-2">
-    <Button
-      variant="ghost"
-      size="sm"
-      className="text-xs"
-      onClick={() => {
-        // TODO: Implement show related transactions functionality
-        toast.info("Feature coming soon", {
-          description: "Related transactions view will be available soon",
-        });
-      }}
-    >
-      <Rows4Icon className="h-3 w-3 mr-1" />
-      View Transactions
-    </Button>
-  </div>
+const BudgetActionsCell = ({ row }: { row: Row<BudgetItem> }) => {
+  const { month, year } = useBudgetPeriod((s) => ({
+    month: s.month,
+    year: s.year,
+  }));
+
+  const startDate = new Date(
+    month === 1 ? year - 1 : year,
+    month === 1 ? 11 : month - 2,
+    25,
+  );
+  const endDate = new Date(year, month - 1, 25);
+  const category = row.original.category;
+  const budgetItemId = row.original.id as string;
+
+  return (
+    <div className="flex justify-end gap-2">
+      <TransactionsByCategoryDialog
+        category={category}
+        budgetItemId={budgetItemId}
+        startDate={startDate}
+        endDate={endDate}
+        trigger={
+          <Button variant="ghost" size="sm" className="text-xs">
+            <List className="h-3 w-3 mr-1" />
+            View Transactions
+          </Button>
+        }
+      />
+    </div>
+  );
+};
+
+interface BudgetSummaryCardProps {
+  title: string;
+  value: string;
+  icon: React.ReactNode;
+  iconColor: string;
+}
+
+const BudgetSummaryCard = ({
+  title,
+  value,
+  icon,
+  iconColor,
+}: BudgetSummaryCardProps) => (
+  <Card>
+    <CardContent className="flex items-center gap-4 p-4">
+      <div
+        className={cn(
+          "flex items-center justify-center rounded-full p-2",
+          iconColor,
+        )}
+      >
+        {icon}
+      </div>
+      <div>
+        <p className="text-sm text-muted-foreground">{title}</p>
+        <p className="text-xl font-bold font-mono">{value}</p>
+      </div>
+    </CardContent>
+  </Card>
 );
+
+interface ProgressCellProps {
+  row: Row<BudgetItem>;
+}
+
+const ProgressCell = ({ row }: ProgressCellProps) => {
+  const allocation = Number.parseFloat(row.getValue("allocation")) || 0;
+  const spent = row.original.spent || 0;
+  const percentage = allocation > 0 ? (spent / allocation) * 100 : 0;
+  const isOverBudget = spent > allocation;
+
+  return (
+    <div className="w-full space-y-1 min-w-[120px]">
+      <div className="flex justify-between text-xs">
+        <span
+          className={cn(
+            isOverBudget && "text-destructive",
+            !isOverBudget && percentage > 80 && "text-yellow-500",
+          )}
+        >
+          {percentage.toFixed(0)}%
+        </span>
+        <span className="text-muted-foreground">
+          {formatCurrency(spent)} / {formatCurrency(allocation)}
+        </span>
+      </div>
+      <div className="h-2 w-full bg-muted rounded-full overflow-hidden">
+        <div
+          className={cn(
+            "h-full rounded-full transition-all",
+            isOverBudget && "bg-destructive",
+            !isOverBudget && percentage > 80 && "bg-yellow-500",
+            !isOverBudget && percentage <= 80 && "bg-green-500",
+          )}
+          style={{ width: `${Math.min(percentage, 100)}%` }}
+        />
+      </div>
+    </div>
+  );
+};
 
 // Remaining cell component - receives currency via column meta
 const RemainingCell = ({
@@ -318,6 +409,7 @@ function BudgetDataTableContent() {
         size: 120,
         enableSorting: false,
       },
+
       {
         header: "Remaining",
         accessorKey: "remaining",
@@ -328,9 +420,16 @@ function BudgetDataTableContent() {
         enableSorting: false,
       },
       {
+        header: "Progress",
+        id: "progress",
+        cell: ({ row }) => <ProgressCell row={row} />,
+        size: 150,
+        enableSorting: false,
+      },
+      {
         id: "actions",
         header: BudgetActionsHeaderCell,
-        cell: BudgetActionsCell,
+        cell: ({ row }) => <BudgetActionsCell row={row} />,
         size: 100,
         enableSorting: false,
       },
@@ -398,6 +497,38 @@ function BudgetDataTableContent() {
 
   return (
     <div className="relative space-y-4">
+      {/* Budget Summary Cards */}
+      <div className="grid gap-4 md:grid-cols-3">
+        <BudgetSummaryCard
+          title="Total Budget"
+          value={formatCurrency(tableData.amount)}
+          icon={<Wallet className="h-5 w-5" />}
+          iconColor="text-primary bg-primary/10"
+        />
+        <BudgetSummaryCard
+          title="Allocated"
+          value={formatCurrency(totalAllocated)}
+          icon={<CreditCard className="h-5 w-5" />}
+          iconColor="text-blue-500 bg-blue-50"
+        />
+        <BudgetSummaryCard
+          title="Remaining"
+          value={formatCurrency(remainingBudget)}
+          icon={
+            remainingBudget < 0 ? (
+              <AlertTriangle className="h-5 w-5" />
+            ) : (
+              <TrendingUp className="h-5 w-5" />
+            )
+          }
+          iconColor={
+            remainingBudget < 0
+              ? "text-destructive bg-destructive/10"
+              : "text-green-500 bg-green-50"
+          }
+        />
+      </div>
+
       {/* Filters */}
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div className="flex items-center gap-3">
@@ -411,7 +542,7 @@ function BudgetDataTableContent() {
           <Popover>
             <PopoverTrigger asChild>
               <Button variant="outline">
-                <CalendarIcon />
+                <CalendarIcon className="h-4 w-4 mr-2" />
                 {range?.from &&
                   range?.to &&
                   `${range.from.toLocaleDateString()} - ${range.to.toLocaleDateString()}`}
@@ -443,26 +574,6 @@ function BudgetDataTableContent() {
             year={tableData.year}
             onUpdate={() => refetch()}
           />
-          <div className="h-6 w-px bg-border" />
-          <div className="flex items-center gap-2 text-sm">
-            <span className="text-muted-foreground">Allocated:</span>
-            <span className="font-mono font-medium">
-              {formatCurrency(totalAllocated)}
-            </span>
-          </div>
-          <div className="h-6 w-px bg-border" />
-          <div className="flex items-center gap-2 text-sm">
-            <span className="text-muted-foreground">Remaining:</span>
-            <span
-              className={cn(
-                "font-mono font-medium",
-                remainingBudget < 0 && "text-destructive",
-                remainingBudget > 0 && "text-green-600",
-              )}
-            >
-              {formatCurrency(remainingBudget)}
-            </span>
-          </div>
         </div>
       </div>
 

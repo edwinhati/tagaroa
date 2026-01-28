@@ -16,7 +16,9 @@ export function LayoutShell({
 }: Readonly<LayoutShellProps>) {
   return (
     <html lang={lang} suppressHydrationWarning>
-      <body className={`antialiased ${bodyClassName} mr-2`}>
+      <body
+        className={["antialiased", bodyClassName].filter(Boolean).join(" ")}
+      >
         <AppProvider>
           <Suspense
             fallback={

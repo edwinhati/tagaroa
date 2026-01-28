@@ -344,6 +344,7 @@ func TestAccountRepositoryGetCurrencyAggregations(t *testing.T) {
 
 	assert.NoError(t, mock.ExpectationsWereMet())
 }
+
 func TestAccountRepositoryFindManyWithMultipleFilters(t *testing.T) {
 	db, mock, repo := setupAccountRepository(t)
 	defer db.Close()
@@ -398,6 +399,7 @@ func TestAccountRepositoryCountWithTypeFilter(t *testing.T) {
 	assert.Equal(t, 2, count)
 	assert.NoError(t, mock.ExpectationsWereMet())
 }
+
 func TestAccountRepositoryFindUniqueDatabaseError(t *testing.T) {
 	db, mock, repo := setupAccountRepository(t)
 	defer db.Close()
@@ -609,6 +611,7 @@ func TestAccountRepositoryFindManyEmptyWhere(t *testing.T) {
 	assert.Len(t, accounts, 0)
 	assert.NoError(t, mock.ExpectationsWereMet())
 }
+
 func TestAccountRepositoryFindManyRowsScanError(t *testing.T) {
 	db, mock, repo := setupAccountRepository(t)
 	defer db.Close()

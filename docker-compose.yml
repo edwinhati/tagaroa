@@ -12,6 +12,19 @@ services:
     volumes:
       - "postgres_data:/var/lib/postgresql/data"
 
+  clickhouse:
+    image: "clickhouse/clickhouse-server:latest"
+    container_name: "clickhouse"
+    restart: "always"
+    ports:
+      - "8123:8123"
+      - "9009:9000"
+    volumes:
+      - "clickhouse_data:/var/lib/clickhouse"
+    environment:
+      CLICKHOUSE_USER: "default"
+      CLICKHOUSE_PASSWORD: "clickhouse"
+
   kafka:
     image: "confluentinc/cp-kafka:latest"
     container_name: "kafka"
@@ -114,8 +127,7 @@ services:
       - "--accesslog=true"
     volumes:
       - "/var/run/docker.sock:/var/run/docker.sock:ro"
-
-  # API Gateway for tagaroa.local
+    
   api-gateway:
     image: "alpine"
     command:
@@ -124,13 +136,13 @@ services:
     labels:
       - "traefik.enable=true"
       # API routes on main domain
-      - "traefik.http.routers.auth-api.rule=Host(`tagaroa.local`) && PathPrefix(`/api/auth`)"
+      - "traefik.http.routers.auth-api.rule=PathPrefix(`/api/auth`)"
       - "traefik.http.routers.auth-api.entrypoints=web"
       - "traefik.http.routers.auth-api.priority=300"
       - "traefik.http.services.auth-server.loadbalancer.server.url=http://host.docker.internal:8081"
       - "traefik.http.routers.auth-api.service=auth-server"
       
-      - "traefik.http.routers.finance-api.rule=Host(`tagaroa.local`) && PathPrefix(`/api/finance`)"
+      - "traefik.http.routers.finance-api.rule=PathPrefix(`/api/finance`)"
       - "traefik.http.routers.finance-api.entrypoints=web"
       - "traefik.http.routers.finance-api.priority=300"
       - "traefik.http.services.finance-server.loadbalancer.server.url=http://host.docker.internal:8082"
@@ -138,72 +150,13 @@ services:
       - "traefik.http.routers.finance-api.middlewares=finance-stripprefix"
       - "traefik.http.routers.finance-api.service=finance-server"
       
-      - "traefik.http.routers.storage-api.rule=Host(`tagaroa.local`) && PathPrefix(`/api/storage`)"
+      - "traefik.http.routers.storage-api.rule=PathPrefix(`/api/storage`)"
       - "traefik.http.routers.storage-api.entrypoints=web"
       - "traefik.http.routers.storage-api.priority=300"
       - "traefik.http.services.storage-server.loadbalancer.server.url=http://host.docker.internal:8084"
       - "traefik.http.middlewares.storage-stripprefix.stripprefix.prefixes=/api/storage"
       - "traefik.http.routers.storage-api.middlewares=storage-stripprefix"
       - "traefik.http.routers.storage-api.service=storage-server"
-      
-      # Main web app
-      - "traefik.http.routers.web-app.rule=Host(`tagaroa.local`)"
-      - "traefik.http.routers.web-app.entrypoints=web"
-      - "traefik.http.routers.web-app.priority=100"
-      - "traefik.http.services.web-app.loadbalancer.server.url=http://host.docker.internal:3000"
-      - "traefik.http.routers.web-app.service=web-app"
-
-  # Auth app on subdomain
-  auth-proxy:
-    image: "alpine"
-    command:
-      - "sleep"
-      - "infinity"
-    labels:
-      - "traefik.enable=true"
-      - "traefik.http.routers.auth-app.rule=Host(`auth.tagaroa.local`)"
-      - "traefik.http.routers.auth-app.entrypoints=web"
-      - "traefik.http.services.auth-app.loadbalancer.server.url=http://host.docker.internal:3001"
-      - "traefik.http.routers.auth-app.service=auth-app"
-
-  # Admin app on subdomain
-  admin-proxy:
-    image: "alpine"
-    command:
-      - "sleep"
-      - "infinity"
-    labels:
-      - "traefik.enable=true"
-      - "traefik.http.routers.admin-app.rule=Host(`admin.tagaroa.local`)"
-      - "traefik.http.routers.admin-app.entrypoints=web"
-      - "traefik.http.services.admin-app.loadbalancer.server.url=http://host.docker.internal:3002"
-      - "traefik.http.routers.admin-app.service=admin-app"
-
-  # Finance app on subdomain
-  finance-proxy:
-    image: "alpine"
-    command:
-      - "sleep"
-      - "infinity"
-    labels:
-      - "traefik.enable=true"
-      - "traefik.http.routers.finance-app.rule=Host(`finance.tagaroa.local`)"
-      - "traefik.http.routers.finance-app.entrypoints=web"
-      - "traefik.http.services.finance-app.loadbalancer.server.url=http://host.docker.internal:3004"
-      - "traefik.http.routers.finance-app.service=finance-app"
-
-  # Docs app on subdomain
-  docs-proxy:
-    image: "alpine"
-    command:
-      - "sleep"
-      - "infinity"
-    labels:
-      - "traefik.enable=true"
-      - "traefik.http.routers.docs-app.rule=Host(`docs.tagaroa.local`)"
-      - "traefik.http.routers.docs-app.entrypoints=web"
-      - "traefik.http.services.docs-app.loadbalancer.server.url=http://host.docker.internal:3010"
-      - "traefik.http.routers.docs-app.service=docs-app"
 
   drizzle-gateway:
     container_name: drizzle-gate
@@ -220,6 +173,7 @@ services:
 
 volumes:
   postgres_data:
+  clickhouse_data:
   kafka_data:
   minio_data:
   n8n_data:

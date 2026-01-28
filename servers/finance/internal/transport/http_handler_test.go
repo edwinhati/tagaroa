@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"net/http"
 	"net/http/httptest"
@@ -54,6 +55,7 @@ func (m *MockAccountService) CreateAccount(ctx context.Context, account *model.A
 	}
 	return args.Get(0).(*model.Account), args.Error(1)
 }
+
 func (m *MockAccountService) GetAccount(ctx context.Context, id, userID uuid.UUID) (*model.Account, error) {
 	args := m.Called(ctx, id, userID)
 	if args.Get(0) == nil {
@@ -61,6 +63,7 @@ func (m *MockAccountService) GetAccount(ctx context.Context, id, userID uuid.UUI
 	}
 	return args.Get(0).(*model.Account), args.Error(1)
 }
+
 func (m *MockAccountService) GetAccounts(ctx context.Context, params service.GetAccountsParams) (*service.GetAccountsResult, error) {
 	args := m.Called(ctx, params)
 	if args.Get(0) == nil {
@@ -68,6 +71,7 @@ func (m *MockAccountService) GetAccounts(ctx context.Context, params service.Get
 	}
 	return args.Get(0).(*service.GetAccountsResult), args.Error(1)
 }
+
 func (m *MockAccountService) UpdateAccount(ctx context.Context, id uuid.UUID, input service.UpdateAccountInput, userID uuid.UUID) (*model.Account, error) {
 	args := m.Called(ctx, id, input, userID)
 	if args.Get(0) == nil {
@@ -75,6 +79,7 @@ func (m *MockAccountService) UpdateAccount(ctx context.Context, id uuid.UUID, in
 	}
 	return args.Get(0).(*model.Account), args.Error(1)
 }
+
 func (m *MockAccountService) DeleteAccount(ctx context.Context, id uuid.UUID, userID uuid.UUID) error {
 	args := m.Called(ctx, id, userID)
 	return args.Error(0)
@@ -1656,5 +1661,1394 @@ func TestConvertTransactionAggregations(t *testing.T) {
 		got := convertTransactionAggregations(result)
 		require.NotNil(t, got)
 		assert.Len(t, *got, 1)
+	})
+}
+
+/* -------------------- Asset Service Mock & Handler -------------------- */
+
+type MockAssetService struct{ mock.Mock }
+
+func (m *MockAssetService) CreateAsset(ctx context.Context, asset *model.Asset) (*model.Asset, error) {
+	args := m.Called(ctx, asset)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).(*model.Asset), args.Error(1)
+}
+
+func (m *MockAssetService) GetAsset(ctx context.Context, id, userID uuid.UUID) (*model.Asset, error) {
+	args := m.Called(ctx, id, userID)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).(*model.Asset), args.Error(1)
+}
+
+func (m *MockAssetService) GetAssets(ctx context.Context, params service.GetAssetsParams) (*service.GetAssetsResult, error) {
+	args := m.Called(ctx, params)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).(*service.GetAssetsResult), args.Error(1)
+}
+
+func (m *MockAssetService) UpdateAsset(ctx context.Context, id uuid.UUID, input service.UpdateAssetInput, userID uuid.UUID) (*model.Asset, error) {
+	args := m.Called(ctx, id, input, userID)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).(*model.Asset), args.Error(1)
+}
+
+func (m *MockAssetService) DeleteAsset(ctx context.Context, id, userID uuid.UUID) error {
+	args := m.Called(ctx, id, userID)
+	return args.Error(0)
+}
+
+func setupAssetHandler(t *testing.T) (*AssetHandler, *MockAssetService) {
+	mockSvc := new(MockAssetService)
+	mockOIDC := &client.OIDCClient{}
+	return NewAssetHandler(mockOIDC, mockSvc), mockSvc
+}
+
+const (
+	assetPath             = "/asset"
+	assetPathWithIDPrefix = "/asset/"
+	assetsPath            = "/assets"
+	assetTypesPath        = "/asset/types"
+)
+
+func assetPathWithID(id uuid.UUID) string {
+	return assetPathWithIDPrefix + id.String()
+}
+
+/* ------------------------ Asset Handler Tests ------------------------ */
+
+func TestAssetHandlerCreateAsset(t *testing.T) {
+	handler, mockSvc := setupAssetHandler(t)
+	userID := uuid.New()
+
+	okReq := CreateAssetRequest{
+		Name:     "Test Stock",
+		Type:     model.AssetTypeStock,
+		Value:    1000.0,
+		Currency: "USD",
+	}
+	okAsset := &model.Asset{
+		ID:       uuid.New(),
+		Name:     okReq.Name,
+		Type:     okReq.Type,
+		Value:    okReq.Value,
+		Currency: okReq.Currency,
+		UserID:   userID,
+	}
+
+	tests := []struct {
+		name       string
+		req        *http.Request
+		mockSetup  func()
+		wantStatus int
+	}{
+		{
+			name: "success",
+			req:  authedReq("POST", assetPath, okReq, userID),
+			mockSetup: func() {
+				mockSvc.
+					On("CreateAsset", mock.Anything, mock.AnythingOfType("*model.Asset")).
+					Return(okAsset, nil).Once()
+			},
+			wantStatus: http.StatusOK,
+		},
+		{
+			name: "invalid type",
+			req:  authedReq("POST", assetPath, CreateAssetRequest{Name: "A", Type: "INVALID", Value: 10, Currency: "USD"}, userID),
+			mockSetup: func() {
+				mockSvc.
+					On("CreateAsset", mock.Anything, mock.AnythingOfType("*model.Asset")).
+					Return(nil, service.ErrInvalidAssetType).Once()
+			},
+			wantStatus: http.StatusBadRequest,
+		},
+		{
+			name: invalidJSONBody,
+			req: func() *http.Request {
+				return authedReq("POST", assetPath, nil, userID).WithContext(authedReq("POST", assetPath, nil, userID).Context())
+			}(),
+			mockSetup:  func() {},
+			wantStatus: http.StatusBadRequest,
+		},
+		{
+			name: serviceErrorCaseName,
+			req:  authedReq("POST", assetPath, okReq, userID),
+			mockSetup: func() {
+				mockSvc.
+					On("CreateAsset", mock.Anything, mock.AnythingOfType("*model.Asset")).
+					Return(nil, fmt.Errorf(serviceErrorCaseName)).Once()
+			},
+			wantStatus: http.StatusInternalServerError,
+		},
+		{
+			name: noUserIDCaseName,
+			req:  httptest.NewRequest("POST", assetPath, bytes.NewBufferString("{}")),
+			mockSetup: func() {
+				mockSvc.AssertNotCalled(t, "CreateAsset")
+			},
+			wantStatus: http.StatusUnauthorized,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			tt.mockSetup()
+			w := perform(handler.CreateAsset, tt.req)
+			assert.Equal(t, tt.wantStatus, w.Code)
+			mockSvc.AssertExpectations(t)
+		})
+	}
+}
+
+func TestAssetHandlerGetAsset(t *testing.T) {
+	handler, mockSvc := setupAssetHandler(t)
+	userID := uuid.New()
+	assetID := uuid.New()
+
+	okAsset := &model.Asset{
+		ID:       assetID,
+		Name:     "Test Stock",
+		Type:     model.AssetTypeStock,
+		Value:    1000.0,
+		Currency: "USD",
+		UserID:   userID,
+	}
+
+	req := authedReq("GET", assetPathWithID(assetID), nil, userID)
+	req.SetPathValue("id", assetID.String())
+
+	tests := []struct {
+		name       string
+		req        *http.Request
+		mockSetup  func()
+		wantStatus int
+	}{
+		{
+			name:       "success",
+			req:        req,
+			wantStatus: http.StatusOK,
+			mockSetup: func() {
+				mockSvc.
+					On("GetAsset", mock.Anything, assetID, userID).
+					Return(okAsset, nil).Once()
+			},
+		},
+		{
+			name:       "not found",
+			req:        req,
+			wantStatus: http.StatusNotFound,
+			mockSetup: func() {
+				mockSvc.
+					On("GetAsset", mock.Anything, assetID, userID).
+					Return(nil, service.ErrAssetNotFound).Once()
+			},
+		},
+		{
+			name: "invalid uuid",
+			req: func() *http.Request {
+				r := authedReq("GET", "/asset/invalid-uuid", nil, userID)
+				r.SetPathValue("id", "invalid-uuid")
+				return r
+			}(),
+			wantStatus: http.StatusBadRequest,
+			mockSetup: func() {
+				mockSvc.AssertNotCalled(t, "GetAsset")
+			},
+		},
+		{
+			name:       "service error",
+			req:        req,
+			wantStatus: http.StatusInternalServerError,
+			mockSetup: func() {
+				mockSvc.
+					On("GetAsset", mock.Anything, assetID, userID).
+					Return(nil, fmt.Errorf("db error")).Once()
+			},
+		},
+		{
+			name: noUserIDCaseName,
+			req: func() *http.Request {
+				r := httptest.NewRequest("GET", assetPathWithID(assetID), nil)
+				r.SetPathValue("id", assetID.String())
+				return r
+			}(),
+			wantStatus: http.StatusUnauthorized,
+			mockSetup: func() {
+				mockSvc.AssertNotCalled(t, "GetAsset")
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			tt.mockSetup()
+			w := perform(handler.GetAsset, tt.req)
+			assert.Equal(t, tt.wantStatus, w.Code)
+			mockSvc.AssertExpectations(t)
+		})
+	}
+}
+
+func TestAssetHandlerGetAssets(t *testing.T) {
+	handler, mockSvc := setupAssetHandler(t)
+	userID := uuid.New()
+
+	okResult := &service.GetAssetsResult{
+		Assets: []*model.Asset{
+			{ID: uuid.New(), Name: "Stock 1", Type: model.AssetTypeStock, Value: 1000, UserID: userID, Currency: "USD"},
+		},
+		Total: 1,
+	}
+
+	tests := []struct {
+		name       string
+		req        *http.Request
+		mockSetup  func()
+		wantStatus int
+	}{
+		{
+			name:       "success with pagination",
+			req:        authedReq("GET", "/assets?page=2&limit=50", nil, userID),
+			wantStatus: http.StatusOK,
+			mockSetup: func() {
+				mockSvc.
+					On("GetAssets", mock.Anything, mock.AnythingOfType("service.GetAssetsParams")).
+					Return(okResult, nil).Once()
+			},
+		},
+		{
+			name:       "success with filters",
+			req:        authedReq("GET", "/assets?type=STOCK&type=CRYPTO&currency=USD", nil, userID),
+			wantStatus: http.StatusOK,
+			mockSetup: func() {
+				mockSvc.
+					On("GetAssets", mock.Anything, mock.Anything).
+					Return(okResult, nil).Once()
+			},
+		},
+		{
+			name:       "service error",
+			req:        authedReq("GET", assetsPath, nil, userID),
+			wantStatus: http.StatusInternalServerError,
+			mockSetup: func() {
+				mockSvc.
+					On("GetAssets", mock.Anything, mock.Anything).
+					Return(nil, fmt.Errorf("db error")).Once()
+			},
+		},
+		{
+			name:       noUserIDCaseName,
+			req:        httptest.NewRequest("GET", assetsPath, nil),
+			wantStatus: http.StatusUnauthorized,
+			mockSetup: func() {
+				mockSvc.AssertNotCalled(t, "GetAssets")
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			tt.mockSetup()
+			w := perform(handler.GetAssets, tt.req)
+			assert.Equal(t, tt.wantStatus, w.Code)
+			mockSvc.AssertExpectations(t)
+		})
+	}
+}
+
+func TestAssetHandlerUpdateAsset(t *testing.T) {
+	handler, mockSvc := setupAssetHandler(t)
+	userID := uuid.New()
+	assetID := uuid.New()
+
+	updatedAsset := &model.Asset{
+		ID:       assetID,
+		Name:     "Updated Stock",
+		Type:     model.AssetTypeStock,
+		Value:    1500.0,
+		Currency: "USD",
+		UserID:   userID,
+	}
+
+	tests := []struct {
+		name       string
+		req        *http.Request
+		mockSetup  func()
+		wantStatus int
+	}{
+		{
+			name: "success",
+			req: func() *http.Request {
+				r := authedReq("PUT", assetPathWithID(assetID), UpdateAssetRequest{Name: stringPtr("Updated Stock")}, userID)
+				r.SetPathValue("id", assetID.String())
+				return r
+			}(),
+			wantStatus: http.StatusOK,
+			mockSetup: func() {
+				mockSvc.
+					On("UpdateAsset", mock.Anything, assetID, mock.Anything, userID).
+					Return(updatedAsset, nil).Once()
+			},
+		},
+		{
+			name: "not found",
+			req: func() *http.Request {
+				r := authedReq("PUT", assetPathWithID(assetID), UpdateAssetRequest{}, userID)
+				r.SetPathValue("id", assetID.String())
+				return r
+			}(),
+			wantStatus: http.StatusNotFound,
+			mockSetup: func() {
+				mockSvc.
+					On("UpdateAsset", mock.Anything, assetID, mock.Anything, userID).
+					Return(nil, service.ErrAssetNotFound).Once()
+			},
+		},
+		{
+			name: invalidJSONBody,
+			req: func() *http.Request {
+				r := httptest.NewRequest("PUT", assetPathWithID(assetID), bytes.NewBufferString(invalidJSONBody))
+				r.Header.Set("Content-Type", "application/json")
+				ctx := context.WithValue(r.Context(), util.UserIDKey, userID.String())
+				r = r.WithContext(ctx)
+				r.SetPathValue("id", assetID.String())
+				return r
+			}(),
+			wantStatus: http.StatusBadRequest,
+			mockSetup: func() {
+				mockSvc.AssertNotCalled(t, "UpdateAsset")
+			},
+		},
+		{
+			name: noUserIDCaseName,
+			req: func() *http.Request {
+				r := httptest.NewRequest("PUT", assetPathWithID(assetID), bytes.NewBufferString("{}"))
+				r.SetPathValue("id", assetID.String())
+				return r
+			}(),
+			wantStatus: http.StatusUnauthorized,
+			mockSetup: func() {
+				mockSvc.AssertNotCalled(t, "UpdateAsset")
+			},
+		},
+		{
+			name: invalidJSONBody,
+			req: func() *http.Request {
+				r := httptest.NewRequest("PUT", assetPathWithID(assetID), bytes.NewBufferString(invalidJSONBody))
+				r.Header.Set("Content-Type", "application/json")
+				ctx := context.WithValue(r.Context(), util.UserIDKey, userID.String())
+				r = r.WithContext(ctx)
+				r.SetPathValue("id", assetID.String())
+				return r
+			}(),
+			wantStatus: http.StatusBadRequest,
+			mockSetup: func() {
+				mockSvc.AssertNotCalled(t, "UpdateAsset")
+			},
+		},
+		{
+			name: serviceErrorCaseName,
+			req: func() *http.Request {
+				r := authedReq("PUT", assetPathWithID(assetID), UpdateAssetRequest{}, userID)
+				r.SetPathValue("id", assetID.String())
+				return r
+			}(),
+			wantStatus: http.StatusInternalServerError,
+			mockSetup: func() {
+				mockSvc.
+					On("UpdateAsset", mock.Anything, assetID, mock.Anything, userID).
+					Return(nil, fmt.Errorf("database error")).Once()
+			},
+		},
+		{
+			name: "generic service error (not not found)",
+			req: func() *http.Request {
+				r := authedReq("PUT", assetPathWithID(assetID), UpdateAssetRequest{}, userID)
+				r.SetPathValue("id", assetID.String())
+				return r
+			}(),
+			wantStatus: http.StatusInternalServerError,
+			mockSetup: func() {
+				mockSvc.
+					On("UpdateAsset", mock.Anything, assetID, mock.Anything, userID).
+					Return(nil, errors.New("unexpected error")).Once()
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			tt.mockSetup()
+			w := perform(handler.UpdateAsset, tt.req)
+			assert.Equal(t, tt.wantStatus, w.Code)
+			mockSvc.AssertExpectations(t)
+		})
+	}
+}
+
+func TestAssetHandlerDeleteAsset(t *testing.T) {
+	handler, mockSvc := setupAssetHandler(t)
+	userID := uuid.New()
+	assetID := uuid.New()
+
+	tests := []struct {
+		name       string
+		req        *http.Request
+		mockSetup  func()
+		wantStatus int
+	}{
+		{
+			name: "success",
+			req: func() *http.Request {
+				r := authedReq("DELETE", assetPathWithID(assetID), nil, userID)
+				r.SetPathValue("id", assetID.String())
+				return r
+			}(),
+			wantStatus: http.StatusOK,
+			mockSetup: func() {
+				mockSvc.
+					On("DeleteAsset", mock.Anything, assetID, userID).
+					Return(nil).Once()
+			},
+		},
+		{
+			name: "not found",
+			req: func() *http.Request {
+				r := authedReq("DELETE", assetPathWithID(assetID), nil, userID)
+				r.SetPathValue("id", assetID.String())
+				return r
+			}(),
+			wantStatus: http.StatusNotFound,
+			mockSetup: func() {
+				mockSvc.
+					On("DeleteAsset", mock.Anything, assetID, userID).
+					Return(service.ErrAssetNotFound).Once()
+			},
+		},
+		{
+			name: "service error",
+			req: func() *http.Request {
+				r := authedReq("DELETE", assetPathWithID(assetID), nil, userID)
+				r.SetPathValue("id", assetID.String())
+				return r
+			}(),
+			wantStatus: http.StatusInternalServerError,
+			mockSetup: func() {
+				mockSvc.
+					On("DeleteAsset", mock.Anything, assetID, userID).
+					Return(fmt.Errorf("service error")).Once()
+			},
+		},
+		{
+			name: "invalid uuid",
+			req: func() *http.Request {
+				r := authedReq("DELETE", "/asset/invalid-uuid", nil, userID)
+				r.SetPathValue("id", "invalid-uuid")
+				return r
+			}(),
+			wantStatus: http.StatusBadRequest,
+			mockSetup: func() {
+				mockSvc.AssertNotCalled(t, "DeleteAsset")
+			},
+		},
+		{
+			name: noUserIDCaseName,
+			req: func() *http.Request {
+				r := httptest.NewRequest("DELETE", assetPathWithID(assetID), nil)
+				r.SetPathValue("id", assetID.String())
+				return r
+			}(),
+			wantStatus: http.StatusUnauthorized,
+			mockSetup: func() {
+				mockSvc.AssertNotCalled(t, "DeleteAsset")
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			tt.mockSetup()
+			w := perform(handler.DeleteAsset, tt.req)
+			assert.Equal(t, tt.wantStatus, w.Code)
+			mockSvc.AssertExpectations(t)
+		})
+	}
+}
+
+func TestAssetHandlerGetAssetTypes(t *testing.T) {
+	handler, _ := setupAssetHandler(t)
+	userID := uuid.New()
+
+	req := authedReq("GET", assetTypesPath, nil, userID)
+	w := perform(handler.GetAssetTypes, req)
+
+	assert.Equal(t, http.StatusOK, w.Code)
+	assert.Contains(t, w.Body.String(), "STOCK")
+	assert.Contains(t, w.Body.String(), "CRYPTO")
+}
+
+func TestAssetHandlerSetupRoutes(t *testing.T) {
+	handler, _ := setupAssetHandler(t)
+	r := router.NewRouter()
+	assert.NotPanics(t, func() { handler.SetupRoutes(r) })
+}
+
+/* ------------------- Liability Service Mock & Handler ------------------- */
+
+type MockLiabilityService struct{ mock.Mock }
+
+func (m *MockLiabilityService) CreateLiability(ctx context.Context, liability *model.Liability) (*model.Liability, error) {
+	args := m.Called(ctx, liability)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).(*model.Liability), args.Error(1)
+}
+
+func (m *MockLiabilityService) GetLiability(ctx context.Context, id, userID uuid.UUID) (*model.Liability, error) {
+	args := m.Called(ctx, id, userID)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).(*model.Liability), args.Error(1)
+}
+
+func (m *MockLiabilityService) GetLiabilities(ctx context.Context, params service.GetLiabilitiesParams) (*service.GetLiabilitiesResult, error) {
+	args := m.Called(ctx, params)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).(*service.GetLiabilitiesResult), args.Error(1)
+}
+
+func (m *MockLiabilityService) UpdateLiability(ctx context.Context, id uuid.UUID, input service.UpdateLiabilityInput, userID uuid.UUID) (*model.Liability, error) {
+	args := m.Called(ctx, id, input, userID)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).(*model.Liability), args.Error(1)
+}
+
+func (m *MockLiabilityService) DeleteLiability(ctx context.Context, id, userID uuid.UUID) error {
+	args := m.Called(ctx, id, userID)
+	return args.Error(0)
+}
+
+func setupLiabilityHandler(t *testing.T) (*LiabilityHandler, *MockLiabilityService) {
+	mockSvc := new(MockLiabilityService)
+	mockOIDC := &client.OIDCClient{}
+	return NewLiabilityHandler(mockOIDC, mockSvc), mockSvc
+}
+
+const (
+	liabilityPath             = "/liability"
+	liabilityPathWithIDPrefix = "/liability/"
+	liabilitiesPath           = "/liabilities"
+	liabilityTypesPath        = "/liability/types"
+)
+
+func liabilityPathWithID(id uuid.UUID) string {
+	return liabilityPathWithIDPrefix + id.String()
+}
+
+/* ----------------------- Liability Handler Tests ---------------------- */
+
+func TestLiabilityHandlerCreateLiability(t *testing.T) {
+	handler, mockSvc := setupLiabilityHandler(t)
+	userID := uuid.New()
+
+	okReq := CreateLiabilityRequest{
+		Name:     "Test Loan",
+		Type:     model.LiabilityTypeLoan,
+		Amount:   1000.0,
+		Currency: "USD",
+	}
+	okLiability := &model.Liability{
+		ID:       uuid.New(),
+		Name:     okReq.Name,
+		Type:     okReq.Type,
+		Amount:   okReq.Amount,
+		Currency: okReq.Currency,
+		UserID:   userID,
+	}
+
+	tests := []struct {
+		name       string
+		req        *http.Request
+		mockSetup  func()
+		wantStatus int
+	}{
+		{
+			name: "success",
+			req:  authedReq("POST", liabilityPath, okReq, userID),
+			mockSetup: func() {
+				mockSvc.
+					On("CreateLiability", mock.Anything, mock.AnythingOfType("*model.Liability")).
+					Return(okLiability, nil).Once()
+			},
+			wantStatus: http.StatusOK,
+		},
+		{
+			name: "invalid type",
+			req:  authedReq("POST", liabilityPath, CreateLiabilityRequest{Name: "A", Type: "INVALID", Amount: 10, Currency: "USD"}, userID),
+			mockSetup: func() {
+				mockSvc.
+					On("CreateLiability", mock.Anything, mock.AnythingOfType("*model.Liability")).
+					Return(nil, service.ErrInvalidLiabilityType).Once()
+			},
+			wantStatus: http.StatusBadRequest,
+		},
+		{
+			name: invalidJSONBody,
+			req: func() *http.Request {
+				return authedReq("POST", liabilityPath, nil, userID).WithContext(authedReq("POST", liabilityPath, nil, userID).Context())
+			}(),
+			mockSetup:  func() {},
+			wantStatus: http.StatusBadRequest,
+		},
+		{
+			name: serviceErrorCaseName,
+			req:  authedReq("POST", liabilityPath, okReq, userID),
+			mockSetup: func() {
+				mockSvc.
+					On("CreateLiability", mock.Anything, mock.AnythingOfType("*model.Liability")).
+					Return(nil, fmt.Errorf(serviceErrorCaseName)).Once()
+			},
+			wantStatus: http.StatusInternalServerError,
+		},
+		{
+			name: noUserIDCaseName,
+			req:  httptest.NewRequest("POST", liabilityPath, bytes.NewBufferString("{}")),
+			mockSetup: func() {
+				mockSvc.AssertNotCalled(t, "CreateLiability")
+			},
+			wantStatus: http.StatusUnauthorized,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			tt.mockSetup()
+			w := perform(handler.CreateLiability, tt.req)
+			assert.Equal(t, tt.wantStatus, w.Code)
+			mockSvc.AssertExpectations(t)
+		})
+	}
+}
+
+func TestLiabilityHandlerGetLiability(t *testing.T) {
+	handler, mockSvc := setupLiabilityHandler(t)
+	userID := uuid.New()
+	liabilityID := uuid.New()
+
+	okLiability := &model.Liability{
+		ID:       liabilityID,
+		Name:     "Test Loan",
+		Type:     model.LiabilityTypeLoan,
+		Amount:   1000.0,
+		Currency: "USD",
+		UserID:   userID,
+	}
+
+	req := authedReq("GET", liabilityPathWithID(liabilityID), nil, userID)
+	req.SetPathValue("id", liabilityID.String())
+
+	tests := []struct {
+		name       string
+		req        *http.Request
+		mockSetup  func()
+		wantStatus int
+	}{
+		{
+			name:       "success",
+			req:        req,
+			wantStatus: http.StatusOK,
+			mockSetup: func() {
+				mockSvc.
+					On("GetLiability", mock.Anything, liabilityID, userID).
+					Return(okLiability, nil).Once()
+			},
+		},
+		{
+			name:       "not found",
+			req:        req,
+			wantStatus: http.StatusNotFound,
+			mockSetup: func() {
+				mockSvc.
+					On("GetLiability", mock.Anything, liabilityID, userID).
+					Return(nil, service.ErrLiabilityNotFound).Once()
+			},
+		},
+		{
+			name: "invalid uuid",
+			req: func() *http.Request {
+				r := authedReq("GET", "/liability/invalid-uuid", nil, userID)
+				r.SetPathValue("id", "invalid-uuid")
+				return r
+			}(),
+			wantStatus: http.StatusBadRequest,
+			mockSetup: func() {
+				mockSvc.AssertNotCalled(t, "GetLiability")
+			},
+		},
+		{
+			name:       "service error",
+			req:        req,
+			wantStatus: http.StatusInternalServerError,
+			mockSetup: func() {
+				mockSvc.
+					On("GetLiability", mock.Anything, liabilityID, userID).
+					Return(nil, fmt.Errorf("db error")).Once()
+			},
+		},
+		{
+			name: noUserIDCaseName,
+			req: func() *http.Request {
+				r := httptest.NewRequest("GET", liabilityPathWithID(liabilityID), nil)
+				r.SetPathValue("id", liabilityID.String())
+				return r
+			}(),
+			wantStatus: http.StatusUnauthorized,
+			mockSetup: func() {
+				mockSvc.AssertNotCalled(t, "GetLiability")
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			tt.mockSetup()
+			w := perform(handler.GetLiability, tt.req)
+			assert.Equal(t, tt.wantStatus, w.Code)
+			mockSvc.AssertExpectations(t)
+		})
+	}
+}
+
+func TestLiabilityHandlerGetLiabilities(t *testing.T) {
+	handler, mockSvc := setupLiabilityHandler(t)
+	userID := uuid.New()
+
+	okResult := &service.GetLiabilitiesResult{
+		Liabilities: []*model.Liability{
+			{ID: uuid.New(), Name: "Loan 1", Type: model.LiabilityTypeLoan, Amount: 1000, UserID: userID, Currency: "USD"},
+		},
+		Total: 1,
+	}
+
+	tests := []struct {
+		name       string
+		req        *http.Request
+		mockSetup  func()
+		wantStatus int
+	}{
+		{
+			name:       "success with pagination",
+			req:        authedReq("GET", "/liabilities?page=2&limit=50", nil, userID),
+			wantStatus: http.StatusOK,
+			mockSetup: func() {
+				mockSvc.
+					On("GetLiabilities", mock.Anything, mock.AnythingOfType("service.GetLiabilitiesParams")).
+					Return(okResult, nil).Once()
+			},
+		},
+		{
+			name:       "success with filters",
+			req:        authedReq("GET", "/liabilities?type=LOAN&type=MORTGAGE&currency=USD", nil, userID),
+			wantStatus: http.StatusOK,
+			mockSetup: func() {
+				mockSvc.
+					On("GetLiabilities", mock.Anything, mock.Anything).
+					Return(okResult, nil).Once()
+			},
+		},
+		{
+			name:       "service error",
+			req:        authedReq("GET", liabilitiesPath, nil, userID),
+			wantStatus: http.StatusInternalServerError,
+			mockSetup: func() {
+				mockSvc.
+					On("GetLiabilities", mock.Anything, mock.Anything).
+					Return(nil, fmt.Errorf("db error")).Once()
+			},
+		},
+		{
+			name:       noUserIDCaseName,
+			req:        httptest.NewRequest("GET", liabilitiesPath, nil),
+			wantStatus: http.StatusUnauthorized,
+			mockSetup: func() {
+				mockSvc.AssertNotCalled(t, "GetLiabilities")
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			tt.mockSetup()
+			w := perform(handler.GetLiabilities, tt.req)
+			assert.Equal(t, tt.wantStatus, w.Code)
+			mockSvc.AssertExpectations(t)
+		})
+	}
+}
+
+func TestLiabilityHandlerUpdateLiability(t *testing.T) {
+	handler, mockSvc := setupLiabilityHandler(t)
+	userID := uuid.New()
+	liabilityID := uuid.New()
+
+	updatedLiability := &model.Liability{
+		ID:       liabilityID,
+		Name:     "Updated Loan",
+		Type:     model.LiabilityTypeLoan,
+		Amount:   1500.0,
+		Currency: "USD",
+		UserID:   userID,
+	}
+
+	tests := []struct {
+		name       string
+		req        *http.Request
+		mockSetup  func()
+		wantStatus int
+	}{
+		{
+			name: "success",
+			req: func() *http.Request {
+				r := authedReq("PUT", liabilityPathWithID(liabilityID), UpdateLiabilityRequest{Amount: float64Ptr(1500.0)}, userID)
+				r.SetPathValue("id", liabilityID.String())
+				return r
+			}(),
+			wantStatus: http.StatusOK,
+			mockSetup: func() {
+				mockSvc.
+					On("UpdateLiability", mock.Anything, liabilityID, mock.Anything, userID).
+					Return(updatedLiability, nil).Once()
+			},
+		},
+		{
+			name: "not found",
+			req: func() *http.Request {
+				r := authedReq("PUT", liabilityPathWithID(liabilityID), UpdateLiabilityRequest{}, userID)
+				r.SetPathValue("id", liabilityID.String())
+				return r
+			}(),
+			wantStatus: http.StatusNotFound,
+			mockSetup: func() {
+				mockSvc.
+					On("UpdateLiability", mock.Anything, liabilityID, mock.Anything, userID).
+					Return(nil, service.ErrLiabilityNotFound).Once()
+			},
+		},
+		{
+			name: "service error",
+			req: func() *http.Request {
+				r := authedReq("PUT", liabilityPathWithID(liabilityID), UpdateLiabilityRequest{}, userID)
+				r.SetPathValue("id", liabilityID.String())
+				return r
+			}(),
+			wantStatus: http.StatusInternalServerError,
+			mockSetup: func() {
+				mockSvc.
+					On("UpdateLiability", mock.Anything, liabilityID, mock.Anything, userID).
+					Return(nil, fmt.Errorf("service error")).Once()
+			},
+		},
+		{
+			name: "generic service error (not not found)",
+			req: func() *http.Request {
+				r := authedReq("PUT", liabilityPathWithID(liabilityID), UpdateLiabilityRequest{}, userID)
+				r.SetPathValue("id", liabilityID.String())
+				return r
+			}(),
+			wantStatus: http.StatusInternalServerError,
+			mockSetup: func() {
+				mockSvc.
+					On("UpdateLiability", mock.Anything, liabilityID, mock.Anything, userID).
+					Return(nil, errors.New("unexpected error")).Once()
+			},
+		},
+		{
+			name: "invalid json",
+			req: func() *http.Request {
+				r := authedReq("PUT", liabilityPathWithID(liabilityID), nil, userID)
+				r.SetPathValue("id", liabilityID.String())
+				return r.WithContext(authedReq("PUT", liabilityPathWithID(liabilityID), nil, userID).Context())
+			}(),
+			wantStatus: http.StatusBadRequest,
+			mockSetup: func() {
+				mockSvc.AssertNotCalled(t, "UpdateLiability")
+			},
+		},
+		{
+			name: noUserIDCaseName,
+			req: func() *http.Request {
+				r := httptest.NewRequest("PUT", liabilityPathWithID(liabilityID), bytes.NewBufferString("{}"))
+				r.SetPathValue("id", liabilityID.String())
+				return r
+			}(),
+			wantStatus: http.StatusUnauthorized,
+			mockSetup: func() {
+				mockSvc.AssertNotCalled(t, "UpdateLiability")
+			},
+		},
+		{
+			name: invalidJSONBody,
+			req: func() *http.Request {
+				r := httptest.NewRequest("PUT", liabilityPathWithID(liabilityID), bytes.NewBufferString(invalidJSONBody))
+				r.Header.Set("Content-Type", "application/json")
+				ctx := context.WithValue(r.Context(), util.UserIDKey, userID.String())
+				r = r.WithContext(ctx)
+				r.SetPathValue("id", liabilityID.String())
+				return r
+			}(),
+			wantStatus: http.StatusBadRequest,
+			mockSetup: func() {
+				mockSvc.AssertNotCalled(t, "UpdateLiability")
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			tt.mockSetup()
+			w := perform(handler.UpdateLiability, tt.req)
+			assert.Equal(t, tt.wantStatus, w.Code)
+			mockSvc.AssertExpectations(t)
+		})
+	}
+}
+
+func TestLiabilityHandlerDeleteLiability(t *testing.T) {
+	handler, mockSvc := setupLiabilityHandler(t)
+	userID := uuid.New()
+	liabilityID := uuid.New()
+
+	tests := []struct {
+		name       string
+		req        *http.Request
+		mockSetup  func()
+		wantStatus int
+	}{
+		{
+			name: "success",
+			req: func() *http.Request {
+				r := authedReq("DELETE", liabilityPathWithID(liabilityID), nil, userID)
+				r.SetPathValue("id", liabilityID.String())
+				return r
+			}(),
+			wantStatus: http.StatusOK,
+			mockSetup: func() {
+				mockSvc.
+					On("DeleteLiability", mock.Anything, liabilityID, userID).
+					Return(nil).Once()
+			},
+		},
+		{
+			name: "not found",
+			req: func() *http.Request {
+				r := authedReq("DELETE", liabilityPathWithID(liabilityID), nil, userID)
+				r.SetPathValue("id", liabilityID.String())
+				return r
+			}(),
+			wantStatus: http.StatusNotFound,
+			mockSetup: func() {
+				mockSvc.
+					On("DeleteLiability", mock.Anything, liabilityID, userID).
+					Return(service.ErrLiabilityNotFound).Once()
+			},
+		},
+		{
+			name: "service error",
+			req: func() *http.Request {
+				r := authedReq("DELETE", liabilityPathWithID(liabilityID), nil, userID)
+				r.SetPathValue("id", liabilityID.String())
+				return r
+			}(),
+			wantStatus: http.StatusInternalServerError,
+			mockSetup: func() {
+				mockSvc.
+					On("DeleteLiability", mock.Anything, liabilityID, userID).
+					Return(fmt.Errorf("service error")).Once()
+			},
+		},
+		{
+			name: "invalid uuid",
+			req: func() *http.Request {
+				r := authedReq("DELETE", "/liability/invalid-uuid", nil, userID)
+				r.SetPathValue("id", "invalid-uuid")
+				return r
+			}(),
+			wantStatus: http.StatusBadRequest,
+			mockSetup: func() {
+				mockSvc.AssertNotCalled(t, "DeleteLiability")
+			},
+		},
+		{
+			name: noUserIDCaseName,
+			req: func() *http.Request {
+				r := httptest.NewRequest("DELETE", liabilityPathWithID(liabilityID), nil)
+				r.SetPathValue("id", liabilityID.String())
+				return r
+			}(),
+			wantStatus: http.StatusUnauthorized,
+			mockSetup: func() {
+				mockSvc.AssertNotCalled(t, "DeleteLiability")
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			tt.mockSetup()
+			w := perform(handler.DeleteLiability, tt.req)
+			assert.Equal(t, tt.wantStatus, w.Code)
+			mockSvc.AssertExpectations(t)
+		})
+	}
+}
+
+func TestLiabilityHandlerGetLiabilityTypes(t *testing.T) {
+	handler, _ := setupLiabilityHandler(t)
+	userID := uuid.New()
+
+	req := authedReq("GET", liabilityTypesPath, nil, userID)
+	w := perform(handler.GetLiabilityTypes, req)
+
+	assert.Equal(t, http.StatusOK, w.Code)
+	assert.Contains(t, w.Body.String(), "LOAN")
+	assert.Contains(t, w.Body.String(), "MORTGAGE")
+}
+
+func TestLiabilityHandlerSetupRoutes(t *testing.T) {
+	handler, _ := setupLiabilityHandler(t)
+	r := router.NewRouter()
+	assert.NotPanics(t, func() { handler.SetupRoutes(r) })
+}
+
+/* -------------------- Dashboard Service Mock & Handler -------------------- */
+
+type MockDashboardService struct{ mock.Mock }
+
+func (m *MockDashboardService) GetSummary(ctx context.Context, params service.SummaryParams) (*service.SummaryResult, error) {
+	args := m.Called(ctx, params)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).(*service.SummaryResult), args.Error(1)
+}
+
+func (m *MockDashboardService) GetAccountAggregations(ctx context.Context, userID uuid.UUID) (*service.AccountAggregationsResult, error) {
+	args := m.Called(ctx, userID)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).(*service.AccountAggregationsResult), args.Error(1)
+}
+
+func (m *MockDashboardService) GetBudgetPerformance(ctx context.Context, userID uuid.UUID, month, year int) (*service.BudgetPerformanceResult, error) {
+	args := m.Called(ctx, userID, month, year)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).(*service.BudgetPerformanceResult), args.Error(1)
+}
+
+func (m *MockDashboardService) GetTransactionTrends(ctx context.Context, userID uuid.UUID, startDate, endDate time.Time, granularity string) (*service.TransactionTrendsResult, error) {
+	args := m.Called(ctx, userID, startDate, endDate, granularity)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).(*service.TransactionTrendsResult), args.Error(1)
+}
+
+func (m *MockDashboardService) GetExpenseBreakdown(ctx context.Context, userID uuid.UUID, startDate, endDate time.Time) (*service.ExpenseBreakdownResult, error) {
+	args := m.Called(ctx, userID, startDate, endDate)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).(*service.ExpenseBreakdownResult), args.Error(1)
+}
+
+func setupDashboardHandler(t *testing.T) (*DashboardHandler, *MockDashboardService) {
+	mockSvc := new(MockDashboardService)
+	mockOIDC := &client.OIDCClient{}
+	return NewDashboardHandler(mockOIDC, mockSvc), mockSvc
+}
+
+const (
+	dashboardSummaryPath           = "/dashboard/summary"
+	dashboardAccountsPath          = "/dashboard/accounts"
+	dashboardBudgetPerformancePath = "/dashboard/budget-performance"
+	dashboardTransactionTrendsPath = "/dashboard/transaction-trends"
+	dashboardExpenseBreakdownPath  = "/dashboard/expense-breakdown"
+)
+
+/* ----------------------- Dashboard Handler Tests ----------------------- */
+
+func TestDashboardHandlerNewDashboardHandler(t *testing.T) {
+	mockSvc := new(MockDashboardService)
+	oidc := &client.OIDCClient{}
+	h := NewDashboardHandler(oidc, mockSvc)
+	assert.NotNil(t, h)
+	assert.Equal(t, oidc, h.oidcClient)
+	assert.Equal(t, mockSvc, h.dashboardService)
+}
+
+func TestDashboardHandlerSetupRoutes(t *testing.T) {
+	handler, _ := setupDashboardHandler(t)
+	r := router.NewRouter()
+	assert.NotPanics(t, func() { handler.SetupRoutes(r) })
+}
+
+func TestDashboardHandlerGetDashboardSummary(t *testing.T) {
+	handler, mockSvc := setupDashboardHandler(t)
+	userID := uuid.New()
+
+	t.Run("success", func(t *testing.T) {
+		mockSvc.On("GetSummary", mock.Anything, mock.AnythingOfType("service.SummaryParams")).
+			Return(&service.SummaryResult{}, nil).Once()
+
+		req := authedReq("GET", dashboardSummaryPath, nil, userID)
+		resp := perform(handler.GetDashboardSummary, req)
+		assert.Equal(t, http.StatusOK, resp.Code)
+		mockSvc.AssertExpectations(t)
+	})
+
+	t.Run("with date range", func(t *testing.T) {
+		mockSvc.ExpectedCalls = nil
+		mockSvc.Calls = nil
+		mockSvc.On("GetSummary", mock.Anything, mock.AnythingOfType("service.SummaryParams")).
+			Return(&service.SummaryResult{}, nil).Once()
+
+		req := authedReq("GET", "/dashboard/summary?start_date=2024-01-01&end_date=2024-12-31", nil, userID)
+		resp := perform(handler.GetDashboardSummary, req)
+		assert.Equal(t, http.StatusOK, resp.Code)
+		mockSvc.AssertExpectations(t)
+	})
+
+	t.Run("service error", func(t *testing.T) {
+		mockSvc.ExpectedCalls = nil
+		mockSvc.Calls = nil
+		mockSvc.On("GetSummary", mock.Anything, mock.AnythingOfType("service.SummaryParams")).
+			Return(nil, fmt.Errorf("fail")).Once()
+
+		req := authedReq("GET", dashboardSummaryPath, nil, userID)
+		resp := perform(handler.GetDashboardSummary, req)
+		assert.Equal(t, http.StatusInternalServerError, resp.Code)
+		mockSvc.AssertExpectations(t)
+	})
+
+	t.Run("no user id", func(t *testing.T) {
+		req := httptest.NewRequest("GET", dashboardSummaryPath, nil)
+		resp := perform(handler.GetDashboardSummary, req)
+		assert.Equal(t, http.StatusUnauthorized, resp.Code)
+	})
+}
+
+func TestDashboardHandlerGetAccountAggregations(t *testing.T) {
+	handler, mockSvc := setupDashboardHandler(t)
+	userID := uuid.New()
+
+	t.Run("success", func(t *testing.T) {
+		mockSvc.On("GetAccountAggregations", mock.Anything, userID).
+			Return(&service.AccountAggregationsResult{}, nil).Once()
+
+		req := authedReq("GET", dashboardAccountsPath, nil, userID)
+		resp := perform(handler.GetAccountAggregations, req)
+		assert.Equal(t, http.StatusOK, resp.Code)
+		mockSvc.AssertExpectations(t)
+	})
+
+	t.Run("service error", func(t *testing.T) {
+		mockSvc.ExpectedCalls = nil
+		mockSvc.Calls = nil
+		mockSvc.On("GetAccountAggregations", mock.Anything, userID).
+			Return(nil, fmt.Errorf("fail")).Once()
+
+		req := authedReq("GET", dashboardAccountsPath, nil, userID)
+		resp := perform(handler.GetAccountAggregations, req)
+		assert.Equal(t, http.StatusInternalServerError, resp.Code)
+		mockSvc.AssertExpectations(t)
+	})
+
+	t.Run("no user id", func(t *testing.T) {
+		req := httptest.NewRequest("GET", dashboardAccountsPath, nil)
+		resp := perform(handler.GetAccountAggregations, req)
+		assert.Equal(t, http.StatusUnauthorized, resp.Code)
+	})
+}
+
+func TestDashboardHandlerGetBudgetPerformance(t *testing.T) {
+	handler, mockSvc := setupDashboardHandler(t)
+	userID := uuid.New()
+
+	t.Run("success", func(t *testing.T) {
+		mockSvc.On("GetBudgetPerformance", mock.Anything, userID, mock.AnythingOfType("int"), mock.AnythingOfType("int")).
+			Return(&service.BudgetPerformanceResult{}, nil).Once()
+
+		req := authedReq("GET", dashboardBudgetPerformancePath+"?month=1&year=2024", nil, userID)
+		resp := perform(handler.GetBudgetPerformance, req)
+		assert.Equal(t, http.StatusOK, resp.Code)
+		mockSvc.AssertExpectations(t)
+	})
+
+	t.Run("with default date", func(t *testing.T) {
+		mockSvc.ExpectedCalls = nil
+		mockSvc.Calls = nil
+		mockSvc.On("GetBudgetPerformance", mock.Anything, userID, mock.AnythingOfType("int"), mock.AnythingOfType("int")).
+			Return(&service.BudgetPerformanceResult{}, nil).Once()
+
+		req := authedReq("GET", dashboardBudgetPerformancePath, nil, userID)
+		resp := perform(handler.GetBudgetPerformance, req)
+		assert.Equal(t, http.StatusOK, resp.Code)
+		mockSvc.AssertExpectations(t)
+	})
+
+	t.Run("service error", func(t *testing.T) {
+		mockSvc.ExpectedCalls = nil
+		mockSvc.Calls = nil
+		mockSvc.On("GetBudgetPerformance", mock.Anything, userID, mock.AnythingOfType("int"), mock.AnythingOfType("int")).
+			Return(nil, fmt.Errorf("fail")).Once()
+
+		req := authedReq("GET", dashboardBudgetPerformancePath, nil, userID)
+		resp := perform(handler.GetBudgetPerformance, req)
+		assert.Equal(t, http.StatusInternalServerError, resp.Code)
+		mockSvc.AssertExpectations(t)
+	})
+
+	t.Run("no user id", func(t *testing.T) {
+		req := httptest.NewRequest("GET", dashboardBudgetPerformancePath, nil)
+		resp := perform(handler.GetBudgetPerformance, req)
+		assert.Equal(t, http.StatusUnauthorized, resp.Code)
+	})
+}
+
+func TestDashboardHandlerGetTransactionTrends(t *testing.T) {
+	handler, mockSvc := setupDashboardHandler(t)
+	userID := uuid.New()
+
+	t.Run("success with date range", func(t *testing.T) {
+		mockSvc.On("GetTransactionTrends", mock.Anything, userID, mock.AnythingOfType("time.Time"), mock.AnythingOfType("time.Time"), mock.AnythingOfType("string")).
+			Return(&service.TransactionTrendsResult{}, nil).Once()
+
+		req := authedReq("GET", "/dashboard/transaction-trends?start_date=2024-01-01&end_date=2024-12-31&granularity=month", nil, userID)
+		resp := perform(handler.GetTransactionTrends, req)
+		assert.Equal(t, http.StatusOK, resp.Code)
+		mockSvc.AssertExpectations(t)
+	})
+
+	t.Run("success with default dates", func(t *testing.T) {
+		mockSvc.ExpectedCalls = nil
+		mockSvc.Calls = nil
+		mockSvc.On("GetTransactionTrends", mock.Anything, userID, mock.AnythingOfType("time.Time"), mock.AnythingOfType("time.Time"), mock.AnythingOfType("string")).
+			Return(&service.TransactionTrendsResult{}, nil).Once()
+
+		req := authedReq("GET", dashboardTransactionTrendsPath, nil, userID)
+		resp := perform(handler.GetTransactionTrends, req)
+		assert.Equal(t, http.StatusOK, resp.Code)
+		mockSvc.AssertExpectations(t)
+	})
+
+	t.Run("invalid start date format", func(t *testing.T) {
+		mockSvc.ExpectedCalls = nil
+		mockSvc.Calls = nil
+		req := authedReq("GET", "/dashboard/transaction-trends?start_date=invalid", nil, userID)
+		resp := perform(handler.GetTransactionTrends, req)
+		assert.Equal(t, http.StatusBadRequest, resp.Code)
+	})
+
+	t.Run("invalid end date format", func(t *testing.T) {
+		mockSvc.ExpectedCalls = nil
+		mockSvc.Calls = nil
+		req := authedReq("GET", "/dashboard/transaction-trends?end_date=invalid", nil, userID)
+		resp := perform(handler.GetTransactionTrends, req)
+		assert.Equal(t, http.StatusBadRequest, resp.Code)
+	})
+
+	t.Run("service error", func(t *testing.T) {
+		mockSvc.ExpectedCalls = nil
+		mockSvc.Calls = nil
+		mockSvc.On("GetTransactionTrends", mock.Anything, userID, mock.AnythingOfType("time.Time"), mock.AnythingOfType("time.Time"), mock.AnythingOfType("string")).
+			Return(nil, fmt.Errorf("fail")).Once()
+
+		req := authedReq("GET", dashboardTransactionTrendsPath, nil, userID)
+		resp := perform(handler.GetTransactionTrends, req)
+		assert.Equal(t, http.StatusInternalServerError, resp.Code)
+		mockSvc.AssertExpectations(t)
+	})
+
+	t.Run("no user id", func(t *testing.T) {
+		req := httptest.NewRequest("GET", dashboardTransactionTrendsPath, nil)
+		resp := perform(handler.GetTransactionTrends, req)
+		assert.Equal(t, http.StatusUnauthorized, resp.Code)
+	})
+}
+
+func TestDashboardHandlerGetExpenseBreakdown(t *testing.T) {
+	handler, mockSvc := setupDashboardHandler(t)
+	userID := uuid.New()
+
+	t.Run("success with date range", func(t *testing.T) {
+		mockSvc.On("GetExpenseBreakdown", mock.Anything, userID, mock.AnythingOfType("time.Time"), mock.AnythingOfType("time.Time")).
+			Return(&service.ExpenseBreakdownResult{}, nil).Once()
+
+		req := authedReq("GET", "/dashboard/expense-breakdown?start_date=2024-01-01&end_date=2024-12-31", nil, userID)
+		resp := perform(handler.GetExpenseBreakdown, req)
+		assert.Equal(t, http.StatusOK, resp.Code)
+		mockSvc.AssertExpectations(t)
+	})
+
+	t.Run("success with default dates", func(t *testing.T) {
+		mockSvc.ExpectedCalls = nil
+		mockSvc.Calls = nil
+		mockSvc.On("GetExpenseBreakdown", mock.Anything, userID, mock.AnythingOfType("time.Time"), mock.AnythingOfType("time.Time")).
+			Return(&service.ExpenseBreakdownResult{}, nil).Once()
+
+		req := authedReq("GET", dashboardExpenseBreakdownPath, nil, userID)
+		resp := perform(handler.GetExpenseBreakdown, req)
+		assert.Equal(t, http.StatusOK, resp.Code)
+		mockSvc.AssertExpectations(t)
+	})
+
+	t.Run("invalid start date format", func(t *testing.T) {
+		mockSvc.ExpectedCalls = nil
+		mockSvc.Calls = nil
+		req := authedReq("GET", "/dashboard/expense-breakdown?start_date=invalid", nil, userID)
+		resp := perform(handler.GetExpenseBreakdown, req)
+		assert.Equal(t, http.StatusBadRequest, resp.Code)
+	})
+
+	t.Run("invalid end date format", func(t *testing.T) {
+		mockSvc.ExpectedCalls = nil
+		mockSvc.Calls = nil
+		req := authedReq("GET", "/dashboard/expense-breakdown?end_date=invalid", nil, userID)
+		resp := perform(handler.GetExpenseBreakdown, req)
+		assert.Equal(t, http.StatusBadRequest, resp.Code)
+	})
+
+	t.Run("service error", func(t *testing.T) {
+		mockSvc.ExpectedCalls = nil
+		mockSvc.Calls = nil
+		mockSvc.On("GetExpenseBreakdown", mock.Anything, userID, mock.AnythingOfType("time.Time"), mock.AnythingOfType("time.Time")).
+			Return(nil, fmt.Errorf("fail")).Once()
+
+		req := authedReq("GET", dashboardExpenseBreakdownPath, nil, userID)
+		resp := perform(handler.GetExpenseBreakdown, req)
+		assert.Equal(t, http.StatusInternalServerError, resp.Code)
+		mockSvc.AssertExpectations(t)
+	})
+
+	t.Run("no user id", func(t *testing.T) {
+		req := httptest.NewRequest("GET", dashboardExpenseBreakdownPath, nil)
+		resp := perform(handler.GetExpenseBreakdown, req)
+		assert.Equal(t, http.StatusUnauthorized, resp.Code)
 	})
 }

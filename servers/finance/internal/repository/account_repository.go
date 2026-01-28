@@ -225,7 +225,6 @@ func (r *accountRepository) getAggregations(
 	fieldOrder []string,
 	where map[string]any,
 ) (map[string]util.AggregationResult, error) {
-
 	// Validate GROUP BY column to prevent SQL injection
 	if err := util.ValidateGroupByColumn(groupBy, allowedGroupByColumns); err != nil {
 		return nil, fmt.Errorf("invalid aggregation groupBy: %w", err)

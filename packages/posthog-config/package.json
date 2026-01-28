@@ -1,20 +1,20 @@
 {
-	"name": "@repo/posthog-config",
-	"version": "0.0.0",
-	"private": true,
-	"license": "MIT",
-	"publishConfig": {
-		"access": "public"
-	},
-	"exports": {
-		"./instrumentation.ts": "./instrumentation.ts",
-		"./instrumentation-client.ts": "./instrumentation-client.ts"
-	},
-	"dependencies": {
-		"posthog-js": "^1.315.1",
-		"posthog-node": "^5.19.0"
-	},
-	"devDependencies": {
-		"@types/node": "^25.0.3"
-	}
+  "name": "@repo/posthog-config",
+  "version": "0.0.0",
+  "private": true,
+  "license": "MIT",
+  "publishConfig": {
+    "access": "public"
+  },
+  "exports": {
+    "./instrumentation.ts": "./instrumentation.ts",
+    "./instrumentation-client.ts": "./instrumentation-client.ts"
+  },
+  "dependencies": {
+    "posthog-js": "^1.335.2",
+    "posthog-node": "^5.24.2"
+  },
+  "devDependencies": {
+    "@types/node": "^25.0.10"
+  }
 }

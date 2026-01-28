@@ -30,11 +30,7 @@ export function AppSidebar({ appName, nav, ...props }: AppSidebarProps) {
   const { open } = useSidebar();
   return (
     <div>
-      <Sidebar
-        className="h-[calc(11svh-var(--header-height))]!"
-        variant="floating"
-        collapsible="icon"
-      >
+      <Sidebar className="h-16" variant="floating" collapsible="icon">
         {open ? (
           <SidebarMenu>
             <SidebarMenuItem>
@@ -62,7 +58,7 @@ export function AppSidebar({ appName, nav, ...props }: AppSidebarProps) {
                     </div>
                     <div className="grid flex-1 text-left text-sm leading-tight">
                       <span className="truncate font-medium">Tagaroa</span>
-                      <span className="truncate text-xs">Test</span>
+                      <span className="truncate text-xs">{appName}</span>
                     </div>
                   </Link>
                 </SidebarMenuButton>
@@ -72,7 +68,7 @@ export function AppSidebar({ appName, nav, ...props }: AppSidebarProps) {
         )}
       </Sidebar>
       <Sidebar
-        className="mt-0.5 top-(--header-height) h-[calc(100svh-var(--header-height))]!"
+        className="top-(--header-height) h-[calc(100svh-var(--header-height))]!"
         variant="floating"
         collapsible="icon"
         {...props}

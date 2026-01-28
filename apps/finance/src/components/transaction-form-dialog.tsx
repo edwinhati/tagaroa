@@ -2,6 +2,7 @@
 
 import { zodResolver } from "@hookform/resolvers/zod";
 import { FileUpload } from "@repo/common/components/file-upload";
+import { useBudgetPeriod } from "@repo/common/hooks/use-budget-period";
 import type { FileWithPreview } from "@repo/common/hooks/use-file-upload";
 import { storageApi } from "@repo/common/lib/http";
 import { accountQueryOptions } from "@repo/common/lib/query/account-query";
@@ -65,16 +66,46 @@ const currencies = [
 ];
 
 type TransactionFormDialogProps = Readonly<{
-  initialData?: Transaction;
+  initialData?: Partial<Transaction>;
   trigger?: React.ReactElement;
+  onSuccess?: () => void;
+  open?: boolean;
+  onOpenChange?: (open: boolean) => void;
 }>;
+
+function getDefaultValues(initialData?: Partial<Transaction>): Transaction {
+  const defaultDate = initialData?.date ?? new Date();
+
+  return {
+    id: initialData?.id ?? undefined,
+    amount: initialData?.amount ?? 0,
+    date: defaultDate,
+    type: initialData?.type ?? "EXPENSE",
+    currency: initialData?.currency ?? "IDR",
+    notes: initialData?.notes ?? "",
+    files: initialData?.files ?? [],
+    account_id: initialData?.account_id ?? "",
+    budget_item_id: initialData?.budget_item_id ?? "",
+  };
+}
 
 export function TransactionFormDialog({
   initialData,
   trigger,
+  onSuccess,
+  open: externalOpen,
+  onOpenChange: externalOnOpenChange,
 }: TransactionFormDialogProps) {
-  const [open, setOpen] = useState(false);
+  const [internalOpen, setInternalOpen] = useState(false);
   const [dateOpen, setDateOpen] = useState(false);
+
+  const open = externalOpen ?? internalOpen;
+  const setOpen = (newOpen: boolean) => {
+    externalOnOpenChange?.(newOpen);
+    if (!externalOnOpenChange) {
+      setInternalOpen(newOpen);
+    }
+  };
 
   const [uploadedFiles, setUploadedFiles] = useState<FileWithPreview[]>([]);
 
@@ -127,39 +158,30 @@ export function TransactionFormDialog({
 
   const form = useForm<Transaction>({
     resolver: zodResolver(transactionSchema),
-    defaultValues: initialData
-      ? {
-          id: initialData.id,
-          amount: initialData.amount,
-          date: initialData.date,
-          type: initialData.type,
-          currency: initialData.currency,
-          notes: initialData.notes ?? "",
-          files: initialData.files ?? [],
-          account_id: initialData.account_id,
-          budget_item_id: initialData.budget_item_id ?? "",
-        }
-      : {
-          amount: 0,
-          date: new Date(),
-          type: "EXPENSE",
-          currency: "IDR",
-          notes: "",
-          files: [],
-          account_id: "",
-          budget_item_id: "",
-        },
+    defaultValues: getDefaultValues(initialData),
   });
+
+  // Update form when initialData changes (for pre-fill scenarios)
+  useEffect(() => {
+    if (initialData) {
+      form.reset(getDefaultValues(initialData));
+    }
+  }, [initialData, form]);
 
   const selectedDate = useWatch({
     control: form.control,
     name: "date",
   });
 
+  const { month, year } = useBudgetPeriod((s) => ({
+    month: s.month,
+    year: s.year,
+  }));
+
   const { data: budgetData } = useQuery({
     ...budgetQueryOptions({
-      month: selectedDate.getMonth() + 1,
-      year: selectedDate.getFullYear(),
+      month,
+      year,
     }),
     enabled: !!selectedDate,
   });
@@ -180,10 +202,11 @@ export function TransactionFormDialog({
     ...transactionMutationOptions(),
     onSuccess: () => {
       toast.success(
-        initialData ? "Transaction updated" : "Transaction created",
+        initialData?.id ? "Transaction updated" : "Transaction created",
       );
       form.reset();
       setOpen(false);
+      onSuccess?.();
     },
     onError: (err) => {
       toast.error("Failed to save transaction", {
@@ -281,7 +304,7 @@ export function TransactionFormDialog({
   };
 
   let submitLabel = "Add Transaction";
-  if (initialData) {
+  if (initialData?.id) {
     submitLabel = "Update Transaction";
   }
   if (isPending) {
@@ -313,24 +336,25 @@ export function TransactionFormDialog({
   return (
     <Dialog open={open} onOpenChange={handleOpenChange}>
       <DialogTrigger asChild>
-        {trigger ?? (
-          <Button className="ml-auto" size="sm">
-            <PlusIcon
-              className="-ms-1 opacity-60"
-              size={16}
-              aria-hidden="true"
-            />
-            Add transaction
-          </Button>
-        )}
+        {trigger ??
+          (externalOpen === undefined && (
+            <Button className="ml-auto" size="sm">
+              <PlusIcon
+                className="-ms-1 opacity-60"
+                size={16}
+                aria-hidden="true"
+              />
+              Add transaction
+            </Button>
+          ))}
       </DialogTrigger>
       <DialogContent className="!max-w-2xl !w-full max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>
-            {initialData ? "Edit Transaction" : "Add New Transaction"}
+            {initialData?.id ? "Edit Transaction" : "Add New Transaction"}
           </DialogTitle>
           <DialogDescription>
-            {initialData
+            {initialData?.id
               ? "Edit your transaction details below."
               : "Add a new transaction to your account."}
           </DialogDescription>

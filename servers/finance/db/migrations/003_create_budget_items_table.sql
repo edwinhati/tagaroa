@@ -10,6 +10,5 @@ CREATE TABLE IF NOT EXISTS budget_items (
     CONSTRAINT fk_budget_items_budget
          FOREIGN KEY (budget_id) REFERENCES budgets(id)
          ON DELETE CASCADE,
-    CONSTRAINT chk_budget_items_allocation_non_negative CHECK (allocation >= 0),
-    CONSTRAINT chk_budget_items_spent_non_negative CHECK (spent >= 0)
+    CONSTRAINT chk_budget_items_allocation_non_negative CHECK (allocation >= 0)
 );

@@ -397,7 +397,6 @@ func (r *transactionRepository) getAggregations(
 	fieldOrder []string,
 	where map[string]any,
 ) (map[string]util.AggregationResult, error) {
-
 	if !strings.Contains(groupBy, ".") {
 		if err := util.ValidateGroupByColumn(groupBy, transactionAllowedGroupByColumns); err != nil {
 			return nil, fmt.Errorf("invalid aggregation groupBy: %w", err)

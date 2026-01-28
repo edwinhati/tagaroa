@@ -1,17 +1,18 @@
-# Unified Makefile for Mixed Node.js/Go Monorepo
-# Optimized for Turborepo + Go workspace architecture
+# Unified Makefile for Tagaroa Monorepo
+# Optimized for Turborepo + Go workspace + K8s Infrastructure
 
 # =============================================================================
 # VARIABLES
 # =============================================================================
 
 # Project Configuration
-PROJECT_NAME := registry.gitlab.com/tagaroa
+PROJECT_NAME := tagaroa
 DOCKER_REGISTRY := registry.gitlab.com/tagaroa
 GO_VERSION := 1.24.0
 
 # Package Managers
 NODE_PKG_MANAGER := bun
+NODE_PKG_EXEC := bunx
 GO_CMD := go
 
 # Directories
@@ -20,8 +21,16 @@ SERVERS_DIR := servers
 PACKAGES_DIR := packages
 BUILD_DIR := build
 BIN_DIR := $(BUILD_DIR)/bin
+INFRA_DIR := infra
 
-# Node.js Apps
+# Terraform
+TF_ENV ?= dev
+TF_DIR := $(INFRA_DIR)/terraform/envs/$(TF_ENV)
+
+# Ansible
+ANSIBLE_DIR := $(INFRA_DIR)/ansible
+
+# Node.js Apps & Servers
 NODE_APPS := web auth admin finance
 NODE_SERVERS := auth
 
@@ -33,56 +42,66 @@ DOCKER_TARGETOS ?= linux
 DOCKER_TARGETARCH ?= amd64
 COMPOSE_FILE := docker-compose.yaml
 
-# Colors for output
+# Colors
 RED := \033[0;31m
 GREEN := \033[0;32m
 YELLOW := \033[0;33m
 BLUE := \033[0;34m
+MAGENTA := \033[0;35m
+CYAN := \033[0;36m
 NC := \033[0m
 
 # =============================================================================
 # HELP & INFO
 # =============================================================================
 
+.DEFAULT_GOAL := help
+
 .PHONY: help
 help: ## Show available commands
-	@echo "$(BLUE)Available commands:$(NC)"
-	@awk 'BEGIN {FS = ":.*##"} /^[a-zA-Z_-]+:.*##/ { printf "  $(GREEN)%-20s$(NC) %s\n", $$1, $$2 }' $(MAKEFILE_LIST)
+	@echo "$(BLUE)━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━$(NC)"
+	@echo "$(BLUE)  Tagaroa - Unified Development Commands$(NC)"
+	@echo "$(BLUE)━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━$(NC)"
+	@echo ""
+	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | awk 'BEGIN {FS = ":.*?## "}; {printf "  $(GREEN)%-22s$(NC) %s\n", $$1, $$2}'
 
 .PHONY: info
 info: ## Show project information
-	@echo "$(BLUE)Project Information:$(NC)"
+	@echo "$(BLUE)━━━ Project Information ━━━$(NC)"
 	@echo "  Project: $(PROJECT_NAME)"
 	@echo "  Go Version: $(GO_VERSION)"
 	@echo "  Node Package Manager: $(NODE_PKG_MANAGER)"
 	@echo "  Node Apps: $(NODE_APPS)"
-	@echo "  Node Servers: $(NODE_SERVERS)"
-
+	@echo "  Go Servers: $(GO_SERVERS)"
+	@echo "  Current TF Environment: $(TF_ENV)"
 
 # =============================================================================
 # SETUP & DEPENDENCIES
 # =============================================================================
 
 .PHONY: setup
-setup: ## Complete project setup
-	@echo "$(BLUE)Setting up project...$(NC)"
-	@$(MAKE) install-deps
-	@$(MAKE) env-setup
-	@echo "$(GREEN)Setup complete!$(NC)"
+setup: install-deps env-setup ## Complete project setup (Setup)
+	@echo "$(GREEN)✅ Setup complete!$(NC)"
 
 .PHONY: install-deps
-install-deps: install-node ## Install all dependencies
+install-deps: install-node install-ansible ## Install all dependencies (Dependencies)
 
 .PHONY: install-node
-install-node: ## Install Node.js dependencies
+install-node: ## Install Node.js dependencies (Dependencies)
 	@echo "$(BLUE)Installing Node.js dependencies...$(NC)"
 	@$(NODE_PKG_MANAGER) install
-	@echo "$(GREEN)Node.js dependencies installed!$(NC)"
+	@echo "$(GREEN)✅ Node.js dependencies installed!$(NC)"
+
+.PHONY: install-ansible
+install-ansible: ## Install Ansible collections (Dependencies)
+	@echo "$(BLUE)Installing Ansible collections...$(NC)"
+	@cd $(ANSIBLE_DIR) && make install-requirements
+	@echo "$(GREEN)✅ Ansible collections installed!$(NC)"
 
 .PHONY: env-setup
-env-setup: ## Setup environment files from examples
+env-setup: ## Setup environment files from examples (Setup)
 	@echo "$(BLUE)Setting up environment files...$(NC)"
-	@for server in $(NODE_SERVERS); do \
+	@for server in $(NODE_SERVERS) $(GO_SERVERS); do \
 		if [ -f servers/$$server/.env.example ] && [ ! -f servers/$$server/.env ]; then \
 			cp servers/$$server/.env.example servers/$$server/.env; \
 			echo "$(YELLOW)Created servers/$$server/.env$(NC)"; \
@@ -94,90 +113,25 @@ env-setup: ## Setup environment files from examples
 			echo "$(YELLOW)Created apps/$$app/.env$(NC)"; \
 		fi; \
 	done
-	@for server in $(GO_SERVERS); do \
-		if [ -f servers/$$server/.env.example ] && [ ! -f servers/$$server/.env ]; then \
-			cp servers/$$server/.env.example servers/$$server/.env; \
-			echo "$(YELLOW)Created servers/$$server/.env$(NC)"; \
-		fi; \
-	done
 
-.PHONY: setup-local-dev
-setup-local-dev: env-setup setup-domains ## Run complete local development setup (env files + domains)
-	@echo "$(GREEN)🎉 Local development setup complete!$(NC)"
-	@echo ""
-	@echo "$(BLUE)📋 Next steps:$(NC)"
-	@echo "  1. Start infrastructure: $(YELLOW)make docker-up$(NC)"
-	@echo "  2. Initialize databases: $(YELLOW)make db-init$(NC)"
-	@echo "  3. Start development servers: $(YELLOW)bun run dev$(NC)"
-	@echo ""
-	@echo "$(BLUE)🌍 Your applications will be available at:$(NC)"
-	@echo "  • Main App:     http://tagaroa.local"
-	@echo "  • Auth App:     http://auth.tagaroa.local"
-	@echo "  • Admin App:    http://admin.tagaroa.local"
-	@echo "  • Finance App:  http://finance.tagaroa.local"
-	@echo "  • Docs App:     http://docs.tagaroa.local"
-	@echo ""
-	@echo "$(BLUE)🔧 Backend APIs:$(NC)"
-	@echo "  • Auth API:     http://tagaroa.local/api/auth"
-	@echo "  • Finance API:  http://tagaroa.local/api/finance"
-	@echo "  • Storage API:  http://tagaroa.local/api/storage"
-	@echo ""
-	@echo "$(BLUE)📊 Infrastructure:$(NC)"
-	@echo "  • Traefik Dashboard: http://localhost:8080"
-	@echo "  • Kafka UI:          http://localhost:9090"
-	@echo "  • MinIO Console:     http://localhost:9001"
-	@echo "  • n8n:               http://localhost:5678"
+# =============================================================================
+# DEVELOPMENT
+# =============================================================================
 
-.PHONY: setup-domains
-setup-domains: ## Setup local .local domains in /etc/hosts
-	@echo "$(BLUE)🌐 Setting up local domains...$(NC)"
-	@HOSTS_FILE="/etc/hosts"; \
-	BACKUP_FILE="/etc/hosts.tagaroa.backup"; \
-	DOMAINS="tagaroa.local auth.tagaroa.local admin.tagaroa.local finance.tagaroa.local docs.tagaroa.local"; \
-	if [ ! -f "$$BACKUP_FILE" ]; then \
-		echo "Creating backup of hosts file..."; \
-		sudo cp "$$HOSTS_FILE" "$$BACKUP_FILE"; \
-	fi; \
-	NEEDS_UPDATE=false; \
-	for domain in $$DOMAINS; do \
-		if ! grep -q "$$domain" "$$HOSTS_FILE"; then \
-			NEEDS_UPDATE=true; \
-			break; \
-		fi; \
-	done; \
-	if [ "$$NEEDS_UPDATE" = true ]; then \
-		echo "Adding Tagaroa domains to $$HOSTS_FILE..."; \
-		if ! grep -q "# Tagaroa Local Development" "$$HOSTS_FILE"; then \
-			echo "" | sudo tee -a "$$HOSTS_FILE" > /dev/null; \
-			echo "# Tagaroa Local Development" | sudo tee -a "$$HOSTS_FILE" > /dev/null; \
-		fi; \
-		for domain in $$DOMAINS; do \
-			if ! grep -q "$$domain" "$$HOSTS_FILE"; then \
-				echo "127.0.0.1    $$domain" | sudo tee -a "$$HOSTS_FILE" > /dev/null; \
-				echo "$(GREEN)Added: $$domain$(NC)"; \
-			else \
-				echo "$(YELLOW)Already exists: $$domain$(NC)"; \
-			fi; \
-		done; \
-		echo "$(GREEN)Local domains setup complete!$(NC)"; \
-	else \
-		echo "$(YELLOW)All domains already configured.$(NC)"; \
-	fi; \
-	echo ""; \
-	echo "$(BLUE)Available URLs:$(NC)"; \
-	echo "  http://tagaroa.local - Main app"; \
-	echo "  http://auth.tagaroa.local - Auth app"; \
-	echo "  http://admin.tagaroa.local - Admin dashboard"; \
-	echo "  http://finance.tagaroa.local - Finance app"; \
-	echo "  http://docs.tagaroa.local - Documentation"; \
-	echo "  http://tagaroa.local/api/auth - Auth API"; \
-	echo "  http://tagaroa.local/api/finance - Finance API"; \
-	echo "  http://tagaroa.local/api/storage - Storage API"; \
-	echo ""; \
-	echo "Traefik Dashboard: http://localhost:8080"; \
-	echo ""; \
-	echo "To remove these domains later, restore from backup:"; \
-	echo "  sudo cp $$BACKUP_FILE $$HOSTS_FILE"
+.PHONY: dev
+dev: ## Start development servers
+	@echo "$(BLUE)Starting development servers...$(NC)"
+	@$(NODE_PKG_MANAGER) run dev
+
+.PHONY: dev-finance
+dev-finance: ## Start finance development servers
+	@echo "$(BLUE)Starting finance development servers...$(NC)"
+	@$(NODE_PKG_EXEC) turbo run dev --filter=auth --filter=auth-server --filter=storage-server --filter=finance --filter=finance-server
+
+.PHONY: dev-docker
+dev-docker: docker-up ## Start Docker infrastructure for development
+	@echo "$(GREEN)✅ Docker infrastructure ready!$(NC)"
+	@echo "$(BLUE)Run 'make dev' in another terminal to start development servers$(NC)"
 
 # =============================================================================
 # BUILD COMMANDS
@@ -190,7 +144,7 @@ build: build-apps build-servers ## Build all projects
 build-apps: ## Build all Node.js apps
 	@echo "$(BLUE)Building Node.js apps...$(NC)"
 	@$(NODE_PKG_MANAGER) run build
-	@echo "$(GREEN)Node.js apps built!$(NC)"
+	@echo "$(GREEN)✅ Node.js apps built!$(NC)"
 
 .PHONY: build-servers
 build-servers: ## Build all servers (Node.js + Go)
@@ -199,19 +153,15 @@ build-servers: ## Build all servers (Node.js + Go)
 	@for server in $(GO_SERVERS); do \
 		$(MAKE) build-server SERVER=$$server; \
 	done
-	@echo "$(GREEN)All servers built!$(NC)"
+	@echo "$(GREEN)✅ All servers built!$(NC)"
 
 .PHONY: build-server
 build-server: ## Build specific server (SERVER=name)
 	@if [ -z "$(SERVER)" ]; then \
-		echo "$(RED)SERVER variable is required. Usage: make build-server SERVER=finance$(NC)"; \
+		echo "$(RED)SERVER required. Usage: make build-server SERVER=finance$(NC)"; \
 		exit 1; \
 	fi
 	@echo "$(BLUE)Building server: $(SERVER)$(NC)"
-	@if [ ! -d "servers/$(SERVER)" ]; then \
-		echo "$(RED)Server directory servers/$(SERVER) not found$(NC)"; \
-		exit 1; \
-	fi
 	@if [ -f "servers/$(SERVER)/go.mod" ]; then \
 		cd servers/$(SERVER) && \
 		CGO_ENABLED=0 GOOS=linux GOARCH=amd64 \
@@ -219,221 +169,188 @@ build-server: ## Build specific server (SERVER=name)
 		-ldflags '-extldflags "-static"' \
 		-o ../../$(BIN_DIR)/$(SERVER)-server \
 		./cmd/main.go; \
-		echo "$(GREEN)Built Go server $(SERVER) -> $(BIN_DIR)/$(SERVER)-server$(NC)"; \
-	else \
-		echo "$(YELLOW)Skipping $(SERVER) - not a Go server$(NC)"; \
+		echo "$(GREEN)✅ Built: $(BIN_DIR)/$(SERVER)-server$(NC)"; \
 	fi
 
 .PHONY: clean
 clean: ## Clean all build artifacts
-	@echo "$(BLUE)Cleaning all build artifacts...$(NC)"
+	@echo "$(BLUE)Cleaning build artifacts...$(NC)"
 	@$(NODE_PKG_MANAGER) run clean 2>/dev/null || true
 	@rm -rf $(BUILD_DIR)
-	@rm -rf apps/*/.next
-	@rm -rf apps/*/dist
-	@rm -rf packages/*/dist
-	@for server in $(GO_SERVERS); do \
-		if [ -f servers/$$server/$$server-server ]; then \
-			rm servers/$$server/$$server-server; \
-		fi; \
-	done
-	@echo "$(GREEN)All build artifacts cleaned!$(NC)"
+	@rm -rf apps/*/.next apps/*/dist packages/*/dist
+	@echo "$(GREEN)✅ Cleaned!$(NC)"
 
 # =============================================================================
 # QUALITY COMMANDS
 # =============================================================================
 
 .PHONY: format
-format: ## Format all code (Node.js, Go, Rust)
+format: ## Format all code
 	@echo "$(BLUE)Formatting code...$(NC)"
-	@$(NODE_PKG_MANAGER) run format 2>/dev/null || echo "$(YELLOW)No format script for Node.js$(NC)"
-	@gofmt -w ./packages/shared/go/ ./servers/finance/
-	@if [ -f "./packages/shared/rust/Cargo.toml" ]; then \
-		cargo fmt --manifest-path ./packages/shared/rust/Cargo.toml; \
-	fi
-	@if [ -f "./servers/investment/Cargo.toml" ]; then \
-		cargo fmt --manifest-path ./servers/investment/Cargo.toml; \
-	fi
-	@echo "$(GREEN)Code formatting complete!$(NC)"
+	@$(NODE_PKG_MANAGER) run format 2>/dev/null || true
+	@gofmt -w ./packages/shared/go/ ./servers/finance/ 2>/dev/null || true
+	@echo "$(GREEN)✅ Formatted!$(NC)"
 
 .PHONY: lint
 lint: lint-node lint-go ## Run all lint checks
-	@echo "$(GREEN)All lint checks passed!$(NC)"
 
 .PHONY: lint-node
-lint-node: ## Run lint checks for Node.js workspaces
-	@echo "$(BLUE)Running Node.js lint checks...$(NC)"
+lint-node: ## Run lint checks for Node.js
+	@echo "$(BLUE)Linting Node.js...$(NC)"
 	@$(NODE_PKG_MANAGER) run lint
-	@echo "$(GREEN)Node.js lint checks passed!$(NC)"
 
 .PHONY: lint-go
-lint-go: ## Run lint checks for Go servers
-	@echo "$(BLUE)Running Go lint checks...$(NC)"
+lint-go: ## Run lint checks for Go
+	@echo "$(BLUE)Linting Go...$(NC)"
 	@for server in $(GO_SERVERS); do \
-		if [ -d "servers/$$server" ]; then \
-			echo "$(YELLOW)Linting Go server: $$server$(NC)"; \
-			cd servers/$$server && \
-			$(GO_CMD) vet ./...; \
-		fi; \
+		cd servers/$$server && $(GO_CMD) vet ./... && cd ../..; \
 	done
-	@echo "$(GREEN)Go lint checks passed!$(NC)"
 
-# =============================================================================
-# TEST COMMANDS
-# =============================================================================
+COVERAGE_FLAG ?=
 
 .PHONY: test
 test: test-apps test-servers ## Run all tests
 
 .PHONY: test-apps
 test-apps: ## Run tests for Node.js apps
-	@echo "$(BLUE)Running Node.js app tests...$(NC)"
-	@$(NODE_PKG_MANAGER) run test 2>/dev/null || echo "$(YELLOW)No test script found for Node.js apps$(NC)"
-	@echo "$(GREEN)Node.js app tests completed!$(NC)"
+	@$(NODE_PKG_MANAGER) run test 2>/dev/null || echo "$(YELLOW)No tests configured$(NC)"
 
 .PHONY: test-servers
 test-servers: ## Run tests for all servers
-	@echo "$(BLUE)Running server tests...$(NC)"
-	@for server in $(NODE_SERVERS); do \
-		$(MAKE) test-server SERVER=$$server; \
-	done
 	@for server in $(GO_SERVERS); do \
-		$(MAKE) test-server SERVER=$$server; \
+		cd servers/$$server && $(GO_CMD) test -v ./... $(COVERAGE_FLAG) && cd ../..; \
 	done
-	@echo "$(GREEN)All server tests completed!$(NC)"
-
-.PHONY: test-server
-test-server: ## Run tests for specific server (SERVER=name)
-	@if [ -z "$(SERVER)" ]; then \
-		echo "$(RED)SERVER variable is required. Usage: make test-server SERVER=finance$(NC)"; \
-		exit 1; \
-	fi
-	@echo "$(BLUE)Running tests for server: $(SERVER)$(NC)"
-	@if [ ! -d "servers/$(SERVER)" ]; then \
-		echo "$(RED)Server directory servers/$(SERVER) not found$(NC)"; \
-		exit 1; \
-	fi
-	@if [ -f "servers/$(SERVER)/go.mod" ]; then \
-		cd servers/$(SERVER) && \
-		$(GO_CMD) test -v ./...; \
-		echo "$(GREEN)Go server $(SERVER) tests completed!$(NC)"; \
-	elif [ -f "servers/$(SERVER)/package.json" ]; then \
-		cd servers/$(SERVER) && \
-		$(NODE_PKG_MANAGER) test; \
-		echo "$(GREEN)Node server $(SERVER) tests completed!$(NC)"; \
-	else \
-		echo "$(YELLOW)Skipping $(SERVER) - no recognizable test target$(NC)"; \
-	fi
-
-.PHONY: test-watch
-test-watch: ## Run tests in watch mode (SERVER=name for specific server)
-	@if [ -n "$(SERVER)" ]; then \
-		echo "$(BLUE)Running tests in watch mode for server: $(SERVER)$(NC)"; \
-		if [ -f "servers/$(SERVER)/go.mod" ]; then \
-			cd servers/$(SERVER) && \
-			$(GO_CMD) test -v ./... -count=1 -run=.; \
-		fi; \
-	else \
-		echo "$(BLUE)Running Node.js tests in watch mode...$(NC)"; \
-		$(NODE_PKG_MANAGER) run test:watch 2>/dev/null || echo "$(YELLOW)No test:watch script found$(NC)"; \
-	fi
 
 .PHONY: test-coverage
-test-coverage: ## Run tests with coverage (SERVER=name for specific server)
-	@if [ -n "$(SERVER)" ]; then \
-		echo "$(BLUE)Running tests with coverage for server: $(SERVER)$(NC)"; \
-		if [ -f "servers/$(SERVER)/go.mod" ]; then \
-			cd servers/$(SERVER) && \
-			$(GO_CMD) test -v ./... -coverprofile=coverage.out && \
-			$(GO_CMD) tool cover -html=coverage.out -o coverage.html; \
-			echo "$(GREEN)Coverage report generated: servers/$(SERVER)/coverage.html$(NC)"; \
-		fi; \
-	else \
-		echo "$(BLUE)Running Node.js tests with coverage...$(NC)"; \
-		$(NODE_PKG_MANAGER) run test:coverage 2>/dev/null || echo "$(YELLOW)No test:coverage script found$(NC)"; \
-	fi
+test-coverage: ## Run all tests with coverage
+	@echo ""
+	@echo "$(BLUE)━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━$(NC)"
+	@echo "$(BLUE)  Coverage Summary$(NC)"
+	@echo "$(BLUE)━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━$(NC)"
+	@for server in $(GO_SERVERS); do \
+		echo ""; \
+		echo "$(CYAN)━━━ $$server ━━━$(NC)"; \
+		cd servers/$$server && go clean -testcache && \
+		go test -coverprofile=coverage.out -covermode=count ./... 2>&1 | grep -E "^(ok|FAIL)" | while read line; do \
+			pkg_path=$$(echo "$$line" | awk '{print $$2}'); \
+			cov=$$(echo "$$line" | grep -oE '[0-9]+\.[0-9]+%'); \
+			if [ -n "$$cov" ]; then \
+				pkg_name=$$(echo "$$pkg_path" | sed 's|github.com/edwinhati/tagaroa/servers/||'); \
+				printf "  %-35s %s\n" "$$pkg_name" "$$cov"; \
+			fi; \
+		done && \
+		rm -f coverage.out; \
+		cd ../..; \
+	done
+	@echo ""
+	@echo "$(GREEN)✅ Coverage report complete!$(NC)"
 
 # =============================================================================
 # DOCKER COMMANDS
 # =============================================================================
 
-.PHONY: docker-build
-docker-build: docker-build-apps docker-build-servers ## Build all Docker images
-
-.PHONY: docker-build-apps
-docker-build-apps: ## Build Docker images for all apps
-	@echo "$(BLUE)Building Docker images for apps...$(NC)"
-	@for app in $(NODE_APPS); do \
-		if [ -f apps/$$app/Dockerfile ]; then \
-			$(MAKE) docker-build-app APP=$$app; \
-		fi; \
-	done
-
-.PHONY: docker-build-servers
-docker-build-servers: ## Build Docker images for all servers
-	@echo "$(BLUE)Building Docker images for servers...$(NC)"
-	@for server in $(NODE_SERVERS) $(GO_SERVERS); do \
-		if [ -f servers/$$server/Dockerfile ]; then \
-			$(MAKE) docker-build-server SERVER=$$server; \
-		fi; \
-	done
-
-.PHONY: docker-build-app
-docker-build-app: ## Build Docker image for specific app (APP=name)
-	@echo "$(BLUE)Building Docker image for app: $(APP)$(NC)"
-	@if [ -f apps/$(APP)/.env ]; then \
-		echo "$(YELLOW)Loading environment variables from apps/$(APP)/.env$(NC)"; \
-		ENV_ARGS=$$(grep -v '^#' apps/$(APP)/.env | grep -v '^$$' | sed 's/^/--build-arg /' | tr '\n' ' '); \
-		docker build \
-			--build-arg APP=$(APP) \
-			$$ENV_ARGS \
-			-t $(DOCKER_REGISTRY)/$(APP)-app:latest \
-			-f apps/$(APP)/Dockerfile .; \
-	else \
-		docker build \
-			--build-arg APP=$(APP) \
-			-t $(DOCKER_REGISTRY)/$(APP)-app:latest \
-			-f apps/$(APP)/Dockerfile .; \
-	fi
-
-.PHONY: docker-build-server
-docker-build-server: ## Build Docker image for specific server (SERVER=name)
-	@echo "$(BLUE)Building Docker image for server: $(SERVER)$(NC)"
-	@docker build \
-		--build-arg TARGETOS=$(DOCKER_TARGETOS) \
-		--build-arg TARGETARCH=$(DOCKER_TARGETARCH) \
-		-t $(DOCKER_REGISTRY)/$(SERVER)-server:latest \
-		-f servers/$(SERVER)/Dockerfile .
-	@echo "$(BLUE)Building Docker image for Go server: $(SERVER)$(NC)"
-	@docker build \
-		--build-arg TARGETOS=$(DOCKER_TARGETOS) \
-		--build-arg TARGETARCH=$(DOCKER_TARGETARCH) \
-		-t $(DOCKER_REGISTRY)/$(SERVER)-server:latest \
-		-f servers/$(SERVER)/Dockerfile .
-
 .PHONY: docker-up
-docker-up: ## Start services with docker-compose
-	@echo "$(BLUE)Starting services...$(NC)"
+docker-up: ## Start Docker services
+	@echo "$(BLUE)Starting Docker services...$(NC)"
 	@docker compose up -d
 
 .PHONY: docker-down
-docker-down: ## Stop docker compose services
-	@echo "$(BLUE)Stopping services...$(NC)"
+docker-down: ## Stop Docker services
 	@docker compose down
 
 .PHONY: docker-logs
-docker-logs: ## Show docker compose logs
+docker-logs: ## Show Docker logs
 	@docker compose logs -f
 
+.PHONY: docker-ps
+docker-ps: ## Show Docker container status
+	@docker compose ps
+
+.PHONY: docker-build
+docker-build: ## Build all Docker images
+	@for app in $(NODE_APPS); do \
+		if [ -f apps/$$app/Dockerfile ]; then \
+			docker build -t $(DOCKER_REGISTRY)/$$app-app:latest -f apps/$$app/Dockerfile .; \
+		fi; \
+	done
+	@for server in $(NODE_SERVERS) $(GO_SERVERS); do \
+		if [ -f servers/$$server/Dockerfile ]; then \
+			docker build -t $(DOCKER_REGISTRY)/$$server-server:latest -f servers/$$server/Dockerfile .; \
+		fi; \
+	done
+
 .PHONY: docker-clean
-docker-clean: ## Clean Docker images and containers
-	@echo "$(BLUE)Cleaning Docker resources...$(NC)"
+docker-clean: ## Clean Docker resources
 	@docker system prune -f
 	@docker image prune -f
-	@echo "$(GREEN)Docker cleanup completed!$(NC)"
 
-.PHONY: docker-rebuild
-docker-rebuild: docker-clean docker-build ## Clean and rebuild all Docker images
+# =============================================================================
+# INFRASTRUCTURE - TERRAFORM
+# =============================================================================
+
+.PHONY: tf-init
+tf-init: ## Initialize Terraform (TF_ENV=dev|staging|prod)
+	@echo "$(BLUE)Initializing Terraform for $(TF_ENV)...$(NC)"
+	@cd $(TF_DIR) && terraform init
+
+.PHONY: tf-plan
+tf-plan: ## Plan Terraform changes (TF_ENV=dev|staging|prod)
+	@echo "$(BLUE)Planning Terraform for $(TF_ENV)...$(NC)"
+	@cd $(TF_DIR) && terraform plan
+
+.PHONY: tf-apply
+tf-apply: ## Apply Terraform changes (TF_ENV=dev|staging|prod)
+	@echo "$(BLUE)Applying Terraform for $(TF_ENV)...$(NC)"
+	@cd $(TF_DIR) && terraform apply
+
+.PHONY: tf-destroy
+tf-destroy: ## Destroy Terraform resources (TF_ENV=dev|staging|prod)
+	@echo "$(RED)⚠️  Destroying Terraform resources for $(TF_ENV)...$(NC)"
+	@cd $(TF_DIR) && terraform destroy
+
+.PHONY: tf-output
+tf-output: ## Show Terraform outputs (TF_ENV=dev|staging|prod)
+	@cd $(TF_DIR) && terraform output
+
+# =============================================================================
+# INFRASTRUCTURE - KUBERNETES (ANSIBLE)
+# =============================================================================
+
+.PHONY: k8s-deploy
+k8s-deploy: ## Deploy all K8s services via Ansible
+	@echo "$(BLUE)Deploying K8s services...$(NC)"
+	@cd $(ANSIBLE_DIR) && make deploy
+
+.PHONY: k8s-deploy-kong
+k8s-deploy-kong: ## Deploy Kong Gateway
+	@cd $(ANSIBLE_DIR) && make deploy-kong
+
+.PHONY: k8s-deploy-minio
+k8s-deploy-minio: ## Deploy MinIO
+	@cd $(ANSIBLE_DIR) && make deploy-minio
+
+.PHONY: k8s-deploy-postgres
+k8s-deploy-postgres: ## Deploy PostgreSQL
+	@cd $(ANSIBLE_DIR) && make deploy-postgres
+
+.PHONY: k8s-status
+k8s-status: ## Show K8s deployment status
+	@cd $(ANSIBLE_DIR) && make status
+
+.PHONY: k8s-cleanup
+k8s-cleanup: ## Cleanup K8s deployments
+	@cd $(ANSIBLE_DIR) && make cleanup
+
+# =============================================================================
+# INFRASTRUCTURE - QUICK COMMANDS
+# =============================================================================
+
+.PHONY: infra-up
+infra-up: tf-apply k8s-deploy ## Provision infrastructure & deploy services
+	@echo "$(GREEN)✅ Infrastructure ready!$(NC)"
+
+.PHONY: infra-status
+infra-status: tf-output k8s-status ## Show infrastructure status
 
 # =============================================================================
 # DATABASE COMMANDS
@@ -442,54 +359,10 @@ docker-rebuild: docker-clean docker-build ## Clean and rebuild all Docker images
 .PHONY: db-init
 db-init: ## Initialize databases
 	@echo "$(BLUE)Initializing databases...$(NC)"
-	@docker-compose up -d postgres
+	@docker compose up -d postgres
 	@sleep 5
 	@for db in auth finance storage n8n; do \
-		docker-compose exec postgres psql -U postgres -tAc "SELECT 1 FROM pg_database WHERE datname='$$db'" | grep -q 1 || \
-		docker-compose exec postgres psql -U postgres -c "CREATE DATABASE $$db;"; \
+		docker compose exec postgres psql -U postgres -tAc "SELECT 1 FROM pg_database WHERE datname='$$db'" | grep -q 1 || \
+		docker compose exec postgres psql -U postgres -c "CREATE DATABASE $$db;"; \
 	done
-	@for user in auth finance storage n8n; do \
-		if ! docker-compose exec postgres psql -U postgres -tAc "SELECT 1 FROM pg_roles WHERE rolname='$$user'" | grep -q 1; then \
-			docker-compose exec postgres psql -U postgres -c "CREATE USER $$user WITH PASSWORD '$$user';"; \
-		fi; \
-		docker-compose exec postgres psql -U postgres -c "GRANT ALL PRIVILEGES ON DATABASE $$user TO $$user;"; \
-	done
-	@echo "$(GREEN)Databases initialized!$(NC)"
-
-
-# =============================================================================
-# DOCUMENTATION COMMANDS
-# =============================================================================
-.PHONY: swagger
-swagger: ## Generate Swagger docs for the selected server, e.g. make swagger SERVER=auth
-	@set -euo pipefail; \
-	if [ -z "$(SERVER)" ]; then \
-		echo "$(RED)SERVER variable is required. Usage: make swagger SERVER=auth$(NC)"; \
-		exit 1; \
-	fi; \
-	if [ ! -d "$(SERVERS_DIR)" ]; then \
-		echo "$(RED)Servers directory $(SERVERS_DIR) not found$(NC)"; \
-		exit 1; \
-	fi; \
-	if ! command -v swag >/dev/null 2>&1; then \
-		echo "$(RED)swag CLI not found. Install it with: go install github.com/swaggo/swag/cmd/swag@latest$(NC)"; \
-		exit 1; \
-	fi; \
-	echo "$(BLUE)Generating Swagger docs for $(SERVICE)...$(NC)"; \
-	mkdir -p $(CURDIR)/.gocache; \
-	cd $(SERVICE_DIR); \
-	export GOCACHE=$(CURDIR)/.gocache; \
-	SWAG_EXTRA_DIRS=$$(find . -type f -name '*.go' \
-		-not -path "./cmd/*" \
-		-not -path "./docs/*" \
-		-not -path "./vendor/*" \
-		-exec dirname {} \; | sed 's#^\./##' | sort -u); \
-	SWAG_DIRS="cmd"; \
-	for dir in $$SWAG_EXTRA_DIRS; do \
-		if [ -n "$$dir" ] && [ "$$dir" != "cmd" ]; then \
-			SWAG_DIRS="$$SWAG_DIRS,$$dir"; \
-		fi; \
-	done; \
-	swag fmt -g main.go -d $$SWAG_DIRS; \
-	swag init -g main.go -d $$SWAG_DIRS -o docs --parseDependency --parseInternal; \
-	echo "$(GREEN)Swagger docs generated in $(SWAGGER_OUTPUT_DIR)$(NC)"
+	@echo "$(GREEN)✅ Databases initialized!$(NC)"

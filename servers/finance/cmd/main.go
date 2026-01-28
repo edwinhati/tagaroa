@@ -25,11 +25,24 @@ import (
 	"github.com/joho/godotenv"
 )
 
-var (
-	logFatalfFn = log.Fatalf
-)
+var logFatalfFn = log.Fatalf
 
 var runFn = run
+
+var (
+	loadEnvFileFn            func()
+	mustLoadConfigFn         func() *config.Config
+	mustConnectDatabaseFn    func(cfg *config.Config) *sql.DB
+	mustInitOIDCClientFn     func(ctx context.Context, cfg *config.Config) *client.OIDCClient
+	buildHTTPHandlerFn       func(db *sql.DB, oidcClient *client.OIDCClient, allowedOrigins []string) http.Handler
+	newHTTPServerFn          func(port string, handler http.Handler) *http.Server
+	startServerFn            func(server *http.Server)
+	gracefulShutdownFn       func(server *http.Server)
+	registerHealthEndpointFn func()
+	connectDatabaseFn        func(host, user, password, name, port string) (*sql.DB, error)                  = client.ConnectDatabase
+	newOIDCClientFn          func(ctx context.Context, config client.OIDCConfig) (*client.OIDCClient, error) = client.NewOIDCClient
+	listenAndServeFn         func(server *http.Server) error                                                 = func(s *http.Server) error { return s.ListenAndServe() }
+)
 
 func main() {
 	if err := runFn(); err != nil {
@@ -38,7 +51,11 @@ func main() {
 }
 
 func run() error {
-	loadEnvFile()
+	if loadEnvFileFn != nil {
+		loadEnvFileFn()
+	} else {
+		loadEnvFile()
+	}
 
 	cfg := mustLoadConfig()
 	logStartupInfo(cfg)
@@ -47,7 +64,9 @@ func run() error {
 	defer stop()
 
 	db := mustConnectDatabase(cfg)
-	defer db.Close()
+	if db != nil {
+		defer db.Close()
+	}
 
 	oidcClient := mustInitOIDCClient(ctx, cfg)
 
@@ -57,7 +76,11 @@ func run() error {
 		parseAllowedOrigins(cfg.Server.TrustedOrigins),
 	)
 
-	registerHealthEndpoint()
+	if registerHealthEndpointFn != nil {
+		registerHealthEndpointFn()
+	} else {
+		registerHealthEndpoint()
+	}
 
 	server := newHTTPServer(cfg.Server.Port, handler)
 	go startServer(server)
@@ -106,7 +129,10 @@ func parseAllowedOrigins(trustedOrigins string) []string {
 }
 
 func mustConnectDatabase(cfg *config.Config) *sql.DB {
-	db, err := client.ConnectDatabase(
+	if mustConnectDatabaseFn != nil {
+		return mustConnectDatabaseFn(cfg)
+	}
+	db, err := connectDatabaseFn(
 		cfg.Database.Host,
 		cfg.Database.User,
 		cfg.Database.Password,
@@ -114,45 +140,28 @@ func mustConnectDatabase(cfg *config.Config) *sql.DB {
 		cfg.Database.Port,
 	)
 	if err != nil {
-		log.Fatalf("Failed to connect to database: %v", err)
+		logFatalfFn("Failed to connect to database: %v", err)
 	}
 	return db
 }
 
 func mustInitOIDCClient(ctx context.Context, cfg *config.Config) *client.OIDCClient {
+	if mustInitOIDCClientFn != nil {
+		return mustInitOIDCClientFn(ctx, cfg)
+	}
 	issuer := cfg.OIDC.IssuerURL()
 	if issuer == "" {
 		log.Fatal("OIDC issuer URL is required")
 	}
 
-	oidcClient, err := client.NewOIDCClient(ctx, client.OIDCConfig{
+	oidcClient, err := newOIDCClientFn(ctx, client.OIDCConfig{
 		IssuerURL: issuer,
 		ClientID:  cfg.OIDC.ClientID,
 	})
 	if err != nil {
-		log.Fatalf("Failed to initialize OIDC client: %v", err)
+		logFatalfFn("Failed to initialize OIDC client: %v", err)
 	}
 	return oidcClient
-}
-
-func buildHTTPHandler(
-	db *sql.DB,
-	oidcClient *client.OIDCClient,
-	allowedOrigins []string,
-) http.Handler {
-	accountRepo := repository.NewAccountRepository(db)
-	transactionRepo := repository.NewTransactionRepository(db)
-	budgetRepo := repository.NewBudgetRepository(db)
-	accountService := service.NewAccountService(accountRepo)
-	transactionService := service.NewTransactionService(transactionRepo, accountRepo)
-	budgetService := service.NewBudgetService(budgetRepo)
-
-	router := router.NewRouter()
-	httphandler.NewAccountHandler(oidcClient, accountService).SetupRoutes(router)
-	httphandler.NewBudgetHandler(oidcClient, budgetService).SetupRoutes(router)
-	httphandler.NewTransactionHandler(oidcClient, transactionService).SetupRoutes(router)
-
-	return applyMiddlewares(router, allowedOrigins)
 }
 
 func applyMiddlewares(router http.Handler, allowedOrigins []string) http.Handler {
@@ -179,19 +188,62 @@ func registerHealthEndpoint() {
 }
 
 func newHTTPServer(port string, handler http.Handler) *http.Server {
+	if newHTTPServerFn != nil {
+		return newHTTPServerFn(port, handler)
+	}
 	return &http.Server{
 		Addr:    ":" + port,
 		Handler: handler,
 	}
 }
 
+func buildHTTPHandler(
+	db *sql.DB,
+	oidcClient *client.OIDCClient,
+	allowedOrigins []string,
+) http.Handler {
+	if buildHTTPHandlerFn != nil {
+		return buildHTTPHandlerFn(db, oidcClient, allowedOrigins)
+	}
+	accountRepo := repository.NewAccountRepository(db)
+	transactionRepo := repository.NewTransactionRepository(db)
+	budgetRepo := repository.NewBudgetRepository(db)
+	assetRepo := repository.NewAssetRepository(db)
+	liabilityRepo := repository.NewLiabilityRepository(db)
+
+	accountService := service.NewAccountService(accountRepo)
+	transactionService := service.NewTransactionService(transactionRepo, accountRepo)
+	budgetService := service.NewBudgetService(budgetRepo)
+	assetService := service.NewAssetService(assetRepo)
+	liabilityService := service.NewLiabilityService(liabilityRepo)
+	dashboardService := service.NewDashboardService(transactionRepo, budgetRepo, accountRepo)
+
+	router := router.NewRouter()
+	httphandler.NewAccountHandler(oidcClient, accountService).SetupRoutes(router)
+	httphandler.NewBudgetHandler(oidcClient, budgetService).SetupRoutes(router)
+	httphandler.NewTransactionHandler(oidcClient, transactionService).SetupRoutes(router)
+	httphandler.NewAssetHandler(oidcClient, assetService).SetupRoutes(router)
+	httphandler.NewLiabilityHandler(oidcClient, liabilityService).SetupRoutes(router)
+	httphandler.NewDashboardHandler(oidcClient, dashboardService).SetupRoutes(router)
+
+	return applyMiddlewares(router, allowedOrigins)
+}
+
 func startServer(server *http.Server) {
-	if err := server.ListenAndServe(); err != nil && err != http.ErrServerClosed {
-		log.Fatalf("Failed to start server: %v", err)
+	if startServerFn != nil {
+		startServerFn(server)
+		return
+	}
+	if err := listenAndServeFn(server); err != nil && err != http.ErrServerClosed {
+		logFatalfFn("Failed to start server: %v", err)
 	}
 }
 
 func gracefulShutdown(server *http.Server) {
+	if gracefulShutdownFn != nil {
+		gracefulShutdownFn(server)
+		return
+	}
 	slog.Info("📦 Shutting down services gracefully...")
 
 	shutdownCtx, cancel := context.WithTimeout(context.Background(), 10*time.Second)

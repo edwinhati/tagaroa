@@ -44,6 +44,7 @@ func TestBudgetCategoryStructure(t *testing.T) {
 	foodCategory := BudgetCategory{Name: "Food", Type: budgetTypeDaily}
 	assert.Contains(t, categories, foodCategory)
 }
+
 func TestBudgetTableName(t *testing.T) {
 	budget := Budget{}
 	assert.Equal(t, "budgets", budget.TableName())

@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"slices"
+	"strings"
 	"time"
 
 	"github.com/edwinhati/tagaroa/packages/shared/go/util"
@@ -332,7 +333,7 @@ func (s *transactionService) UpdateTransaction(ctx context.Context, id uuid.UUID
 		}
 	}
 	if input.BudgetItemID != nil {
-		if *input.BudgetItemID == "" {
+		if *input.BudgetItemID == "" || strings.ToLower(*input.BudgetItemID) == "none" || strings.ToLower(*input.BudgetItemID) == "null" {
 			transaction.BudgetItemID = nil
 		} else {
 			budgetItemID, err := uuid.Parse(*input.BudgetItemID)

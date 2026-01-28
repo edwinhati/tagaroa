@@ -1,0 +1,222 @@
+"use client";
+
+import { zodResolver } from "@hookform/resolvers/zod";
+import {
+  liabilityMutationOptions,
+  liabilityTypesQueryOptions,
+} from "@repo/common/lib/query/liability-query";
+import { type Liability, liabilitySchema } from "@repo/common/types/liability";
+import { Button } from "@repo/ui/components/button";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@repo/ui/components/dialog";
+import { Field, FieldError, FieldLabel } from "@repo/ui/components/field";
+import {
+  InputGroup,
+  InputGroupInput,
+  InputGroupTextarea,
+} from "@repo/ui/components/input-group";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@repo/ui/components/select";
+import { useMutation, useQuery } from "@tanstack/react-query";
+import { PlusIcon } from "lucide-react";
+import { useState } from "react";
+import { Controller, useForm, useWatch } from "react-hook-form";
+import { NumericFormat } from "react-number-format";
+import { toast } from "sonner";
+
+const currencies = [
+  { value: "IDR", label: "Indonesian Rupiah (IDR)" },
+  { value: "USD", label: "US Dollar (USD)" },
+  { value: "SGD", label: "Singapore Dollar (SGD)" },
+];
+
+type LiabilityFormDialogProps = Readonly<{
+  initialData?: Liability;
+  trigger?: React.ReactElement;
+}>;
+
+export function LiabilityFormDialog({
+  initialData,
+  trigger,
+}: LiabilityFormDialogProps) {
+  const [open, setOpen] = useState(false);
+
+  const form = useForm<Liability>({
+    resolver: zodResolver(liabilitySchema),
+    defaultValues: initialData ?? {
+      name: "",
+      type: "LOAN",
+      amount: 0,
+      currency: "IDR",
+      notes: "",
+      paidAt: null,
+    },
+  });
+
+  const selectedCurrency = useWatch({
+    control: form.control,
+    name: "currency",
+  });
+
+  const { mutate, isPending } = useMutation({
+    ...liabilityMutationOptions(),
+    onSuccess: () => {
+      toast.success(initialData ? "Liability updated" : "Liability created");
+      form.reset();
+      setOpen(false);
+    },
+    onError: (err) =>
+      toast.error("Failed to save liability", { description: err.message }),
+  });
+
+  const { data: liabilityTypes } = useQuery(liabilityTypesQueryOptions());
+
+  const onSubmit = () => mutate({ ...form.getValues(), id: initialData?.id });
+
+  return (
+    <Dialog
+      open={open}
+      onOpenChange={(v) => {
+        if (!v) form.reset();
+        setOpen(v);
+      }}
+    >
+      <DialogTrigger asChild>
+        {trigger ?? (
+          <Button className="ml-auto" size="sm">
+            <PlusIcon className="-ms-1 opacity-60" size={16} /> Add liability
+          </Button>
+        )}
+      </DialogTrigger>
+      <DialogContent className="!max-w-2xl !w-full max-h-[90vh] overflow-y-auto">
+        <DialogHeader>
+          <DialogTitle>
+            {initialData ? "Edit Liability" : "Add New Liability"}
+          </DialogTitle>
+          <DialogDescription>
+            {initialData
+              ? "Edit your liability details below."
+              : "Add a new liability to track your net worth."}
+          </DialogDescription>
+        </DialogHeader>
+        <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+          <Field>
+            <FieldLabel>Name</FieldLabel>
+            <InputGroup>
+              <InputGroupInput
+                {...form.register("name")}
+                placeholder="Liability name"
+                autoFocus
+              />
+            </InputGroup>
+            {form.formState.errors.name && (
+              <FieldError>{form.formState.errors.name.message}</FieldError>
+            )}
+          </Field>
+
+          <div className="grid grid-cols-2 gap-4">
+            <Field>
+              <FieldLabel>Type</FieldLabel>
+              <Controller
+                name="type"
+                control={form.control}
+                render={({ field }) => (
+                  <Select value={field.value} onValueChange={field.onChange}>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select type" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {liabilityTypes?.map((type) => (
+                        <SelectItem key={type} value={type}>
+                          {type.replace(/_/g, " ")}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                )}
+              />
+            </Field>
+            <Field>
+              <FieldLabel>Currency</FieldLabel>
+              <Controller
+                name="currency"
+                control={form.control}
+                render={({ field }) => (
+                  <Select value={field.value} onValueChange={field.onChange}>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select currency" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {currencies.map((c) => (
+                        <SelectItem key={c.value} value={c.value}>
+                          {c.label}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                )}
+              />
+            </Field>
+          </div>
+
+          <Field>
+            <FieldLabel>Amount</FieldLabel>
+            <Controller
+              name="amount"
+              control={form.control}
+              render={({ field }) => (
+                <NumericFormat
+                  customInput={InputGroupInput}
+                  thousandSeparator={selectedCurrency === "IDR" ? "." : ","}
+                  decimalSeparator={selectedCurrency === "IDR" ? "," : "."}
+                  prefix={selectedCurrency === "IDR" ? "Rp " : "$ "}
+                  value={field.value}
+                  onValueChange={(v) => field.onChange(v.floatValue ?? 0)}
+                />
+              )}
+            />
+          </Field>
+
+          <Field>
+            <FieldLabel>Notes</FieldLabel>
+            <InputGroup>
+              <InputGroupTextarea
+                {...form.register("notes")}
+                placeholder="Optional notes"
+              />
+            </InputGroup>
+          </Field>
+
+          <div className="flex gap-3 pt-4">
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => setOpen(false)}
+              className="flex-1"
+            >
+              Cancel
+            </Button>
+            <Button type="submit" disabled={isPending} className="flex-1">
+              {isPending
+                ? "Saving..."
+                : initialData
+                  ? "Update Liability"
+                  : "Add Liability"}
+            </Button>
+          </div>
+        </form>
+      </DialogContent>
+    </Dialog>
+  );
+}

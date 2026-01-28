@@ -15,9 +15,11 @@ import (
 // Budget field order constants
 const budgetSkipFieldSearch = "search"
 
-var budgetFieldOrderDefault = []string{"user_id", "month", "year"}
-var budgetFieldOrderWithID = []string{"id", "user_id", "month", "year"}
-var budgetItemFieldOrder = []string{"budget_id"}
+var (
+	budgetFieldOrderDefault = []string{"user_id", "month", "year"}
+	budgetFieldOrderWithID  = []string{"id", "user_id", "month", "year"}
+	budgetItemFieldOrder    = []string{"budget_id"}
+)
 
 type BudgetRepository interface {
 	Create(ctx context.Context, budget *model.Budget) error

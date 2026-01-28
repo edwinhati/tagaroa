@@ -515,6 +515,7 @@ func TestIsValidAccountType(t *testing.T) {
 		})
 	}
 }
+
 func TestAccountServiceCreateAccountRepositoryError(t *testing.T) {
 	mockRepo := new(MockAccountRepository)
 	service := NewAccountService(mockRepo)

@@ -1,10 +1,12 @@
 {
-	"name": "finance-server",
-	"scripts": {
-		"dev": "go run ./cmd/main.go",
-		"build": "go build -o finance-server ./cmd/main.go",
-		"start": "./finance-server",
-		"test": "go test ./... -v",
-		"test:coverage": "go test ./... -coverprofile=coverage.out -covermode=atomic && go tool cover -func=coverage.out"
-	}
+  "name": "finance-server",
+  "scripts": {
+    "dev": "go run ./cmd/main.go",
+    "build": "go build -o finance-server ./cmd/main.go",
+    "start": "./finance-server",
+    "test": "go test ./... -v",
+    "test:coverage": "go test ./... -coverprofile=coverage.out -covermode=atomic && go tool cover -func=coverage.out",
+    "lint": "go vet ./... && gofmt -l .",
+    "format": "gofmt -w ."
+  }
 }

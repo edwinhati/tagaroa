@@ -1,0 +1,135 @@
+"use client";
+
+import { financeApi } from "@repo/common/lib/http";
+import type {
+  AccountAggregationsResult,
+  BudgetPerformanceResult,
+  ExpenseBreakdownResult,
+  SummaryResult,
+  TransactionTrendsResult,
+} from "@repo/common/types/finance-dashboard";
+import { queryOptions } from "@tanstack/react-query";
+
+const fetchDashboardSummary = async (params?: {
+  startDate?: string;
+  endDate?: string;
+}): Promise<SummaryResult> => {
+  const searchParams = new URLSearchParams();
+
+  if (params?.startDate) searchParams.append("start_date", params.startDate);
+  if (params?.endDate) searchParams.append("end_date", params.endDate);
+
+  const queryString = searchParams.toString();
+  const url = queryString
+    ? `/dashboard/summary?${queryString}`
+    : "/dashboard/summary";
+
+  return financeApi.get<SummaryResult>(url);
+};
+
+const fetchAccountAggregations =
+  async (): Promise<AccountAggregationsResult> => {
+    return financeApi.get<AccountAggregationsResult>("/dashboard/accounts");
+  };
+
+const fetchBudgetPerformance = async (params?: {
+  month?: number;
+  year?: number;
+}): Promise<BudgetPerformanceResult> => {
+  const searchParams = new URLSearchParams();
+
+  if (params?.month) searchParams.append("month", params.month.toString());
+  if (params?.year) searchParams.append("year", params.year.toString());
+
+  const queryString = searchParams.toString();
+  const url = queryString
+    ? `/dashboard/budget-performance?${queryString}`
+    : "/dashboard/budget-performance";
+
+  return financeApi.get<BudgetPerformanceResult>(url);
+};
+
+const fetchTransactionTrends = async (params?: {
+  startDate?: string;
+  endDate?: string;
+  granularity?: string;
+}): Promise<TransactionTrendsResult> => {
+  const searchParams = new URLSearchParams();
+
+  if (params?.startDate) searchParams.append("start_date", params.startDate);
+  if (params?.endDate) searchParams.append("end_date", params.endDate);
+  if (params?.granularity)
+    searchParams.append("granularity", params.granularity);
+
+  const queryString = searchParams.toString();
+  const url = queryString
+    ? `/dashboard/transaction-trends?${queryString}`
+    : "/dashboard/transaction-trends";
+
+  return financeApi.get<TransactionTrendsResult>(url);
+};
+
+const fetchExpenseBreakdown = async (params?: {
+  startDate?: string;
+  endDate?: string;
+}): Promise<ExpenseBreakdownResult> => {
+  const searchParams = new URLSearchParams();
+
+  if (params?.startDate) searchParams.append("start_date", params.startDate);
+  if (params?.endDate) searchParams.append("end_date", params.endDate);
+
+  const queryString = searchParams.toString();
+  const url = queryString
+    ? `/dashboard/expense-breakdown?${queryString}`
+    : "/dashboard/expense-breakdown";
+
+  return financeApi.get<ExpenseBreakdownResult>(url);
+};
+
+export const dashboardSummaryQueryOptions = (params?: {
+  startDate?: string;
+  endDate?: string;
+}) => {
+  return queryOptions({
+    queryKey: ["dashboard-summary", params],
+    queryFn: () => fetchDashboardSummary(params),
+  });
+};
+
+export const accountAggregationsQueryOptions = () => {
+  return queryOptions({
+    queryKey: ["account-aggregations"],
+    queryFn: fetchAccountAggregations,
+  });
+};
+
+export const budgetPerformanceQueryOptions = (params?: {
+  month?: number;
+  year?: number;
+}) => {
+  return queryOptions({
+    queryKey: ["budget-performance", params],
+    queryFn: () => fetchBudgetPerformance(params),
+  });
+};
+
+export const transactionTrendsQueryOptions = (params?: {
+  startDate?: string;
+  endDate?: string;
+  granularity?: string;
+}) => {
+  return queryOptions({
+    queryKey: ["transaction-trends", params],
+    queryFn: () => fetchTransactionTrends(params),
+  });
+};
+
+export const expenseBreakdownQueryOptions = (params?: {
+  startDate?: string;
+  endDate?: string;
+}) => {
+  return queryOptions({
+    queryKey: ["expense-breakdown", params],
+    queryFn: () => fetchExpenseBreakdown(params),
+  });
+};

@@ -19,4 +19,4 @@ CREATE TABLE IF NOT EXISTS transactions (
     CONSTRAINT fk_transactions_budget_item
         FOREIGN KEY (budget_item_id) REFERENCES budget_items(id)
         ON DELETE SET NULL
-)
+);
