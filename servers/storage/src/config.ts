@@ -1,13 +1,12 @@
 export interface Config {
   port: number;
   env: string;
+  logLevel: string;
   isDevelopment: boolean;
   isProduction: boolean;
 
-  // Database
   databaseUrl: string;
 
-  // S3
   s3: {
     accessKeyId: string;
     secretAccessKey: string;
@@ -16,8 +15,10 @@ export interface Config {
     region?: string;
   };
 
-  // CORS
-  trustedOrigins: string[];
+  cors: {
+    origin: string | string[];
+    credentials?: boolean;
+  };
 }
 
 function getEnv(key: string, defaultValue?: string): string {
@@ -35,11 +36,23 @@ function getEnvOptional(
   return process.env[key] || defaultValue;
 }
 
+function parseTrustedOrigins(value: string): string | string[] {
+  const trimmed = value.trim();
+  if (!trimmed) {
+    return [];
+  }
+  const origins = trimmed.split(",").map((o) => o.trim());
+  return origins.length === 1 ? origins[0] : origins;
+}
+
+const rawEnv = getEnv("ENV", "development");
+
 export const config: Config = {
   port: Number.parseInt(getEnv("PORT", "8084"), 10),
-  env: getEnv("ENV", "development"),
-  isDevelopment: getEnv("ENV", "development") === "development",
-  isProduction: getEnv("ENV", "development") === "production",
+  env: rawEnv,
+  logLevel: getEnvOptional("LOG_LEVEL", "info") ?? "info",
+  isDevelopment: rawEnv !== "production",
+  isProduction: rawEnv === "production",
 
   databaseUrl: getEnv("DATABASE_URL"),
 
@@ -51,5 +64,12 @@ export const config: Config = {
     region: getEnvOptional("S3_REGION", "us-east-1"),
   },
 
-  trustedOrigins: getEnv("TRUSTED_ORIGINS").split(","),
+  cors: {
+    origin: parseTrustedOrigins(getEnv("TRUSTED_ORIGINS", "*")),
+    credentials: true,
+  },
 };
+
+export const isDevelopment = config.isDevelopment;
+export const isProduction = config.isProduction;
+export const logLevel = config.logLevel;

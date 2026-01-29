@@ -246,7 +246,7 @@ func TestMainExitsOnError(t *testing.T) {
 }
 
 func TestBuildHTTPHandler(t *testing.T) {
-	handler := buildHTTPHandler(nil, nil, nil)
+	handler := buildHTTPHandler(nil, nil, nil, config.KafkaConfig{})
 	assert.NotNil(t, handler)
 }
 
@@ -435,7 +435,7 @@ func TestRunWithMocks(t *testing.T) {
 		mustInitOIDCClientCalled = true
 		return nil
 	}
-	buildHTTPHandlerFn = func(db *sql.DB, oidcClient *client.OIDCClient, allowedOrigins []string) http.Handler {
+	buildHTTPHandlerFn = func(db *sql.DB, oidcClient *client.OIDCClient, allowedOrigins []string, kafkaCfg config.KafkaConfig) http.Handler {
 		buildHTTPHandlerCalled = true
 		return nil
 	}
@@ -504,7 +504,7 @@ func TestRunWithRealFunctions(t *testing.T) {
 	mustInitOIDCClientFn = func(ctx context.Context, cfg *config.Config) *client.OIDCClient {
 		return nil
 	}
-	buildHTTPHandlerFn = func(db *sql.DB, oidcClient *client.OIDCClient, allowedOrigins []string) http.Handler {
+	buildHTTPHandlerFn = func(db *sql.DB, oidcClient *client.OIDCClient, allowedOrigins []string, kafkaCfg config.KafkaConfig) http.Handler {
 		return nil
 	}
 	newHTTPServerFn = func(port string, handler http.Handler) *http.Server {

@@ -6,12 +6,15 @@ import (
 	"time"
 
 	"github.com/edwinhati/tagaroa/packages/shared/go/client"
-	"github.com/edwinhati/tagaroa/packages/shared/go/middleware"
+	"github.com/edwinhati/tagaroa/packages/shared/go/logger"
+	sharedmiddleware "github.com/edwinhati/tagaroa/packages/shared/go/middleware"
 	"github.com/edwinhati/tagaroa/packages/shared/go/router"
 	"github.com/edwinhati/tagaroa/packages/shared/go/util"
+	"github.com/edwinhati/tagaroa/servers/finance/internal/middleware"
 	"github.com/edwinhati/tagaroa/servers/finance/internal/model"
 	"github.com/edwinhati/tagaroa/servers/finance/internal/service"
 	"github.com/google/uuid"
+	"go.uber.org/zap"
 )
 
 const (
@@ -58,18 +61,20 @@ type UpdateAccountRequest struct {
 type AccountHandler struct {
 	oidcClient     *client.OIDCClient
 	accountService service.AccountService
+	log            *zap.SugaredLogger
 }
 
 func NewAccountHandler(oidcClient *client.OIDCClient, accountService service.AccountService) *AccountHandler {
 	return &AccountHandler{
 		oidcClient:     oidcClient,
 		accountService: accountService,
+		log:            logger.New().With("handler", "account"),
 	}
 }
 
 func (h *AccountHandler) SetupRoutes(router *router.Router, middlewares ...func(http.Handler) http.Handler) {
 	// Combine middlewares with auth middleware
-	allMiddlewares := append(middlewares, middleware.AuthMiddleware(h.oidcClient))
+	allMiddlewares := append(middlewares, sharedmiddleware.AuthMiddleware(h.oidcClient))
 
 	// Apply middleware to individual routes
 	applyMiddleware := func(handler http.HandlerFunc) http.HandlerFunc {
@@ -96,8 +101,11 @@ func (h *AccountHandler) SetupRoutes(router *router.Router, middlewares ...func(
 }
 
 func (h *AccountHandler) CreateAccount(w http.ResponseWriter, r *http.Request) {
+	requestID := middleware.GetRequestID(r.Context())
+
 	var req CreateAccountRequest
 	if !util.ParseJSONBody(w, r, &req) {
+		h.log.Warnw("CreateAccount invalid request body", "request_id", requestID)
 		return
 	}
 
@@ -105,6 +113,8 @@ func (h *AccountHandler) CreateAccount(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
+
+	h.log.Infow("CreateAccount request started", "request_id", requestID, "user_id", userID, "account_type", req.Type, "currency", req.Currency)
 
 	account := &model.Account{
 		ID:       uuid.New(),
@@ -120,13 +130,16 @@ func (h *AccountHandler) CreateAccount(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		switch err {
 		case service.ErrInvalidAccountType:
+			h.log.Warnw("CreateAccount invalid account type", "request_id", requestID, "error", err.Error())
 			util.WriteErrorResponse(w, http.StatusBadRequest, "Invalid account", err.Error())
 		default:
+			h.log.Errorw("CreateAccount failed", "request_id", requestID, "error", err.Error())
 			util.WriteErrorResponse(w, http.StatusInternalServerError, "Failed to create account", err.Error())
 		}
 		return
 	}
 
+	h.log.Infow("CreateAccount success", "request_id", requestID, "account_id", account.ID, "account_type", account.Type)
 	util.WriteJSONResponse(w, http.StatusOK, account, "Account created successfully")
 }
 
@@ -283,18 +296,20 @@ type UpdateBudgetRequest struct {
 type BudgetHandler struct {
 	oidcClient    *client.OIDCClient
 	budgetService service.BudgetService
+	log           *zap.SugaredLogger
 }
 
 func NewBudgetHandler(oidcClient *client.OIDCClient, budgetService service.BudgetService) *BudgetHandler {
 	return &BudgetHandler{
 		oidcClient:    oidcClient,
 		budgetService: budgetService,
+		log:           logger.New().With("handler", "budget"),
 	}
 }
 
 func (h *BudgetHandler) SetupRoutes(router *router.Router, middlewares ...func(http.Handler) http.Handler) {
 	// Combine middlewares with auth middleware
-	allMiddlewares := append(middlewares, middleware.AuthMiddleware(h.oidcClient))
+	allMiddlewares := append(middlewares, sharedmiddleware.AuthMiddleware(h.oidcClient))
 
 	// Apply middleware to individual routes
 	applyMiddleware := func(handler http.HandlerFunc) http.HandlerFunc {
@@ -499,18 +514,20 @@ type UpdateTransactionRequest struct {
 type TransactionHandler struct {
 	oidcClient         *client.OIDCClient
 	transactionService service.TransactionService
+	log                *zap.SugaredLogger
 }
 
 func NewTransactionHandler(oidcClient *client.OIDCClient, transactionService service.TransactionService) *TransactionHandler {
 	return &TransactionHandler{
 		oidcClient:         oidcClient,
 		transactionService: transactionService,
+		log:                logger.New().With("handler", "transaction"),
 	}
 }
 
 func (h *TransactionHandler) SetupRoutes(router *router.Router, middlewares ...func(http.Handler) http.Handler) {
 	// Combine middlewares with auth middleware
-	allMiddlewares := append(middlewares, middleware.AuthMiddleware(h.oidcClient))
+	allMiddlewares := append(middlewares, sharedmiddleware.AuthMiddleware(h.oidcClient))
 
 	// Apply middleware to individual routes
 	applyMiddleware := func(handler http.HandlerFunc) http.HandlerFunc {
@@ -903,14 +920,19 @@ type UpdateAssetRequest struct {
 type AssetHandler struct {
 	oidcClient   *client.OIDCClient
 	assetService service.AssetService
+	log          *zap.SugaredLogger
 }
 
 func NewAssetHandler(oidcClient *client.OIDCClient, assetService service.AssetService) *AssetHandler {
-	return &AssetHandler{oidcClient: oidcClient, assetService: assetService}
+	return &AssetHandler{
+		oidcClient:   oidcClient,
+		assetService: assetService,
+		log:          logger.New().With("handler", "asset"),
+	}
 }
 
 func (h *AssetHandler) SetupRoutes(router *router.Router, middlewares ...func(http.Handler) http.Handler) {
-	allMiddlewares := append(middlewares, middleware.AuthMiddleware(h.oidcClient))
+	allMiddlewares := append(middlewares, sharedmiddleware.AuthMiddleware(h.oidcClient))
 	applyMiddleware := func(handler http.HandlerFunc) http.HandlerFunc {
 		h := http.Handler(handler)
 		for i := len(allMiddlewares) - 1; i >= 0; i-- {
@@ -1088,7 +1110,7 @@ func NewLiabilityHandler(oidcClient *client.OIDCClient, liabilityService service
 }
 
 func (h *LiabilityHandler) SetupRoutes(router *router.Router, middlewares ...func(http.Handler) http.Handler) {
-	allMiddlewares := append(middlewares, middleware.AuthMiddleware(h.oidcClient))
+	allMiddlewares := append(middlewares, sharedmiddleware.AuthMiddleware(h.oidcClient))
 	applyMiddleware := func(handler http.HandlerFunc) http.HandlerFunc {
 		h := http.Handler(handler)
 		for i := len(allMiddlewares) - 1; i >= 0; i-- {
@@ -1252,7 +1274,7 @@ func NewDashboardHandler(oidcClient *client.OIDCClient, dashboardService service
 }
 
 func (h *DashboardHandler) SetupRoutes(router *router.Router, middlewares ...func(http.Handler) http.Handler) {
-	allMiddlewares := append(middlewares, middleware.AuthMiddleware(h.oidcClient))
+	allMiddlewares := append(middlewares, sharedmiddleware.AuthMiddleware(h.oidcClient))
 	applyMiddleware := func(handler http.HandlerFunc) http.HandlerFunc {
 		h := http.Handler(handler)
 		for i := len(allMiddlewares) - 1; i >= 0; i-- {

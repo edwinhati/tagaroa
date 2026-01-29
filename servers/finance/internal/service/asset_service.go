@@ -7,10 +7,12 @@ import (
 	"slices"
 	"time"
 
+	"github.com/edwinhati/tagaroa/packages/shared/go/logger"
 	"github.com/edwinhati/tagaroa/packages/shared/go/util"
 	"github.com/edwinhati/tagaroa/servers/finance/internal/model"
 	"github.com/edwinhati/tagaroa/servers/finance/internal/repository"
 	"github.com/google/uuid"
+	"go.uber.org/zap"
 )
 
 var (
@@ -53,19 +55,26 @@ type AssetService interface {
 
 type assetService struct {
 	assetRepo repository.AssetRepository
+	log       *zap.SugaredLogger
 }
 
 func NewAssetService(assetRepo repository.AssetRepository) AssetService {
-	return &assetService{assetRepo: assetRepo}
+	return &assetService{
+		assetRepo: assetRepo,
+		log:       logger.New().With("service", "asset"),
+	}
 }
 
 func (s *assetService) CreateAsset(ctx context.Context, asset *model.Asset) (*model.Asset, error) {
 	if !isValidAssetType(asset.Type) {
+		s.log.Warnw("Invalid asset type", "type", asset.Type)
 		return nil, ErrInvalidAssetType
 	}
 	if err := s.assetRepo.Create(ctx, asset); err != nil {
+		s.log.Errorw("Failed to create asset", "error", err, "user_id", asset.UserID)
 		return nil, fmt.Errorf("failed to create asset: %w", err)
 	}
+	s.log.Infow("Asset created", "asset_id", asset.ID, "user_id", asset.UserID, "type", asset.Type)
 	return asset, nil
 }
 
@@ -74,11 +83,14 @@ func (s *assetService) GetAsset(ctx context.Context, id, userID uuid.UUID) (*mod
 		Where: map[string]any{"id": id, "user_id": userID},
 	})
 	if err != nil {
+		s.log.Errorw("Failed to get asset", "error", err, "asset_id", id)
 		return nil, fmt.Errorf("failed to get asset: %w", err)
 	}
 	if asset == nil {
+		s.log.Debugw("Asset not found", "asset_id", id)
 		return nil, ErrAssetNotFound
 	}
+	s.log.Debugw("Asset found", "asset_id", id)
 	return asset, nil
 }
 
@@ -101,6 +113,7 @@ func (s *assetService) GetAssets(ctx context.Context, params GetAssetsParams) (*
 
 	total, err := s.assetRepo.Count(ctx, where)
 	if err != nil {
+		s.log.Errorw("Failed to count assets", "error", err, "user_id", params.UserID)
 		return nil, fmt.Errorf("failed to count assets: %w", err)
 	}
 
@@ -113,9 +126,11 @@ func (s *assetService) GetAssets(ctx context.Context, params GetAssetsParams) (*
 		Offset: offset, Limit: params.Limit, Where: where, OrderBy: orderBy,
 	})
 	if err != nil {
+		s.log.Errorw("Failed to get assets", "error", err, "user_id", params.UserID)
 		return nil, fmt.Errorf("failed to get assets: %w", err)
 	}
 
+	s.log.Infow("Assets retrieved", "user_id", params.UserID, "count", len(assets), "total", total)
 	return &GetAssetsResult{Assets: assets, Total: total}, nil
 }
 
@@ -124,9 +139,11 @@ func (s *assetService) UpdateAsset(ctx context.Context, id uuid.UUID, input Upda
 		Where: map[string]any{"id": id, "user_id": userID},
 	})
 	if err != nil {
+		s.log.Errorw("Failed to get asset for update", "error", err, "asset_id", id)
 		return nil, fmt.Errorf("failed to get asset: %w", err)
 	}
 	if asset == nil {
+		s.log.Debugw("Asset not found for update", "asset_id", id)
 		return nil, ErrAssetNotFound
 	}
 
@@ -156,8 +173,10 @@ func (s *assetService) UpdateAsset(ctx context.Context, id uuid.UUID, input Upda
 	}
 
 	if err := s.assetRepo.Update(ctx, asset); err != nil {
+		s.log.Errorw("Failed to update asset", "error", err, "asset_id", id)
 		return nil, fmt.Errorf("failed to update asset: %w", err)
 	}
+	s.log.Infow("Asset updated", "asset_id", id)
 	return asset, nil
 }
 
@@ -166,15 +185,22 @@ func (s *assetService) DeleteAsset(ctx context.Context, id, userID uuid.UUID) er
 		Where: map[string]any{"id": id, "user_id": userID},
 	})
 	if err != nil {
+		s.log.Errorw("Failed to get asset for delete", "error", err, "asset_id", id)
 		return fmt.Errorf("failed to get asset: %w", err)
 	}
 	if asset == nil {
+		s.log.Debugw("Asset not found for delete", "asset_id", id)
 		return ErrAssetNotFound
 	}
 
 	now := time.Now()
 	asset.DeletedAt = &now
-	return s.assetRepo.Update(ctx, asset)
+	if err := s.assetRepo.Update(ctx, asset); err != nil {
+		s.log.Errorw("Failed to delete asset", "error", err, "asset_id", id)
+		return fmt.Errorf("failed to delete asset: %w", err)
+	}
+	s.log.Infow("Asset deleted", "asset_id", id)
+	return nil
 }
 
 func isValidAssetType(t model.AssetType) bool {

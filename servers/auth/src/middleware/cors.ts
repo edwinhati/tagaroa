@@ -1,5 +1,5 @@
 import { cors } from "hono/cors";
-import { trustedOrigins } from "../auth";
+import { trustedOrigins } from "../auth/configuration";
 import { config } from "../config";
 
 const trusted = new Set(trustedOrigins);
@@ -8,18 +8,9 @@ const isLocalhost = (origin: string): boolean =>
   /^(https?:\/\/)?(localhost|127\.0\.0\.1)(:\d+)?$/.test(origin);
 
 const corsOriginHandler = (origin: string | undefined): string | null => {
-  // No Origin header (curl, native apps) — allow via wildcard
   if (!origin) return "*";
-
-  // Exact allowlist
   if (trusted.has(origin)) return origin;
-
-  // Dev: allow localhost
-  if (config.isDevelopment && isLocalhost(origin)) {
-    return origin;
-  }
-
-  // Disallow by returning null (no ACAO header)
+  if (config.isDevelopment && isLocalhost(origin)) return origin;
   return null;
 };
 

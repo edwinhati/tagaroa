@@ -1,14 +1,25 @@
 import { Hono } from "hono";
+import { getRequestId } from "../middleware/http.js";
+import type { LoggerPort } from "../ports/logger.port.js";
 import type { FileService } from "../service/file-service";
 
-export const createUploadRoutes = (fileService: FileService) => {
+interface UploadBody {
+  originalName: string;
+  contentType?: string;
+  expiresIn?: number;
+  prefix?: string;
+}
+
+export const createUploadRoutes = (
+  fileService: FileService,
+  logger: LoggerPort,
+) => {
   const app = new Hono();
 
-  /**
-   * Upload a file
-   * POST /
-   */
   app.post("/", async (c) => {
+    const requestId = getRequestId(c);
+    const ctx = `req:${requestId}`;
+
     try {
       const formData = await c.req.formData();
       const file = formData.get("file");
@@ -23,18 +34,21 @@ export const createUploadRoutes = (fileService: FileService) => {
         );
       }
 
-      // Optional: Get prefix from form data
       const prefixValue = formData.get("prefix");
       const prefix =
         prefixValue instanceof File ? undefined : prefixValue?.toString();
 
-      // Upload file
       const result = await fileService.uploadFile({
         file,
         originalName: file.name,
         contentType: file.type,
         prefix,
       });
+
+      logger.info(
+        `Uploaded file - id:${result.file.id} name:${file.name} size:${result.file.size}`,
+        ctx,
+      );
 
       return c.json(
         {
@@ -52,24 +66,24 @@ export const createUploadRoutes = (fileService: FileService) => {
         201,
       );
     } catch (error) {
-      console.error("Upload error:", error);
+      const err = error as Error;
+      logger.error(`Upload failed - ${err.message}`, err.stack, ctx);
       return c.json(
         {
           error: "Upload failed",
-          message: error instanceof Error ? error.message : "Unknown error",
+          message: err.message,
         },
         500,
       );
     }
   });
 
-  /**
-   * Get presigned upload URL
-   * POST /presigned
-   */
   app.post("/presigned", async (c) => {
+    const requestId = getRequestId(c);
+    const ctx = `req:${requestId}`;
+
     try {
-      const body = await c.req.json();
+      const body = await c.req.json<UploadBody>();
       const { originalName, contentType, expiresIn, prefix } = body;
 
       if (!originalName) {
@@ -89,6 +103,8 @@ export const createUploadRoutes = (fileService: FileService) => {
         prefix,
       });
 
+      logger.info(`Generated presigned upload URL - name:${originalName}`, ctx);
+
       return c.json({
         success: true,
         data: {
@@ -98,22 +114,22 @@ export const createUploadRoutes = (fileService: FileService) => {
         },
       });
     } catch (error) {
-      console.error("Presigned URL error:", error);
+      const err = error as Error;
+      logger.error(`Presigned URL failed - ${err.message}`, err.stack, ctx);
       return c.json(
         {
           error: "Failed to generate presigned URL",
-          message: error instanceof Error ? error.message : "Unknown error",
+          message: err.message,
         },
         500,
       );
     }
   });
 
-  /**
-   * Upload multiple files
-   * POST /batch
-   */
   app.post("/batch", async (c) => {
+    const requestId = getRequestId(c);
+    const ctx = `req:${requestId}`;
+
     try {
       const formData = await c.req.formData();
       const files = formData.getAll("files");
@@ -132,7 +148,6 @@ export const createUploadRoutes = (fileService: FileService) => {
       const prefix =
         prefixValue instanceof File ? undefined : prefixValue?.toString();
 
-      // Upload all files
       const results = await Promise.all(
         files.map(async (file) => {
           if (!(file instanceof File)) {
@@ -146,6 +161,11 @@ export const createUploadRoutes = (fileService: FileService) => {
             prefix,
           });
         }),
+      );
+
+      logger.info(
+        `Batch upload completed - count:${results.length} files`,
+        ctx,
       );
 
       return c.json(
@@ -164,11 +184,12 @@ export const createUploadRoutes = (fileService: FileService) => {
         201,
       );
     } catch (error) {
-      console.error("Batch upload error:", error);
+      const err = error as Error;
+      logger.error(`Batch upload failed - ${err.message}`, err.stack, ctx);
       return c.json(
         {
           error: "Batch upload failed",
-          message: error instanceof Error ? error.message : "Unknown error",
+          message: err.message,
         },
         500,
       );

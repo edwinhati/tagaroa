@@ -7,7 +7,9 @@ import (
 	"strings"
 	"time"
 
+	"github.com/edwinhati/tagaroa/packages/shared/go/logger"
 	kafkago "github.com/segmentio/kafka-go"
+	"go.uber.org/zap"
 )
 
 // Handler processes a consumed Kafka message.
@@ -46,18 +48,21 @@ type consumer struct {
 	cfg       ConsumerConfig
 	reader    consumerReader
 	newReader readerFactory
+	log       *zap.SugaredLogger
 }
 
-// NewConsumer builds a Kafka consumer using the provided configuration.
 func NewConsumer(cfg ConsumerConfig, opts ...ConsumerOption) (Consumer, error) {
 	cfg = cfg.withDefaults()
 	if err := cfg.validate(); err != nil {
 		return nil, err
 	}
 
+	log := logger.New()
+
 	c := &consumer{
 		cfg:       cfg,
 		newReader: defaultReaderFactory,
+		log:       log,
 	}
 
 	for _, opt := range opts {
@@ -66,6 +71,7 @@ func NewConsumer(cfg ConsumerConfig, opts ...ConsumerOption) (Consumer, error) {
 
 	reader, err := c.newReader(cfg)
 	if err != nil {
+		log.Errorw("Failed to create consumer reader", "error", err)
 		return nil, fmt.Errorf("kafka: create reader: %w", err)
 	}
 	if reader == nil {
@@ -73,6 +79,7 @@ func NewConsumer(cfg ConsumerConfig, opts ...ConsumerOption) (Consumer, error) {
 	}
 
 	c.reader = reader
+	log.Infow("Kafka consumer initialized", "brokers", cfg.Brokers, "group_id", cfg.GroupID, "topics", cfg.Topics)
 	return c, nil
 }
 
@@ -87,12 +94,16 @@ func WithReaderFactory(factory readerFactory) ConsumerOption {
 
 func (c *consumer) Consume(ctx context.Context, handler Handler) error {
 	if handler == nil {
+		c.log.Errorw("Consume failed: nil handler", "error", ErrNilHandler)
 		return ErrNilHandler
 	}
+
+	c.log.Infow("Starting message consumption")
 
 	for {
 		select {
 		case <-ctx.Done():
+			c.log.Infow("Consume context cancelled", "error", ctx.Err())
 			return ctx.Err()
 		default:
 		}
@@ -103,14 +114,16 @@ func (c *consumer) Consume(ctx context.Context, handler Handler) error {
 			case errors.Is(err, context.Canceled), errors.Is(err, context.DeadlineExceeded):
 				return err
 			case errors.Is(err, kafkago.ErrGenerationEnded):
-				// Rebalance occurred; try fetching again.
+				c.log.Infow("Rebalance occurred, continuing")
 				continue
 			default:
+				c.log.Errorw("Failed to fetch message", "error", err)
 				return fmt.Errorf("kafka: fetch message: %w", err)
 			}
 		}
 
 		if err := handler(ctx, convertMessage(msg)); err != nil {
+			c.log.Errorw("Handler failed", "topic", msg.Topic, "error", err)
 			return fmt.Errorf("kafka: handle message: %w", err)
 		}
 
@@ -118,6 +131,7 @@ func (c *consumer) Consume(ctx context.Context, handler Handler) error {
 			if errors.Is(err, context.Canceled) || errors.Is(err, context.DeadlineExceeded) {
 				return err
 			}
+			c.log.Errorw("Failed to commit message", "error", err)
 			return fmt.Errorf("kafka: commit message: %w", err)
 		}
 	}
@@ -127,7 +141,12 @@ func (c *consumer) Close() error {
 	if c.reader == nil {
 		return nil
 	}
-	return c.reader.Close()
+	if err := c.reader.Close(); err != nil {
+		c.log.Errorw("Failed to close consumer", "error", err)
+		return err
+	}
+	c.log.Infow("Kafka consumer closed")
+	return nil
 }
 
 func (cfg ConsumerConfig) withDefaults() ConsumerConfig {

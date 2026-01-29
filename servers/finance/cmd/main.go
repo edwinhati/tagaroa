@@ -15,10 +15,12 @@ import (
 	"golang.org/x/time/rate"
 
 	"github.com/edwinhati/tagaroa/packages/shared/go/client"
+	"github.com/edwinhati/tagaroa/packages/shared/go/kafka"
 	"github.com/edwinhati/tagaroa/packages/shared/go/middleware"
 	"github.com/edwinhati/tagaroa/packages/shared/go/router"
 	"github.com/edwinhati/tagaroa/packages/shared/go/util"
 	"github.com/edwinhati/tagaroa/servers/finance/internal/config"
+	"github.com/edwinhati/tagaroa/servers/finance/internal/event"
 	"github.com/edwinhati/tagaroa/servers/finance/internal/repository"
 	"github.com/edwinhati/tagaroa/servers/finance/internal/service"
 	httphandler "github.com/edwinhati/tagaroa/servers/finance/internal/transport"
@@ -34,7 +36,7 @@ var (
 	mustLoadConfigFn         func() *config.Config
 	mustConnectDatabaseFn    func(cfg *config.Config) *sql.DB
 	mustInitOIDCClientFn     func(ctx context.Context, cfg *config.Config) *client.OIDCClient
-	buildHTTPHandlerFn       func(db *sql.DB, oidcClient *client.OIDCClient, allowedOrigins []string) http.Handler
+	buildHTTPHandlerFn       func(db *sql.DB, oidcClient *client.OIDCClient, allowedOrigins []string, kafkaCfg config.KafkaConfig) http.Handler
 	newHTTPServerFn          func(port string, handler http.Handler) *http.Server
 	startServerFn            func(server *http.Server)
 	gracefulShutdownFn       func(server *http.Server)
@@ -74,6 +76,7 @@ func run() error {
 		db,
 		oidcClient,
 		parseAllowedOrigins(cfg.Server.TrustedOrigins),
+		cfg.Kafka,
 	)
 
 	if registerHealthEndpointFn != nil {
@@ -201,9 +204,10 @@ func buildHTTPHandler(
 	db *sql.DB,
 	oidcClient *client.OIDCClient,
 	allowedOrigins []string,
+	kafkaCfg config.KafkaConfig,
 ) http.Handler {
 	if buildHTTPHandlerFn != nil {
-		return buildHTTPHandlerFn(db, oidcClient, allowedOrigins)
+		return buildHTTPHandlerFn(db, oidcClient, allowedOrigins, kafkaCfg)
 	}
 	accountRepo := repository.NewAccountRepository(db)
 	transactionRepo := repository.NewTransactionRepository(db)
@@ -211,9 +215,22 @@ func buildHTTPHandler(
 	assetRepo := repository.NewAssetRepository(db)
 	liabilityRepo := repository.NewLiabilityRepository(db)
 
-	accountService := service.NewAccountService(accountRepo)
-	transactionService := service.NewTransactionService(transactionRepo, accountRepo)
-	budgetService := service.NewBudgetService(budgetRepo)
+	var eventPublisher event.EventPublisher
+	if len(kafkaCfg.Brokers) > 0 {
+		kafkaProducer, err := kafka.NewProducer(kafka.Config{
+			Brokers:  kafkaCfg.Brokers,
+			ClientID: kafkaCfg.ClientID,
+		})
+		if err != nil {
+			log.Printf("Warning: Failed to create Kafka producer: %v", err)
+		} else {
+			eventPublisher = event.NewKafkaEventPublisher(kafkaProducer, "finance-events")
+		}
+	}
+
+	accountService := service.NewAccountServiceWithEvents(accountRepo, eventPublisher)
+	transactionService := service.NewTransactionServiceWithEvents(transactionRepo, accountRepo, eventPublisher)
+	budgetService := service.NewBudgetServiceWithEvents(budgetRepo, eventPublisher)
 	assetService := service.NewAssetService(assetRepo)
 	liabilityService := service.NewLiabilityService(liabilityRepo)
 	dashboardService := service.NewDashboardService(transactionRepo, budgetRepo, accountRepo)

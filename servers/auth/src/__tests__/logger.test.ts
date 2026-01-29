@@ -24,7 +24,8 @@ mock.module("../config", () => ({
   config: configMock,
 }));
 
-const { createLogger, httpMiddleware } = await import("../logger");
+const { createLogger } = await import("../logger");
+const { httpMiddleware } = await import("../middleware/http");
 
 const captureConsole = () => {
   const original = console.log;

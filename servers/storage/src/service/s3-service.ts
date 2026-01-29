@@ -1,4 +1,5 @@
 import { S3Client } from "bun";
+import type { LoggerPort } from "../ports/logger.port.js";
 
 export interface S3Config {
   accessKeyId: string;
@@ -35,8 +36,14 @@ export interface S3ClientInterface {
 
 export class S3Service {
   private readonly client: S3ClientInterface;
+  private readonly logger: LoggerPort;
 
-  constructor(config: S3Config, client?: S3ClientInterface) {
+  constructor(
+    config: S3Config,
+    logger: LoggerPort,
+    client?: S3ClientInterface,
+  ) {
+    this.logger = logger;
     this.client =
       client ||
       new S3Client({
@@ -46,11 +53,12 @@ export class S3Service {
         endpoint: config.endpoint,
         region: config.region || "us-east-1",
       });
+
+    logger.info(
+      `S3Service initialized - bucket:${config.bucket} region:${config.region || "us-east-1"}`,
+    );
   }
 
-  /**
-   * Upload a file to S3
-   */
   async upload(
     key: string,
     data: string | Uint8Array | ArrayBuffer | Blob | ReadableStream,
@@ -59,14 +67,15 @@ export class S3Service {
       acl?: string;
     },
   ): Promise<{ url: string; key: string }> {
+    const ctx = "S3Service";
+    this.logger.debug(`Uploading file - key:${key}`, ctx);
+
     const file = this.client.file(key);
 
-    // Convert data to compatible types for Bun's S3 write
     let uploadData: string | ArrayBuffer | Blob | Response;
     if (data instanceof ReadableStream) {
       uploadData = new Response(data);
     } else if (data instanceof Uint8Array) {
-      // Convert Uint8Array to Blob for compatibility
       uploadData = new Blob([data as BlobPart]);
     } else {
       uploadData = data;
@@ -76,30 +85,28 @@ export class S3Service {
       type: options?.contentType || "application/octet-stream",
     });
 
-    // Generate the URL for the uploaded file
     const url = this.getFileUrl(key);
+
+    this.logger.info(`Uploaded file - key:${key} url:${url}`, ctx);
 
     return { url, key };
   }
 
-  /**
-   * Download a file from S3
-   */
   async download(key: string): Promise<S3File> {
+    const ctx = "S3Service";
+    this.logger.debug(`Downloading file - key:${key}`, ctx);
     const file = this.client.file(key);
-    // S3File extends Blob, so we can return it directly
     return file;
   }
 
-  /**
-   * Get file metadata
-   */
   async stat(key: string): Promise<{
     size: number;
     contentType: string;
     lastModified: Date;
     etag: string;
   }> {
+    const ctx = "S3Service";
+    this.logger.debug(`Getting file stats - key:${key}`, ctx);
     const file = this.client.file(key);
     const stat = await file.stat();
 
@@ -111,49 +118,52 @@ export class S3Service {
     };
   }
 
-  /**
-   * Check if file exists
-   */
   async exists(key: string): Promise<boolean> {
+    const ctx = "S3Service";
+    this.logger.debug(`Checking if file exists - key:${key}`, ctx);
     const file = this.client.file(key);
     return await file.exists();
   }
 
-  /**
-   * Delete a file from S3
-   */
   async delete(key: string): Promise<void> {
+    const ctx = "S3Service";
+    this.logger.debug(`Deleting file - key:${key}`, ctx);
     const file = this.client.file(key);
     await file.delete();
+    this.logger.info(`Deleted file - key:${key}`, ctx);
   }
 
-  /**
-   * Generate a presigned URL for downloading
-   */
   presignDownload(
     key: string,
     options?: {
-      expiresIn?: number; // seconds
+      expiresIn?: number;
     },
   ): string {
+    const ctx = "S3Service";
+    this.logger.debug(
+      `Generating presigned download URL - key:${key} expiresIn:${options?.expiresIn || 3600}`,
+      ctx,
+    );
     const file = this.client.file(key);
     return file.presign({
       method: "GET",
-      expiresIn: options?.expiresIn || 3600, // 1 hour default
+      expiresIn: options?.expiresIn || 3600,
     });
   }
 
-  /**
-   * Generate a presigned URL for uploading
-   */
   presignUpload(
     key: string,
     options?: {
-      expiresIn?: number; // seconds
+      expiresIn?: number;
       contentType?: string;
       acl?: string;
     },
   ): string {
+    const ctx = "S3Service";
+    this.logger.debug(
+      `Generating presigned upload URL - key:${key} expiresIn:${options?.expiresIn || 3600}`,
+      ctx,
+    );
     const file = this.client.file(key);
     return file.presign({
       method: "PUT",
@@ -163,21 +173,14 @@ export class S3Service {
     });
   }
 
-  /**
-   * Get the public URL for a file
-   */
   private getFileUrl(key: string): string {
-    // Generate a presigned URL (7 days - maximum allowed)
     return this.presignDownload(key, { expiresIn: 60 * 60 * 24 * 7 });
   }
 
-  /**
-   * Generate a unique key for a file
-   */
   static generateKey(originalName: string, prefix?: string): string {
     const timestamp = Date.now();
     const random = crypto.randomUUID().split("-")[0];
-    const sanitized = originalName.replaceAll(/[^a-zA-Z0-9.-]/g, "_");
+    const sanitized = originalName.replace(/[^a-zA-Z0-9.-]/g, "_");
     const key = prefix
       ? `${prefix}/${timestamp}-${random}-${sanitized}`
       : `${timestamp}-${random}-${sanitized}`;

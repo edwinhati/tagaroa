@@ -7,9 +7,12 @@ import (
 	"strings"
 	"time"
 
-	"github.com/edwinhati/tagaroa/packages/shared/go/util"
+	"github.com/edwinhati/tagaroa/packages/shared/go/logger"
+	sharedutil "github.com/edwinhati/tagaroa/packages/shared/go/util"
 	"github.com/edwinhati/tagaroa/servers/finance/internal/model"
+	"github.com/edwinhati/tagaroa/servers/finance/internal/util"
 	"github.com/google/uuid"
+	"go.uber.org/zap"
 )
 
 // Budget field order constants
@@ -24,8 +27,8 @@ var (
 type BudgetRepository interface {
 	Create(ctx context.Context, budget *model.Budget) error
 	Update(ctx context.Context, budget *model.Budget) error
-	FindMany(ctx context.Context, params util.FindManyParams) ([]*model.Budget, error)
-	FindUnique(ctx context.Context, params util.FindUniqueParams) (*model.Budget, error)
+	FindMany(ctx context.Context, params sharedutil.FindManyParams) ([]*model.Budget, error)
+	FindUnique(ctx context.Context, params sharedutil.FindUniqueParams) (*model.Budget, error)
 	Count(ctx context.Context, where map[string]any) (int, error)
 	CreateItem(ctx context.Context, budgetItem *model.BudgetItem) error
 	UpdateItem(ctx context.Context, budgetItem *model.BudgetItem) error
@@ -34,11 +37,15 @@ type BudgetRepository interface {
 }
 
 type budgetRepository struct {
-	db *sql.DB
+	db  *sql.DB
+	log *zap.SugaredLogger
 }
 
 func NewBudgetRepository(db *sql.DB) BudgetRepository {
-	return &budgetRepository{db: db}
+	return &budgetRepository{
+		db:  db,
+		log: logger.New().With("repository", "budget"),
+	}
 }
 
 /* ----------------------------- Utilities ----------------------------- */
@@ -64,7 +71,7 @@ const budgetItemSelectCols = `
 	updated_at
 `
 
-func scanBudget(scanner util.RowScanner) (*model.Budget, error) {
+func scanBudget(scanner sharedutil.RowScanner) (*model.Budget, error) {
 	var b model.Budget
 	var deletedAt sql.NullTime
 
@@ -84,7 +91,7 @@ func scanBudget(scanner util.RowScanner) (*model.Budget, error) {
 	return &b, nil
 }
 
-func scanBudgetItem(scanner util.RowScanner) (*model.BudgetItem, error) {
+func scanBudgetItem(scanner sharedutil.RowScanner) (*model.BudgetItem, error) {
 	var item model.BudgetItem
 	var deletedAt sql.NullTime
 
@@ -140,23 +147,25 @@ func (r *budgetRepository) Update(ctx context.Context, budget *model.Budget) err
 	return err
 }
 
-func (r *budgetRepository) FindMany(ctx context.Context, params util.FindManyParams) ([]*model.Budget, error) {
+func (r *budgetRepository) FindMany(ctx context.Context, params sharedutil.FindManyParams) ([]*model.Budget, error) {
+	ctx, cancel := util.QueryContext(ctx, util.DefaultTimeoutConfig)
+	defer cancel()
+
 	var sb strings.Builder
 	sb.WriteString("SELECT ")
 	sb.WriteString(strings.TrimSpace(budgetSelectCols))
 	sb.WriteString(" FROM budgets")
 
-	whereClause, args := util.BuildWhere(params.Where, util.WhereBuildOpts{
+	whereClause, args := sharedutil.BuildWhere(params.Where, sharedutil.WhereBuildOpts{
 		FieldOrder:     budgetFieldOrderDefault,
-		SkipField:      budgetSkipFieldSearch, // budgets do not support text search
-		ExcludeDeleted: true,                  // always exclude deleted budgets
+		SkipField:      budgetSkipFieldSearch,
+		ExcludeDeleted: true,
 	})
 	sb.WriteString(whereClause)
 	sb.WriteString(" ORDER BY year ASC, month ASC")
 
-	// Pagination (placeholders after WHERE args)
 	currIdx := len(args) + 1
-	currIdx, args = util.AddOffsetLimit(&sb, params.Offset, params.Limit, currIdx, args)
+	currIdx, args = sharedutil.AddOffsetLimit(&sb, params.Offset, params.Limit, currIdx, args)
 
 	rows, err := r.db.QueryContext(ctx, sb.String(), args...)
 	if err != nil {
@@ -178,13 +187,16 @@ func (r *budgetRepository) FindMany(ctx context.Context, params util.FindManyPar
 	return budgets, nil
 }
 
-func (r *budgetRepository) FindUnique(ctx context.Context, params util.FindUniqueParams) (*model.Budget, error) {
+func (r *budgetRepository) FindUnique(ctx context.Context, params sharedutil.FindUniqueParams) (*model.Budget, error) {
+	ctx, cancel := util.DBContext(ctx, util.DefaultTimeoutConfig)
+	defer cancel()
+
 	var sb strings.Builder
 	sb.WriteString("SELECT ")
 	sb.WriteString(strings.TrimSpace(budgetSelectCols))
 	sb.WriteString(" FROM budgets")
 
-	whereClause, args := util.BuildWhere(params.Where, util.WhereBuildOpts{
+	whereClause, args := sharedutil.BuildWhere(params.Where, sharedutil.WhereBuildOpts{
 		FieldOrder:     budgetFieldOrderWithID,
 		SkipField:      budgetSkipFieldSearch,
 		ExcludeDeleted: true,
@@ -207,9 +219,9 @@ func (r *budgetRepository) FindUnique(ctx context.Context, params util.FindUniqu
 		return nil, err
 	}
 
-	whereClause, args = util.BuildWhere(map[string]any{
+	whereClause, args = sharedutil.BuildWhere(map[string]any{
 		"budget_id": budget.ID,
-	}, util.WhereBuildOpts{
+	}, sharedutil.WhereBuildOpts{
 		FieldOrder:     budgetItemFieldOrder,
 		SkipField:      budgetSkipFieldSearch,
 		ExcludeDeleted: true,
@@ -238,10 +250,13 @@ func (r *budgetRepository) FindUnique(ctx context.Context, params util.FindUniqu
 }
 
 func (r *budgetRepository) Count(ctx context.Context, where map[string]any) (int, error) {
+	ctx, cancel := util.QueryContext(ctx, util.DefaultTimeoutConfig)
+	defer cancel()
+
 	var sb strings.Builder
 	sb.WriteString("SELECT COUNT(*) FROM budgets")
 
-	whereClause, args := util.BuildWhere(where, util.WhereBuildOpts{
+	whereClause, args := sharedutil.BuildWhere(where, sharedutil.WhereBuildOpts{
 		FieldOrder:     budgetFieldOrderWithID,
 		SkipField:      budgetSkipFieldSearch,
 		ExcludeDeleted: true,
@@ -261,6 +276,9 @@ func (r *budgetRepository) Count(ctx context.Context, where map[string]any) (int
 }
 
 func (r *budgetRepository) CreateItem(ctx context.Context, budgetItem *model.BudgetItem) error {
+	ctx, cancel := util.DBContext(ctx, util.DefaultTimeoutConfig)
+	defer cancel()
+
 	if budgetItem.ID == uuid.Nil {
 		budgetItem.ID = uuid.New()
 	}
@@ -268,17 +286,52 @@ func (r *budgetRepository) CreateItem(ctx context.Context, budgetItem *model.Bud
 	budgetItem.CreatedAt = now
 	budgetItem.UpdatedAt = now
 
+	r.log.Infow("Creating budget item",
+		"budget_item_id", budgetItem.ID,
+		"budget_id", budgetItem.BudgetID,
+		"category", budgetItem.Category,
+		"allocation", budgetItem.Allocation,
+	)
+
 	query := `
 		INSERT INTO budget_items (id, allocation, budget_id, category, deleted_at, created_at, updated_at)
 		VALUES ($1, $2, $3, $4, $5, $6, $7)
 	`
 
 	_, err := r.db.ExecContext(ctx, query, budgetItem.ID, budgetItem.Allocation, budgetItem.BudgetID, budgetItem.Category, budgetItem.DeletedAt, budgetItem.CreatedAt, budgetItem.UpdatedAt)
-	return err
+	if err != nil {
+		r.log.Errorw("Failed to create budget item",
+			"error", err,
+			"budget_item_id", budgetItem.ID,
+			"budget_id", budgetItem.BudgetID,
+		)
+		return err
+	}
+
+	r.log.Infow("Budget item created",
+		"budget_item_id", budgetItem.ID,
+		"budget_id", budgetItem.BudgetID,
+		"category", budgetItem.Category,
+		"allocation", budgetItem.Allocation,
+	)
+	return nil
 }
 
 func (r *budgetRepository) UpdateItem(ctx context.Context, budgetItem *model.BudgetItem) error {
+	r.log.Debugw("Updating budget item",
+		"budget_item_id", budgetItem.ID,
+		"budget_id", budgetItem.BudgetID,
+		"allocation", budgetItem.Allocation,
+		"category", budgetItem.Category,
+	)
+
 	budgetItem.UpdatedAt = time.Now()
+
+	r.log.Debugw("Budget item update payload",
+		"budget_item_id", budgetItem.ID,
+		"new_allocation", budgetItem.Allocation,
+		"new_category", budgetItem.Category,
+	)
 
 	query := `
 		UPDATE budget_items
@@ -287,12 +340,29 @@ func (r *budgetRepository) UpdateItem(ctx context.Context, budgetItem *model.Bud
 	`
 
 	_, err := r.db.ExecContext(ctx, query, budgetItem.Allocation, budgetItem.Category, budgetItem.UpdatedAt, budgetItem.ID)
-	return err
+	if err != nil {
+		r.log.Errorw("Failed to update budget item",
+			"error", err,
+			"budget_item_id", budgetItem.ID,
+		)
+		return err
+	}
+
+	r.log.Infow("Budget item updated",
+		"budget_item_id", budgetItem.ID,
+		"budget_id", budgetItem.BudgetID,
+		"allocation", budgetItem.Allocation,
+		"category", budgetItem.Category,
+	)
+	return nil
 }
 
 // GetBudgetItemSpent calculates the total spent amount for a budget item
 // by summing all EXPENSE transactions linked to it
 func (r *budgetRepository) GetBudgetItemSpent(ctx context.Context, budgetItemID uuid.UUID) (float64, error) {
+	ctx, cancel := util.QueryContext(ctx, util.DefaultTimeoutConfig)
+	defer cancel()
+
 	query := `
 		SELECT COALESCE(SUM(amount), 0)
 		FROM transactions
@@ -301,19 +371,35 @@ func (r *budgetRepository) GetBudgetItemSpent(ctx context.Context, budgetItemID 
 		  AND deleted_at IS NULL
 	`
 
+	r.log.Debugw("Getting budget item spent",
+		"budget_item_id", budgetItemID,
+	)
+
 	var spent float64
-	if err := r.db.QueryRowContext(ctx, query, budgetItemID).Scan(&spent); err != nil {
-		return 0, err
+	err := r.db.QueryRowContext(ctx, query, budgetItemID).Scan(&spent)
+	if err != nil {
+		r.log.Errorw("Failed to get budget item spent",
+			"budget_item_id", budgetItemID,
+			"error", err,
+		)
+		return 0, fmt.Errorf("failed to get budget item spent: %w", err)
 	}
+
+	r.log.Debugw("Budget item spent retrieved",
+		"budget_item_id", budgetItemID,
+		"spent", spent,
+	)
+
 	return spent, nil
 }
 
-// GetBudgetItemsSpent calculates the total spent amount for multiple budget items
-// Returns a map of budget_item_id -> spent amount
 func (r *budgetRepository) GetBudgetItemsSpent(ctx context.Context, budgetItemIDs []uuid.UUID) (map[uuid.UUID]float64, error) {
 	if len(budgetItemIDs) == 0 {
 		return make(map[uuid.UUID]float64), nil
 	}
+
+	ctx, cancel := util.QueryContext(ctx, util.DefaultTimeoutConfig)
+	defer cancel()
 
 	// Build placeholders for IN clause
 	placeholders := make([]string, len(budgetItemIDs))

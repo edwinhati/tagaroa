@@ -1,4 +1,5 @@
 import type { CreateFileInput, File } from "../model/file";
+import type { LoggerPort } from "../ports/logger.port.js";
 import type { FileRepository } from "../repository/file-repository";
 import { S3Service } from "./s3-service";
 
@@ -15,31 +16,36 @@ export interface UploadResult {
 }
 
 export class FileService {
+  private readonly fileRepository: FileRepository;
+  private readonly s3Service: S3Service;
+  private readonly logger: LoggerPort;
+
   constructor(
-    private readonly fileRepository: FileRepository,
-    private readonly s3Service: S3Service,
-  ) {}
+    fileRepository: FileRepository,
+    s3Service: S3Service,
+    logger: LoggerPort,
+  ) {
+    this.fileRepository = fileRepository;
+    this.s3Service = s3Service;
+    this.logger = logger;
+  }
 
-  /**
-   * Upload a file to S3 and save metadata to database
-   */
   async uploadFile(input: UploadFileInput): Promise<UploadResult> {
-    // Generate unique key for S3
+    const ctx = "FileService";
+    this.logger.info(
+      `Uploading file - name:${input.originalName} size:${input.file.size}`,
+      ctx,
+    );
+
     const key = S3Service.generateKey(input.originalName, input.prefix);
-
-    // Get file size
     const size = input.file.size;
-
-    // Determine content type
     const contentType =
       input.contentType || input.file.type || "application/octet-stream";
 
-    // Upload to S3
     const { url } = await this.s3Service.upload(key, input.file, {
       contentType,
     });
 
-    // Save metadata to database
     const fileInput: CreateFileInput = {
       url,
       key,
@@ -50,29 +56,26 @@ export class FileService {
 
     const file = await this.fileRepository.create(fileInput);
 
+    this.logger.info(`Uploaded file - id:${file.id} key:${key}`, ctx);
+
     return {
       file,
       url,
     };
   }
 
-  /**
-   * Get file by ID
-   */
   async getFile(id: string): Promise<File | null> {
+    const ctx = "FileService";
+    this.logger.debug(`Getting file - id:${id}`, ctx);
     return await this.fileRepository.findUnique({ where: { id } });
   }
 
-  /**
-   * Get file by key
-   */
   async getFileByKey(key: string): Promise<File | null> {
+    const ctx = "FileService";
+    this.logger.debug(`Getting file by key - key:${key}`, ctx);
     return await this.fileRepository.findUnique({ where: { key } });
   }
 
-  /**
-   * List files with pagination
-   */
   async listFiles(params: {
     search?: string;
     contentType?: string;
@@ -80,6 +83,9 @@ export class FileService {
     offset?: number;
     orderBy?: string;
   }): Promise<{ files: File[]; total: number }> {
+    const ctx = "FileService";
+    this.logger.debug(`Listing files - params:${JSON.stringify(params)}`, ctx);
+
     const { search, contentType, limit = 50, offset = 0, orderBy } = params;
 
     const where: Record<string, unknown> = {};
@@ -96,13 +102,18 @@ export class FileService {
       this.fileRepository.count(where),
     ]);
 
+    this.logger.debug(
+      `Listed files - count:${files.length} total:${total}`,
+      ctx,
+    );
+
     return { files, total };
   }
 
-  /**
-   * Download file from S3
-   */
   async downloadFile(id: string): Promise<{ blob: Blob; file: File } | null> {
+    const ctx = "FileService";
+    this.logger.debug(`Downloading file - id:${id}`, ctx);
+
     const file = await this.fileRepository.findUnique({ where: { id } });
     if (!file) return null;
 
@@ -111,13 +122,16 @@ export class FileService {
     return { blob, file };
   }
 
-  /**
-   * Generate presigned download URL
-   */
   async getDownloadUrl(
     id: string,
     expiresIn?: number,
   ): Promise<{ url: string; file: File } | null> {
+    const ctx = "FileService";
+    this.logger.debug(
+      `Getting download URL - id:${id} expiresIn:${expiresIn}`,
+      ctx,
+    );
+
     const file = await this.fileRepository.findUnique({ where: { id } });
     if (!file) return null;
 
@@ -126,17 +140,16 @@ export class FileService {
     return { url, file };
   }
 
-  /**
-   * Generate presigned upload URL
-   */
   async getUploadUrl(params: {
     originalName: string;
     contentType?: string;
     expiresIn?: number;
     prefix?: string;
   }): Promise<{ url: string; key: string }> {
-    const key = S3Service.generateKey(params.originalName, params.prefix);
+    const ctx = "FileService";
+    this.logger.debug(`Getting upload URL - name:${params.originalName}`, ctx);
 
+    const key = S3Service.generateKey(params.originalName, params.prefix);
     const url = this.s3Service.presignUpload(key, {
       expiresIn: params.expiresIn,
       contentType: params.contentType,
@@ -145,45 +158,51 @@ export class FileService {
     return { url, key };
   }
 
-  /**
-   * Delete file (soft delete in DB, hard delete in S3)
-   */
   async deleteFile(id: string): Promise<boolean> {
+    const ctx = "FileService";
+    this.logger.info(`Deleting file - id:${id}`, ctx);
+
     const file = await this.fileRepository.findUnique({ where: { id } });
     if (!file) return false;
 
-    // Soft delete in database
     const deleted = await this.fileRepository.softDelete(id);
 
-    // Hard delete from S3 (optional - you might want to keep files in S3)
     if (deleted) {
       try {
         await this.s3Service.delete(file.key);
+        this.logger.info(
+          `Deleted file from S3 - id:${id} key:${file.key}`,
+          ctx,
+        );
       } catch (error) {
-        console.error("Failed to delete file from S3:", error);
-        // Continue even if S3 deletion fails
+        const err = error as Error;
+        this.logger.error(
+          `Failed to delete file from S3 - id:${id} error:${err.message}`,
+          err.stack,
+          ctx,
+        );
+        throw err;
       }
     }
 
     return deleted;
   }
 
-  /**
-   * Check if file exists
-   */
   async fileExists(id: string): Promise<boolean> {
+    const ctx = "FileService";
+    this.logger.debug(`Checking if file exists - id:${id}`, ctx);
     const file = await this.fileRepository.findUnique({ where: { id } });
     return file !== null;
   }
 
-  /**
-   * Get file statistics
-   */
   async getStats(): Promise<{
     totalFiles: number;
     totalSize: number;
     byContentType: Record<string, { count: number; total_size: number }>;
   }> {
+    const ctx = "FileService";
+    this.logger.debug("Getting file stats", ctx);
+
     const [totalFiles, byContentType] = await Promise.all([
       this.fileRepository.count(),
       this.fileRepository.getContentTypeAggregations(),
@@ -192,6 +211,11 @@ export class FileService {
     const totalSize = Object.values(byContentType).reduce(
       (sum, stat) => sum + stat.total_size,
       0,
+    );
+
+    this.logger.info(
+      `Got stats - totalFiles:${totalFiles} totalSize:${totalSize}`,
+      ctx,
     );
 
     return {

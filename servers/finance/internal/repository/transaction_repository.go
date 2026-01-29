@@ -7,9 +7,12 @@ import (
 	"strings"
 	"time"
 
-	"github.com/edwinhati/tagaroa/packages/shared/go/util"
+	"github.com/edwinhati/tagaroa/packages/shared/go/logger"
+	sharedutil "github.com/edwinhati/tagaroa/packages/shared/go/util"
 	"github.com/edwinhati/tagaroa/servers/finance/internal/model"
+	"github.com/edwinhati/tagaroa/servers/finance/internal/util"
 	"github.com/google/uuid"
+	"go.uber.org/zap"
 )
 
 // SQL column alias replacements for transaction queries
@@ -37,22 +40,26 @@ const (
 
 type TransactionRepository interface {
 	Create(ctx context.Context, transaction *model.Transaction) error
-	FindUnique(ctx context.Context, params util.FindUniqueParams) (*model.Transaction, error)
-	FindMany(ctx context.Context, params util.FindManyParams) ([]*model.Transaction, error)
+	FindUnique(ctx context.Context, params sharedutil.FindUniqueParams) (*model.Transaction, error)
+	FindMany(ctx context.Context, params sharedutil.FindManyParams) ([]*model.Transaction, error)
 	Count(ctx context.Context, where map[string]any) (int, error)
 	Update(ctx context.Context, transaction *model.Transaction) error
-	GetTypeAggregations(ctx context.Context, where map[string]any) (map[string]util.AggregationResult, error)
-	GetCurrencyAggregations(ctx context.Context, where map[string]any) (map[string]util.AggregationResult, error)
-	GetAccountAggregations(ctx context.Context, where map[string]any) (map[string]util.AggregationResult, error)
-	GetCategoryAggregations(ctx context.Context, where map[string]any) (map[string]util.AggregationResult, error)
+	GetTypeAggregations(ctx context.Context, where map[string]any) (map[string]sharedutil.AggregationResult, error)
+	GetCurrencyAggregations(ctx context.Context, where map[string]any) (map[string]sharedutil.AggregationResult, error)
+	GetAccountAggregations(ctx context.Context, where map[string]any) (map[string]sharedutil.AggregationResult, error)
+	GetCategoryAggregations(ctx context.Context, where map[string]any) (map[string]sharedutil.AggregationResult, error)
 }
 
 type transactionRepository struct {
-	db *sql.DB
+	db  *sql.DB
+	log *zap.SugaredLogger
 }
 
 func NewTransactionRepository(db *sql.DB) TransactionRepository {
-	return &transactionRepository{db: db}
+	return &transactionRepository{
+		db:  db,
+		log: logger.New().With("repository", "transaction"),
+	}
 }
 
 var transactionAllowedOrderByColumns = map[string]bool{
@@ -130,7 +137,7 @@ func applyTransactionColumnAliases(whereClause string) string {
 	return whereClause
 }
 
-func scanTransaction(scanner util.RowScanner) (*model.Transaction, error) {
+func scanTransaction(scanner sharedutil.RowScanner) (*model.Transaction, error) {
 	var transaction model.Transaction
 	var deletedAt sql.NullTime
 	var filesStr sql.NullString
@@ -215,6 +222,9 @@ func scanTransaction(scanner util.RowScanner) (*model.Transaction, error) {
 /* ----------------------------- CRUD ops ------------------------------ */
 
 func (r *transactionRepository) Create(ctx context.Context, transaction *model.Transaction) error {
+	ctx, cancel := util.DBContext(ctx, util.DefaultTimeoutConfig)
+	defer cancel()
+
 	if transaction.ID == uuid.Nil {
 		transaction.ID = uuid.New()
 	}
@@ -240,10 +250,15 @@ func (r *transactionRepository) Create(ctx context.Context, transaction *model.T
 		transaction.BudgetItemID,
 		transaction.CreatedAt,
 		transaction.UpdatedAt)
-	return err
+	if err != nil {
+		r.log.Errorw("Failed to create transaction", "error", err, "transaction_id", transaction.ID, "user_id", transaction.UserID)
+		return fmt.Errorf("failed to create transaction: %w", err)
+	}
+	r.log.Infow("Transaction created", "transaction_id", transaction.ID, "user_id", transaction.UserID, "amount", transaction.Amount, "type", transaction.Type)
+	return nil
 }
 
-func (r *transactionRepository) FindUnique(ctx context.Context, params util.FindUniqueParams) (*model.Transaction, error) {
+func (r *transactionRepository) FindUnique(ctx context.Context, params sharedutil.FindUniqueParams) (*model.Transaction, error) {
 	var sb strings.Builder
 	sb.WriteString("SELECT ")
 	sb.WriteString(strings.TrimSpace(transactionSelectCols))
@@ -252,7 +267,7 @@ func (r *transactionRepository) FindUnique(ctx context.Context, params util.Find
 	sb.WriteString(joinBudgetItems)
 
 	filteredWhere := filterDateParams(params.Where)
-	whereClause, args := util.BuildWhere(filteredWhere, util.WhereBuildOpts{
+	whereClause, args := sharedutil.BuildWhere(filteredWhere, sharedutil.WhereBuildOpts{
 		FieldOrder:     []string{"user_id", "type", "currency"},
 		SkipField:      "",
 		ExcludeDeleted: true,
@@ -269,12 +284,14 @@ func (r *transactionRepository) FindUnique(ctx context.Context, params util.Find
 		if err == sql.ErrNoRows {
 			return nil, nil
 		}
-		return nil, err
+		r.log.Errorw("Failed to find unique transaction", "error", err, "where", params.Where)
+		return nil, fmt.Errorf("failed to find transaction: %w", err)
 	}
+	r.log.Debugw("Transaction found", "transaction_id", transaction.ID)
 	return transaction, nil
 }
 
-func (r *transactionRepository) FindMany(ctx context.Context, params util.FindManyParams) ([]*model.Transaction, error) {
+func (r *transactionRepository) FindMany(ctx context.Context, params sharedutil.FindManyParams) ([]*model.Transaction, error) {
 	var sb strings.Builder
 	sb.WriteString("SELECT ")
 	sb.WriteString(strings.TrimSpace(transactionSelectCols))
@@ -283,7 +300,7 @@ func (r *transactionRepository) FindMany(ctx context.Context, params util.FindMa
 	sb.WriteString(joinBudgetItems)
 
 	filteredWhere := filterDateParams(params.Where)
-	whereClause, args := util.BuildWhere(filteredWhere, util.WhereBuildOpts{
+	whereClause, args := sharedutil.BuildWhere(filteredWhere, sharedutil.WhereBuildOpts{
 		FieldOrder:     []string{"user_id", "type", "currency", "account", "category"},
 		SkipField:      "",
 		ExcludeDeleted: true,
@@ -294,18 +311,19 @@ func (r *transactionRepository) FindMany(ctx context.Context, params util.FindMa
 
 	sb.WriteString(whereClause)
 
-	orderBy, err := util.ValidateOrderBy(params.OrderBy, transactionAllowedOrderByColumns)
+	orderBy, err := sharedutil.ValidateOrderBy(params.OrderBy, transactionAllowedOrderByColumns)
 	if err != nil {
 		return nil, fmt.Errorf("invalid ORDER BY clause: %w", err)
 	}
 	sb.WriteString(" ORDER BY t." + orderBy)
 
 	currIdx := len(args) + 1
-	_, args = util.AddOffsetLimit(&sb, params.Offset, params.Limit, currIdx, args)
+	_, args = sharedutil.AddOffsetLimit(&sb, params.Offset, params.Limit, currIdx, args)
 
 	rows, err := r.db.QueryContext(ctx, sb.String(), args...)
 	if err != nil {
-		return nil, err
+		r.log.Errorw("Failed to query transactions", "error", err)
+		return nil, fmt.Errorf("failed to query transactions: %w", err)
 	}
 	defer rows.Close()
 
@@ -313,13 +331,16 @@ func (r *transactionRepository) FindMany(ctx context.Context, params util.FindMa
 	for rows.Next() {
 		transaction, err := scanTransaction(rows)
 		if err != nil {
-			return nil, err
+			r.log.Errorw("Failed to scan transaction", "error", err)
+			return nil, fmt.Errorf("failed to scan transaction: %w", err)
 		}
 		transactions = append(transactions, transaction)
 	}
 	if err := rows.Err(); err != nil {
-		return nil, err
+		r.log.Errorw("Error iterating transactions", "error", err)
+		return nil, fmt.Errorf("error iterating transactions: %w", err)
 	}
+	r.log.Debugw("Transactions found", "count", len(transactions))
 	return transactions, nil
 }
 
@@ -330,7 +351,7 @@ func (r *transactionRepository) Count(ctx context.Context, where map[string]any)
 	sb.WriteString(joinBudgetItems)
 
 	filteredWhere := filterDateParams(where)
-	whereClause, args := util.BuildWhere(filteredWhere, util.WhereBuildOpts{
+	whereClause, args := sharedutil.BuildWhere(filteredWhere, sharedutil.WhereBuildOpts{
 		FieldOrder:     []string{"user_id", "type", "currency", "account", "category"},
 		SkipField:      "",
 		ExcludeDeleted: true,
@@ -369,24 +390,29 @@ func (r *transactionRepository) Update(ctx context.Context, transaction *model.T
 		transaction.DeletedAt,
 		transaction.UpdatedAt)
 
-	return err
+	if err != nil {
+		r.log.Errorw("Failed to update transaction", "error", err, "transaction_id", transaction.ID)
+		return fmt.Errorf("failed to update transaction: %w", err)
+	}
+	r.log.Infow("Transaction updated", "transaction_id", transaction.ID)
+	return nil
 }
 
 /* --------------------------- Aggregations ---------------------------- */
 
-func (r *transactionRepository) GetTypeAggregations(ctx context.Context, where map[string]any) (map[string]util.AggregationResult, error) {
+func (r *transactionRepository) GetTypeAggregations(ctx context.Context, where map[string]any) (map[string]sharedutil.AggregationResult, error) {
 	return r.getAggregations(ctx, "t.type", "type", []string{"user_id", "currency", "account", "category"}, where)
 }
 
-func (r *transactionRepository) GetCurrencyAggregations(ctx context.Context, where map[string]any) (map[string]util.AggregationResult, error) {
+func (r *transactionRepository) GetCurrencyAggregations(ctx context.Context, where map[string]any) (map[string]sharedutil.AggregationResult, error) {
 	return r.getAggregations(ctx, "t.currency", "currency", []string{"user_id", "type", "account", "category"}, where)
 }
 
-func (r *transactionRepository) GetAccountAggregations(ctx context.Context, where map[string]any) (map[string]util.AggregationResult, error) {
+func (r *transactionRepository) GetAccountAggregations(ctx context.Context, where map[string]any) (map[string]sharedutil.AggregationResult, error) {
 	return r.getAggregations(ctx, "a.name", "account", []string{"user_id", "type", "currency", "category"}, where)
 }
 
-func (r *transactionRepository) GetCategoryAggregations(ctx context.Context, where map[string]any) (map[string]util.AggregationResult, error) {
+func (r *transactionRepository) GetCategoryAggregations(ctx context.Context, where map[string]any) (map[string]sharedutil.AggregationResult, error) {
 	return r.getAggregations(ctx, "bi.category", "category", []string{"user_id", "type", "currency", "account"}, where)
 }
 
@@ -396,14 +422,14 @@ func (r *transactionRepository) getAggregations(
 	skipFilter string,
 	fieldOrder []string,
 	where map[string]any,
-) (map[string]util.AggregationResult, error) {
+) (map[string]sharedutil.AggregationResult, error) {
 	if !strings.Contains(groupBy, ".") {
-		if err := util.ValidateGroupByColumn(groupBy, transactionAllowedGroupByColumns); err != nil {
+		if err := sharedutil.ValidateGroupByColumn(groupBy, transactionAllowedGroupByColumns); err != nil {
 			return nil, fmt.Errorf("invalid aggregation groupBy: %w", err)
 		}
 	}
 
-	aggs := make(map[string]util.AggregationResult)
+	aggs := make(map[string]sharedutil.AggregationResult)
 
 	var sb strings.Builder
 	sb.WriteString(`
@@ -419,7 +445,7 @@ func (r *transactionRepository) getAggregations(
 	sb.WriteString(joinBudgetItems)
 
 	filteredWhere := filterDateParams(where)
-	whereClause, args := util.BuildWhere(filteredWhere, util.WhereBuildOpts{
+	whereClause, args := sharedutil.BuildWhere(filteredWhere, sharedutil.WhereBuildOpts{
 		FieldOrder:     fieldOrder,
 		SkipField:      skipFilter,
 		ExcludeDeleted: true,
@@ -441,20 +467,24 @@ func (r *transactionRepository) getAggregations(
 
 	rows, err := r.db.QueryContext(ctx, sb.String(), args...)
 	if err != nil {
+		r.log.Errorw("Failed to get aggregations", "error", err, "group_by", groupBy)
 		return nil, fmt.Errorf("failed to get %s aggregations: %w", groupBy, err)
 	}
 	defer rows.Close()
 
 	for rows.Next() {
 		var key string
-		var res util.AggregationResult
+		var res sharedutil.AggregationResult
 		if err := rows.Scan(&key, &res.Count, &res.Min, &res.Max, &res.Avg, &res.Sum); err != nil {
+			r.log.Errorw("Failed to scan aggregation", "error", err, "group_by", groupBy)
 			return nil, fmt.Errorf("failed to scan %s aggregation: %w", groupBy, err)
 		}
 		aggs[key] = res
 	}
 	if err := rows.Err(); err != nil {
+		r.log.Errorw("Error iterating aggregations", "error", err, "group_by", groupBy)
 		return nil, fmt.Errorf("error iterating %s aggregations: %w", groupBy, err)
 	}
+	r.log.Debugw("Aggregations computed", "group_by", groupBy, "keys_count", len(aggs))
 	return aggs, nil
 }

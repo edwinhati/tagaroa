@@ -9,7 +9,9 @@ import (
 	"sync"
 	"time"
 
+	"github.com/edwinhati/tagaroa/packages/shared/go/logger"
 	kafkago "github.com/segmentio/kafka-go"
+	"go.uber.org/zap"
 )
 
 // Producer defines the interface for sending messages to Kafka topics.
@@ -66,24 +68,29 @@ type producer struct {
 	mu        sync.RWMutex
 	writers   map[string]writer
 	newWriter writerFactory
+	log       *zap.SugaredLogger
 }
 
-// NewProducer builds a Kafka producer using the provided configuration.
 func NewProducer(cfg Config, opts ...Option) (Producer, error) {
 	cfg = cfg.withDefaults()
 	if err := cfg.validate(); err != nil {
 		return nil, err
 	}
 
+	log := logger.New()
+
 	p := &producer{
 		cfg:       cfg,
 		writers:   make(map[string]writer),
 		newWriter: defaultWriterFactory(cfg),
+		log:       log,
 	}
 
 	for _, opt := range opts {
 		opt(p)
 	}
+
+	log.Infow("Kafka producer initialized", "brokers", cfg.Brokers, "client_id", cfg.ClientID)
 
 	return p, nil
 }
@@ -100,11 +107,13 @@ func WithWriterFactory(factory writerFactory) Option {
 func (p *producer) Publish(ctx context.Context, msg Message) error {
 	topic := strings.TrimSpace(msg.Topic)
 	if topic == "" {
+		p.log.Errorw("Publish failed: missing topic", "error", ErrMissingTopic)
 		return ErrMissingTopic
 	}
 
 	writer, err := p.writerForTopic(topic)
 	if err != nil {
+		p.log.Errorw("Publish failed: could not get writer", "topic", topic, "error", err)
 		return err
 	}
 
@@ -115,7 +124,13 @@ func (p *producer) Publish(ctx context.Context, msg Message) error {
 		Time:    time.Now().UTC(),
 	}
 
-	return writer.WriteMessages(ctx, kmsg)
+	if err := writer.WriteMessages(ctx, kmsg); err != nil {
+		p.log.Errorw("Failed to write message", "topic", topic, "error", err)
+		return err
+	}
+
+	p.log.Debugw("Message published", "topic", topic, "key_len", len(msg.Key), "value_len", len(msg.Value))
+	return nil
 }
 
 func (p *producer) Close() error {
@@ -125,12 +140,17 @@ func (p *producer) Close() error {
 	var errs []error
 	for topic, w := range p.writers {
 		if err := w.Close(); err != nil {
+			p.log.Errorw("Failed to close writer", "topic", topic, "error", err)
 			errs = append(errs, fmt.Errorf("kafka: close writer for topic %s: %w", topic, err))
 		}
 		delete(p.writers, topic)
 	}
 
-	return errors.Join(errs...)
+	if len(errs) > 0 {
+		return errors.Join(errs...)
+	}
+	p.log.Infow("Kafka producer closed")
+	return nil
 }
 
 func (p *producer) writerForTopic(topic string) (writer, error) {

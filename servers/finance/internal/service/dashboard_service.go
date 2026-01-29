@@ -4,9 +4,11 @@ import (
 	"context"
 	"time"
 
+	"github.com/edwinhati/tagaroa/packages/shared/go/logger"
 	"github.com/edwinhati/tagaroa/packages/shared/go/util"
 	"github.com/edwinhati/tagaroa/servers/finance/internal/repository"
 	"github.com/google/uuid"
+	"go.uber.org/zap"
 )
 
 type SummaryParams struct {
@@ -103,6 +105,7 @@ type dashboardService struct {
 	transactionRepo repository.TransactionRepository
 	budgetRepo      repository.BudgetRepository
 	accountRepo     repository.AccountRepository
+	logger          *zap.SugaredLogger
 }
 
 func NewDashboardService(
@@ -114,10 +117,13 @@ func NewDashboardService(
 		transactionRepo: transactionRepo,
 		budgetRepo:      budgetRepo,
 		accountRepo:     accountRepo,
+		logger:          logger.New().With("service", "dashboard"),
 	}
 }
 
 func (s *dashboardService) GetSummary(ctx context.Context, params SummaryParams) (*SummaryResult, error) {
+	s.logger.Infow("getting dashboard summary", "user_id", params.UserID.String())
+
 	startDate := params.StartDate
 	endDate := params.EndDate
 
@@ -140,6 +146,7 @@ func (s *dashboardService) GetSummary(ctx context.Context, params SummaryParams)
 
 	typeAggs, err := s.transactionRepo.GetTypeAggregations(ctx, where)
 	if err != nil {
+		s.logger.Errorw("failed to get type aggregations", "error", err)
 		return nil, err
 	}
 
@@ -159,14 +166,13 @@ func (s *dashboardService) GetSummary(ctx context.Context, params SummaryParams)
 	}
 	prevTypeAggs, err := s.transactionRepo.GetTypeAggregations(ctx, prevWhere)
 	if err != nil {
+		s.logger.Errorw("failed to get previous period aggregations", "error", err)
 		return nil, err
 	}
 
 	prevIncome := prevTypeAggs["INCOME"]
 	prevExpense := prevTypeAggs["EXPENSE"]
 
-	// Use endDate for budget period since budget periods run from 25th of prev month to 25th of current month
-	// The budget period is named after the ending month (e.g., Dec 25 - Jan 25 is January's budget)
 	var budgetUtilization float64
 	budget, err := s.budgetRepo.FindUnique(ctx, util.FindUniqueParams{
 		Where: map[string]any{
@@ -176,6 +182,7 @@ func (s *dashboardService) GetSummary(ctx context.Context, params SummaryParams)
 		},
 	})
 	if err != nil {
+		s.logger.Errorw("failed to get budget", "error", err)
 		return nil, err
 	}
 	if budget != nil && budget.Amount > 0 {
@@ -215,21 +222,26 @@ func (s *dashboardService) GetSummary(ctx context.Context, params SummaryParams)
 		PreviousPeriodEnd:   prevEnd,
 	}
 
+	s.logger.Infow("dashboard summary retrieved", "user_id", params.UserID.String(), "income", income.Sum, "expenses", expense.Sum, "savings", savings)
 	return result, nil
 }
 
 func (s *dashboardService) GetAccountAggregations(ctx context.Context, userID uuid.UUID) (*AccountAggregationsResult, error) {
+	s.logger.Infow("getting account aggregations", "user_id", userID.String())
+
 	where := map[string]any{
 		"user_id": userID,
 	}
 
 	typeAggs, err := s.accountRepo.GetTypeAggregations(ctx, where)
 	if err != nil {
+		s.logger.Errorw("failed to get account type aggregations", "error", err)
 		return nil, err
 	}
 
 	currencyAggs, err := s.accountRepo.GetCurrencyAggregations(ctx, where)
 	if err != nil {
+		s.logger.Errorw("failed to get account currency aggregations", "error", err)
 		return nil, err
 	}
 
@@ -251,6 +263,7 @@ func (s *dashboardService) GetAccountAggregations(ctx context.Context, userID uu
 		})
 	}
 
+	s.logger.Infow("account aggregations retrieved", "user_id", userID.String(), "types_count", len(byType), "currencies_count", len(byCurrency))
 	return &AccountAggregationsResult{
 		ByType:     byType,
 		ByCurrency: byCurrency,
@@ -258,6 +271,8 @@ func (s *dashboardService) GetAccountAggregations(ctx context.Context, userID uu
 }
 
 func (s *dashboardService) GetBudgetPerformance(ctx context.Context, userID uuid.UUID, month, year int) (*BudgetPerformanceResult, error) {
+	s.logger.Infow("getting budget performance", "user_id", userID.String(), "month", month, "year", year)
+
 	budget, err := s.budgetRepo.FindUnique(ctx, util.FindUniqueParams{
 		Where: map[string]any{
 			"user_id": userID,
@@ -266,9 +281,11 @@ func (s *dashboardService) GetBudgetPerformance(ctx context.Context, userID uuid
 		},
 	})
 	if err != nil {
+		s.logger.Errorw("failed to get budget", "error", err)
 		return nil, err
 	}
 	if budget == nil {
+		s.logger.Infow("no budget found for period", "user_id", userID.String(), "month", month, "year", year)
 		return &BudgetPerformanceResult{
 			Month: month,
 			Year:  year,
@@ -282,6 +299,7 @@ func (s *dashboardService) GetBudgetPerformance(ctx context.Context, userID uuid
 
 	spentMap, err := s.budgetRepo.GetBudgetItemsSpent(ctx, budgetItemIDs)
 	if err != nil {
+		s.logger.Errorw("failed to get budget items spent", "error", err)
 		return nil, err
 	}
 
@@ -314,6 +332,7 @@ func (s *dashboardService) GetBudgetPerformance(ctx context.Context, userID uuid
 		overallPercentage = (totalSpent / totalAllocated) * 100
 	}
 
+	s.logger.Infow("budget performance retrieved", "user_id", userID.String(), "month", month, "year", year, "total_allocated", totalAllocated, "total_spent", totalSpent)
 	return &BudgetPerformanceResult{
 		Month:             month,
 		Year:              year,
@@ -326,6 +345,8 @@ func (s *dashboardService) GetBudgetPerformance(ctx context.Context, userID uuid
 }
 
 func (s *dashboardService) GetTransactionTrends(ctx context.Context, userID uuid.UUID, startDate, endDate time.Time, granularity string) (*TransactionTrendsResult, error) {
+	s.logger.Infow("getting transaction trends", "user_id", userID.String(), "granularity", granularity)
+
 	where := map[string]any{
 		"user_id":    userID,
 		"start_date": startDate,
@@ -334,6 +355,7 @@ func (s *dashboardService) GetTransactionTrends(ctx context.Context, userID uuid
 
 	typeAggs, err := s.transactionRepo.GetTypeAggregations(ctx, where)
 	if err != nil {
+		s.logger.Errorw("failed to get transaction aggregations", "error", err)
 		return nil, err
 	}
 
@@ -355,6 +377,7 @@ func (s *dashboardService) GetTransactionTrends(ctx context.Context, userID uuid
 			}
 			dayAggs, err := s.transactionRepo.GetTypeAggregations(ctx, dayWhere)
 			if err != nil {
+				s.logger.Errorw("failed to get day aggregations", "error", err, "date", current)
 				return nil, err
 			}
 
@@ -386,6 +409,7 @@ func (s *dashboardService) GetTransactionTrends(ctx context.Context, userID uuid
 			}
 			weekAggs, err := s.transactionRepo.GetTypeAggregations(ctx, weekWhere)
 			if err != nil {
+				s.logger.Errorw("failed to get week aggregations", "error", err, "start_date", current)
 				return nil, err
 			}
 
@@ -416,6 +440,7 @@ func (s *dashboardService) GetTransactionTrends(ctx context.Context, userID uuid
 			}
 			monthAggs, err := s.transactionRepo.GetTypeAggregations(ctx, monthWhere)
 			if err != nil {
+				s.logger.Errorw("failed to get month aggregations", "error", err, "month", current.Format("2006-01"))
 				return nil, err
 			}
 
@@ -442,6 +467,7 @@ func (s *dashboardService) GetTransactionTrends(ctx context.Context, userID uuid
 		})
 	}
 
+	s.logger.Infow("transaction trends retrieved", "user_id", userID.String(), "granularity", granularity, "periods_count", len(trends))
 	return &TransactionTrendsResult{
 		Granularity: granularity,
 		Trends:      trends,
@@ -449,6 +475,8 @@ func (s *dashboardService) GetTransactionTrends(ctx context.Context, userID uuid
 }
 
 func (s *dashboardService) GetExpenseBreakdown(ctx context.Context, userID uuid.UUID, startDate, endDate time.Time) (*ExpenseBreakdownResult, error) {
+	s.logger.Infow("getting expense breakdown", "user_id", userID.String())
+
 	where := map[string]any{
 		"user_id":    userID,
 		"type":       []string{"EXPENSE"},
@@ -458,6 +486,7 @@ func (s *dashboardService) GetExpenseBreakdown(ctx context.Context, userID uuid.
 
 	categoryAggs, err := s.transactionRepo.GetCategoryAggregations(ctx, where)
 	if err != nil {
+		s.logger.Errorw("failed to get category aggregations", "error", err)
 		return nil, err
 	}
 
@@ -480,6 +509,7 @@ func (s *dashboardService) GetExpenseBreakdown(ctx context.Context, userID uuid.
 		})
 	}
 
+	s.logger.Infow("expense breakdown retrieved", "user_id", userID.String(), "total_expenses", totalExpenses, "categories_count", len(items))
 	return &ExpenseBreakdownResult{
 		TotalExpenses: totalExpenses,
 		Items:         items,

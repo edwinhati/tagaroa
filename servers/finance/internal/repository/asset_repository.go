@@ -7,31 +7,38 @@ import (
 	"strings"
 	"time"
 
-	"github.com/edwinhati/tagaroa/packages/shared/go/util"
+	"github.com/edwinhati/tagaroa/packages/shared/go/logger"
+	sharedutil "github.com/edwinhati/tagaroa/packages/shared/go/util"
 	"github.com/edwinhati/tagaroa/servers/finance/internal/model"
+	"github.com/edwinhati/tagaroa/servers/finance/internal/util"
 	"github.com/google/uuid"
+	"go.uber.org/zap"
 )
 
 type AssetRepository interface {
 	Create(ctx context.Context, asset *model.Asset) error
-	FindUnique(ctx context.Context, params util.FindUniqueParams) (*model.Asset, error)
-	FindMany(ctx context.Context, params util.FindManyParams) ([]*model.Asset, error)
+	FindUnique(ctx context.Context, params sharedutil.FindUniqueParams) (*model.Asset, error)
+	FindMany(ctx context.Context, params sharedutil.FindManyParams) ([]*model.Asset, error)
 	Count(ctx context.Context, where map[string]any) (int, error)
 	Update(ctx context.Context, asset *model.Asset) error
 	SumByUserAndCurrency(ctx context.Context, userID uuid.UUID, currency string) (float64, error)
 }
 
 type assetRepository struct {
-	db *sql.DB
+	db  *sql.DB
+	log *zap.SugaredLogger
 }
 
 func NewAssetRepository(db *sql.DB) AssetRepository {
-	return &assetRepository{db: db}
+	return &assetRepository{
+		db:  db,
+		log: logger.New().With("repository", "asset"),
+	}
 }
 
 const assetSelectCols = `id, name, type, value, shares, ticker, currency, user_id, notes, deleted_at, created_at, updated_at`
 
-func scanAsset(scanner util.RowScanner) (*model.Asset, error) {
+func scanAsset(scanner sharedutil.RowScanner) (*model.Asset, error) {
 	var asset model.Asset
 	var deletedAt sql.NullTime
 	var shares sql.NullFloat64
@@ -81,11 +88,14 @@ func (r *assetRepository) Create(ctx context.Context, asset *model.Asset) error 
 	return err
 }
 
-func (r *assetRepository) FindUnique(ctx context.Context, params util.FindUniqueParams) (*model.Asset, error) {
+func (r *assetRepository) FindUnique(ctx context.Context, params sharedutil.FindUniqueParams) (*model.Asset, error) {
+	ctx, cancel := util.DBContext(ctx, util.DefaultTimeoutConfig)
+	defer cancel()
+
 	var sb strings.Builder
 	sb.WriteString("SELECT " + assetSelectCols + " FROM assets")
 
-	whereClause, args := util.BuildWhere(params.Where, util.WhereBuildOpts{
+	whereClause, args := sharedutil.BuildWhere(params.Where, sharedutil.WhereBuildOpts{
 		FieldOrder:     []string{"user_id", "type", "currency"},
 		ExcludeDeleted: true,
 	})
@@ -99,24 +109,27 @@ func (r *assetRepository) FindUnique(ctx context.Context, params util.FindUnique
 	return asset, err
 }
 
-func (r *assetRepository) FindMany(ctx context.Context, params util.FindManyParams) ([]*model.Asset, error) {
+func (r *assetRepository) FindMany(ctx context.Context, params sharedutil.FindManyParams) ([]*model.Asset, error) {
+	ctx, cancel := util.QueryContext(ctx, util.DefaultTimeoutConfig)
+	defer cancel()
+
 	var sb strings.Builder
 	sb.WriteString("SELECT " + assetSelectCols + " FROM assets")
 
-	whereClause, args := util.BuildWhere(params.Where, util.WhereBuildOpts{
+	whereClause, args := sharedutil.BuildWhere(params.Where, sharedutil.WhereBuildOpts{
 		FieldOrder:     []string{"user_id", "type", "currency"},
 		ExcludeDeleted: true,
 	})
 	sb.WriteString(whereClause)
 
-	orderBy, err := util.ValidateOrderBy(params.OrderBy, assetAllowedOrderBy)
+	orderBy, err := sharedutil.ValidateOrderBy(params.OrderBy, assetAllowedOrderBy)
 	if err != nil {
 		return nil, fmt.Errorf("invalid ORDER BY: %w", err)
 	}
 	sb.WriteString(" ORDER BY " + orderBy)
 
 	currIdx := len(args) + 1
-	_, args = util.AddOffsetLimit(&sb, params.Offset, params.Limit, currIdx, args)
+	_, args = sharedutil.AddOffsetLimit(&sb, params.Offset, params.Limit, currIdx, args)
 
 	rows, err := r.db.QueryContext(ctx, sb.String(), args...)
 	if err != nil {
@@ -139,7 +152,7 @@ func (r *assetRepository) Count(ctx context.Context, where map[string]any) (int,
 	var sb strings.Builder
 	sb.WriteString("SELECT COUNT(*) FROM assets")
 
-	whereClause, args := util.BuildWhere(where, util.WhereBuildOpts{
+	whereClause, args := sharedutil.BuildWhere(where, sharedutil.WhereBuildOpts{
 		FieldOrder:     []string{"user_id", "type", "currency"},
 		ExcludeDeleted: true,
 	})
@@ -151,21 +164,51 @@ func (r *assetRepository) Count(ctx context.Context, where map[string]any) (int,
 }
 
 func (r *assetRepository) Update(ctx context.Context, asset *model.Asset) error {
+	r.log.Debugw("Updating asset", "asset_id", asset.ID, "user_id", asset.UserID,
+		"current_type", asset.Type, "current_value", asset.Value)
+
 	asset.UpdatedAt = time.Now()
 
-	query := `UPDATE assets SET name = $2, type = $3, value = $4, shares = $5, ticker = $6,
-		currency = $7, notes = $8, deleted_at = $9, updated_at = $10 WHERE id = $1`
+	query := `UPDATE assets SET name = $2, type = $3, value = $4, shares = $5, ticker = $6, currency = $7, notes = $8, deleted_at = $9, updated_at = $10 WHERE id = $1`
+
+	r.log.Debugw("Asset update query", "query", "asset_id", asset.ID)
 
 	_, err := r.db.ExecContext(ctx, query,
 		asset.ID, asset.Name, asset.Type, asset.Value, asset.Shares, asset.Ticker,
 		asset.Currency, asset.Notes, asset.DeletedAt, asset.UpdatedAt,
 	)
-	return err
+
+	if err != nil {
+		r.log.Errorw("Failed to update asset",
+			"error", err,
+			"asset_id", asset.ID,
+			"user_id", asset.UserID,
+		)
+		return err
+	}
+
+	r.log.Infow("Asset updated", "asset_id", asset.ID, "user_id", asset.UserID)
+	return nil
 }
 
 func (r *assetRepository) SumByUserAndCurrency(ctx context.Context, userID uuid.UUID, currency string) (float64, error) {
+	r.log.Debugw("Getting assets sum by user and currency", "user_id", userID, "currency", currency)
+
 	query := `SELECT COALESCE(SUM(value), 0) FROM assets WHERE user_id = $1 AND currency = $2 AND deleted_at IS NULL`
+
+	r.log.Debugw("Assets sum query", "query", "user_id", userID, "currency", currency)
+
 	var sum float64
 	err := r.db.QueryRowContext(ctx, query, userID, currency).Scan(&sum)
-	return sum, err
+	if err != nil {
+		r.log.Errorw("Failed to get assets sum",
+			"error", err,
+			"user_id", userID,
+			"currency", currency,
+		)
+		return 0, err
+	}
+
+	r.log.Debugw("Assets sum retrieved", "user_id", userID, "currency", currency, "sum", sum)
+	return sum, nil
 }

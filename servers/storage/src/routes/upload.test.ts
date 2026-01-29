@@ -1,12 +1,11 @@
 import { beforeEach, describe, expect, mock, spyOn, test } from "bun:test";
 import { Hono } from "hono";
 import type { File } from "../model/file";
+import { createLoggerPort } from "../ports/logger.port";
 import { createUploadRoutes } from "./upload";
 
-// Suppress console.error during tests
 spyOn(console, "error").mockImplementation(() => {});
 
-// Create mock file service
 const createMockFileService = () => ({
   uploadFile: mock(() =>
     Promise.resolve({
@@ -32,14 +31,18 @@ const createMockFileService = () => ({
   ),
 });
 
+const mockLogger = createLoggerPort();
+
 describe("Upload Routes", () => {
   let app: Hono;
   let mockFileService: ReturnType<typeof createMockFileService>;
 
   beforeEach(() => {
     mockFileService = createMockFileService();
-    // biome-ignore lint/suspicious/noExplicitAny: mock service type
-    const routes = createUploadRoutes(mockFileService as any);
+    const routes = createUploadRoutes(
+      mockFileService as unknown as Parameters<typeof createUploadRoutes>[0],
+      mockLogger,
+    );
     app = new Hono();
     app.route("/upload", routes);
   });

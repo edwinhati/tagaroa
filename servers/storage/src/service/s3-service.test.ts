@@ -1,4 +1,5 @@
 import { describe, expect, mock, test } from "bun:test";
+import { createLoggerPort } from "../ports/logger.port.js";
 import {
   type S3ClientInterface,
   type S3Config,
@@ -6,7 +7,6 @@ import {
   S3Service,
 } from "./s3-service";
 
-// Create mock S3 file
 const createMockS3File = (): S3File => ({
   write: mock(() => Promise.resolve()),
   stat: mock(() =>
@@ -22,7 +22,6 @@ const createMockS3File = (): S3File => ({
   presign: mock(() => "https://presigned-url.com"),
 });
 
-// Create mock S3 client
 const createMockS3Client = (mockFile: S3File): S3ClientInterface => ({
   file: mock(() => mockFile),
 });
@@ -35,6 +34,8 @@ const defaultConfig: S3Config = {
   region: "us-east-1",
 };
 
+const mockLogger = createLoggerPort();
+
 describe("S3Service", () => {
   describe("constructor", () => {
     test("creates S3Service with full config", () => {
@@ -45,7 +46,7 @@ describe("S3Service", () => {
         endpoint: "http://localhost:9000",
         region: "us-east-1",
       };
-      const service = new S3Service(config);
+      const service = new S3Service(config, mockLogger);
       expect(service).toBeInstanceOf(S3Service);
     });
 
@@ -55,7 +56,7 @@ describe("S3Service", () => {
         secretAccessKey: "test-secret",
         bucket: "test-bucket",
       };
-      const service = new S3Service(config);
+      const service = new S3Service(config, mockLogger);
       expect(service).toBeInstanceOf(S3Service);
     });
 
@@ -66,14 +67,14 @@ describe("S3Service", () => {
         bucket: "test-bucket",
         region: "eu-west-1",
       };
-      const service = new S3Service(config);
+      const service = new S3Service(config, mockLogger);
       expect(service).toBeInstanceOf(S3Service);
     });
 
     test("creates S3Service with injected client", () => {
       const mockFile = createMockS3File();
       const mockClient = createMockS3Client(mockFile);
-      const service = new S3Service(defaultConfig, mockClient);
+      const service = new S3Service(defaultConfig, mockLogger, mockClient);
       expect(service).toBeInstanceOf(S3Service);
     });
   });
@@ -82,7 +83,7 @@ describe("S3Service", () => {
     test("uploads string data", async () => {
       const mockFile = createMockS3File();
       const mockClient = createMockS3Client(mockFile);
-      const service = new S3Service(defaultConfig, mockClient);
+      const service = new S3Service(defaultConfig, mockLogger, mockClient);
 
       const result = await service.upload("test-key", "test content", {
         contentType: "text/plain",
@@ -98,7 +99,7 @@ describe("S3Service", () => {
     test("uploads Blob data", async () => {
       const mockFile = createMockS3File();
       const mockClient = createMockS3Client(mockFile);
-      const service = new S3Service(defaultConfig, mockClient);
+      const service = new S3Service(defaultConfig, mockLogger, mockClient);
 
       const blob = new Blob(["test content"], { type: "text/plain" });
       const result = await service.upload("test-key", blob);
@@ -110,7 +111,7 @@ describe("S3Service", () => {
     test("uploads ArrayBuffer data", async () => {
       const mockFile = createMockS3File();
       const mockClient = createMockS3Client(mockFile);
-      const service = new S3Service(defaultConfig, mockClient);
+      const service = new S3Service(defaultConfig, mockLogger, mockClient);
 
       const buffer = new ArrayBuffer(8);
       const result = await service.upload("test-key", buffer);
@@ -122,7 +123,7 @@ describe("S3Service", () => {
     test("uploads Uint8Array data", async () => {
       const mockFile = createMockS3File();
       const mockClient = createMockS3Client(mockFile);
-      const service = new S3Service(defaultConfig, mockClient);
+      const service = new S3Service(defaultConfig, mockLogger, mockClient);
 
       const uint8 = new Uint8Array([1, 2, 3, 4]);
       const result = await service.upload("test-key", uint8);
@@ -134,7 +135,7 @@ describe("S3Service", () => {
     test("uploads ReadableStream data", async () => {
       const mockFile = createMockS3File();
       const mockClient = createMockS3Client(mockFile);
-      const service = new S3Service(defaultConfig, mockClient);
+      const service = new S3Service(defaultConfig, mockLogger, mockClient);
 
       const stream = new ReadableStream({
         start(controller) {
@@ -151,7 +152,7 @@ describe("S3Service", () => {
     test("uses default content type when not provided", async () => {
       const mockFile = createMockS3File();
       const mockClient = createMockS3Client(mockFile);
-      const service = new S3Service(defaultConfig, mockClient);
+      const service = new S3Service(defaultConfig, mockLogger, mockClient);
 
       await service.upload("test-key", "test content");
 
@@ -165,7 +166,7 @@ describe("S3Service", () => {
     test("downloads file", async () => {
       const mockFile = createMockS3File();
       const mockClient = createMockS3Client(mockFile);
-      const service = new S3Service(defaultConfig, mockClient);
+      const service = new S3Service(defaultConfig, mockLogger, mockClient);
 
       const result = await service.download("test-key");
 
@@ -178,7 +179,7 @@ describe("S3Service", () => {
     test("returns file metadata", async () => {
       const mockFile = createMockS3File();
       const mockClient = createMockS3Client(mockFile);
-      const service = new S3Service(defaultConfig, mockClient);
+      const service = new S3Service(defaultConfig, mockLogger, mockClient);
 
       const result = await service.stat("test-key");
 
@@ -197,7 +198,7 @@ describe("S3Service", () => {
         etag: '"abc123"',
       });
       const mockClient = createMockS3Client(mockFile);
-      const service = new S3Service(defaultConfig, mockClient);
+      const service = new S3Service(defaultConfig, mockLogger, mockClient);
 
       const result = await service.stat("test-key");
 
@@ -209,7 +210,7 @@ describe("S3Service", () => {
     test("returns true when file exists", async () => {
       const mockFile = createMockS3File();
       const mockClient = createMockS3Client(mockFile);
-      const service = new S3Service(defaultConfig, mockClient);
+      const service = new S3Service(defaultConfig, mockLogger, mockClient);
 
       const result = await service.exists("test-key");
 
@@ -221,7 +222,7 @@ describe("S3Service", () => {
       const mockFile = createMockS3File();
       (mockFile.exists as ReturnType<typeof mock>).mockResolvedValue(false);
       const mockClient = createMockS3Client(mockFile);
-      const service = new S3Service(defaultConfig, mockClient);
+      const service = new S3Service(defaultConfig, mockLogger, mockClient);
 
       const result = await service.exists("test-key");
 
@@ -233,7 +234,7 @@ describe("S3Service", () => {
     test("deletes file", async () => {
       const mockFile = createMockS3File();
       const mockClient = createMockS3Client(mockFile);
-      const service = new S3Service(defaultConfig, mockClient);
+      const service = new S3Service(defaultConfig, mockLogger, mockClient);
 
       await service.delete("test-key");
 
@@ -246,7 +247,7 @@ describe("S3Service", () => {
     test("generates presigned download URL with default expiry", () => {
       const mockFile = createMockS3File();
       const mockClient = createMockS3Client(mockFile);
-      const service = new S3Service(defaultConfig, mockClient);
+      const service = new S3Service(defaultConfig, mockLogger, mockClient);
 
       const result = service.presignDownload("test-key");
 
@@ -260,7 +261,7 @@ describe("S3Service", () => {
     test("generates presigned download URL with custom expiry", () => {
       const mockFile = createMockS3File();
       const mockClient = createMockS3Client(mockFile);
-      const service = new S3Service(defaultConfig, mockClient);
+      const service = new S3Service(defaultConfig, mockLogger, mockClient);
 
       const result = service.presignDownload("test-key", { expiresIn: 7200 });
 
@@ -276,7 +277,7 @@ describe("S3Service", () => {
     test("generates presigned upload URL with default options", () => {
       const mockFile = createMockS3File();
       const mockClient = createMockS3Client(mockFile);
-      const service = new S3Service(defaultConfig, mockClient);
+      const service = new S3Service(defaultConfig, mockLogger, mockClient);
 
       const result = service.presignUpload("test-key");
 
@@ -292,7 +293,7 @@ describe("S3Service", () => {
     test("generates presigned upload URL with all options", () => {
       const mockFile = createMockS3File();
       const mockClient = createMockS3Client(mockFile);
-      const service = new S3Service(defaultConfig, mockClient);
+      const service = new S3Service(defaultConfig, mockLogger, mockClient);
 
       const result = service.presignUpload("test-key", {
         expiresIn: 7200,

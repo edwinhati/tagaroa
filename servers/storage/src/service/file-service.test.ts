@@ -1,11 +1,10 @@
 import { beforeEach, describe, expect, mock, spyOn, test } from "bun:test";
 import type { File } from "../model/file";
+import { createLoggerPort } from "../ports/logger.port.js";
 import { FileService } from "./file-service";
 
-// Suppress console.error during tests
 spyOn(console, "error").mockImplementation(() => {});
 
-// Create mock repository
 const createMockRepository = () => ({
   create: mock(() => Promise.resolve({} as File)),
   findUnique: mock(() => Promise.resolve(null as File | null)),
@@ -20,7 +19,6 @@ const createMockRepository = () => ({
   ),
 });
 
-// Create mock S3 service
 const createMockS3Service = () => ({
   upload: mock(() =>
     Promise.resolve({ url: "https://s3.com/file", key: "key" }),
@@ -31,6 +29,8 @@ const createMockS3Service = () => ({
   presignUpload: mock(() => "https://presigned-upload.com"),
 });
 
+const mockLogger = createLoggerPort();
+
 describe("FileService", () => {
   let fileService: FileService;
   let mockRepository: ReturnType<typeof createMockRepository>;
@@ -39,8 +39,12 @@ describe("FileService", () => {
   beforeEach(() => {
     mockRepository = createMockRepository();
     mockS3Service = createMockS3Service();
-    // biome-ignore lint/suspicious/noExplicitAny: mock types for testing
-    fileService = new FileService(mockRepository as any, mockS3Service as any);
+    // biome-ignore lint/suspicious/noExplicitAny: test mock
+    fileService = new FileService(
+      mockRepository as any,
+      mockS3Service as any,
+      mockLogger,
+    );
   });
 
   describe("uploadFile", () => {
@@ -420,7 +424,7 @@ describe("FileService", () => {
       expect(mockRepository.softDelete).not.toHaveBeenCalled();
     });
 
-    test("continues even if S3 deletion fails", async () => {
+    test("throws error when S3 deletion fails", async () => {
       const file: File = {
         id: "123",
         url: "https://s3.com/file",
@@ -437,9 +441,7 @@ describe("FileService", () => {
       mockRepository.softDelete.mockResolvedValue(true);
       mockS3Service.delete.mockRejectedValue(new Error("S3 error"));
 
-      const result = await fileService.deleteFile("123");
-
-      expect(result).toBe(true);
+      await expect(fileService.deleteFile("123")).rejects.toThrow("S3 error");
     });
 
     test("does not delete from S3 if soft delete fails", async () => {

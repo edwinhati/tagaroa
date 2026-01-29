@@ -616,7 +616,7 @@ func TestBudgetRepositoryGetBudgetItemSpent(t *testing.T) {
 
 	rows := sqlmock.NewRows([]string{"spent"}).AddRow(150.0)
 
-	mock.ExpectQuery(`SELECT COALESCE\(SUM\(amount\), 0\) FROM transactions`).
+	mock.ExpectQuery(`SELECT COALESCE\(SUM\(amount\), 0\) FROM transactions WHERE budget_item_id = \$1 AND type = 'EXPENSE' AND deleted_at IS NULL`).
 		WithArgs(budgetItemID).
 		WillReturnRows(rows)
 
@@ -634,7 +634,7 @@ func TestBudgetRepositoryGetBudgetItemSpentError(t *testing.T) {
 	ctx := context.Background()
 	budgetItemID := uuid.New()
 
-	mock.ExpectQuery(`SELECT COALESCE\(SUM\(amount\), 0\) FROM transactions`).
+	mock.ExpectQuery(`SELECT COALESCE\(SUM\(amount\), 0\) FROM transactions WHERE budget_item_id = \$1 AND type = 'EXPENSE' AND deleted_at IS NULL`).
 		WithArgs(budgetItemID).
 		WillReturnError(fmt.Errorf("db error"))
 

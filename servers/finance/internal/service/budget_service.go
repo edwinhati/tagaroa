@@ -5,10 +5,13 @@ import (
 	"errors"
 	"fmt"
 
+	"github.com/edwinhati/tagaroa/packages/shared/go/logger"
 	"github.com/edwinhati/tagaroa/packages/shared/go/util"
+	"github.com/edwinhati/tagaroa/servers/finance/internal/event"
 	"github.com/edwinhati/tagaroa/servers/finance/internal/model"
 	"github.com/edwinhati/tagaroa/servers/finance/internal/repository"
 	"github.com/google/uuid"
+	"go.uber.org/zap"
 )
 
 var (
@@ -46,19 +49,35 @@ type BudgetService interface {
 }
 
 type budgetService struct {
-	budgetRepo repository.BudgetRepository
+	budgetRepo     repository.BudgetRepository
+	log            *zap.SugaredLogger
+	eventPublisher event.EventPublisher
 }
 
 func NewBudgetService(
 	budgetRepo repository.BudgetRepository,
 ) BudgetService {
 	return &budgetService{
-		budgetRepo: budgetRepo,
+		budgetRepo:     budgetRepo,
+		log:            logger.New().With("service", "budget"),
+		eventPublisher: nil,
+	}
+}
+
+func NewBudgetServiceWithEvents(
+	budgetRepo repository.BudgetRepository,
+	eventPublisher event.EventPublisher,
+) BudgetService {
+	return &budgetService{
+		budgetRepo:     budgetRepo,
+		log:            logger.New().With("service", "budget"),
+		eventPublisher: eventPublisher,
 	}
 }
 
 func (s *budgetService) CreateBudget(ctx context.Context, budget *model.Budget) (*model.Budget, error) {
 	if err := s.budgetRepo.Create(ctx, budget); err != nil {
+		s.log.Errorw("Failed to create budget", "error", err, "user_id", budget.UserID, "month", budget.Month, "year", budget.Year)
 		return nil, fmt.Errorf("failed to create budget: %w", err)
 	}
 
@@ -72,7 +91,24 @@ func (s *budgetService) CreateBudget(ctx context.Context, budget *model.Budget) 
 		}
 
 		if _, err := s.CreateBudgetItem(ctx, item); err != nil {
+			s.log.Errorw("Failed to create budget item", "error", err, "budget_id", budget.ID, "category", category.Name)
 			return nil, fmt.Errorf("failed to create budget item: %w", err)
+		}
+	}
+
+	s.log.Infow("Budget created", "budget_id", budget.ID, "user_id", budget.UserID, "month", budget.Month, "year", budget.Year)
+
+	if s.eventPublisher != nil {
+		budgetEvent := event.NewEvent(event.EventBudgetCreated, budget.UserID.String()).
+			WithPayload("budget_id", budget.ID.String()).
+			WithPayload("amount", budget.Amount).
+			WithPayload("currency", budget.Currency).
+			WithPayload("month", budget.Month).
+			WithPayload("year", budget.Year).
+			Build()
+
+		if err := s.eventPublisher.Publish(ctx, budgetEvent); err != nil {
+			s.log.Errorw("Failed to publish budget.created event", "error", err, "budget_id", budget.ID)
 		}
 	}
 
@@ -80,7 +116,6 @@ func (s *budgetService) CreateBudget(ctx context.Context, budget *model.Budget) 
 }
 
 func (s *budgetService) UpdateBudget(ctx context.Context, id uuid.UUID, input UpdateBudgetInput, userID uuid.UUID) (*model.Budget, error) {
-	// First, verify the budget exists and belongs to the user
 	budget, err := s.budgetRepo.FindUnique(ctx, util.FindUniqueParams{
 		Where: map[string]any{
 			"id":      id,
@@ -88,13 +123,14 @@ func (s *budgetService) UpdateBudget(ctx context.Context, id uuid.UUID, input Up
 		},
 	})
 	if err != nil {
+		s.log.Errorw("Failed to get budget for update", "error", err, "budget_id", id)
 		return nil, fmt.Errorf("failed to get budget: %w", err)
 	}
 	if budget == nil {
+		s.log.Debugw("Budget not found for update", "budget_id", id)
 		return nil, ErrBudgetNotFound
 	}
 
-	// Update only the fields that are provided
 	if input.Month != nil {
 		budget.Month = *input.Month
 	}
@@ -108,11 +144,26 @@ func (s *budgetService) UpdateBudget(ctx context.Context, id uuid.UUID, input Up
 		budget.Currency = *input.Currency
 	}
 
-	// Save the updated budget
 	if err := s.budgetRepo.Update(ctx, budget); err != nil {
+		s.log.Errorw("Failed to update budget", "error", err, "budget_id", id)
 		return nil, fmt.Errorf("failed to update budget: %w", err)
 	}
 
+	if s.eventPublisher != nil {
+		updateEvent := event.NewEvent(event.EventBudgetUpdated, budget.UserID.String()).
+			WithPayload("budget_id", budget.ID.String()).
+			WithPayload("amount", budget.Amount).
+			WithPayload("currency", budget.Currency).
+			WithPayload("month", budget.Month).
+			WithPayload("year", budget.Year).
+			Build()
+
+		if err := s.eventPublisher.Publish(ctx, updateEvent); err != nil {
+			s.log.Errorw("Failed to publish budget.updated event", "error", err, "budget_id", budget.ID)
+		}
+	}
+
+	s.log.Infow("Budget updated", "budget_id", id)
 	return budget, nil
 }
 
@@ -127,14 +178,15 @@ func (s *budgetService) GetBudget(ctx context.Context, month, year int, userID u
 
 	budget, err := s.budgetRepo.FindUnique(ctx, params)
 	if err != nil {
+		s.log.Errorw("Failed to get budget", "error", err, "user_id", userID, "month", month, "year", year)
 		return nil, fmt.Errorf("failed to get budget: %w", err)
 	}
 
 	if budget == nil {
+		s.log.Debugw("Budget not found", "user_id", userID, "month", month, "year", year)
 		return nil, ErrBudgetNotFound
 	}
 
-	// Populate spent amounts for budget items
 	if len(budget.BudgetItems) > 0 {
 		budgetItemIDs := make([]uuid.UUID, len(budget.BudgetItems))
 		for i, item := range budget.BudgetItems {
@@ -143,6 +195,7 @@ func (s *budgetService) GetBudget(ctx context.Context, month, year int, userID u
 
 		spentMap, err := s.budgetRepo.GetBudgetItemsSpent(ctx, budgetItemIDs)
 		if err != nil {
+			s.log.Errorw("Failed to get budget items spent", "error", err, "budget_id", budget.ID)
 			return nil, fmt.Errorf("failed to get budget items spent: %w", err)
 		}
 
@@ -151,11 +204,11 @@ func (s *budgetService) GetBudget(ctx context.Context, month, year int, userID u
 		}
 	}
 
+	s.log.Debugw("Budget retrieved", "budget_id", budget.ID, "month", month, "year", year)
 	return budget, nil
 }
 
 func (s *budgetService) GetBudgets(ctx context.Context, params GetBudgetsParams) (*GetBudgetsResult, error) {
-	// Calculate offset from page
 	if params.Page < 1 {
 		params.Page = 1
 	}
@@ -168,9 +221,9 @@ func (s *budgetService) GetBudgets(ctx context.Context, params GetBudgetsParams)
 		"user_id": params.UserID,
 	}
 
-	// Get total count for pagination
 	total, err := s.budgetRepo.Count(ctx, whereClause)
 	if err != nil {
+		s.log.Errorw("Failed to count budgets", "error", err, "user_id", params.UserID)
 		return nil, fmt.Errorf("failed to count user budgets: %w", err)
 	}
 
@@ -182,9 +235,11 @@ func (s *budgetService) GetBudgets(ctx context.Context, params GetBudgetsParams)
 
 	budgets, err := s.budgetRepo.FindMany(ctx, repoParams)
 	if err != nil {
+		s.log.Errorw("Failed to get budgets", "error", err, "user_id", params.UserID)
 		return nil, fmt.Errorf("failed to get budgets: %w", err)
 	}
 
+	s.log.Infow("Budgets retrieved", "user_id", params.UserID, "count", len(budgets), "total", total)
 	return &GetBudgetsResult{
 		Budgets: budgets,
 		Total:   total,
@@ -193,15 +248,16 @@ func (s *budgetService) GetBudgets(ctx context.Context, params GetBudgetsParams)
 
 func (s *budgetService) CreateBudgetItem(ctx context.Context, item *model.BudgetItem) (*model.BudgetItem, error) {
 	if err := s.budgetRepo.CreateItem(ctx, item); err != nil {
+		s.log.Errorw("Failed to create budget item", "error", err, "budget_id", item.BudgetID, "category", item.Category)
 		return nil, fmt.Errorf("failed to create budget item: %w", err)
 	}
-
+	s.log.Debugw("Budget item created", "item_id", item.ID, "budget_id", item.BudgetID, "category", item.Category)
 	return item, nil
 }
 
 func (s *budgetService) UpdateBudgetItem(ctx context.Context, item *model.BudgetItem, userID uuid.UUID) (*model.BudgetItem, error) {
-	// Verify the budget item belongs to the user by checking the budget
 	if item.BudgetID == nil {
+		s.log.Warnw("Budget item has no budget_id", "item_id", item.ID)
 		return nil, ErrBudgetNotFound
 	}
 
@@ -212,15 +268,19 @@ func (s *budgetService) UpdateBudgetItem(ctx context.Context, item *model.Budget
 		},
 	})
 	if err != nil {
+		s.log.Errorw("Failed to verify budget ownership", "error", err, "budget_id", *item.BudgetID)
 		return nil, fmt.Errorf("failed to verify budget ownership: %w", err)
 	}
 	if budget == nil {
+		s.log.Warnw("Budget access denied", "budget_id", *item.BudgetID, "user_id", userID)
 		return nil, ErrBudgetAccessDenied
 	}
 
 	if err := s.budgetRepo.UpdateItem(ctx, item); err != nil {
+		s.log.Errorw("Failed to update budget item", "error", err, "item_id", item.ID)
 		return nil, fmt.Errorf("failed to update budget item: %w", err)
 	}
 
+	s.log.Infow("Budget item updated", "item_id", item.ID)
 	return item, nil
 }

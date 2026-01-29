@@ -1,5 +1,6 @@
 import { type SQL, sql } from "bun";
 import type { CreateFileInput, File, UpdateFileInput } from "../model/file";
+import type { LoggerPort } from "../ports/logger.port.js";
 
 export interface FindUniqueParams {
   where: {
@@ -22,15 +23,24 @@ export interface FindManyParams {
 
 export class FileRepository {
   private readonly db: SQL;
-
-  constructor(db?: SQL) {
-    this.db = db || sql;
-  }
-
+  private readonly logger: LoggerPort;
   private readonly selectCols = `
-    id, url, key, size, content_type, original_name, 
-    deleted_at, created_at, updated_at
-  `;
+    	id, url, key, size, content_type, original_name, 
+    	deleted_at, created_at, updated_at
+  	`;
+
+  constructor(db?: SQL, logger?: LoggerPort) {
+    this.db = db || sql;
+    this.logger = logger || {
+      setContext: () => {},
+      verbose: () => {},
+      debug: () => {},
+      info: () => {},
+      log: () => {},
+      warn: () => {},
+      error: () => {},
+    };
+  }
 
   private buildWhere(where: Record<string, unknown>): {
     clause: string;
@@ -40,7 +50,6 @@ export class FileRepository {
     const values: unknown[] = [];
     let paramIndex = 1;
 
-    // Always exclude deleted records
     conditions.push("deleted_at IS NULL");
 
     if (where.id) {
@@ -109,41 +118,58 @@ export class FileRepository {
   }
 
   async create(input: CreateFileInput): Promise<File> {
+    const ctx = "FileRepository";
+    this.logger.debug(`Creating file - key:${input.key}`, ctx);
+
     const id = input.id || crypto.randomUUID();
     const now = new Date();
 
     const [file] = await this.db`
-      INSERT INTO files (
-        id, url, key, size, content_type, original_name,
-        created_at, updated_at
-      )
-      VALUES (
-        ${id}, ${input.url}, ${input.key}, ${input.size},
-        ${input.content_type}, ${input.original_name},
-        ${now}, ${now}
-      )
-      RETURNING id, url, key, size, content_type, original_name, 
-        deleted_at, created_at, updated_at
-    `;
+      	INSERT INTO files (
+        	id, url, key, size, content_type, original_name,
+        	created_at, updated_at
+      	)
+      	VALUES (
+        	${id}, ${input.url}, ${input.key}, ${input.size},
+        	${input.content_type}, ${input.original_name},
+        	${now}, ${now}
+      	)
+      	RETURNING id, url, key, size, content_type, original_name, 
+        	deleted_at, created_at, updated_at
+    	`;
+
+    this.logger.info(`Created file - id:${id} key:${input.key}`, ctx);
 
     return file as File;
   }
 
   async findUnique(params: FindUniqueParams): Promise<File | null> {
+    const ctx = "FileRepository";
+    this.logger.debug(
+      `Finding unique file - where:${JSON.stringify(params.where)}`,
+      ctx,
+    );
+
     const { clause, values } = this.buildWhere(params.where);
 
     const query = `
-      SELECT ${this.selectCols}
-      FROM files
-      ${clause}
-      LIMIT 1
-    `;
+      	SELECT ${this.selectCols}
+      	FROM files
+      	${clause}
+      	LIMIT 1
+    	`;
 
     const [file] = await this.db.unsafe(query, values);
     return file ? (file as File) : null;
   }
 
   async findMany(params: FindManyParams): Promise<File[]> {
+    const ctx = "FileRepository";
+    this.logger.debug(
+      `Finding many files - params:${JSON.stringify(params)}`,
+      ctx,
+    );
+
     const {
       where = {},
       orderBy = "created_at DESC",
@@ -154,31 +180,41 @@ export class FileRepository {
 
     const validatedOrderBy = this.validateOrderBy(orderBy);
     const query = `
-      SELECT ${this.selectCols}
-      FROM files
-      ${clause}
-      ORDER BY ${validatedOrderBy}
-      LIMIT $${values.length + 1} OFFSET $${values.length + 2}
-    `;
+      	SELECT ${this.selectCols}
+      	FROM files
+      	${clause}
+      	ORDER BY ${validatedOrderBy}
+      	LIMIT $${values.length + 1} OFFSET $${values.length + 2}
+    	`;
 
     const files = await this.db.unsafe(query, [...values, limit, offset]);
+    this.logger.debug(`Found ${files.length} files`, ctx);
     return files as File[];
   }
 
   async count(where: Record<string, unknown> = {}): Promise<number> {
+    const ctx = "FileRepository";
+    this.logger.debug(`Counting files - where:${JSON.stringify(where)}`, ctx);
+
     const { clause, values } = this.buildWhere(where);
 
     const query = `
-      SELECT COUNT(*) as count
-      FROM files
-      ${clause}
-    `;
+      	SELECT COUNT(*) as count
+      	FROM files
+      	${clause}
+    	`;
 
     const [result] = await this.db.unsafe(query, values);
     return Number(result.count);
   }
 
   async update(id: string, input: UpdateFileInput): Promise<File | null> {
+    const ctx = "FileRepository";
+    this.logger.debug(
+      `Updating file - id:${id} input:${JSON.stringify(input)}`,
+      ctx,
+    );
+
     const updates: string[] = [];
     const values: unknown[] = [];
     let paramIndex = 1;
@@ -223,37 +259,45 @@ export class FileRepository {
 
     values.push(id);
     const query = `
-      UPDATE files
-      SET ${updates.join(", ")}
-      WHERE id = $${paramIndex} AND deleted_at IS NULL
-      RETURNING ${this.selectCols}
-    `;
+      	UPDATE files
+      	SET ${updates.join(", ")}
+      	WHERE id = $${paramIndex} AND deleted_at IS NULL
+      	RETURNING ${this.selectCols}
+    	`;
 
     const [file] = await this.db.unsafe(query, values);
+    this.logger.info(`Updated file - id:${id}`, ctx);
     return file ? (file as File) : null;
   }
 
   async softDelete(id: string): Promise<boolean> {
-    const now = new Date();
-    const result = await this.update(id, { deleted_at: now });
+    const ctx = "FileRepository";
+    this.logger.debug(`Soft deleting file - id:${id}`, ctx);
+    const result = await this.update(id, { deleted_at: new Date() });
     return result !== null;
   }
 
   async getContentTypeAggregations(
     where: Record<string, unknown> = {},
   ): Promise<Record<string, { count: number; total_size: number }>> {
+    const ctx = "FileRepository";
+    this.logger.debug(
+      `Getting content type aggregations - where:${JSON.stringify(where)}`,
+      ctx,
+    );
+
     const { clause, values } = this.buildWhere(where);
 
     const query = `
-      SELECT
-        content_type as key,
-        COUNT(*) as count,
-        COALESCE(SUM(size), 0) as total_size
-      FROM files
-      ${clause}
-      GROUP BY content_type
-      ORDER BY content_type
-    `;
+      	SELECT
+        	content_type as key,
+        	COUNT(*) as count,
+        	COALESCE(SUM(size), 0) as total_size
+      	FROM files
+      	${clause}
+      	GROUP BY content_type
+      	ORDER BY content_type
+    	`;
 
     const rows = await this.db.unsafe(query, values);
     const aggregations: Record<string, { count: number; total_size: number }> =
@@ -266,6 +310,10 @@ export class FileRepository {
       };
     }
 
+    this.logger.debug(
+      `Got ${Object.keys(aggregations).length} content type aggregations`,
+      ctx,
+    );
     return aggregations;
   }
 }

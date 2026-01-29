@@ -3,10 +3,10 @@ package client
 import (
 	"context"
 	"fmt"
-	"log/slog"
 
 	"github.com/ClickHouse/clickhouse-go/v2"
 	"github.com/ClickHouse/clickhouse-go/v2/lib/driver"
+	"github.com/edwinhati/tagaroa/packages/shared/go/logger"
 )
 
 type ClickHouseConfig struct {
@@ -18,6 +18,8 @@ type ClickHouseConfig struct {
 }
 
 func ConnectClickHouse(cfg ClickHouseConfig) (driver.Conn, error) {
+	log := logger.New()
+
 	conn, err := clickhouse.Open(&clickhouse.Options{
 		Addr: []string{fmt.Sprintf("%s:%d", cfg.Host, cfg.Port)},
 		Auth: clickhouse.Auth{
@@ -27,15 +29,15 @@ func ConnectClickHouse(cfg ClickHouseConfig) (driver.Conn, error) {
 		},
 	})
 	if err != nil {
-		slog.Error("Failed to connect to ClickHouse", "error", err)
+		log.Errorw("Failed to connect to ClickHouse", "error", err)
 		return nil, err
 	}
 
 	if err := conn.Ping(context.Background()); err != nil {
-		slog.Error("Failed to ping ClickHouse", "error", err)
+		log.Errorw("Failed to ping ClickHouse", "error", err)
 		return nil, err
 	}
 
-	slog.Info("ClickHouse connected successfully")
+	log.Infow("ClickHouse connected successfully", "host", cfg.Host, "database", cfg.Database)
 	return conn, nil
 }

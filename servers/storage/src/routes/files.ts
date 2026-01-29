@@ -1,14 +1,27 @@
 import { Hono } from "hono";
+import { getLogger, getRequestId } from "../middleware/http.js";
+import type { LoggerPort } from "../ports/logger.port.js";
 import type { FileService } from "../service/file-service";
 
-export const createFileRoutes = (fileService: FileService) => {
+interface ListFilesQuery {
+  search?: string;
+  contentType?: string;
+  limit: number;
+  offset: number;
+  orderBy: string;
+}
+
+export const createFileRoutes = (
+  fileService: FileService,
+  logger: LoggerPort,
+) => {
   const app = new Hono();
 
-  /**
-   * List files
-   * GET /files
-   */
   app.get("/", async (c) => {
+    const startTime = Date.now();
+    const requestId = getRequestId(c);
+    const ctx = `req:${requestId}`;
+
     try {
       const search = c.req.query("search");
       const contentType = c.req.query("contentType");
@@ -16,13 +29,20 @@ export const createFileRoutes = (fileService: FileService) => {
       const offset = Number.parseInt(c.req.query("offset") || "0", 10);
       const orderBy = c.req.query("orderBy") || "created_at DESC";
 
-      const result = await fileService.listFiles({
+      const query: ListFilesQuery = {
         search,
         contentType,
         limit,
         offset,
         orderBy,
-      });
+      };
+
+      const result = await fileService.listFiles(query);
+
+      logger.info(
+        `Listed files - limit:${limit} offset:${offset} total:${result.total}`,
+        ctx,
+      );
 
       return c.json({
         success: true,
@@ -35,52 +55,54 @@ export const createFileRoutes = (fileService: FileService) => {
         },
       });
     } catch (error) {
-      console.error("List files error:", error);
+      const err = error as Error;
+      logger.error(`List files failed - ${err.message}`, err.stack, ctx);
       return c.json(
         {
           error: "Failed to list files",
-          message: error instanceof Error ? error.message : "Unknown error",
+          message: err.message,
         },
         500,
       );
     }
   });
 
-  /**
-   * Get file statistics
-   * GET /files/stats
-   * NOTE: This must be defined before /:id to avoid being matched by the wildcard
-   */
   app.get("/stats", async (c) => {
+    const requestId = getRequestId(c);
+    const ctx = `req:${requestId}`;
+
     try {
       const stats = await fileService.getStats();
+
+      logger.info("Retrieved file stats", ctx);
 
       return c.json({
         success: true,
         data: stats,
       });
     } catch (error) {
-      console.error("Get stats error:", error);
+      const err = error as Error;
+      logger.error(`Get stats failed - ${err.message}`, err.stack, ctx);
       return c.json(
         {
           error: "Failed to get statistics",
-          message: error instanceof Error ? error.message : "Unknown error",
+          message: err.message,
         },
         500,
       );
     }
   });
 
-  /**
-   * Get file by ID
-   * GET /files/:id
-   */
   app.get("/:id", async (c) => {
+    const requestId = getRequestId(c);
+    const ctx = `req:${requestId}`;
+
     try {
       const id = c.req.param("id");
       const file = await fileService.getFile(id);
 
       if (!file) {
+        logger.warn(`File not found - id:${id}`, ctx);
         return c.json(
           {
             error: "File not found",
@@ -89,33 +111,36 @@ export const createFileRoutes = (fileService: FileService) => {
           404,
         );
       }
+
+      logger.info(`Retrieved file - id:${id}`, ctx);
 
       return c.json({
         success: true,
         data: file,
       });
     } catch (error) {
-      console.error("Get file error:", error);
+      const err = error as Error;
+      logger.error(`Get file failed - ${err.message}`, err.stack, ctx);
       return c.json(
         {
           error: "Failed to get file",
-          message: error instanceof Error ? error.message : "Unknown error",
+          message: err.message,
         },
         500,
       );
     }
   });
 
-  /**
-   * Download file
-   * GET /files/:id/download
-   */
   app.get("/:id/download", async (c) => {
+    const requestId = getRequestId(c);
+    const ctx = `req:${requestId}`;
+
     try {
       const id = c.req.param("id");
       const result = await fileService.downloadFile(id);
 
       if (!result) {
+        logger.warn(`Download file not found - id:${id}`, ctx);
         return c.json(
           {
             error: "File not found",
@@ -125,7 +150,6 @@ export const createFileRoutes = (fileService: FileService) => {
         );
       }
 
-      // Set headers for download
       c.header("Content-Type", result.file.content_type);
       c.header(
         "Content-Disposition",
@@ -133,24 +157,26 @@ export const createFileRoutes = (fileService: FileService) => {
       );
       c.header("Content-Length", result.file.size.toString());
 
+      logger.info(`Downloaded file - id:${id} size:${result.file.size}`, ctx);
+
       return c.body(await result.blob.arrayBuffer());
     } catch (error) {
-      console.error("Download file error:", error);
+      const err = error as Error;
+      logger.error(`Download file failed - ${err.message}`, err.stack, ctx);
       return c.json(
         {
           error: "Failed to download file",
-          message: error instanceof Error ? error.message : "Unknown error",
+          message: err.message,
         },
         500,
       );
     }
   });
 
-  /**
-   * Get presigned download URL
-   * GET /files/:id/url
-   */
   app.get("/:id/url", async (c) => {
+    const requestId = getRequestId(c);
+    const ctx = `req:${requestId}`;
+
     try {
       const id = c.req.param("id");
       const expiresIn = Number.parseInt(c.req.query("expiresIn") || "3600", 10);
@@ -158,6 +184,7 @@ export const createFileRoutes = (fileService: FileService) => {
       const result = await fileService.getDownloadUrl(id, expiresIn);
 
       if (!result) {
+        logger.warn(`Download URL file not found - id:${id}`, ctx);
         return c.json(
           {
             error: "File not found",
@@ -166,6 +193,11 @@ export const createFileRoutes = (fileService: FileService) => {
           404,
         );
       }
+
+      logger.info(
+        `Generated download URL - id:${id} expiresIn:${expiresIn}`,
+        ctx,
+      );
 
       return c.json({
         success: true,
@@ -181,27 +213,28 @@ export const createFileRoutes = (fileService: FileService) => {
         },
       });
     } catch (error) {
-      console.error("Get download URL error:", error);
+      const err = error as Error;
+      logger.error(`Get download URL failed - ${err.message}`, err.stack, ctx);
       return c.json(
         {
           error: "Failed to generate download URL",
-          message: error instanceof Error ? error.message : "Unknown error",
+          message: err.message,
         },
         500,
       );
     }
   });
 
-  /**
-   * Delete file
-   * DELETE /files/:id
-   */
   app.delete("/:id", async (c) => {
+    const requestId = getRequestId(c);
+    const ctx = `req:${requestId}`;
+
     try {
       const id = c.req.param("id");
       const deleted = await fileService.deleteFile(id);
 
       if (!deleted) {
+        logger.warn(`Delete file not found - id:${id}`, ctx);
         return c.json(
           {
             error: "File not found",
@@ -211,16 +244,19 @@ export const createFileRoutes = (fileService: FileService) => {
         );
       }
 
+      logger.info(`Deleted file - id:${id}`, ctx);
+
       return c.json({
         success: true,
         message: "File deleted successfully",
       });
     } catch (error) {
-      console.error("Delete file error:", error);
+      const err = error as Error;
+      logger.error(`Delete file failed - ${err.message}`, err.stack, ctx);
       return c.json(
         {
           error: "Failed to delete file",
-          message: error instanceof Error ? error.message : "Unknown error",
+          message: err.message,
         },
         500,
       );

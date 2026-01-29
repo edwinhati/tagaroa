@@ -2,11 +2,15 @@ package repository
 
 import (
 	"context"
+	"fmt"
 	"time"
 
 	"github.com/ClickHouse/clickhouse-go/v2/lib/driver"
+	"github.com/edwinhati/tagaroa/packages/shared/go/logger"
 	"github.com/edwinhati/tagaroa/servers/finance/internal/model"
+	"github.com/edwinhati/tagaroa/servers/finance/internal/util"
 	"github.com/google/uuid"
+	"go.uber.org/zap"
 )
 
 type NetworthRepository interface {
@@ -18,13 +22,19 @@ type NetworthRepository interface {
 
 type networthRepository struct {
 	conn driver.Conn
+	log  *zap.SugaredLogger
 }
 
 func NewNetworthRepository(conn driver.Conn) NetworthRepository {
-	return &networthRepository{conn: conn}
+	return &networthRepository{
+		conn: conn,
+		log:  logger.New().With("repository", "networth"),
+	}
 }
 
 func (r *networthRepository) InitSchema(ctx context.Context) error {
+	r.log.Infow("Initializing networth_history schema")
+
 	return r.conn.Exec(ctx, `
 		CREATE TABLE IF NOT EXISTS networth_history (
 			id UUID,
@@ -34,13 +44,16 @@ func (r *networthRepository) InitSchema(ctx context.Context) error {
 			total_liabilities Decimal(15, 2),
 			networth Decimal(15, 2),
 			currency LowCardinality(String)
-		) ENGINE = MergeTree()
+	) ENGINE = MergeTree()
 		ORDER BY (user_id, currency, time)
 		TTL toDateTime(time) + INTERVAL 1 YEAR
 	`)
 }
 
 func (r *networthRepository) Insert(ctx context.Context, record *model.NetworthHistory) error {
+	ctx, cancel := util.DBContext(ctx, util.DefaultTimeoutConfig)
+	defer cancel()
+
 	if record.ID == uuid.Nil {
 		record.ID = uuid.New()
 	}
@@ -52,6 +65,9 @@ func (r *networthRepository) Insert(ctx context.Context, record *model.NetworthH
 }
 
 func (r *networthRepository) GetHistory(ctx context.Context, userID uuid.UUID, currency string, from, to time.Time) ([]*model.NetworthHistory, error) {
+	ctx, cancel := util.QueryContext(ctx, util.DefaultTimeoutConfig)
+	defer cancel()
+
 	rows, err := r.conn.Query(ctx, `
 		SELECT id, time, user_id, total_assets, total_liabilities, networth, currency
 		FROM networth_history
@@ -74,6 +90,9 @@ func (r *networthRepository) GetHistory(ctx context.Context, userID uuid.UUID, c
 }
 
 func (r *networthRepository) GetLatest(ctx context.Context, userID uuid.UUID, currency string) (*model.NetworthHistory, error) {
+	ctx, cancel := util.QueryContext(ctx, util.DefaultTimeoutConfig)
+	defer cancel()
+
 	row := r.conn.QueryRow(ctx, `
 		SELECT id, time, user_id, total_assets, total_liabilities, networth, currency
 		FROM networth_history
@@ -83,7 +102,7 @@ func (r *networthRepository) GetLatest(ctx context.Context, userID uuid.UUID, cu
 
 	var h model.NetworthHistory
 	if err := row.Scan(&h.ID, &h.Time, &h.UserID, &h.TotalAssets, &h.TotalLiabilities, &h.Networth, &h.Currency); err != nil {
-		return nil, nil
+		return nil, fmt.Errorf("failed to get latest networth history: %w", err)
 	}
 	return &h, nil
 }

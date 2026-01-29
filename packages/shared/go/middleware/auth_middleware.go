@@ -14,72 +14,88 @@ import (
 	"time"
 
 	"github.com/edwinhati/tagaroa/packages/shared/go/client"
+	"github.com/edwinhati/tagaroa/packages/shared/go/logger"
 	"github.com/edwinhati/tagaroa/packages/shared/go/util"
+	"go.uber.org/zap"
 	"golang.org/x/time/rate"
 )
+
+var (
+	authLog      *zap.SugaredLogger
+	rateLimitLog *zap.SugaredLogger
+)
+
+func init() {
+	authLog = logger.New()
+	rateLimitLog = logger.New().With("component", "rate_limiter")
+}
 
 func AuthMiddleware(oidcClient *client.OIDCClient) func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			if oidcClient == nil {
+				authLog.Errorw("Authentication failed: OIDC client not initialized")
 				writeErrorResponse(w, http.StatusInternalServerError, "Authentication not configured", "OIDC client is not initialised")
 				return
 			}
 
 			tokenStr, tokenErr := extractBearerToken(r.Header.Get("Authorization"))
 			if tokenErr != nil {
+				authLog.Infow("Authentication failed: missing or invalid token", "ip", getIP(r), "path", r.URL.Path)
 				tokenErr.write(w)
 				return
 			}
 
 			subject, subjectErr := subjectFromToken(r.Context(), oidcClient, tokenStr)
 			if subjectErr != nil {
+				authLog.Infow("Authentication failed: invalid token", "ip", getIP(r), "path", r.URL.Path, "error", subjectErr.detail)
 				subjectErr.write(w)
 				return
 			}
 
-			// Convert Better Auth string user ID to UUID
-			// We'll use the subject as-is if it's already a UUID, otherwise create a deterministic UUID
 			var userID string
 			if isValidUUID(subject) {
 				userID = subject
 			} else {
-				// Create a deterministic UUID from the Better Auth user ID
-				// This ensures the same Better Auth user ID always maps to the same UUID
 				userID = generateDeterministicUUID(subject)
 			}
 
+			authLog.Infow("Authentication successful", "user_id", userID, "ip", getIP(r), "path", r.URL.Path)
 			ctx := context.WithValue(r.Context(), util.UserIDKey, userID)
 			next.ServeHTTP(w, r.WithContext(ctx))
 		})
 	}
 }
 
-// RateLimiter represents a rate limiter for HTTP requests
 type RateLimiter struct {
 	limiters map[string]*rate.Limiter
 	mu       sync.RWMutex
 	rate     rate.Limit
 	burst    int
 	cleanup  time.Duration
+	stopCh   chan struct{}
 }
 
-// NewRateLimiter creates a new rate limiter
 func NewRateLimiter(rps rate.Limit, burst int) *RateLimiter {
 	rl := &RateLimiter{
 		limiters: make(map[string]*rate.Limiter),
 		rate:     rps,
 		burst:    burst,
-		cleanup:  time.Minute * 5, // Clean up old limiters every 5 minutes
+		cleanup:  time.Minute * 5,
+		stopCh:   make(chan struct{}),
 	}
 
-	// Start cleanup goroutine
 	go rl.cleanupRoutine()
+	rateLimitLog.Infow("Rate limiter initialized", "rps", rps, "burst", burst)
 
 	return rl
 }
 
-// getLimiter returns the rate limiter for the given IP
+func (rl *RateLimiter) Stop() {
+	close(rl.stopCh)
+	rateLimitLog.Infow("Rate limiter stopped")
+}
+
 func (rl *RateLimiter) getLimiter(ip string) *rate.Limiter {
 	rl.mu.Lock()
 	defer rl.mu.Unlock()
@@ -93,41 +109,44 @@ func (rl *RateLimiter) getLimiter(ip string) *rate.Limiter {
 	return limiter
 }
 
-// cleanupRoutine periodically removes unused limiters
 func (rl *RateLimiter) cleanupRoutine() {
 	ticker := time.NewTicker(rl.cleanup)
 	defer ticker.Stop()
 
-	for range ticker.C {
-		rl.mu.Lock()
-		for ip, limiter := range rl.limiters {
-			// Remove limiters that haven't been used recently
-			if limiter.TokensAt(time.Now()) == float64(rl.burst) {
-				delete(rl.limiters, ip)
+	for {
+		select {
+		case <-ticker.C:
+			rl.mu.Lock()
+			count := 0
+			for ip, limiter := range rl.limiters {
+				if limiter.TokensAt(time.Now()) == float64(rl.burst) {
+					delete(rl.limiters, ip)
+					count++
+				}
 			}
+			rl.mu.Unlock()
+			if count > 0 {
+				rateLimitLog.Debugw("Cleaned up inactive limiters", "count", count)
+			}
+		case <-rl.stopCh:
+			return
 		}
-		rl.mu.Unlock()
 	}
 }
 
-// getIP extracts the real IP address from the request
 func getIP(r *http.Request) string {
-	// Check X-Forwarded-For header first (for load balancers/proxies)
 	if xff := r.Header.Get("X-Forwarded-For"); xff != "" {
-		// X-Forwarded-For can contain multiple IPs, take the first one
 		if ip := net.ParseIP(xff); ip != nil {
 			return ip.String()
 		}
 	}
 
-	// Check X-Real-IP header
 	if xri := r.Header.Get("X-Real-IP"); xri != "" {
 		if ip := net.ParseIP(xri); ip != nil {
 			return ip.String()
 		}
 	}
 
-	// Fall back to RemoteAddr
 	ip, _, err := net.SplitHostPort(r.RemoteAddr)
 	if err != nil {
 		return r.RemoteAddr
@@ -136,10 +155,8 @@ func getIP(r *http.Request) string {
 	return ip
 }
 
-// RateLimit middleware function
 func (rl *RateLimiter) RateLimit(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		// Skip rate limiting for health checks
 		if r.URL.Path == "/health" {
 			next.ServeHTTP(w, r)
 			return
@@ -149,6 +166,7 @@ func (rl *RateLimiter) RateLimit(next http.Handler) http.Handler {
 		limiter := rl.getLimiter(ip)
 
 		if !limiter.Allow() {
+			rateLimitLog.Warnw("Rate limit exceeded", "ip", ip, "path", r.URL.Path)
 			http.Error(w, fmt.Sprintf(`{
 				"error": "Rate limit exceeded",
 				"message": "Too many requests from IP: %s",
@@ -231,28 +249,22 @@ func subjectFromToken(ctx context.Context, oidcClient *client.OIDCClient, token 
 	return "", newAuthErr(status, "Invalid or expired token", err.Error())
 }
 
-// isValidUUID checks if a string is a valid UUID format
 func isValidUUID(s string) bool {
 	uuidRegex := regexp.MustCompile(`^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$`)
 	return uuidRegex.MatchString(strings.ToLower(s))
 }
 
-// generateDeterministicUUID creates a deterministic UUID from a string
-// This ensures the same input always produces the same UUID
 func generateDeterministicUUID(input string) string {
-	// Create a SHA256 hash of the input
 	hash := sha256.Sum256([]byte(input))
 
-	// Use the first 16 bytes of the hash to create a UUID
-	// Set version (4) and variant bits according to RFC 4122
-	hash[6] = (hash[6] & 0x0f) | 0x40 // Version 4
-	hash[8] = (hash[8] & 0x3f) | 0x80 // Variant bits
+	hash[6] = (hash[6] & 0x0f) | 0x40
+	hash[8] = (hash[8] & 0x3f) | 0x80
 
-	// Format as UUID string
 	return fmt.Sprintf("%08x-%04x-%04x-%04x-%012x",
-		hash[0:4],
-		hash[4:6],
-		hash[6:8],
-		hash[8:10],
-		hash[10:16])
+		uint32(hash[0])<<24|uint32(hash[1])<<16|uint32(hash[2])<<8|uint32(hash[3]),
+		uint16(hash[4])<<8|uint16(hash[5]),
+		uint16(hash[6])<<8|uint16(hash[7]),
+		uint16(hash[8])<<8|uint16(hash[9]),
+		uint64(hash[10])<<56|uint64(hash[11])<<48|uint64(hash[12])<<40|uint64(hash[13])<<32|uint64(hash[14])<<24|uint64(hash[15])<<16,
+	)
 }

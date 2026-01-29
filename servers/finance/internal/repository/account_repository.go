@@ -7,27 +7,34 @@ import (
 	"strings"
 	"time"
 
-	"github.com/edwinhati/tagaroa/packages/shared/go/util"
+	"github.com/edwinhati/tagaroa/packages/shared/go/logger"
+	sharedutil "github.com/edwinhati/tagaroa/packages/shared/go/util"
 	"github.com/edwinhati/tagaroa/servers/finance/internal/model"
+	"github.com/edwinhati/tagaroa/servers/finance/internal/util"
 	"github.com/google/uuid"
+	"go.uber.org/zap"
 )
 
 type AccountRepository interface {
 	Create(ctx context.Context, account *model.Account) error
-	FindUnique(ctx context.Context, params util.FindUniqueParams) (*model.Account, error)
-	FindMany(ctx context.Context, params util.FindManyParams) ([]*model.Account, error)
+	FindUnique(ctx context.Context, params sharedutil.FindUniqueParams) (*model.Account, error)
+	FindMany(ctx context.Context, params sharedutil.FindManyParams) ([]*model.Account, error)
 	Count(ctx context.Context, where map[string]any) (int, error)
 	Update(ctx context.Context, account *model.Account) error
-	GetTypeAggregations(ctx context.Context, where map[string]any) (map[string]util.AggregationResult, error)
-	GetCurrencyAggregations(ctx context.Context, where map[string]any) (map[string]util.AggregationResult, error)
+	GetTypeAggregations(ctx context.Context, where map[string]any) (map[string]sharedutil.AggregationResult, error)
+	GetCurrencyAggregations(ctx context.Context, where map[string]any) (map[string]sharedutil.AggregationResult, error)
 }
 
 type accountRepository struct {
-	db *sql.DB
+	db  *sql.DB
+	log *zap.SugaredLogger
 }
 
 func NewAccountRepository(db *sql.DB) AccountRepository {
-	return &accountRepository{db: db}
+	return &accountRepository{
+		db:  db,
+		log: logger.New().With("repository", "account"),
+	}
 }
 
 /* ----------------------------- Utilities ----------------------------- */
@@ -38,7 +45,7 @@ const accountSelectCols = `
 
 const accountSearchClause = "(LOWER(name) LIKE LOWER($%d) OR LOWER(COALESCE(notes, '')) LIKE LOWER($%d))"
 
-func scanAccount(scanner util.RowScanner) (*model.Account, error) {
+func scanAccount(scanner sharedutil.RowScanner) (*model.Account, error) {
 	var account model.Account
 	var deletedAt sql.NullTime
 
@@ -98,19 +105,27 @@ func (r *accountRepository) Create(ctx context.Context, account *model.Account) 
 		account.UserID, account.Currency, account.Notes, account.DeletedAt,
 		account.CreatedAt, account.UpdatedAt,
 	)
-	return err
+	if err != nil {
+		r.log.Errorw("Failed to create account", "error", err, "account_id", account.ID, "user_id", account.UserID)
+		return fmt.Errorf("failed to create account: %w", err)
+	}
+	r.log.Infow("Account created", "account_id", account.ID, "user_id", account.UserID, "type", account.Type)
+	return nil
 }
 
-func (r *accountRepository) FindUnique(ctx context.Context, params util.FindUniqueParams) (*model.Account, error) {
+func (r *accountRepository) FindUnique(ctx context.Context, params sharedutil.FindUniqueParams) (*model.Account, error) {
+	ctx, cancel := util.DBContext(ctx, util.DefaultTimeoutConfig)
+	defer cancel()
+
 	var sb strings.Builder
 	sb.WriteString("SELECT ")
 	sb.WriteString(strings.TrimSpace(accountSelectCols))
 	sb.WriteString(" FROM accounts")
 
-	whereClause, args := util.BuildWhere(params.Where, util.WhereBuildOpts{
+	whereClause, args := sharedutil.BuildWhere(params.Where, sharedutil.WhereBuildOpts{
 		FieldOrder:           []string{"user_id", "search", "type", "currency"},
-		SkipField:            "",   // no skip
-		ExcludeDeleted:       true, // always exclude deleted
+		SkipField:            "",
+		ExcludeDeleted:       true,
 		SearchClauseTemplate: accountSearchClause,
 	})
 	sb.WriteString(whereClause)
@@ -121,39 +136,43 @@ func (r *accountRepository) FindUnique(ctx context.Context, params util.FindUniq
 		if err == sql.ErrNoRows {
 			return nil, nil
 		}
-		return nil, err
+		r.log.Errorw("Failed to find unique account", "error", err, "where", params.Where)
+		return nil, fmt.Errorf("failed to find account: %w", err)
 	}
+	r.log.Debugw("Account found", "account_id", account.ID)
 	return account, nil
 }
 
-func (r *accountRepository) FindMany(ctx context.Context, params util.FindManyParams) ([]*model.Account, error) {
+func (r *accountRepository) FindMany(ctx context.Context, params sharedutil.FindManyParams) ([]*model.Account, error) {
+	ctx, cancel := util.QueryContext(ctx, util.DefaultTimeoutConfig)
+	defer cancel()
+
 	var sb strings.Builder
 	sb.WriteString("SELECT ")
 	sb.WriteString(strings.TrimSpace(accountSelectCols))
 	sb.WriteString(" FROM accounts")
 
-	whereClause, args := util.BuildWhere(params.Where, util.WhereBuildOpts{
+	whereClause, args := sharedutil.BuildWhere(params.Where, sharedutil.WhereBuildOpts{
 		FieldOrder:           []string{"user_id", "search", "type", "currency"},
-		SkipField:            "",   // normal filtering
-		ExcludeDeleted:       true, // always exclude deleted
+		SkipField:            "",
+		ExcludeDeleted:       true,
 		SearchClauseTemplate: accountSearchClause,
 	})
 	sb.WriteString(whereClause)
 
-	// ORDER BY - validate to prevent SQL injection
-	orderBy, err := util.ValidateOrderBy(params.OrderBy, allowedOrderByColumns)
+	orderBy, err := sharedutil.ValidateOrderBy(params.OrderBy, allowedOrderByColumns)
 	if err != nil {
 		return nil, fmt.Errorf("invalid ORDER BY clause: %w", err)
 	}
 	sb.WriteString(" ORDER BY " + orderBy)
 
-	// Pagination (placeholders after WHERE args)
 	currIdx := len(args) + 1
-	_, args = util.AddOffsetLimit(&sb, params.Offset, params.Limit, currIdx, args)
+	_, args = sharedutil.AddOffsetLimit(&sb, params.Offset, params.Limit, currIdx, args)
 
 	rows, err := r.db.QueryContext(ctx, sb.String(), args...)
 	if err != nil {
-		return nil, err
+		r.log.Errorw("Failed to query accounts", "error", err)
+		return nil, fmt.Errorf("failed to query accounts: %w", err)
 	}
 	defer rows.Close()
 
@@ -161,24 +180,30 @@ func (r *accountRepository) FindMany(ctx context.Context, params util.FindManyPa
 	for rows.Next() {
 		account, err := scanAccount(rows)
 		if err != nil {
-			return nil, err
+			r.log.Errorw("Failed to scan account", "error", err)
+			return nil, fmt.Errorf("failed to scan account: %w", err)
 		}
 		accounts = append(accounts, account)
 	}
 	if err := rows.Err(); err != nil {
-		return nil, err
+		r.log.Errorw("Error iterating accounts", "error", err)
+		return nil, fmt.Errorf("error iterating accounts: %w", err)
 	}
+	r.log.Debugw("Accounts found", "count", len(accounts))
 	return accounts, nil
 }
 
 func (r *accountRepository) Count(ctx context.Context, where map[string]any) (int, error) {
+	ctx, cancel := util.QueryContext(ctx, util.DefaultTimeoutConfig)
+	defer cancel()
+
 	var sb strings.Builder
 	sb.WriteString("SELECT COUNT(*) FROM accounts")
 
-	whereClause, args := util.BuildWhere(where, util.WhereBuildOpts{
+	whereClause, args := sharedutil.BuildWhere(where, sharedutil.WhereBuildOpts{
 		FieldOrder:           []string{"user_id", "search", "type", "currency"},
-		SkipField:            "",   // count respects all filters
-		ExcludeDeleted:       true, // exclude deleted
+		SkipField:            "",
+		ExcludeDeleted:       true,
 		SearchClauseTemplate: accountSearchClause,
 	})
 	sb.WriteString(whereClause)
@@ -191,6 +216,9 @@ func (r *accountRepository) Count(ctx context.Context, where map[string]any) (in
 }
 
 func (r *accountRepository) Update(ctx context.Context, account *model.Account) error {
+	ctx, cancel := util.DBContext(ctx, util.DefaultTimeoutConfig)
+	defer cancel()
+
 	account.UpdatedAt = time.Now()
 
 	query := `
@@ -203,18 +231,21 @@ func (r *accountRepository) Update(ctx context.Context, account *model.Account) 
 		account.ID, account.Name, account.Type, account.Balance,
 		account.Currency, account.Notes, account.DeletedAt, account.UpdatedAt,
 	)
-	return err
+	if err != nil {
+		r.log.Errorw("Failed to update account", "error", err, "account_id", account.ID)
+		return fmt.Errorf("failed to update account: %w", err)
+	}
+	r.log.Infow("Account updated", "account_id", account.ID)
+	return nil
 }
 
 /* --------------------------- Aggregations ---------------------------- */
 
-func (r *accountRepository) GetTypeAggregations(ctx context.Context, where map[string]any) (map[string]util.AggregationResult, error) {
-	// Skip filtering by "type" while grouping by it
+func (r *accountRepository) GetTypeAggregations(ctx context.Context, where map[string]any) (map[string]sharedutil.AggregationResult, error) {
 	return r.getAggregations(ctx, "type", "type", []string{"user_id", "search", "currency"}, where)
 }
 
-func (r *accountRepository) GetCurrencyAggregations(ctx context.Context, where map[string]any) (map[string]util.AggregationResult, error) {
-	// Skip filtering by "currency" while grouping by it
+func (r *accountRepository) GetCurrencyAggregations(ctx context.Context, where map[string]any) (map[string]sharedutil.AggregationResult, error) {
 	return r.getAggregations(ctx, "currency", "currency", []string{"user_id", "search", "type"}, where)
 }
 
@@ -224,13 +255,15 @@ func (r *accountRepository) getAggregations(
 	skipFilter string,
 	fieldOrder []string,
 	where map[string]any,
-) (map[string]util.AggregationResult, error) {
-	// Validate GROUP BY column to prevent SQL injection
-	if err := util.ValidateGroupByColumn(groupBy, allowedGroupByColumns); err != nil {
+) (map[string]sharedutil.AggregationResult, error) {
+	ctx, cancel := util.QueryContext(ctx, util.DefaultTimeoutConfig)
+	defer cancel()
+
+	if err := sharedutil.ValidateGroupByColumn(groupBy, allowedGroupByColumns); err != nil {
 		return nil, fmt.Errorf("invalid aggregation groupBy: %w", err)
 	}
 
-	aggs := make(map[string]util.AggregationResult)
+	aggs := make(map[string]sharedutil.AggregationResult)
 
 	var sb strings.Builder
 	sb.WriteString(`
@@ -243,9 +276,9 @@ func (r *accountRepository) getAggregations(
 			COALESCE(SUM(balance), 0) as sum_balance
 		FROM accounts`)
 
-	whereClause, args := util.BuildWhere(where, util.WhereBuildOpts{
+	whereClause, args := sharedutil.BuildWhere(where, sharedutil.WhereBuildOpts{
 		FieldOrder:           fieldOrder,
-		SkipField:            skipFilter, // do not filter on the grouping field
+		SkipField:            skipFilter,
 		ExcludeDeleted:       true,
 		SearchClauseTemplate: accountSearchClause,
 	})
@@ -257,20 +290,24 @@ func (r *accountRepository) getAggregations(
 
 	rows, err := r.db.QueryContext(ctx, sb.String(), args...)
 	if err != nil {
+		r.log.Errorw("Failed to get aggregations", "error", err, "group_by", groupBy)
 		return nil, fmt.Errorf("failed to get %s aggregations: %w", groupBy, err)
 	}
 	defer rows.Close()
 
 	for rows.Next() {
 		var key string
-		var res util.AggregationResult
+		var res sharedutil.AggregationResult
 		if err := rows.Scan(&key, &res.Count, &res.Min, &res.Max, &res.Avg, &res.Sum); err != nil {
+			r.log.Errorw("Failed to scan aggregation", "error", err, "group_by", groupBy)
 			return nil, fmt.Errorf("failed to scan %s aggregation: %w", groupBy, err)
 		}
 		aggs[key] = res
 	}
 	if err := rows.Err(); err != nil {
+		r.log.Errorw("Error iterating aggregations", "error", err, "group_by", groupBy)
 		return nil, fmt.Errorf("error iterating %s aggregations: %w", groupBy, err)
 	}
+	r.log.Debugw("Aggregations computed", "group_by", groupBy, "keys_count", len(aggs))
 	return aggs, nil
 }

@@ -58,6 +58,7 @@ type WhereBuildOpts struct {
 	SkipField            string   // exclude this field from filtering (for aggregations)
 	ExcludeDeleted       bool     // always enforce deleted_at IS NULL
 	SearchClauseTemplate string   // template for search condition
+	AllowedFields        []string // allowlist of valid field names to prevent SQL injection
 }
 
 type whereBuilder struct {
@@ -80,6 +81,18 @@ func newWhereBuilder(opts WhereBuildOpts) *whereBuilder {
 	return builder
 }
 
+func (b *whereBuilder) validateField(field string) error {
+	if len(b.opts.AllowedFields) == 0 {
+		return nil
+	}
+	for _, allowed := range b.opts.AllowedFields {
+		if field == allowed {
+			return nil
+		}
+	}
+	return fmt.Errorf("field '%s' is not allowed", field)
+}
+
 func (b *whereBuilder) addSearchCondition(searchConditionTemplate string, value any) {
 	searchTerm := fmt.Sprintf(searchLikeFormat, value)
 	b.conditions = append(
@@ -91,6 +104,9 @@ func (b *whereBuilder) addSearchCondition(searchConditionTemplate string, value 
 }
 
 func (b *whereBuilder) addSliceCondition(field string, slice []string) {
+	if err := b.validateField(field); err != nil {
+		panic(err)
+	}
 	if len(slice) == 0 {
 		return
 	}
@@ -107,6 +123,9 @@ func (b *whereBuilder) addSliceCondition(field string, slice []string) {
 }
 
 func (b *whereBuilder) addEqualsCondition(field string, value any) {
+	if err := b.validateField(field); err != nil {
+		panic(err)
+	}
 	b.conditions = append(
 		b.conditions,
 		fmt.Sprintf(equalsClauseFormat, field, b.argIndex),

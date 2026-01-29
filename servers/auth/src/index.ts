@@ -1,6 +1,7 @@
 import { serve } from "@hono/node-server";
 import { createApp } from "./app";
 import { config } from "./config";
+import { CONSTANTS } from "./lib/constants";
 
 async function startServer() {
   const { app, logger } = createApp();
@@ -14,20 +15,24 @@ async function startServer() {
   logger.log(`Environment: ${config.nodeEnv}`, "Bootstrap");
 }
 
-// Handle graceful shutdown
-process.on("SIGINT", () => {
-  console.log("Received SIGINT, shutting down gracefully");
-  process.exit(0);
-});
+let shutdownRequested = false;
 
-process.on("SIGTERM", () => {
-  console.log("Received SIGTERM, shutting down gracefully");
-  process.exit(0);
-});
+const gracefulShutdown = (signal: string) => {
+  if (shutdownRequested) return;
+  shutdownRequested = true;
 
-try {
-  await startServer();
-} catch (error) {
+  console.log(`Received ${signal}, shutting down gracefully...`);
+
+  setTimeout(() => {
+    console.log("Shutdown complete");
+    process.exit(0);
+  }, CONSTANTS.SERVER.SHUTDOWN_TIMEOUT_MS);
+};
+
+process.on("SIGINT", () => gracefulShutdown("SIGINT"));
+process.on("SIGTERM", () => gracefulShutdown("SIGTERM"));
+
+startServer().catch((error) => {
   console.error("Failed to start server:", error);
   process.exit(1);
-}
+});

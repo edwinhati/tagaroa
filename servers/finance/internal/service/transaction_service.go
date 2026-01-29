@@ -8,10 +8,13 @@ import (
 	"strings"
 	"time"
 
+	"github.com/edwinhati/tagaroa/packages/shared/go/logger"
 	"github.com/edwinhati/tagaroa/packages/shared/go/util"
+	"github.com/edwinhati/tagaroa/servers/finance/internal/event"
 	"github.com/edwinhati/tagaroa/servers/finance/internal/model"
 	"github.com/edwinhati/tagaroa/servers/finance/internal/repository"
 	"github.com/google/uuid"
+	"go.uber.org/zap"
 )
 
 var (
@@ -65,30 +68,56 @@ type TransactionService interface {
 type transactionService struct {
 	transactionRepo repository.TransactionRepository
 	accountRepo     repository.AccountRepository
+	eventPublisher  event.EventPublisher
+	log             *zap.SugaredLogger
 }
 
 func NewTransactionService(transactionRepo repository.TransactionRepository, accountRepo repository.AccountRepository) TransactionService {
 	return &transactionService{
 		transactionRepo: transactionRepo,
 		accountRepo:     accountRepo,
+		log:             logger.New().With("service", "transaction"),
+	}
+}
+
+func NewTransactionServiceWithEvents(transactionRepo repository.TransactionRepository, accountRepo repository.AccountRepository, eventPublisher event.EventPublisher) TransactionService {
+	return &transactionService{
+		transactionRepo: transactionRepo,
+		accountRepo:     accountRepo,
+		eventPublisher:  eventPublisher,
+		log:             logger.New().With("service", "transaction"),
 	}
 }
 
 func (s *transactionService) CreateTransaction(ctx context.Context, transaction *model.Transaction) (*model.Transaction, error) {
-	// Validate transaction type
 	if !isValidTransactionType(transaction.Type) {
+		s.log.Warnw("Invalid transaction type", "type", transaction.Type)
 		return nil, ErrInvalidTransactionType
 	}
 
 	if err := s.transactionRepo.Create(ctx, transaction); err != nil {
+		s.log.Errorw("Failed to create transaction", "error", err, "user_id", transaction.UserID, "amount", transaction.Amount)
 		return nil, fmt.Errorf("failed to create transaction: %w", err)
 	}
 
-	// Update account balance
 	if err := s.updateAccountBalance(ctx, transaction.AccountID, transaction.Amount, transaction.Type); err != nil {
+		s.log.Errorw("Failed to update account balance", "error", err, "account_id", transaction.AccountID)
 		return nil, fmt.Errorf("failed to update account balance: %w", err)
 	}
 
+	if s.eventPublisher != nil {
+		txEvent := event.NewEvent(event.EventTransactionCreated, transaction.UserID.String()).
+			WithPayload("transaction_id", transaction.ID.String()).
+			WithPayload("amount", transaction.Amount).
+			WithPayload("type", string(transaction.Type)).
+			WithPayload("account_id", transaction.AccountID.String()).
+			Build()
+		if err := s.eventPublisher.Publish(ctx, txEvent); err != nil {
+			s.log.Errorw("Failed to publish transaction created event", "error", err, "transaction_id", transaction.ID)
+		}
+	}
+
+	s.log.Infow("Transaction created", "transaction_id", transaction.ID, "user_id", transaction.UserID, "amount", transaction.Amount, "type", transaction.Type)
 	return transaction, nil
 }
 
@@ -102,17 +131,19 @@ func (s *transactionService) GetTransaction(ctx context.Context, id, userID uuid
 
 	transaction, err := s.transactionRepo.FindUnique(ctx, params)
 	if err != nil {
+		s.log.Errorw("Failed to get transaction", "error", err, "transaction_id", id, "user_id", userID)
 		return nil, fmt.Errorf("failed to get transaction: %w", err)
 	}
 	if transaction == nil {
+		s.log.Debugw("Transaction not found", "transaction_id", id, "user_id", userID)
 		return nil, ErrTransactionNotFound
 	}
 
+	s.log.Debugw("Transaction found", "transaction_id", id)
 	return transaction, nil
 }
 
 func (s *transactionService) GetTransactions(ctx context.Context, params GetTransactionsParams) (*GetTransactionsResult, error) {
-	// Calculate offset from page
 	if params.Page < 1 {
 		params.Page = 1
 	}
@@ -125,7 +156,6 @@ func (s *transactionService) GetTransactions(ctx context.Context, params GetTran
 		"user_id": params.UserID,
 	}
 
-	// Add date range filters
 	if params.StartDate != nil {
 		whereClause["start_date"] = *params.StartDate
 	}
@@ -133,7 +163,6 @@ func (s *transactionService) GetTransactions(ctx context.Context, params GetTran
 		whereClause["end_date"] = *params.EndDate
 	}
 
-	// Add multi-select filters
 	if len(params.Types) > 0 {
 		whereClause["type"] = params.Types
 	}
@@ -150,7 +179,6 @@ func (s *transactionService) GetTransactions(ctx context.Context, params GetTran
 		whereClause["category"] = params.Categories
 	}
 
-	// Get type aggregations (excluding type filter to show all available types)
 	typeAggregationWhere := map[string]any{
 		"user_id": params.UserID,
 	}
@@ -171,10 +199,10 @@ func (s *transactionService) GetTransactions(ctx context.Context, params GetTran
 	}
 	typeAggregations, err := s.transactionRepo.GetTypeAggregations(ctx, typeAggregationWhere)
 	if err != nil {
+		s.log.Errorw("Failed to get type aggregations", "error", err, "user_id", params.UserID)
 		return nil, fmt.Errorf("failed to get transaction type aggregations: %w", err)
 	}
 
-	// Get currency aggregations (excluding currency filter to show all available currencies)
 	currencyAggregationWhere := map[string]any{
 		"user_id": params.UserID,
 	}
@@ -195,10 +223,10 @@ func (s *transactionService) GetTransactions(ctx context.Context, params GetTran
 	}
 	currencyAggregations, err := s.transactionRepo.GetCurrencyAggregations(ctx, currencyAggregationWhere)
 	if err != nil {
+		s.log.Errorw("Failed to get currency aggregations", "error", err, "user_id", params.UserID)
 		return nil, fmt.Errorf("failed to get transaction currency aggregations: %w", err)
 	}
 
-	// Get account aggregations
 	accountAggregationWhere := map[string]any{
 		"user_id": params.UserID,
 	}
@@ -219,10 +247,10 @@ func (s *transactionService) GetTransactions(ctx context.Context, params GetTran
 	}
 	accountAggregations, err := s.transactionRepo.GetAccountAggregations(ctx, accountAggregationWhere)
 	if err != nil {
+		s.log.Errorw("Failed to get account aggregations", "error", err, "user_id", params.UserID)
 		return nil, fmt.Errorf("failed to get transaction account aggregations: %w", err)
 	}
 
-	// Get category aggregations
 	categoryAggregationWhere := map[string]any{
 		"user_id": params.UserID,
 	}
@@ -243,12 +271,13 @@ func (s *transactionService) GetTransactions(ctx context.Context, params GetTran
 	}
 	categoryAggregations, err := s.transactionRepo.GetCategoryAggregations(ctx, categoryAggregationWhere)
 	if err != nil {
+		s.log.Errorw("Failed to get category aggregations", "error", err, "user_id", params.UserID)
 		return nil, fmt.Errorf("failed to get transaction category aggregations: %w", err)
 	}
 
-	// Get total count for pagination
 	total, err := s.transactionRepo.Count(ctx, whereClause)
 	if err != nil {
+		s.log.Errorw("Failed to count transactions", "error", err, "user_id", params.UserID)
 		return nil, fmt.Errorf("failed to count user transactions: %w", err)
 	}
 
@@ -259,26 +288,25 @@ func (s *transactionService) GetTransactions(ctx context.Context, params GetTran
 		OrderBy: params.OrderBy,
 	}
 
-	// Set default ordering if not provided
 	if repoParams.OrderBy == "" {
 		repoParams.OrderBy = "created_at DESC"
 	}
 
 	transactions, err := s.transactionRepo.FindMany(ctx, repoParams)
 	if err != nil {
+		s.log.Errorw("Failed to get transactions", "error", err, "user_id", params.UserID)
 		return nil, fmt.Errorf("failed to get user transactions: %w", err)
 	}
 
-	result := &GetTransactionsResult{
+	s.log.Infow("Transactions retrieved", "user_id", params.UserID, "count", len(transactions), "total", total, "page", params.Page)
+	return &GetTransactionsResult{
 		Transactions:         transactions,
 		Total:                total,
 		TypeAggregations:     typeAggregations,
 		CurrencyAggregations: currencyAggregations,
 		AccountAggregations:  accountAggregations,
 		CategoryAggregations: categoryAggregations,
-	}
-
-	return result, nil
+	}, nil
 }
 
 func (s *transactionService) UpdateTransaction(ctx context.Context, id uuid.UUID, input UpdateTransactionInput, userID uuid.UUID) (*model.Transaction, error) {
@@ -291,18 +319,18 @@ func (s *transactionService) UpdateTransaction(ctx context.Context, id uuid.UUID
 
 	transaction, err := s.transactionRepo.FindUnique(ctx, params)
 	if err != nil {
+		s.log.Errorw("Failed to get transaction for update", "error", err, "transaction_id", id)
 		return nil, fmt.Errorf("failed to get transaction: %w", err)
 	}
 	if transaction == nil {
+		s.log.Debugw("Transaction not found for update", "transaction_id", id)
 		return nil, ErrTransactionNotFound
 	}
 
-	// Store old values for balance adjustment
 	oldAmount := transaction.Amount
 	oldType := transaction.Type
 	oldAccountID := transaction.AccountID
 
-	// Update fields if provided
 	if input.Amount != nil {
 		transaction.Amount = *input.Amount
 	}
@@ -345,21 +373,34 @@ func (s *transactionService) UpdateTransaction(ctx context.Context, id uuid.UUID
 	}
 
 	if err := s.transactionRepo.Update(ctx, transaction); err != nil {
+		s.log.Errorw("Failed to update transaction", "error", err, "transaction_id", id)
 		return nil, fmt.Errorf("failed to update transaction: %w", err)
 	}
 
-	// Adjust account balance if amount, type, or account changed
+	if s.eventPublisher != nil {
+		txEvent := event.NewEvent(event.EventTransactionUpdated, userID.String()).
+			WithPayload("transaction_id", id.String()).
+			WithPayload("old_amount", oldAmount).
+			WithPayload("new_amount", transaction.Amount).
+			WithPayload("type_changed", oldType != transaction.Type).
+			Build()
+		if err := s.eventPublisher.Publish(ctx, txEvent); err != nil {
+			s.log.Errorw("Failed to publish transaction updated event", "error", err, "transaction_id", id)
+		}
+	}
+
 	if oldAmount != transaction.Amount || oldType != transaction.Type || oldAccountID != transaction.AccountID {
-		// Reverse old transaction effect on old account
 		if err := s.reverseAccountBalance(ctx, oldAccountID, oldAmount, oldType); err != nil {
+			s.log.Errorw("Failed to reverse old account balance", "error", err, "account_id", oldAccountID)
 			return nil, fmt.Errorf("failed to reverse old account balance: %w", err)
 		}
-		// Apply new transaction effect on new account
 		if err := s.updateAccountBalance(ctx, transaction.AccountID, transaction.Amount, transaction.Type); err != nil {
+			s.log.Errorw("Failed to update new account balance", "error", err, "account_id", transaction.AccountID)
 			return nil, fmt.Errorf("failed to update new account balance: %w", err)
 		}
 	}
 
+	s.log.Infow("Transaction updated", "transaction_id", id)
 	return transaction, nil
 }
 
@@ -373,9 +414,11 @@ func (s *transactionService) DeleteTransaction(ctx context.Context, id uuid.UUID
 
 	transaction, err := s.transactionRepo.FindUnique(ctx, params)
 	if err != nil {
+		s.log.Errorw("Failed to get transaction for delete", "error", err, "transaction_id", id)
 		return fmt.Errorf("failed to get transaction: %w", err)
 	}
 	if transaction == nil {
+		s.log.Debugw("Transaction not found for delete", "transaction_id", id)
 		return ErrTransactionNotFound
 	}
 
@@ -383,14 +426,27 @@ func (s *transactionService) DeleteTransaction(ctx context.Context, id uuid.UUID
 	transaction.DeletedAt = &now
 
 	if err := s.transactionRepo.Update(ctx, transaction); err != nil {
+		s.log.Errorw("Failed to delete transaction", "error", err, "transaction_id", id)
 		return fmt.Errorf("failed to delete transaction: %w", err)
 	}
 
-	// Reverse the transaction effect on account balance
+	if s.eventPublisher != nil {
+		txEvent := event.NewEvent(event.EventTransactionDeleted, userID.String()).
+			WithPayload("transaction_id", id.String()).
+			WithPayload("amount", transaction.Amount).
+			WithPayload("type", string(transaction.Type)).
+			Build()
+		if err := s.eventPublisher.Publish(ctx, txEvent); err != nil {
+			s.log.Errorw("Failed to publish transaction deleted event", "error", err, "transaction_id", id)
+		}
+	}
+
 	if err := s.reverseAccountBalance(ctx, transaction.AccountID, transaction.Amount, transaction.Type); err != nil {
+		s.log.Errorw("Failed to reverse account balance", "error", err, "account_id", transaction.AccountID)
 		return fmt.Errorf("failed to reverse account balance: %w", err)
 	}
 
+	s.log.Infow("Transaction deleted", "transaction_id", id)
 	return nil
 }
 
@@ -406,6 +462,7 @@ func (s *transactionService) updateAccountBalance(ctx context.Context, accountID
 		Where: map[string]any{"id": accountID},
 	})
 	if err != nil {
+		s.log.Errorw("Failed to find account for balance update", "error", err, "account_id", accountID)
 		return err
 	}
 	if account == nil {
@@ -419,7 +476,13 @@ func (s *transactionService) updateAccountBalance(ctx context.Context, accountID
 		account.Balance -= amount
 	}
 
-	return s.accountRepo.Update(ctx, account)
+	if err := s.accountRepo.Update(ctx, account); err != nil {
+		s.log.Errorw("Failed to update account balance", "error", err, "account_id", accountID, "new_balance", account.Balance)
+		return err
+	}
+
+	s.log.Debugw("Account balance updated", "account_id", accountID, "amount", amount, "type", txType, "new_balance", account.Balance)
+	return nil
 }
 
 // reverseAccountBalance reverses the effect of a transaction on account balance
@@ -429,13 +492,13 @@ func (s *transactionService) reverseAccountBalance(ctx context.Context, accountI
 		Where: map[string]any{"id": accountID},
 	})
 	if err != nil {
+		s.log.Errorw("Failed to find account for balance reversal", "error", err, "account_id", accountID)
 		return err
 	}
 	if account == nil {
 		return fmt.Errorf("account not found: %s", accountID)
 	}
 
-	// Reverse: INCOME was added, so subtract; EXPENSE was subtracted, so add
 	switch txType {
 	case model.TransactionTypeIncome:
 		account.Balance -= amount
@@ -443,5 +506,11 @@ func (s *transactionService) reverseAccountBalance(ctx context.Context, accountI
 		account.Balance += amount
 	}
 
-	return s.accountRepo.Update(ctx, account)
+	if err := s.accountRepo.Update(ctx, account); err != nil {
+		s.log.Errorw("Failed to reverse account balance", "error", err, "account_id", accountID, "new_balance", account.Balance)
+		return err
+	}
+
+	s.log.Debugw("Account balance reversed", "account_id", accountID, "amount", amount, "type", txType, "new_balance", account.Balance)
+	return nil
 }

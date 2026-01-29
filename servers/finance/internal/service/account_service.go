@@ -7,10 +7,13 @@ import (
 	"slices"
 	"time"
 
+	"github.com/edwinhati/tagaroa/packages/shared/go/logger"
 	"github.com/edwinhati/tagaroa/packages/shared/go/util"
+	"github.com/edwinhati/tagaroa/servers/finance/internal/event"
 	"github.com/edwinhati/tagaroa/servers/finance/internal/model"
 	"github.com/edwinhati/tagaroa/servers/finance/internal/repository"
 	"github.com/google/uuid"
+	"go.uber.org/zap"
 )
 
 var (
@@ -54,25 +57,39 @@ type AccountService interface {
 }
 
 type accountService struct {
-	accountRepo repository.AccountRepository
+	accountRepo    repository.AccountRepository
+	log            *zap.SugaredLogger
+	eventPublisher event.EventPublisher
 }
 
 func NewAccountService(accountRepo repository.AccountRepository) AccountService {
 	return &accountService{
-		accountRepo: accountRepo,
+		accountRepo:    accountRepo,
+		log:            logger.New().With("service", "account"),
+		eventPublisher: nil,
+	}
+}
+
+func NewAccountServiceWithEvents(accountRepo repository.AccountRepository, eventPublisher event.EventPublisher) AccountService {
+	return &accountService{
+		accountRepo:    accountRepo,
+		log:            logger.New().With("service", "account"),
+		eventPublisher: eventPublisher,
 	}
 }
 
 func (s *accountService) CreateAccount(ctx context.Context, account *model.Account) (*model.Account, error) {
-	// Validate account type
 	if !isValidAccountType(account.Type) {
+		s.log.Warnw("Invalid account type", "type", account.Type)
 		return nil, ErrInvalidAccountType
 	}
 
 	if err := s.accountRepo.Create(ctx, account); err != nil {
+		s.log.Errorw("Failed to create account", "error", err, "user_id", account.UserID, "type", account.Type)
 		return nil, fmt.Errorf("failed to create account: %w", err)
 	}
 
+	s.log.Infow("Account created", "account_id", account.ID, "user_id", account.UserID, "type", account.Type)
 	return account, nil
 }
 
@@ -86,17 +103,19 @@ func (s *accountService) GetAccount(ctx context.Context, id, userID uuid.UUID) (
 
 	account, err := s.accountRepo.FindUnique(ctx, params)
 	if err != nil {
+		s.log.Errorw("Failed to get account", "error", err, "account_id", id, "user_id", userID)
 		return nil, fmt.Errorf("failed to get account: %w", err)
 	}
 	if account == nil {
+		s.log.Debugw("Account not found", "account_id", id, "user_id", userID)
 		return nil, ErrAccountNotFound
 	}
 
+	s.log.Debugw("Account found", "account_id", id, "user_id", userID)
 	return account, nil
 }
 
 func (s *accountService) GetAccounts(ctx context.Context, params GetAccountsParams) (*GetAccountsResult, error) {
-	// Calculate offset from page
 	if params.Page < 1 {
 		params.Page = 1
 	}
@@ -109,7 +128,6 @@ func (s *accountService) GetAccounts(ctx context.Context, params GetAccountsPara
 		"user_id": params.UserID,
 	}
 
-	// Add multi-select filters
 	if len(params.Types) > 0 {
 		whereClause["type"] = params.Types
 	}
@@ -118,12 +136,10 @@ func (s *accountService) GetAccounts(ctx context.Context, params GetAccountsPara
 		whereClause["currency"] = params.Currencies
 	}
 
-	// Add search filter if provided
 	if params.Search != "" {
 		whereClause["search"] = params.Search
 	}
 
-	// Get type aggregations (excluding type filter to show all available types)
 	typeAggregationWhere := map[string]any{
 		"user_id": params.UserID,
 	}
@@ -132,10 +148,10 @@ func (s *accountService) GetAccounts(ctx context.Context, params GetAccountsPara
 	}
 	typeAggregations, err := s.accountRepo.GetTypeAggregations(ctx, typeAggregationWhere)
 	if err != nil {
+		s.log.Errorw("Failed to get type aggregations", "error", err, "user_id", params.UserID)
 		return nil, fmt.Errorf("failed to get account type aggregations: %w", err)
 	}
 
-	// Get currency aggregations (excluding currency filter to show all available currencies)
 	currencyAggregationWhere := map[string]any{
 		"user_id": params.UserID,
 	}
@@ -144,12 +160,13 @@ func (s *accountService) GetAccounts(ctx context.Context, params GetAccountsPara
 	}
 	currencyAggregations, err := s.accountRepo.GetCurrencyAggregations(ctx, currencyAggregationWhere)
 	if err != nil {
+		s.log.Errorw("Failed to get currency aggregations", "error", err, "user_id", params.UserID)
 		return nil, fmt.Errorf("failed to get account currency aggregations: %w", err)
 	}
 
-	// Get total count for pagination
 	total, err := s.accountRepo.Count(ctx, whereClause)
 	if err != nil {
+		s.log.Errorw("Failed to count accounts", "error", err, "user_id", params.UserID)
 		return nil, fmt.Errorf("failed to count user accounts: %w", err)
 	}
 
@@ -160,24 +177,23 @@ func (s *accountService) GetAccounts(ctx context.Context, params GetAccountsPara
 		OrderBy: params.OrderBy,
 	}
 
-	// Set default ordering if not provided
 	if repoParams.OrderBy == "" {
 		repoParams.OrderBy = "created_at DESC"
 	}
 
 	accounts, err := s.accountRepo.FindMany(ctx, repoParams)
 	if err != nil {
+		s.log.Errorw("Failed to get accounts", "error", err, "user_id", params.UserID)
 		return nil, fmt.Errorf("failed to get user accounts: %w", err)
 	}
 
-	result := &GetAccountsResult{
+	s.log.Infow("Accounts retrieved", "user_id", params.UserID, "count", len(accounts), "total", total, "page", params.Page)
+	return &GetAccountsResult{
 		Accounts:             accounts,
 		Total:                total,
 		TypeAggregations:     typeAggregations,
 		CurrencyAggregations: currencyAggregations,
-	}
-
-	return result, nil
+	}, nil
 }
 
 func (s *accountService) UpdateAccount(ctx context.Context, id uuid.UUID, input UpdateAccountInput, userID uuid.UUID) (*model.Account, error) {
@@ -190,16 +206,22 @@ func (s *accountService) UpdateAccount(ctx context.Context, id uuid.UUID, input 
 
 	account, err := s.accountRepo.FindUnique(ctx, params)
 	if err != nil {
+		s.log.Errorw("Failed to get account for update", "error", err, "account_id", id, "user_id", userID)
 		return nil, fmt.Errorf("failed to get account: %w", err)
 	}
 	if account == nil {
+		s.log.Debugw("Account not found for update", "account_id", id, "user_id", userID)
 		return nil, ErrAccountNotFound
 	}
 
-	// Update fields if provided
 	if input.Name != nil {
 		account.Name = *input.Name
 	}
+	if input.Name != nil {
+		account.Name = *input.Name
+	}
+
+	oldBalance := account.Balance
 	if input.Balance != nil {
 		account.Balance = *input.Balance
 	}
@@ -209,15 +231,30 @@ func (s *accountService) UpdateAccount(ctx context.Context, id uuid.UUID, input 
 	if input.Notes != nil {
 		account.Notes = input.Notes
 	}
-
 	if input.DeletedAt != nil {
 		account.DeletedAt = input.DeletedAt
 	}
 
 	if err := s.accountRepo.Update(ctx, account); err != nil {
+		s.log.Errorw("Failed to update account", "error", err, "account_id", id)
 		return nil, fmt.Errorf("failed to update account: %w", err)
 	}
 
+	// Publish event if balance changed
+	if oldBalance != account.Balance && s.eventPublisher != nil {
+		balanceEvent := event.NewEvent(event.EventAccountBalanceUpdated, userID.String()).
+			WithPayload("account_id", account.ID.String()).
+			WithPayload("old_balance", oldBalance).
+			WithPayload("new_balance", account.Balance).
+			WithPayload("currency", account.Currency).
+			Build()
+
+		if err := s.eventPublisher.Publish(ctx, balanceEvent); err != nil {
+			s.log.Errorw("Failed to publish account.balance_updated event", "error", err, "account_id", account.ID)
+		}
+	}
+
+	s.log.Infow("Account updated", "account_id", id, "user_id", userID)
 	return account, nil
 }
 
@@ -231,9 +268,11 @@ func (s *accountService) DeleteAccount(ctx context.Context, id uuid.UUID, userID
 
 	account, err := s.accountRepo.FindUnique(ctx, params)
 	if err != nil {
+		s.log.Errorw("Failed to get account for delete", "error", err, "account_id", id, "user_id", userID)
 		return fmt.Errorf("failed to get account: %w", err)
 	}
 	if account == nil {
+		s.log.Debugw("Account not found for delete", "account_id", id, "user_id", userID)
 		return ErrAccountNotFound
 	}
 
@@ -241,9 +280,11 @@ func (s *accountService) DeleteAccount(ctx context.Context, id uuid.UUID, userID
 	account.DeletedAt = &now
 
 	if err := s.accountRepo.Update(ctx, account); err != nil {
+		s.log.Errorw("Failed to delete account", "error", err, "account_id", id)
 		return fmt.Errorf("failed to delete account: %w", err)
 	}
 
+	s.log.Infow("Account deleted", "account_id", id, "user_id", userID)
 	return nil
 }
 
