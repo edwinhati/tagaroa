@@ -27,14 +27,14 @@ export function DashboardContent() {
   });
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-6">
       <div className="flex items-center justify-between">
         <DateRangePicker date={range} onDateChange={setRange} />
       </div>
 
       <StatCardsSection range={range} />
 
-      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+      <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
         <div className="col-span-1">
           <AccountOverviewChart />
         </div>
@@ -46,7 +46,7 @@ export function DashboardContent() {
         </div>
       </div>
 
-      <div className="grid gap-4 md:grid-cols-2">
+      <div className="grid gap-6 md:grid-cols-2">
         <div className="col-span-1">
           <BudgetVsActualChart range={range} />
         </div>

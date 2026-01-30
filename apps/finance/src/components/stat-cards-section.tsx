@@ -15,9 +15,10 @@ import {
   ArrowDownRight,
   ArrowUpRight,
   CheckCircle2,
-  CreditCard,
-  TrendingUp,
-  Wallet,
+  CircleDollarSign,
+  Gauge,
+  PiggyBank,
+  Receipt,
   XCircle,
 } from "lucide-react";
 import type { DateRange } from "react-day-picker";
@@ -47,34 +48,57 @@ const StatCard = ({
   className,
 }: StatCardProps) => {
   return (
-    <Card className={cn("relative", className)}>
+    <Card
+      className={cn(
+        "relative cursor-pointer group",
+        "transition-all duration-300 ease-out",
+        "hover:shadow-xl hover:shadow-primary/10",
+        "hover:-translate-y-1",
+        "border-border/50 hover:border-primary/30",
+        "bg-card/80 backdrop-blur-sm",
+        className,
+      )}
+    >
       <CardHeader className="flex flex-row items-start justify-between space-y-0 pb-2">
-        <p className="text-sm font-medium">{title}</p>
+        <p className="text-sm font-medium text-muted-foreground group-hover:text-foreground transition-colors duration-200">
+          {title}
+        </p>
         {icon && (
-          <div className={cn("flex items-center justify-center", iconBgColor)}>
+          <div
+            className={cn(
+              "flex items-center justify-center transition-all duration-200 group-hover:scale-110",
+              "ring-1 ring-current/20",
+              iconBgColor,
+            )}
+          >
             {icon}
           </div>
         )}
       </CardHeader>
       <CardContent>
-        <div className="text-2xl font-bold">{value}</div>
+        <div className="text-2xl font-bold tracking-tight group-hover:text-primary transition-colors duration-200">
+          {value}
+        </div>
         {change && (
-          <p className="text-xs text-muted-foreground flex items-center gap-1">
+          <p className="text-xs text-muted-foreground flex items-center gap-1 mt-1.5">
             {trend === "up" && (
-              <ArrowUpRight className="h-3 w-3 text-green-500" />
+              <span className="flex items-center gap-0.5 text-emerald-500 font-medium">
+                <ArrowUpRight className="h-3 w-3" />
+                {change}
+              </span>
             )}
             {trend === "down" && (
-              <ArrowDownRight className="h-3 w-3 text-red-500" />
+              <span className="flex items-center gap-0.5 text-rose-500 font-medium">
+                <ArrowDownRight className="h-3 w-3" />
+                {change}
+              </span>
             )}
-            <span
-              className={cn(
-                trend === "up" && "text-green-500",
-                trend === "down" && "text-red-500",
-              )}
-            >
-              {change}
-            </span>{" "}
-            from last period
+            {trend === "neutral" && (
+              <span className="font-medium text-muted-foreground">
+                {change}
+              </span>
+            )}
+            <span className="text-muted-foreground/80">from last period</span>
           </p>
         )}
       </CardContent>
@@ -83,10 +107,10 @@ const StatCard = ({
 };
 
 const StatCardSkeleton = () => (
-  <Card>
+  <Card className="bg-card/80 backdrop-blur-sm">
     <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
       <Skeleton className="h-4 w-24" />
-      <Skeleton className="h-4 w-4 rounded" />
+      <Skeleton className="h-9 w-9 rounded-xl" />
     </CardHeader>
     <CardContent>
       <Skeleton className="h-8 w-32 mb-2" />
@@ -119,7 +143,7 @@ export function StatCardsSection({ range }: StatCardsSectionProps) {
 
   if (isLoading) {
     return (
-      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+      <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-4">
         <StatCardSkeleton />
         <StatCardSkeleton />
         <StatCardSkeleton />
@@ -150,7 +174,7 @@ export function StatCardsSection({ range }: StatCardsSectionProps) {
         : "neutral";
 
   return (
-    <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+    <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-4">
       <StatCard
         title="Total Income"
         value={formatCurrency(summary?.income.amount ?? 0, "IDR")}
@@ -158,8 +182,8 @@ export function StatCardsSection({ range }: StatCardsSectionProps) {
           summary?.income_comparison.change ?? 0
         ).toFixed(2)}`}
         trend={incomeTrend}
-        icon={<Wallet className="h-4 w-4" />}
-        iconBgColor="text-green-500 bg-green-50 rounded-full p-1"
+        icon={<CircleDollarSign className="h-4 w-4" />}
+        iconBgColor="text-emerald-500 bg-emerald-500/10 rounded-xl p-2.5"
       />
       <StatCard
         title="Total Expenses"
@@ -168,8 +192,8 @@ export function StatCardsSection({ range }: StatCardsSectionProps) {
           summary?.expense_comparison.change ?? 0
         ).toFixed(2)}`}
         trend={expenseTrend}
-        icon={<CreditCard className="h-4 w-4" />}
-        iconBgColor="text-red-500 bg-red-50 rounded-full p-1"
+        icon={<Receipt className="h-4 w-4" />}
+        iconBgColor="text-rose-500 bg-rose-500/10 rounded-xl p-2.5"
       />
       <StatCard
         title="Net Savings"
@@ -178,11 +202,11 @@ export function StatCardsSection({ range }: StatCardsSectionProps) {
           summary?.savings_comparison.change ?? 0
         ).toFixed(2)}`}
         trend={savingsTrend}
-        icon={<TrendingUp className="h-4 w-4" />}
+        icon={<PiggyBank className="h-4 w-4" />}
         iconBgColor={cn(
-          "rounded-full p-1",
-          savingsTrend === "up" && "text-green-500 bg-green-50",
-          savingsTrend === "down" && "text-red-500 bg-red-50",
+          "rounded-xl p-2.5",
+          savingsTrend === "up" && "text-emerald-500 bg-emerald-500/10",
+          savingsTrend === "down" && "text-rose-500 bg-rose-500/10",
           savingsTrend === "neutral" && "text-muted-foreground bg-muted",
         )}
       />
@@ -191,13 +215,14 @@ export function StatCardsSection({ range }: StatCardsSectionProps) {
         value={`${(budget?.overall_percentage ?? 0).toFixed(1)}%`}
         icon={getBudgetIcon({ percentage: budget?.overall_percentage ?? 0 })}
         iconBgColor={cn(
-          "rounded-full p-1",
+          "rounded-xl p-2.5",
           (budget?.overall_percentage ?? 0) < 70 &&
-            "text-green-500 bg-green-50",
+            "text-emerald-500 bg-emerald-500/10",
           (budget?.overall_percentage ?? 0) >= 70 &&
             (budget?.overall_percentage ?? 0) < 90 &&
-            "text-yellow-500 bg-yellow-50",
-          (budget?.overall_percentage ?? 0) >= 90 && "text-red-500 bg-red-50",
+            "text-amber-500 bg-amber-500/10",
+          (budget?.overall_percentage ?? 0) >= 90 &&
+            "text-rose-500 bg-rose-500/10",
         )}
       />
     </div>

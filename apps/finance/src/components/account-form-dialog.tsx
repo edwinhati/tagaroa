@@ -49,13 +49,17 @@ const currencies = [
 type AccountFormDialogProps = Readonly<{
   initialData?: Account;
   trigger?: React.ReactElement;
+  defaultOpen?: boolean;
+  onOpenChange?: (open: boolean) => void;
 }>;
 
 export function AccountFormDialog({
   initialData,
   trigger,
+  defaultOpen = false,
+  onOpenChange: externalOnOpenChange,
 }: AccountFormDialogProps) {
-  const [open, setOpen] = useState(false);
+  const [internalOpen, setInternalOpen] = useState(defaultOpen);
 
   const form = useForm<Account>({
     resolver: zodResolver(accountSchema),
@@ -81,6 +85,13 @@ export function AccountFormDialog({
     control: form.control,
     name: "currency",
   });
+
+  const setOpen = (newOpen: boolean) => {
+    setInternalOpen(newOpen);
+    externalOnOpenChange?.(newOpen);
+  };
+
+  const open = internalOpen;
 
   const handleOpenChange = (newOpen: boolean) => {
     if (!newOpen) {

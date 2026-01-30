@@ -16,7 +16,7 @@ import {
 } from "@repo/ui/components/chart";
 import { Skeleton } from "@repo/ui/components/skeleton";
 import { useQuery } from "@tanstack/react-query";
-import { LineChart } from "lucide-react";
+import { TrendingUp } from "lucide-react";
 import type { DateRange } from "react-day-picker";
 import { Area, AreaChart, CartesianGrid, XAxis, YAxis } from "recharts";
 
@@ -25,11 +25,11 @@ export const description = "An area chart showing transaction trends over time";
 const chartConfig = {
   income: {
     label: "Income",
-    color: "var(--chart-1)",
+    color: "hsl(142, 76%, 36%)", // Emerald green
   },
   expenses: {
     label: "Expenses",
-    color: "var(--chart-2)",
+    color: "hsl(349, 89%, 60%)", // Rose red
   },
 } satisfies ChartConfig;
 
@@ -46,16 +46,22 @@ const TransactionTrendsChart = ({ range }: { range?: DateRange }) => {
 
   if (isLoading) {
     return (
-      <Card className="flex flex-col">
-        <CardHeader className="items-center pb-0">
-          <div className="flex items-center gap-2">
-            <LineChart className="h-5 w-5 text-muted-foreground" />
-            <CardTitle>Transaction Trends</CardTitle>
+      <Card className="flex flex-col h-full">
+        <CardHeader className="flex flex-row items-start justify-between space-y-0 pb-3">
+          <div>
+            <CardTitle className="text-base font-semibold">
+              Transaction Trends
+            </CardTitle>
+            <CardDescription className="text-xs">
+              Income vs Expenses over time
+            </CardDescription>
           </div>
-          <CardDescription>Income vs Expenses over time</CardDescription>
+          <div className="p-2.5 rounded-xl bg-cyan-500/10 ring-1 ring-cyan-500/20">
+            <TrendingUp className="h-4 w-4 text-cyan-500" />
+          </div>
         </CardHeader>
-        <CardContent className="flex-1">
-          <Skeleton className="h-[200px] w-full" />
+        <CardContent className="flex-1 flex items-center justify-center pb-4">
+          <Skeleton className="h-[200px] w-full rounded-lg" />
         </CardContent>
       </Card>
     );
@@ -69,15 +75,21 @@ const TransactionTrendsChart = ({ range }: { range?: DateRange }) => {
     })) ?? [];
 
   return (
-    <Card className="flex flex-col">
-      <CardHeader className="items-center pb-0">
-        <div className="flex items-center gap-2">
-          <LineChart className="h-5 w-5 text-muted-foreground" />
-          <CardTitle>Transaction Trends</CardTitle>
+    <Card className="flex flex-col h-full cursor-pointer group transition-all duration-300 hover:shadow-xl hover:shadow-primary/10 hover:-translate-y-1 border-border/50 hover:border-primary/30 bg-card/80 backdrop-blur-sm">
+      <CardHeader className="flex flex-row items-start justify-between space-y-0 pb-3">
+        <div>
+          <CardTitle className="text-base font-semibold group-hover:text-primary transition-colors duration-200">
+            Transaction Trends
+          </CardTitle>
+          <CardDescription className="text-xs">
+            Income vs Expenses over time
+          </CardDescription>
         </div>
-        <CardDescription>Income vs Expenses over time</CardDescription>
+        <div className="p-2.5 rounded-xl bg-cyan-500/10 ring-1 ring-cyan-500/20 group-hover:bg-cyan-500/20 group-hover:scale-110 transition-all duration-200">
+          <TrendingUp className="h-4 w-4 text-cyan-500" />
+        </div>
       </CardHeader>
-      <CardContent className="flex-1">
+      <CardContent className="flex-1 pb-4">
         <ChartContainer
           config={chartConfig}
           className="mx-auto h-[200px] w-full"
@@ -88,45 +100,54 @@ const TransactionTrendsChart = ({ range }: { range?: DateRange }) => {
                 <stop
                   offset="5%"
                   stopColor="var(--color-income)"
-                  stopOpacity={0.8}
+                  stopOpacity={0.6}
                 />
                 <stop
                   offset="95%"
                   stopColor="var(--color-income)"
-                  stopOpacity={0.1}
+                  stopOpacity={0.05}
                 />
               </linearGradient>
               <linearGradient id="fillExpenses" x1="0" y1="0" x2="0" y2="1">
                 <stop
                   offset="5%"
                   stopColor="var(--color-expenses)"
-                  stopOpacity={0.8}
+                  stopOpacity={0.6}
                 />
                 <stop
                   offset="95%"
                   stopColor="var(--color-expenses)"
-                  stopOpacity={0.1}
+                  stopOpacity={0.05}
                 />
               </linearGradient>
             </defs>
-            <CartesianGrid vertical={false} />
+            <CartesianGrid
+              vertical={false}
+              strokeDasharray="3 3"
+              className="stroke-muted/30"
+            />
             <XAxis
               dataKey="period"
               tickLine={false}
               axisLine={false}
               tickMargin={8}
               minTickGap={32}
+              className="text-[10px]"
               tickFormatter={(value) => {
                 const date = new Date(value);
                 return date.toLocaleDateString("en-US", {
                   month: "short",
-                  year: "2-digit",
+                  day: "numeric",
                 });
               }}
             />
             <YAxis hide />
             <ChartTooltip
-              cursor={false}
+              cursor={{
+                stroke: "hsl(var(--muted-foreground))",
+                strokeWidth: 1,
+                strokeDasharray: "3 3",
+              }}
               content={
                 <ChartTooltipContent
                   labelFormatter={(value) => {
@@ -141,17 +162,17 @@ const TransactionTrendsChart = ({ range }: { range?: DateRange }) => {
             />
             <Area
               dataKey="expenses"
-              type="natural"
+              type="monotone"
               fill="url(#fillExpenses)"
               stroke="var(--color-expenses)"
-              stackId="a"
+              strokeWidth={2}
             />
             <Area
               dataKey="income"
-              type="natural"
+              type="monotone"
               fill="url(#fillIncome)"
               stroke="var(--color-income)"
-              stackId="a"
+              strokeWidth={2}
             />
           </AreaChart>
         </ChartContainer>

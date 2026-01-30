@@ -2,6 +2,10 @@
   "name": "@repo/common",
   "version": "0.0.0",
   "private": true,
+  "scripts": {
+    "check-types": "tsc --noEmit",
+    "lint": "biome check"
+  },
   "dependencies": {
     "@repo/ui": "*",
     "@tanstack/react-query": "^5.90.20",

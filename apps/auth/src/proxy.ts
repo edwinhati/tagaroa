@@ -41,8 +41,8 @@ async function fetchUser(sessionCookie: string): Promise<User | null> {
 
     const data = await response.json();
 
-    // Extract user from the response structure
-    return data.user || null;
+    // Extract user from the response structure, with null safety
+    return data?.user || null;
   } catch (error) {
     console.error("Error fetching user profile:", error);
     return null;
