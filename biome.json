@@ -33,7 +33,11 @@
         "useKeyWithClickEvents": "off"
       },
       "correctness": {
-        "useExhaustiveDependencies": "warn"
+        "useExhaustiveDependencies": "warn",
+        "noUnusedImports": "off"
+      },
+      "style": {
+        "useImportType": "off"
       }
     },
     "domains": {

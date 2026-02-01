@@ -5,7 +5,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { ThemeProvider } from "next-themes";
 import posthog from "posthog-js";
 import { PostHogProvider } from "posthog-js/react";
-import type React from "react";
+import * as React from "react";
 import { useEffect } from "react";
 
 const queryClient = new QueryClient();

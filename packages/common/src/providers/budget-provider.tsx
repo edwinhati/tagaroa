@@ -1,8 +1,8 @@
 "use client";
 
 import { createBudgetStore } from "@repo/common/stores/budget-store";
-import * as React from "react";
 
+import * as React from "react";
 import { createContext, type ReactNode, useRef } from "react";
 
 export type BudgetStoreApi = ReturnType<typeof createBudgetStore>;

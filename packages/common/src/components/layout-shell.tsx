@@ -1,10 +1,8 @@
-import * as React from "react";
-
 import "@repo/ui/styles/globals.css";
 import { Loading } from "@repo/common/components/loading";
 import { AppProvider } from "@repo/common/providers/app-provider";
-import type { ReactNode } from "react";
-import { Suspense } from "react";
+import * as React from "react";
+import { type ReactNode, Suspense } from "react";
 
 type LayoutShellProps = {
   children: ReactNode;
