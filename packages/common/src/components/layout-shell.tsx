@@ -1,3 +1,5 @@
+import * as React from "react";
+
 import "@repo/ui/styles/globals.css";
 import { Loading } from "@repo/common/components/loading";
 import { AppProvider } from "@repo/common/providers/app-provider";

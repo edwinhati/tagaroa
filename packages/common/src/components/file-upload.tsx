@@ -1,5 +1,6 @@
 "use client";
 
+import type { FileWithPreview } from "@repo/common/hooks/use-file-upload";
 import { formatBytes, useFileUpload } from "@repo/common/hooks/use-file-upload";
 import { Button } from "@repo/ui/components/button";
 import {
@@ -17,8 +18,7 @@ import {
 } from "lucide-react";
 import type React from "react";
 import { useMemo } from "react";
-
-export type { FileWithPreview } from "@repo/common/hooks/use-file-upload";
+export type { FileWithPreview };
 
 const getFileIcon = (file: {
   file: File | { type: string; name: string; url?: string };

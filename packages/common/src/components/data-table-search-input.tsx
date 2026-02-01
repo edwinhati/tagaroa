@@ -4,6 +4,7 @@ import { Input } from "@repo/ui/components/input";
 import { cn } from "@repo/ui/lib/utils";
 import type { Table } from "@tanstack/react-table";
 import { CircleXIcon, ListFilterIcon, SearchIcon } from "lucide-react";
+import * as React from "react";
 import { useCallback, useId, useMemo, useRef } from "react";
 
 // Client-side (table-based) search props

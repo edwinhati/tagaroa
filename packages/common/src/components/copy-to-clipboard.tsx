@@ -3,6 +3,7 @@
 import { Button } from "@repo/ui/components/button";
 import { cn } from "@repo/ui/lib/utils";
 import { CheckIcon, CopyIcon } from "lucide-react";
+import * as React from "react";
 import { useState } from "react";
 import { toast } from "sonner";
 

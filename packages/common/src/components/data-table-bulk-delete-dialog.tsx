@@ -14,6 +14,7 @@ import {
 import { Button } from "@repo/ui/components/button";
 import { CircleAlertIcon } from "lucide-react";
 import type { ComponentProps } from "react";
+import * as React from "react";
 import { useState } from "react";
 
 type ButtonComponentProps = ComponentProps<typeof Button>;

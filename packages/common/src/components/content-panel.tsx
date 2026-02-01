@@ -18,6 +18,7 @@ import {
 } from "@repo/ui/components/sidebar";
 import Link from "next/link";
 import type { ComponentType, ReactNode } from "react";
+import * as React from "react";
 
 type ContentPanelMenuItem = {
   name: string;

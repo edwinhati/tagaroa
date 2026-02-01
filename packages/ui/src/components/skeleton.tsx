@@ -1,4 +1,5 @@
 import { cn } from "@repo/ui/lib/utils";
+import type * as React from "react";
 
 function Skeleton({ className, ...props }: React.ComponentProps<"div">) {
   return (

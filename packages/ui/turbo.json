@@ -4,6 +4,10 @@
     "dev": {
       "cache": false,
       "persistent": false
+    },
+    "check-types": {
+      "cache": false,
+      "persistent": false
     }
   }
 }
