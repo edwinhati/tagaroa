@@ -86,11 +86,25 @@ const transactionSelectCols = `
 `
 
 // toPostgresArray converts a string slice to PostgreSQL array literal format
+// with proper escaping of special characters
 func toPostgresArray(arr []string) string {
 	if len(arr) == 0 {
 		return "{}"
 	}
-	return "{" + strings.Join(arr, ",") + "}"
+	escaped := make([]string, len(arr))
+	for i, s := range arr {
+		// Only quote if contains special characters (comma, quote, backslash, brace, space)
+		needsQuoting := strings.ContainsAny(s, `,{"}\ `)
+		if needsQuoting {
+			// Escape backslashes first, then quotes
+			s = strings.ReplaceAll(s, `\`, `\\`)
+			s = strings.ReplaceAll(s, `"`, `\"`)
+			escaped[i] = `"` + s + `"`
+		} else {
+			escaped[i] = s
+		}
+	}
+	return "{" + strings.Join(escaped, ",") + "}"
 }
 
 func addDateRangeFilters(whereClause string, args []any, where map[string]any) (string, []any) {

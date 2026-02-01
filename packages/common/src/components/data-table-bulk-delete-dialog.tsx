@@ -13,7 +13,8 @@ import {
 } from "@repo/ui/components/alert-dialog";
 import { Button } from "@repo/ui/components/button";
 import { CircleAlertIcon } from "lucide-react";
-import React, { type ComponentProps, useState } from "react";
+import type { ComponentProps } from "react";
+import { useState } from "react";
 
 type ButtonComponentProps = ComponentProps<typeof Button>;
 

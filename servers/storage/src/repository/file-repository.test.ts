@@ -6,8 +6,9 @@ import { FileRepository } from "./file-repository";
 const createMockDb = () => {
   const mockDb = mock(() => Promise.resolve([]));
   mockDb.unsafe = mock(() => Promise.resolve([]));
-  // biome-ignore lint/suspicious/noExplicitAny: mock requires any type
-  return mockDb as any;
+  return mockDb as unknown as Parameters<
+    (typeof FileRepository)["prototype"]["constructor"]
+  >[0];
 };
 
 describe("FileRepository", () => {

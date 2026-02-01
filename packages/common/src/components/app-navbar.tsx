@@ -1,7 +1,6 @@
 "use client";
 
 import { UserMenu } from "@repo/common/components/user-menu";
-import React from "react";
 
 export function AppNavbar() {
   return (

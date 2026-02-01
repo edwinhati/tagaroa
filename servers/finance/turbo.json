@@ -6,6 +6,16 @@
       "inputs": ["$TURBO_DEFAULT$", ".env*"],
       "outputs": ["finance-server"],
       "env": ["NODE_ENV"]
+    },
+    "test": {
+      "dependsOn": ["^test"],
+      "inputs": ["$TURBO_DEFAULT$", ".env*"],
+      "outputs": ["coverage.out"],
+      "env": ["NODE_ENV"]
+    },
+    "dev": {
+      "cache": false,
+      "persistent": true
     }
   }
 }

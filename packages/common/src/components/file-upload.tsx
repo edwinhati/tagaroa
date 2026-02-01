@@ -1,5 +1,7 @@
 "use client";
 
+import { formatBytes, useFileUpload } from "@repo/common/hooks/use-file-upload";
+import { Button } from "@repo/ui/components/button";
 import {
   AlertCircleIcon,
   FileArchiveIcon,
@@ -13,12 +15,10 @@ import {
   VideoIcon,
   XIcon,
 } from "lucide-react";
+import type React from "react";
+import { useMemo } from "react";
 
-import { Button } from "@repo/ui/components/button";
-import { formatBytes, useFileUpload } from "@repo/common/hooks/use-file-upload";
 export type { FileWithPreview } from "@repo/common/hooks/use-file-upload";
-import React, { useMemo } from "react";
-import type { FileWithPreview } from "@repo/common/hooks/use-file-upload";
 
 const getFileIcon = (file: {
   file: File | { type: string; name: string; url?: string };
@@ -81,6 +81,7 @@ const getFilePreview = (file: {
   const fileName = file.file.name;
 
   const renderImage = (src: string) => (
+    // biome-ignore lint/performance/noImgElement: Using <img> for blob URLs which next/image doesn't support
     <img
       src={src}
       alt={fileName}
@@ -173,7 +174,7 @@ export function FileUpload({
         onDragOver={handleDragOver}
         onDrop={handleDrop}
         onClick={(e) => {
-          // Only open file dialog if clicking on the drop area itself, not on buttons
+          // Only open file dialog if clicking on drop area itself, not on buttons
           if (e.target === e.currentTarget && files.length === 0) {
             openFileDialog();
           }
@@ -186,7 +187,7 @@ export function FileUpload({
         }}
         data-dragging={isDragging || undefined}
         data-files={files.length > 0 || undefined}
-        className="relative flex min-h-52 flex-col items-center overflow-hidden rounded-xl border border-dashed border-input p-4 transition-colors not-data-[files]:justify-center has-[input:focus]:border-ring has-[input:focus]:ring-[3px] has-[input:focus]:ring-ring/50 data-[dragging=true]:bg-accent/50 focus:outline-none focus:border-ring focus:ring-[3px] focus:ring-ring/50"
+        className="relative flex min-h-52 flex-col items-center overflow-hidden rounded-xl border border-dashed border-input p-4 transition-colors not-data-[files]:justify-center has-[input:focus]:border-ring has-[input:focus]:ring-[3px] focus:ring-ring/50 data-[dragging=true]:bg-accent/50 focus:outline-none focus:border-ring focus:ring-[3px] focus:ring-ring/50"
       >
         <input
           {...(() => {

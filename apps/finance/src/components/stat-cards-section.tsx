@@ -16,7 +16,6 @@ import {
   ArrowUpRight,
   CheckCircle2,
   CircleDollarSign,
-  Gauge,
   PiggyBank,
   Receipt,
   XCircle,

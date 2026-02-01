@@ -3,9 +3,9 @@
 import { financeApi } from "@repo/common/lib/http";
 import type { AggregationItem } from "@repo/common/types";
 import type {
+  LiabilitiesApiResponse,
   Liability,
   LiabilityResponse,
-  LiabilitiesApiResponse,
   PaginatedLiabilitiesResult,
 } from "@repo/common/types/liability";
 import {

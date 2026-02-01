@@ -1,5 +1,5 @@
 import { Hono } from "hono";
-import { getLogger, getRequestId } from "../middleware/http.js";
+import { getRequestId } from "../middleware/http.js";
 import type { LoggerPort } from "../ports/logger.port.js";
 import type { FileService } from "../service/file-service";
 
@@ -18,8 +18,7 @@ export const createFileRoutes = (
   const app = new Hono();
 
   app.get("/", async (c) => {
-    const startTime = Date.now();
-    const requestId = getRequestId(c);
+    const requestId = crypto.randomUUID();
     const ctx = `req:${requestId}`;
 
     try {

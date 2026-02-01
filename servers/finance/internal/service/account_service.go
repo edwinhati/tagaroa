@@ -217,9 +217,6 @@ func (s *accountService) UpdateAccount(ctx context.Context, id uuid.UUID, input 
 	if input.Name != nil {
 		account.Name = *input.Name
 	}
-	if input.Name != nil {
-		account.Name = *input.Name
-	}
 
 	oldBalance := account.Balance
 	if input.Balance != nil {

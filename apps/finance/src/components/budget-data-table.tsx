@@ -36,6 +36,11 @@ import {
   TableHeader,
   TableRow,
 } from "@repo/ui/components/table";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from "@repo/ui/components/tooltip";
 import { cn } from "@repo/ui/lib/utils";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import {
@@ -55,16 +60,29 @@ import {
 import {
   AlertTriangle,
   CalendarIcon,
+  Car,
   CheckIcon,
   ChevronDownIcon,
   ChevronUpIcon,
   CreditCard,
+  Film,
+  GraduationCap,
+  Heart,
+  Home,
   List,
+  MoreHorizontal,
   PencilIcon,
+  PiggyBank,
   PlusIcon,
+  Receipt,
+  Shield,
+  Shirt,
+  Sparkles,
   TrendingUp,
+  UtensilsCrossed,
   Wallet,
   XIcon,
+  Zap,
 } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import type { DateRange } from "react-day-picker";
@@ -97,12 +115,108 @@ const BudgetSelectRowCell = ({ row }: { row: Row<BudgetItem> }) => (
   />
 );
 
+// Category color and icon mapping
+export const CATEGORY_CONFIG: Record<
+  string,
+  {
+    bg: string;
+    text: string;
+    icon: React.ComponentType<{ className?: string }>;
+  }
+> = {
+  food: {
+    bg: "bg-orange-100 dark:bg-orange-900/30",
+    text: "text-orange-700 dark:text-orange-300",
+    icon: UtensilsCrossed,
+  },
+  housing: {
+    bg: "bg-blue-100 dark:bg-blue-900/30",
+    text: "text-blue-700 dark:text-blue-300",
+    icon: Home,
+  },
+  transportation: {
+    bg: "bg-violet-100 dark:bg-violet-900/30",
+    text: "text-violet-700 dark:text-violet-300",
+    icon: Car,
+  },
+  utilities: {
+    bg: "bg-yellow-100 dark:bg-yellow-900/30",
+    text: "text-yellow-700 dark:text-yellow-300",
+    icon: Zap,
+  },
+  entertainment: {
+    bg: "bg-pink-100 dark:bg-pink-900/30",
+    text: "text-pink-700 dark:text-pink-300",
+    icon: Film,
+  },
+  healthcare: {
+    bg: "bg-red-100 dark:bg-red-900/30",
+    text: "text-red-700 dark:text-red-300",
+    icon: Heart,
+  },
+  hygiene: {
+    bg: "bg-cyan-100 dark:bg-cyan-900/30",
+    text: "text-cyan-700 dark:text-cyan-300",
+    icon: Sparkles,
+  },
+  education: {
+    bg: "bg-indigo-100 dark:bg-indigo-900/30",
+    text: "text-indigo-700 dark:text-indigo-300",
+    icon: GraduationCap,
+  },
+  savings: {
+    bg: "bg-emerald-100 dark:bg-emerald-900/30",
+    text: "text-emerald-700 dark:text-emerald-300",
+    icon: PiggyBank,
+  },
+  insurance: {
+    bg: "bg-teal-100 dark:bg-teal-900/30",
+    text: "text-teal-700 dark:text-teal-300",
+    icon: Shield,
+  },
+  installment: {
+    bg: "bg-amber-100 dark:bg-amber-900/30",
+    text: "text-amber-700 dark:text-amber-300",
+    icon: Receipt,
+  },
+  laundry: {
+    bg: "bg-sky-100 dark:bg-sky-900/30",
+    text: "text-sky-700 dark:text-sky-300",
+    icon: Shirt,
+  },
+  tithes: {
+    bg: "bg-purple-100 dark:bg-purple-900/30",
+    text: "text-purple-700 dark:text-purple-300",
+    icon: Heart,
+  },
+  other: {
+    bg: "bg-slate-100 dark:bg-slate-900/30",
+    text: "text-slate-700 dark:text-slate-300",
+    icon: MoreHorizontal,
+  },
+};
+
 const CategoryCell = ({ row }: { row: Row<BudgetItem> }) => {
-  const categoryValue = row
-    .getValue("category")
-    ?.toString()
-    .replaceAll("_", "-");
-  return categoryValue;
+  const categoryKey = row.getValue("category")?.toString().toLowerCase();
+  const categoryDisplay = categoryKey?.replaceAll("_", " ");
+  const config =
+    CATEGORY_CONFIG[categoryKey ?? "other"] ?? CATEGORY_CONFIG.other;
+  const Icon = config.icon;
+
+  return (
+    <div className="flex items-center gap-2">
+      <div
+        className={cn(
+          "flex items-center justify-center rounded-lg p-1.5",
+          config.bg,
+          config.text,
+        )}
+      >
+        <Icon className="h-3.5 w-3.5" />
+      </div>
+      <span className="font-medium capitalize">{categoryDisplay}</span>
+    </div>
+  );
 };
 
 const BudgetActionsHeaderCell = () => <span className="sr-only">Actions</span>;
@@ -153,19 +267,34 @@ const BudgetSummaryCard = ({
   icon,
   iconColor,
 }: BudgetSummaryCardProps) => (
-  <Card>
-    <CardContent className="flex items-center gap-4 p-4">
+  <Card
+    className={cn(
+      "relative group",
+      "motion-safe:transition-all motion-safe:duration-300 motion-safe:ease-out",
+      "hover:shadow-lg hover:shadow-primary/5",
+      "motion-safe:hover:-translate-y-0.5",
+      "border-border/50 hover:border-primary/20",
+      "bg-card/80 backdrop-blur-sm",
+    )}
+  >
+    <CardContent className="flex items-center gap-4 p-5">
       <div
         className={cn(
-          "flex items-center justify-center rounded-full p-2",
+          "flex items-center justify-center rounded-xl p-3",
+          "motion-safe:transition-transform motion-safe:duration-200 motion-safe:group-hover:scale-105",
+          "ring-1 ring-current/10",
           iconColor,
         )}
       >
         {icon}
       </div>
-      <div>
-        <p className="text-sm text-muted-foreground">{title}</p>
-        <p className="text-xl font-bold font-mono">{value}</p>
+      <div className="flex-1 min-w-0">
+        <p className="text-sm font-medium text-muted-foreground group-hover:text-foreground motion-safe:transition-colors motion-safe:duration-200">
+          {title}
+        </p>
+        <p className="text-2xl font-bold font-mono tracking-tight truncate group-hover:text-primary motion-safe:transition-colors motion-safe:duration-200">
+          {value}
+        </p>
       </div>
     </CardContent>
   </Card>
@@ -176,61 +305,76 @@ interface ProgressCellProps {
 }
 
 const ProgressCell = ({ row }: ProgressCellProps) => {
+  const [isAnimated, setIsAnimated] = useState(false);
   const allocation = Number.parseFloat(row.getValue("allocation")) || 0;
   const spent = row.original.spent || 0;
   const percentage = allocation > 0 ? (spent / allocation) * 100 : 0;
   const isOverBudget = spent > allocation;
-
-  return (
-    <div className="w-full space-y-1 min-w-[120px]">
-      <div className="flex justify-between text-xs">
-        <span
-          className={cn(
-            isOverBudget && "text-destructive",
-            !isOverBudget && percentage > 80 && "text-yellow-500",
-          )}
-        >
-          {percentage.toFixed(0)}%
-        </span>
-        <span className="text-muted-foreground">
-          {formatCurrency(spent)} / {formatCurrency(allocation)}
-        </span>
-      </div>
-      <div className="h-2 w-full bg-muted rounded-full overflow-hidden">
-        <div
-          className={cn(
-            "h-full rounded-full transition-all",
-            isOverBudget && "bg-destructive",
-            !isOverBudget && percentage > 80 && "bg-yellow-500",
-            !isOverBudget && percentage <= 80 && "bg-green-500",
-          )}
-          style={{ width: `${Math.min(percentage, 100)}%` }}
-        />
-      </div>
-    </div>
-  );
-};
-
-// Remaining cell component - receives currency via column meta
-const RemainingCell = ({
-  row,
-  currency,
-}: {
-  row: Row<BudgetItem>;
-  currency: string;
-}) => {
-  const allocation = Number.parseFloat(row.getValue("allocation")) || 0;
-  const spent = row.original.spent || 0;
+  const isWarning = !isOverBudget && percentage > 80;
+  const isHealthy = !isOverBudget && percentage <= 80;
   const remaining = allocation - spent;
-  const formatted = new Intl.NumberFormat(
-    currency === "IDR" ? "id-ID" : "en-US",
-    {
-      style: "currency",
-      currency: currency,
-    },
-  ).format(remaining);
+
+  // Animate on mount
+  useEffect(() => {
+    const timer = setTimeout(() => setIsAnimated(true), 50);
+    return () => clearTimeout(timer);
+  }, []);
+
+  const progressColor = cn(
+    "h-full rounded-full",
+    isOverBudget && "bg-gradient-to-r from-destructive/80 to-destructive",
+    isWarning && "bg-gradient-to-r from-amber-400 to-amber-500",
+    isHealthy && "bg-gradient-to-r from-emerald-400 to-emerald-500",
+  );
+
   return (
-    <span className={cn(remaining < 0 && "text-destructive")}>{formatted}</span>
+    <Tooltip>
+      <TooltipTrigger asChild>
+        <div
+          className="w-full space-y-1.5 min-w-[140px] cursor-default group"
+          role="group"
+          aria-label={`${percentage.toFixed(0)}% of budget used`}
+        >
+          <div className="flex justify-between text-xs items-center">
+            <span
+              className={cn(
+                "font-semibold tabular-nums motion-safe:transition-colors motion-safe:duration-200",
+                isOverBudget && "text-destructive",
+                isWarning && "text-amber-600 dark:text-amber-400",
+                isHealthy && "text-emerald-600 dark:text-emerald-400",
+              )}
+            >
+              {percentage.toFixed(0)}%
+            </span>
+            <span className="text-muted-foreground font-mono text-[11px] group-hover:text-foreground motion-safe:transition-colors">
+              {formatCurrency(spent)} / {formatCurrency(allocation)}
+            </span>
+          </div>
+          <div className="h-2.5 w-full bg-muted/60 rounded-full overflow-hidden ring-1 ring-border/30">
+            <div
+              className={progressColor}
+              style={{
+                width: isAnimated ? `${Math.min(percentage, 100)}%` : "0%",
+                transition: "width 700ms cubic-bezier(0.4, 0, 0.2, 1)",
+              }}
+            />
+          </div>
+        </div>
+      </TooltipTrigger>
+      <TooltipContent side="top" className="text-xs">
+        <div className="space-y-1">
+          <p className="font-medium capitalize">
+            {row.original.category.replaceAll("_", " ")}
+          </p>
+          <p>Spent: {formatCurrency(spent)}</p>
+          <p>Budget: {formatCurrency(allocation)}</p>
+          <p className={cn(isOverBudget && "text-destructive font-medium")}>
+            {isOverBudget ? "Over by" : "Remaining"}:{" "}
+            {formatCurrency(Math.abs(remaining))}
+          </p>
+        </div>
+      </TooltipContent>
+    </Tooltip>
   );
 };
 
@@ -406,24 +550,14 @@ function BudgetDataTableContent() {
             }}
           />
         ),
-        size: 120,
-        enableSorting: false,
-      },
-
-      {
-        header: "Remaining",
-        accessorKey: "remaining",
-        cell: ({ row }) => (
-          <RemainingCell row={row} currency={tableData.currency} />
-        ),
-        size: 120,
+        size: 140,
         enableSorting: false,
       },
       {
         header: "Progress",
         id: "progress",
         cell: ({ row }) => <ProgressCell row={row} />,
-        size: 150,
+        size: 180,
         enableSorting: false,
       },
       {
@@ -434,7 +568,7 @@ function BudgetDataTableContent() {
         enableSorting: false,
       },
     ],
-    [tableData.currency, handleBudgetItemUpdate],
+    [handleBudgetItemUpdate],
   );
 
   // TanStack Table exposes functions that React Compiler cannot memoize; suppress rule locally.
@@ -659,9 +793,19 @@ function BudgetDataTableContent() {
                   <TableRow
                     key={row.id}
                     data-state={row.getIsSelected() ? "selected" : undefined}
+                    className={cn(
+                      "group/row",
+                      "motion-safe:transition-colors motion-safe:duration-150",
+                      "hover:bg-muted/60",
+                      "focus-within:bg-muted/40 focus-within:ring-1 focus-within:ring-primary/20 focus-within:ring-inset",
+                      row.getIsSelected() && "bg-primary/5 hover:bg-primary/10",
+                    )}
                   >
                     {row.getVisibleCells().map((cell) => (
-                      <TableCell key={cell.id} className="last:py-0">
+                      <TableCell
+                        key={cell.id}
+                        className="last:py-0 motion-safe:transition-colors motion-safe:duration-150"
+                      >
                         {flexRender(
                           cell.column.columnDef.cell,
                           cell.getContext(),
@@ -974,26 +1118,43 @@ const formatCurrency = (value: number) => {
 };
 
 function BudgetTableSkeletonRows() {
-  const skeletonRows = Array.from(
-    { length: 5 },
-    (_, i) => `budget-skeleton-row-${i}`,
-  );
-  const skeletonCells = Array.from(
-    { length: 5 },
-    (_, j) => `budget-skeleton-cell-${j}`,
-  );
-
   return (
     <>
-      {skeletonRows.map((rowKey) => (
-        <TableRow key={rowKey} className="pointer-events-none">
-          {skeletonCells.map((cellKey, j) => (
-            <TableCell key={`${rowKey}-${cellKey}`}>
-              <Skeleton
-                className={j === 0 ? "h-4 w-4 rounded" : "h-5 w-full"}
-              />
-            </TableCell>
-          ))}
+      {Array.from({ length: 6 }, (_, i) => i).map((i) => (
+        <TableRow
+          key={`budget-skeleton-row-${i}`}
+          className="pointer-events-none animate-in fade-in-50 duration-300"
+          style={{ animationDelay: `${i * 50}ms` }}
+        >
+          {/* Checkbox */}
+          <TableCell>
+            <Skeleton className="h-4 w-4 rounded" />
+          </TableCell>
+          {/* Category with icon */}
+          <TableCell>
+            <div className="flex items-center gap-2">
+              <Skeleton className="h-7 w-7 rounded-lg" />
+              <Skeleton className="h-4 w-20" />
+            </div>
+          </TableCell>
+          {/* Allocation */}
+          <TableCell>
+            <Skeleton className="h-5 w-24" />
+          </TableCell>
+          {/* Progress */}
+          <TableCell>
+            <div className="space-y-1.5">
+              <div className="flex justify-between">
+                <Skeleton className="h-3 w-8" />
+                <Skeleton className="h-3 w-24" />
+              </div>
+              <Skeleton className="h-2.5 w-full rounded-full" />
+            </div>
+          </TableCell>
+          {/* Actions */}
+          <TableCell>
+            <Skeleton className="h-8 w-28 rounded-md" />
+          </TableCell>
         </TableRow>
       ))}
     </>

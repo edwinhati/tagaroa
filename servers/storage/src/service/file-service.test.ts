@@ -39,10 +39,9 @@ describe("FileService", () => {
   beforeEach(() => {
     mockRepository = createMockRepository();
     mockS3Service = createMockS3Service();
-    // biome-ignore lint/suspicious/noExplicitAny: test mock
     fileService = new FileService(
-      mockRepository as any,
-      mockS3Service as any,
+      mockRepository as unknown,
+      mockS3Service as unknown,
       mockLogger,
     );
   });

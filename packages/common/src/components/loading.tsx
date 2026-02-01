@@ -1,6 +1,5 @@
 import { Button } from "@repo/ui/components/button";
 import { LoaderIcon } from "lucide-react";
-import React from "react";
 
 export function Loading() {
   return (

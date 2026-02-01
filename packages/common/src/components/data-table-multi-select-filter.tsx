@@ -9,7 +9,7 @@ import {
   PopoverTrigger,
 } from "@repo/ui/components/popover";
 import { FilterIcon } from "lucide-react";
-import React, { useId } from "react";
+import { useId } from "react";
 
 export type DataTableMultiSelectOption = Readonly<{
   value: string;

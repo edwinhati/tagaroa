@@ -3,14 +3,18 @@
 import { DataTableBulkDeleteDialog } from "@repo/common/components/data-table-bulk-delete-dialog";
 import { DataTablePagination } from "@repo/common/components/data-table-pagination";
 import { Loading } from "@repo/common/components/loading";
+import { useBudgetPeriod } from "@repo/common/hooks/use-budget-period";
 import { budgetHistoryQueryOptions } from "@repo/common/lib/query/budget-query";
 import type { Budget, PaginatedBudgetsResult } from "@repo/common/types/budget";
+import { Button } from "@repo/ui/components/button";
+import { Card, CardContent } from "@repo/ui/components/card";
 import { Checkbox } from "@repo/ui/components/checkbox";
 import {
   Empty,
   EmptyContent,
   EmptyDescription,
   EmptyHeader,
+  EmptyMedia,
   EmptyTitle,
 } from "@repo/ui/components/empty";
 import { Skeleton } from "@repo/ui/components/skeleton";
@@ -33,10 +37,113 @@ import {
   type Row,
   useReactTable,
 } from "@tanstack/react-table";
-import { ChevronDownIcon, ChevronUpIcon } from "lucide-react";
+import {
+  BarChart3,
+  Calendar,
+  ChevronDownIcon,
+  ChevronUpIcon,
+  Eye,
+  PlusIcon,
+  Wallet,
+} from "lucide-react";
+import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
 
-// Cell renderer components - defined outside to avoid recreation on each render
+// Format currency helper
+const formatCurrency = (value: number, currency = "IDR") => {
+  return new Intl.NumberFormat(currency === "IDR" ? "id-ID" : "en-US", {
+    style: "currency",
+    currency,
+    minimumFractionDigits: 0,
+    maximumFractionDigits: 0,
+  }).format(value);
+};
+
+// Summary card component matching main budget page
+interface SummaryCardProps {
+  title: string;
+  value: string;
+  icon: React.ReactNode;
+  iconColor: string;
+}
+
+const SummaryCard = ({ title, value, icon, iconColor }: SummaryCardProps) => (
+  <Card
+    className={cn(
+      "relative group",
+      "motion-safe:transition-all motion-safe:duration-300 motion-safe:ease-out",
+      "hover:shadow-lg hover:shadow-primary/5",
+      "motion-safe:hover:-translate-y-0.5",
+      "border-border/50 hover:border-primary/20",
+      "bg-card/80 backdrop-blur-sm",
+    )}
+  >
+    <CardContent className="flex items-center gap-4 p-5">
+      <div
+        className={cn(
+          "flex items-center justify-center rounded-xl p-3",
+          "motion-safe:transition-transform motion-safe:duration-200 motion-safe:group-hover:scale-105",
+          "ring-1 ring-current/10",
+          iconColor,
+        )}
+      >
+        {icon}
+      </div>
+      <div className="flex-1 min-w-0">
+        <p className="text-sm font-medium text-muted-foreground group-hover:text-foreground motion-safe:transition-colors motion-safe:duration-200">
+          {title}
+        </p>
+        <p className="text-2xl font-bold font-mono tracking-tight truncate group-hover:text-primary motion-safe:transition-colors motion-safe:duration-200">
+          {value}
+        </p>
+      </div>
+    </CardContent>
+  </Card>
+);
+
+// Summary stats section
+const HistorySummary = ({
+  budgets,
+  total,
+}: {
+  budgets: Budget[];
+  total: number;
+}) => {
+  const totalAmount = useMemo(
+    () => budgets.reduce((sum, b) => sum + b.amount, 0),
+    [budgets],
+  );
+  const avgAmount = useMemo(
+    () => (total > 0 ? totalAmount / total : 0),
+    [totalAmount, total],
+  );
+
+  return (
+    <div className="grid gap-4 md:grid-cols-3">
+      <SummaryCard
+        title="Total Budgets"
+        value={total.toString()}
+        icon={<Calendar className="h-5 w-5" />}
+        iconColor="text-primary bg-primary/10"
+      />
+      <SummaryCard
+        title="Total Amount"
+        value={formatCurrency(totalAmount)}
+        icon={<Wallet className="h-5 w-5" />}
+        iconColor="text-blue-500 bg-blue-50 dark:bg-blue-900/30"
+      />
+      <SummaryCard
+        title="Average Budget"
+        value={formatCurrency(avgAmount)}
+        icon={<BarChart3 className="h-5 w-5" />}
+        iconColor="text-emerald-500 bg-emerald-50 dark:bg-emerald-900/30"
+      />
+    </div>
+  );
+};
+
+// Cell renderer components
 const BudgetHistorySelectHeaderCell = ({
   table,
 }: {
@@ -60,38 +167,59 @@ const BudgetHistorySelectRowCell = ({ row }: { row: Row<Budget> }) => (
   />
 );
 
-const MonthCell = ({ row }: { row: Row<Budget> }) => {
+// Combined Period Cell with icon
+const PeriodCell = ({ row }: { row: Row<Budget> }) => {
   const month = row.original.month;
-  const year = new Date().getFullYear();
-  const date = new Date(year, month - 1);
-  return <span>{date.toLocaleString("en-US", { month: "long" })}</span>;
-};
-
-const YearCell = ({ row }: { row: Row<Budget> }) => {
   const year = row.original.year;
-  return <span>{year}</span>;
+  const date = new Date(year, month - 1);
+  const monthName = date.toLocaleString("en-US", { month: "long" });
+
+  return (
+    <div className="flex items-center gap-2">
+      <div className="flex items-center justify-center rounded-lg p-1.5 bg-primary/10 text-primary">
+        <Calendar className="h-3.5 w-3.5" />
+      </div>
+      <span className="font-medium">
+        {monthName} {year}
+      </span>
+    </div>
+  );
 };
 
+// Amount cell with currency formatting
 const AmountCell = ({ row }: { row: Row<Budget> }) => {
-  const formatted = new Intl.NumberFormat(
-    row.original.currency === "IDR" ? "id-ID" : "en-US",
-    {
-      style: "currency",
-      currency: row.original.currency,
-    },
-  ).format(row.original.amount);
-  return formatted;
+  const formatted = formatCurrency(row.original.amount, row.original.currency);
+  return <span className="font-mono font-medium">{formatted}</span>;
 };
 
-const BalanceCell = ({ row }: { row: Row<Budget> }) => {
-  const formatted = new Intl.NumberFormat(
-    row.original.currency === "IDR" ? "id-ID" : "en-US",
-    {
-      style: "currency",
-      currency: row.original.currency,
-    },
-  ).format(0);
-  return formatted;
+// Actions cell with view button
+const ActionsCell = ({ row }: { row: Row<Budget> }) => {
+  const { month, year } = row.original;
+  const { setMonth, setYear } = useBudgetPeriod((s) => ({
+    setMonth: s.setMonth,
+    setYear: s.setYear,
+  }));
+  const router = useRouter();
+
+  const handleView = () => {
+    setMonth(month);
+    setYear(year);
+    router.push("/budgets");
+  };
+
+  return (
+    <div className="flex justify-end gap-1 opacity-0 group-hover/row:opacity-100 motion-safe:transition-opacity">
+      <Button
+        variant="ghost"
+        size="sm"
+        className="h-8 gap-1.5"
+        onClick={handleView}
+      >
+        <Eye className="h-4 w-4" />
+        View
+      </Button>
+    </div>
+  );
 };
 
 const BudgetHistoryActionsHeaderCell = () => (
@@ -120,7 +248,7 @@ export function BudgetHistoryDataTable() {
 function BudgetHistoryDataTableContent() {
   const [pagination, setPagination] = useState<PaginationState>({
     pageIndex: 0,
-    pageSize: 5,
+    pageSize: 10,
   });
 
   // Stable data state to prevent re-renders during refetch
@@ -146,30 +274,25 @@ function BudgetHistoryDataTableContent() {
         enableSorting: false,
       },
       {
-        id: "month",
-        header: "Month",
-        cell: MonthCell,
-      },
-      {
-        id: "year",
-        header: "Year",
-        cell: YearCell,
+        id: "period",
+        header: "Period",
+        cell: PeriodCell,
+        size: 180,
+        enableSorting: false,
       },
       {
         id: "amount",
         header: "Amount",
         cell: AmountCell,
-      },
-      {
-        id: "balance",
-        header: "Balance",
-        cell: BalanceCell,
+        size: 150,
+        enableSorting: false,
       },
       {
         id: "actions",
         header: BudgetHistoryActionsHeaderCell,
-        // cell: ({ row }) => <RowActions row={row} />,
-        size: 60,
+        cell: ActionsCell,
+        size: 100,
+        enableSorting: false,
       },
     ],
     [],
@@ -193,24 +316,16 @@ function BudgetHistoryDataTableContent() {
 
   const paginationInfo = stableData?.pagination;
   const showLoadingState = isInitialLoading;
-  const skeletonRowKeys = useMemo(
-    () =>
-      Array.from({ length: pagination.pageSize }, (_, index) => {
-        return `budgets-loading-${pagination.pageIndex}-${index}`;
-      }),
-    [pagination.pageIndex, pagination.pageSize],
-  );
 
   // Check if there's truly no data (no budgets at all for the user)
   const hasTotalData = (paginationInfo?.total ?? 0) > 0;
 
-  // TanStack Table exposes functions that React Compiler cannot memoize; suppress rule locally.
+  // TanStack Table exposes functions that React Compiler cannot memoize
   const table = useReactTable({
     data: tableData,
     columns,
     getCoreRowModel: getCoreRowModel(),
     getSortedRowModel: getSortedRowModel(),
-    // Remove client-side pagination since we're using server-side
     manualPagination: true,
     pageCount: paginationInfo?.totalPages ?? 0,
     onPaginationChange: setPagination,
@@ -244,6 +359,14 @@ function BudgetHistoryDataTableContent() {
 
   return (
     <div className="relative space-y-4">
+      {/* Summary Stats */}
+      {hasTotalData && (
+        <HistorySummary
+          budgets={tableData}
+          total={paginationInfo?.total ?? 0}
+        />
+      )}
+
       {/* Filters */}
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div className="flex items-center gap-3">
@@ -258,7 +381,7 @@ function BudgetHistoryDataTableContent() {
       </div>
 
       {/* Table */}
-      <div className="bg-background overflow-hidden rounded-md border">
+      <div className="bg-background overflow-hidden rounded-lg border border-border/50">
         <Table className="table-fixed">
           <TableHeader>
             {table.getHeaderGroups().map((headerGroup) => (
@@ -331,22 +454,7 @@ function BudgetHistoryDataTableContent() {
           <TableBody>
             {(() => {
               if (showLoadingState) {
-                return skeletonRowKeys.map((rowKey) => (
-                  <TableRow key={rowKey} className="pointer-events-none">
-                    {columns.map((column, cellIndex) => {
-                      const columnKey = resolveColumnKey(column, cellIndex);
-                      return (
-                        <TableCell key={`${columnKey}-${rowKey}`}>
-                          <Skeleton
-                            className={
-                              cellIndex === 0 ? "h-4 w-4 rounded" : "h-5 w-full"
-                            }
-                          />
-                        </TableCell>
-                      );
-                    })}
-                  </TableRow>
-                ));
+                return <BudgetHistorySkeletonRows />;
               }
 
               if (hasRows) {
@@ -354,9 +462,19 @@ function BudgetHistoryDataTableContent() {
                   <TableRow
                     key={row.id}
                     data-state={row.getIsSelected() ? "selected" : undefined}
+                    className={cn(
+                      "group/row",
+                      "motion-safe:transition-colors motion-safe:duration-150",
+                      "hover:bg-muted/60",
+                      "focus-within:bg-muted/40 focus-within:ring-1 focus-within:ring-primary/20 focus-within:ring-inset",
+                      row.getIsSelected() && "bg-primary/5 hover:bg-primary/10",
+                    )}
                   >
                     {row.getVisibleCells().map((cell) => (
-                      <TableCell key={cell.id} className="last:py-0">
+                      <TableCell
+                        key={cell.id}
+                        className="last:py-0 motion-safe:transition-colors motion-safe:duration-150"
+                      >
                         {flexRender(
                           cell.column.columnDef.cell,
                           cell.getContext(),
@@ -373,16 +491,33 @@ function BudgetHistoryDataTableContent() {
                   <TableCell colSpan={columns.length} className="h-96">
                     <div className="flex h-full">
                       {renderEmptyState ? (
-                        <Empty>
+                        <Empty className="py-12">
+                          <EmptyMedia
+                            variant="icon"
+                            className="bg-primary/10 text-primary"
+                          >
+                            <Calendar className="h-6 w-6" />
+                          </EmptyMedia>
                           <EmptyHeader>
-                            <EmptyTitle>No Budgets Yet</EmptyTitle>
+                            <EmptyTitle>No Budget History</EmptyTitle>
                             <EmptyDescription>
-                              You haven&apos;t added any budgets yet. Get
-                              started by adding your first budget to track your
-                              finances.
+                              You haven&apos;t created any budgets yet. Start by
+                              creating your first budget to track your monthly
+                              spending.
                             </EmptyDescription>
                           </EmptyHeader>
-                          <EmptyContent></EmptyContent>
+                          <EmptyContent>
+                            <Button size="sm" asChild>
+                              <Link href="/budgets">
+                                <PlusIcon
+                                  className="-ms-1 opacity-60"
+                                  size={16}
+                                  aria-hidden="true"
+                                />
+                                Create Budget
+                              </Link>
+                            </Button>
+                          </EmptyContent>
                         </Empty>
                       ) : (
                         <div className="flex h-full w-full flex-col items-center justify-center text-center">
@@ -425,68 +560,89 @@ function BudgetHistoryDataTableContent() {
   );
 }
 
+// Skeleton rows matching actual column structure
+function BudgetHistorySkeletonRows() {
+  return (
+    <>
+      {Array.from({ length: 5 }, (_, i) => i).map((i) => (
+        <TableRow
+          key={`history-skeleton-row-${i}`}
+          className="pointer-events-none animate-in fade-in-50 duration-300"
+          style={{ animationDelay: `${i * 50}ms` }}
+        >
+          {/* Checkbox */}
+          <TableCell>
+            <Skeleton className="h-4 w-4 rounded" />
+          </TableCell>
+          {/* Period with icon */}
+          <TableCell>
+            <div className="flex items-center gap-2">
+              <Skeleton className="h-7 w-7 rounded-lg" />
+              <Skeleton className="h-4 w-28" />
+            </div>
+          </TableCell>
+          {/* Amount */}
+          <TableCell>
+            <Skeleton className="h-5 w-28" />
+          </TableCell>
+          {/* Actions */}
+          <TableCell>
+            <Skeleton className="h-8 w-16 rounded-md" />
+          </TableCell>
+        </TableRow>
+      ))}
+    </>
+  );
+}
+
+// Full page skeleton for initial load
 function BudgetHistoryTableSkeleton() {
   return (
     <div className="space-y-4">
-      <div className="flex items-center justify-between">
-        <div className="flex flex-1 items-center space-x-2">
-          <Skeleton className="h-8 w-[100px]" />
-        </div>
+      {/* Summary cards skeleton */}
+      <div className="grid gap-4 md:grid-cols-3">
+        {Array.from({ length: 3 }, (_, i) => i).map((i) => (
+          <Card key={`history-card-skeleton-${i}`} className="border-border/50">
+            <CardContent className="flex items-center gap-4 p-5">
+              <Skeleton className="h-11 w-11 rounded-xl" />
+              <div className="space-y-2 flex-1">
+                <Skeleton className="h-4 w-24" />
+                <Skeleton className="h-7 w-32" />
+              </div>
+            </CardContent>
+          </Card>
+        ))}
       </div>
-      <div className="rounded-md border">
+
+      {/* Filter skeleton */}
+      <div className="flex items-center justify-between">
+        <Skeleton className="h-8 w-[100px]" />
+      </div>
+
+      {/* Table skeleton */}
+      <div className="rounded-lg border border-border/50 overflow-hidden">
         <Table>
           <TableHeader>
             <TableRow>
-              {[
-                "period",
-                "category",
-                "budgeted",
-                "spent",
-                "remaining",
-                "actions",
-              ].map((col) => (
-                <TableHead key={`header-${col}`}>
-                  <Skeleton className="h-4 w-full" />
-                </TableHead>
-              ))}
+              <TableHead className="w-7">
+                <Skeleton className="h-4 w-4 rounded" />
+              </TableHead>
+              <TableHead>
+                <Skeleton className="h-4 w-16" />
+              </TableHead>
+              <TableHead>
+                <Skeleton className="h-4 w-16" />
+              </TableHead>
+              <TableHead>
+                <Skeleton className="h-4 w-16" />
+              </TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
-            {Array.from({ length: 5 }, (_, i) => `budget-skeleton-${i}`).map(
-              (id) => (
-                <TableRow key={id}>
-                  {[
-                    "period",
-                    "category",
-                    "budgeted",
-                    "spent",
-                    "remaining",
-                    "actions",
-                  ].map((col) => (
-                    <TableCell key={`${id}-${col}`}>
-                      <Skeleton className="h-4 w-full" />
-                    </TableCell>
-                  ))}
-                </TableRow>
-              ),
-            )}
+            <BudgetHistorySkeletonRows />
           </TableBody>
         </Table>
       </div>
     </div>
   );
 }
-
-const resolveColumnKey = (column: ColumnDef<Budget>, fallbackIndex: number) => {
-  if (column.id) {
-    return column.id;
-  }
-  if ("accessorKey" in column) {
-    const accessorKey = (column as { accessorKey?: string | number })
-      .accessorKey;
-    if (accessorKey !== undefined) {
-      return accessorKey.toString();
-    }
-  }
-  return `col-${fallbackIndex}`;
-};

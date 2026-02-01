@@ -167,11 +167,11 @@ func (rl *RateLimiter) RateLimit(next http.Handler) http.Handler {
 
 		if !limiter.Allow() {
 			rateLimitLog.Warnw("Rate limit exceeded", "ip", ip, "path", r.URL.Path)
-			http.Error(w, fmt.Sprintf(`{
+			http.Error(w, `{
 				"error": "Rate limit exceeded",
-				"message": "Too many requests from IP: %s",
+				"message": "Too many requests, please try again later",
 				"retry_after": "60s"
-			}`, ip), http.StatusTooManyRequests)
+			}`, http.StatusTooManyRequests)
 			return
 		}
 

@@ -36,7 +36,7 @@ export interface WideEventBuilder {
   setMessage(message: string): WideEventBuilder;
   setOutcome(outcome: "success" | "error"): WideEventBuilder;
   build(): WideEvent;
-  log(logger: LoggerPort): void;
+  log(_logger: LoggerPort): void;
 }
 
 export function createWideEvent(context: string): WideEventBuilder {
@@ -57,8 +57,8 @@ export function createWideEvent(context: string): WideEventBuilder {
 
   return {
     addBusiness(key: string, value: unknown) {
-      if (value !== undefined) {
-        event.business![key] = value;
+      if (value !== undefined && event.business) {
+        event.business[key] = value;
       }
       return this;
     },
@@ -108,8 +108,8 @@ export function createWideEvent(context: string): WideEventBuilder {
       return event;
     },
 
-    log(logger: LoggerPort) {
-      logger.log(event.message, event.context);
+    log(_logger: LoggerPort) {
+      console.log(JSON.stringify(event, null, 2));
     },
   };
 }

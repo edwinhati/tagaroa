@@ -1,5 +1,3 @@
-import type { Context } from "hono";
-
 export interface LoggerPort {
   setContext(context: string): void;
   verbose(message: unknown, context?: string): void;

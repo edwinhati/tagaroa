@@ -26,7 +26,7 @@ import {
   UserPenIcon,
   UserXIcon,
 } from "lucide-react";
-import React, { useState } from "react";
+import { useState } from "react";
 import { toast } from "sonner";
 
 const getBrowserLocation = () => {

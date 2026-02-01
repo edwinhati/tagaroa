@@ -1,5 +1,4 @@
 import type { Context, MiddlewareHandler } from "hono";
-import { createLogger } from "../logger.js";
 import type { LoggerPort } from "../ports/logger.port.js";
 
 interface HttpMiddlewareOptions {
@@ -10,18 +9,18 @@ export const createHttpMiddleware = ({
   logger,
 }: HttpMiddlewareOptions): MiddlewareHandler =>
   createMiddleware(async (c: Context, next: () => Promise<void>) => {
+    const requestStart = Date.now();
     const requestId =
       c.req.header("x-request-id") ??
       c.req.header("x-correlation-id") ??
       crypto.randomUUID();
-    const startTime = Date.now();
-
     c.set("requestId", requestId);
+    c.set("requestStart", requestStart);
     c.set("logger", logger);
 
     await next();
 
-    const duration = Date.now() - startTime;
+    const duration = Date.now() - (c.get("requestStart") as number);
     const method = c.req.method;
     const path = new URL(c.req.url).pathname;
     const status = c.res.status;

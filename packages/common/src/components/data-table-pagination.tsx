@@ -21,7 +21,7 @@ import {
   ChevronLeftIcon,
   ChevronRightIcon,
 } from "lucide-react";
-import React, { type ReactNode } from "react";
+import type { ReactNode } from "react";
 
 export type DataTablePaginationProps<TData> = Readonly<{
   table: Table<TData>;
