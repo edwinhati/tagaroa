@@ -199,8 +199,12 @@ export const CATEGORY_CONFIG: Record<
 const CategoryCell = ({ row }: { row: Row<BudgetItem> }) => {
   const categoryKey = row.getValue("category")?.toString().toLowerCase();
   const categoryDisplay = categoryKey?.replaceAll("_", " ");
-  const config =
-    CATEGORY_CONFIG[categoryKey ?? "other"] ?? CATEGORY_CONFIG.other;
+  const config = CATEGORY_CONFIG[categoryKey ?? "other"] ??
+    CATEGORY_CONFIG.other ?? {
+      bg: "bg-slate-100 dark:bg-slate-900/30",
+      text: "text-slate-700 dark:text-slate-300",
+      icon: MoreHorizontal,
+    };
   const Icon = config.icon;
 
   return (
