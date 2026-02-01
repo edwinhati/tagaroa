@@ -1,3 +1,17 @@
+# [0.5.0](https://github.com/edwinhati/tagaroa/compare/v0.4.0...v0.5.0) (2026-02-01)
+
+
+### Bug Fixes
+
+* **finance:** resolve TypeScript strict null check for CATEGORY_CONFIG ([61032fa](https://github.com/edwinhati/tagaroa/commit/61032fac3c35b5c8452c57c2ca4922df8901874c))
+* **ui,common:** add React imports and fix sidebar context ([fdb1cf4](https://github.com/edwinhati/tagaroa/commit/fdb1cf4b765a6b02271508ab16326780be23627b))
+
+
+### Features
+
+* **finance:** enhance budget pages with visual polish and interactions ([b5a7c83](https://github.com/edwinhati/tagaroa/commit/b5a7c83efc8e0e20e24cfed5ea4b231ee794c582))
+* standardize observability and introduce event-driven patterns ([877ba00](https://github.com/edwinhati/tagaroa/commit/877ba007b36e69446ef2a6494deb1c61e7ab24a8))
+
 # [0.4.0](https://github.com/edwinhati/tagaroa/compare/v0.3.0...v0.4.0) (2026-01-07)
 
 
