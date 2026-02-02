@@ -15,7 +15,7 @@ type AuthClient = {
   metadata?: ClientMetadata | null;
 };
 
-const getBaseUrl = (): string => {
+export const getBaseUrl = (): string => {
   const baseUrl = process.env.BASE_URL;
   if (!baseUrl) {
     return "http://localhost:8080";
@@ -27,7 +27,7 @@ const getBaseUrl = (): string => {
   }
 };
 
-const getCookieDomain = (): string | undefined => {
+export const getCookieDomain = (): string | undefined => {
   try {
     return process.env.BASE_URL
       ? new URL(process.env.BASE_URL).hostname

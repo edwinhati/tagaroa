@@ -327,4 +327,58 @@ describe("httpMiddleware", () => {
       ]),
     );
   });
+
+  test("returns detailed JSON error response in production mode", async () => {
+    configMock.nodeEnv = "production";
+    const logger = createLogger("HTTP");
+    const { calls, restore } = captureConsole();
+    const setMock = mock((_name: string, _value: unknown) => {});
+
+    const middleware = httpMiddleware(logger);
+    const request = new Request("http://example.com/api/auth/error", {
+      method: "POST",
+      headers: { "x-request-id": "prod-error-test" },
+    });
+
+    const headers = new Headers();
+    const context: TestContext = {
+      req: {
+        raw: request,
+        url: request.url,
+        method: request.method,
+        header: (name: string) => request.headers.get(name),
+      },
+      res: {
+        status: 200,
+        headers,
+      },
+      set: setMock,
+    };
+
+    const next = async () => {
+      context.res.status = 500;
+      throw new Error("production error test");
+    };
+
+    const response = await middleware(
+      context as unknown as Parameters<typeof middleware>[0],
+      next,
+    );
+
+    restore();
+
+    expect(response).toBeInstanceOf(Response);
+    expect(response.status).toBe(500);
+    expect(response.headers.get("x-request-id")).toBe("prod-error-test");
+    expect(response.headers.get("content-type")).toBeNull();
+
+    const errorLines = calls
+      .map(([line]) => (typeof line === "string" ? line : null))
+      .filter((line): line is string => line !== null);
+    expect(errorLines).toEqual(
+      expect.arrayContaining([
+        expect.stringContaining("production error test"),
+      ]),
+    );
+  });
 });

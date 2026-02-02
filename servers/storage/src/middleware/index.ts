@@ -1,3 +1,4 @@
+export { createAuthMiddleware } from "./auth.js";
 export { corsMiddleware, createCorsMiddleware } from "./cors.js";
 export {
   createHttpMiddleware,

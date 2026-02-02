@@ -19,6 +19,12 @@ export interface Config {
     origin: string | string[];
     credentials?: boolean;
   };
+
+  oidc: {
+    issuerUrl: string;
+    clientId: string;
+    skipClientIdCheck?: boolean;
+  };
 }
 
 function getEnv(key: string, defaultValue?: string): string {
@@ -67,6 +73,12 @@ export const config: Config = {
   cors: {
     origin: parseTrustedOrigins(getEnv("TRUSTED_ORIGINS", "*")),
     credentials: true,
+  },
+
+  oidc: {
+    issuerUrl: getEnv("OIDC_BASE_URL", "http://localhost:8081"),
+    clientId: getEnv("OIDC_CLIENT_ID", "storage-server"),
+    skipClientIdCheck: getEnvOptional("OIDC_SKIP_CLIENT_ID_CHECK") === "true",
   },
 };
 

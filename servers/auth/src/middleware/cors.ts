@@ -4,10 +4,12 @@ import { config } from "../config";
 
 const trusted = new Set(trustedOrigins);
 
-const isLocalhost = (origin: string): boolean =>
+export const isLocalhost = (origin: string): boolean =>
   /^(https?:\/\/)?(localhost|127\.0\.0\.1)(:\d+)?$/.test(origin);
 
-const corsOriginHandler = (origin: string | undefined): string | null => {
+export const corsOriginHandler = (
+  origin: string | undefined,
+): string | null => {
   if (!origin) return "*";
   if (trusted.has(origin)) return origin;
   if (config.isDevelopment && isLocalhost(origin)) return origin;

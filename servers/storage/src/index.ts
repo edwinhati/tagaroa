@@ -2,8 +2,13 @@ import { sql } from "bun";
 import { Hono } from "hono";
 import { logger as honoLogger } from "hono/logger";
 import { config, isDevelopment } from "./config.js";
+import { createOIDCClient } from "./lib/oidc-client.js";
 import { createLogger } from "./logger.js";
-import { corsMiddleware, httpMiddleware } from "./middleware/index.js";
+import {
+  corsMiddleware,
+  createAuthMiddleware,
+  httpMiddleware,
+} from "./middleware/index.js";
 import { FileRepository } from "./repository/file-repository.js";
 import { createFileRoutes } from "./routes/files.js";
 import { createUploadRoutes } from "./routes/upload.js";
@@ -13,6 +18,7 @@ import { S3Service } from "./service/s3-service.js";
 type AppContext = {
   requestId: string;
   logger: ReturnType<typeof createLogger>;
+  userId: string;
 };
 
 declare module "hono" {
@@ -25,6 +31,11 @@ const app = new Hono();
 app.use("*", honoLogger(logger.honoSink));
 app.use("*", httpMiddleware({ logger }));
 
+// Initialize OIDC client
+const oidcClient = await createOIDCClient(config.oidc, logger);
+const authMiddleware = createAuthMiddleware({ oidcClient, logger });
+
+// CORS middleware for protected routes
 app.use(
   "/upload/*",
   corsMiddleware({
@@ -39,6 +50,10 @@ app.use(
     credentials: config.cors.credentials ?? true,
   }),
 );
+
+// Auth middleware for protected routes
+app.use("/upload/*", authMiddleware);
+app.use("/files/*", authMiddleware);
 
 app.get("/health", (c) => {
   return c.json({
