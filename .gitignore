@@ -21,7 +21,7 @@ node_modules
 !.env.example
 
 # Testing
-coverage
+coverage.*
 
 # Turbo
 .turbo
@@ -36,6 +36,22 @@ build
 dist
 target
 .gocache
+finance-server
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+.venv/
+venv/
+.uv/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+*.egg-info/
+.eggs/
 
 # TypeScript / Next.js artifacts
 *.tsbuildinfo
@@ -55,3 +71,28 @@ yarn-error.log*
 # IDE
 .vscode
 .zed
+.kiro
+
+misc
+.scannerwork
+
+
+# Agentic AI
+.agent
+.agents
+.claude
+.gemini
+.opencode
+.qwen
+skills
+
+# Auto Claude data directory
+.auto-claude/
+
+# Auto Claude generated files
+.auto-claude-security.json
+.auto-claude-status
+.claude_settings.json
+.worktrees/
+.security-key
+logs/security/
