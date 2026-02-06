@@ -53,7 +53,7 @@ import {
 import { cn } from "@repo/ui/lib/utils";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { format } from "date-fns";
-import { CalendarIcon, PlusIcon } from "lucide-react";
+import { CalendarIcon, Loader2, PlusIcon } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { Controller, useForm, useWatch } from "react-hook-form";
 import { NumericFormat } from "react-number-format";
@@ -670,6 +670,13 @@ export function TransactionFormDialog({
               Cancel
             </Button>
             <Button type="submit" disabled={isPending} className="flex-1">
+              {isPending && (
+                <Loader2
+                  className="mr-2 animate-spin"
+                  size={16}
+                  aria-hidden="true"
+                />
+              )}
               {submitLabel}
             </Button>
           </div>
