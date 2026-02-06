@@ -17,7 +17,7 @@ import {
 import { Skeleton } from "@repo/ui/components/skeleton";
 import { useQuery } from "@tanstack/react-query";
 import { Wallet } from "lucide-react";
-import { useMemo } from "react";
+import React, { useMemo } from "react";
 import { Cell, Label, Pie, PieChart } from "recharts";
 import { formatCurrencySmart } from "@/utils/currency";
 

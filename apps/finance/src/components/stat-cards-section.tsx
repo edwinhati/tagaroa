@@ -20,6 +20,7 @@ import {
   Receipt,
   XCircle,
 } from "lucide-react";
+import React from "react";
 import type { DateRange } from "react-day-picker";
 import { formatCurrency } from "@/utils/currency";
 
