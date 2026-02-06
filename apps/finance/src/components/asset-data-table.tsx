@@ -1,15 +1,18 @@
 "use client";
 
 import { DataTableBulkDeleteDialog } from "@repo/common/components/data-table-bulk-delete-dialog";
+import { DataTableExportButton } from "@repo/common/components/data-table-export-button";
 import { DataTableMultiSelectFilter } from "@repo/common/components/data-table-multi-select-filter";
 import { DataTablePagination } from "@repo/common/components/data-table-pagination";
 import { ServerSearchInput } from "@repo/common/components/data-table-search-input";
 import { Loading } from "@repo/common/components/loading";
+import { exportToCSV } from "@repo/common/lib/csv-export";
 import {
   assetDeleteMutationOptions,
   assetMutationOptions,
   assetQueryOptions,
   assetTypesQueryOptions,
+  exportAssetsQueryOptions,
 } from "@repo/common/lib/query/asset-query";
 import type { Asset, PaginatedAssetsResult } from "@repo/common/types/asset";
 import { Badge } from "@repo/ui/components/badge";
@@ -41,7 +44,7 @@ import {
   TableRow,
 } from "@repo/ui/components/table";
 import { cn } from "@repo/ui/lib/utils";
-import { useMutation, useQuery } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   type ColumnDef,
   type FilterFn,
@@ -154,6 +157,8 @@ function AssetDataTableContent() {
   const { mutate: mutateAsset } = useMutation(assetMutationOptions());
 
   const { mutate: deleteAsset } = useMutation(assetDeleteMutationOptions());
+
+  const queryClient = useQueryClient();
 
   const { data: assetsResponse, error } = useQuery(
     assetQueryOptions({
@@ -296,6 +301,33 @@ function AssetDataTableContent() {
     setPagination((prev) => ({ ...prev, pageIndex: 0 }));
   };
 
+  const handleExport = async () => {
+    const exportData = await queryClient.fetchQuery(
+      exportAssetsQueryOptions({
+        search: searchQuery,
+        filters: typeFilter.length > 0 ? { type: typeFilter } : undefined,
+      }),
+    );
+
+    if (!exportData || exportData.length === 0) {
+      return;
+    }
+
+    const csvData = exportData.map((asset) => ({
+      Name: asset.name,
+      Type: asset.type,
+      Ticker: asset.ticker || "",
+      Value: asset.value,
+      Shares: asset.shares || "",
+      Currency: asset.currency,
+      Notes: asset.notes ?? "",
+    }));
+
+    exportToCSV(csvData, {
+      filename: "assets",
+    });
+  };
+
   if (error) {
     return (
       <div className="space-y-4">
@@ -337,6 +369,7 @@ function AssetDataTableContent() {
             description={`This action cannot be undone. This will permanently delete ${selectedCount} selected ${selectedCount === 1 ? "row" : "rows"}.`}
             buttonClassName="ml-auto"
           />
+          <DataTableExportButton onClick={handleExport} />
           <AssetFormDialog
             trigger={
               <Button size="sm">

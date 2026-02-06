@@ -1,14 +1,17 @@
 "use client";
 
 import { DataTableBulkDeleteDialog } from "@repo/common/components/data-table-bulk-delete-dialog";
+import { DataTableExportButton } from "@repo/common/components/data-table-export-button";
 import { DataTableMultiSelectFilter } from "@repo/common/components/data-table-multi-select-filter";
 import { DataTablePagination } from "@repo/common/components/data-table-pagination";
 import { ServerSearchInput } from "@repo/common/components/data-table-search-input";
 import { Loading } from "@repo/common/components/loading";
+import { exportToCSV } from "@repo/common/lib/csv-export";
 import {
   accountDeleteMutationOptions,
   accountMutationOptions,
   accountQueryOptions,
+  exportAccountsQueryOptions,
 } from "@repo/common/lib/query/account-query";
 import type {
   Account,
@@ -43,7 +46,7 @@ import {
   TableRow,
 } from "@repo/ui/components/table";
 import { cn } from "@repo/ui/lib/utils";
-import { useMutation, useQuery } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   type ColumnDef,
   type FilterFn,
@@ -161,6 +164,8 @@ function AccountDataTableContent() {
   const { mutate } = useMutation(accountMutationOptions());
 
   const { mutate: deleteAccount } = useMutation(accountDeleteMutationOptions());
+
+  const queryClient = useQueryClient();
 
   const { data: accountsResponse, error } = useQuery(
     accountQueryOptions({
@@ -366,6 +371,33 @@ function AccountDataTableContent() {
     setPagination((prev) => ({ ...prev, pageIndex: 0 }));
   };
 
+  const handleExport = async () => {
+    // Fetch all accounts for export using query client
+    const exportData = await queryClient.fetchQuery(
+      exportAccountsQueryOptions({
+        filters: serverFilters,
+        search: searchQuery,
+      }),
+    );
+
+    if (!exportData || exportData.length === 0) {
+      return;
+    }
+
+    // Map accounts to CSV-friendly format
+    const csvData = exportData.map((account) => ({
+      Name: account.name,
+      Type: account.type,
+      Balance: account.balance,
+      Currency: account.currency,
+      Notes: account.notes ?? "",
+    }));
+
+    exportToCSV(csvData, {
+      filename: "accounts",
+    });
+  };
+
   // Show error state
   if (error) {
     return (
@@ -422,6 +454,7 @@ function AccountDataTableContent() {
             description={`This action cannot be undone. This will permanently delete ${selectedCount} selected ${selectedCount === 1 ? "row" : "rows"}.`}
             buttonClassName="ml-auto"
           />
+          <DataTableExportButton onClick={handleExport} />
           <AccountFormDialog />
         </div>
       </div>

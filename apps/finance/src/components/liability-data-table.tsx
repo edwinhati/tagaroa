@@ -1,11 +1,14 @@
 "use client";
 
 import { DataTableBulkDeleteDialog } from "@repo/common/components/data-table-bulk-delete-dialog";
+import { DataTableExportButton } from "@repo/common/components/data-table-export-button";
 import { DataTableMultiSelectFilter } from "@repo/common/components/data-table-multi-select-filter";
 import { DataTablePagination } from "@repo/common/components/data-table-pagination";
 import { ServerSearchInput } from "@repo/common/components/data-table-search-input";
 import { Loading } from "@repo/common/components/loading";
+import { exportToCSV } from "@repo/common/lib/csv-export";
 import {
+  exportLiabilitiesQueryOptions,
   liabilityDeleteMutationOptions,
   liabilityMutationOptions,
   liabilityQueryOptions,
@@ -45,7 +48,7 @@ import {
   TableRow,
 } from "@repo/ui/components/table";
 import { cn } from "@repo/ui/lib/utils";
-import { useMutation, useQuery } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   type ColumnDef,
   type FilterFn,
@@ -56,6 +59,7 @@ import {
   type Row,
   useReactTable,
 } from "@tanstack/react-table";
+import { format } from "date-fns";
 import {
   BanknoteIcon,
   CheckCircleIcon,
@@ -193,6 +197,8 @@ function LiabilityDataTableContent() {
   );
 
   const { data: liabilityTypes } = useQuery(liabilityTypesQueryOptions());
+
+  const queryClient = useQueryClient();
 
   const columns: ColumnDef<Liability>[] = useMemo(
     () => [
@@ -352,6 +358,35 @@ function LiabilityDataTableContent() {
     setPagination((prev) => ({ ...prev, pageIndex: 0 }));
   };
 
+  const handleExport = async () => {
+    const exportData = await queryClient.fetchQuery(
+      exportLiabilitiesQueryOptions({
+        filters: typeFilter.length > 0 ? { type: typeFilter } : undefined,
+        search: searchQuery,
+      }),
+    );
+
+    if (!exportData || exportData.length === 0) {
+      return;
+    }
+
+    const csvData = exportData.map((liability) => ({
+      Name: liability.name,
+      Type: liability.type,
+      Amount: liability.amount,
+      Currency: liability.currency,
+      Status: liability.paidAt ? "Paid" : "Unpaid",
+      "Paid Date": liability.paidAt
+        ? format(new Date(liability.paidAt), "yyyy-MM-dd")
+        : "",
+      Notes: liability.notes ?? "",
+    }));
+
+    exportToCSV(csvData, {
+      filename: "liabilities",
+    });
+  };
+
   if (error) {
     return (
       <div className="space-y-4">
@@ -478,6 +513,7 @@ function LiabilityDataTableContent() {
             description={`This action cannot be undone. This will permanently delete ${selectedCount} selected ${selectedCount === 1 ? "row" : "rows"}.`}
             buttonClassName="ml-auto"
           />
+          <DataTableExportButton onClick={handleExport} />
           <LiabilityFormDialog
             trigger={
               <Button size="sm">

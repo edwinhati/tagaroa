@@ -82,6 +82,19 @@ const deleteLiability = async (id: string): Promise<void> => {
   await financeApi.delete(`/liability/${id}`);
 };
 
+// Fetch all liabilities for export (with large limit)
+const fetchExportLiabilities = async (params?: {
+  filters?: Record<string, string[]>;
+  search?: string;
+}): Promise<Liability[]> => {
+  const result = await fetchLiabilities({
+    ...params,
+    limit: 10000,
+    page: 1,
+  });
+  return result.liabilities;
+};
+
 export const liabilityQueryOptions = (params?: {
   page?: number;
   limit?: number;
@@ -116,3 +129,19 @@ export const liabilityTypesQueryOptions = () =>
     queryKey: ["liability-types"],
     queryFn: fetchLiabilityTypes,
   });
+
+export const exportLiabilitiesQueryOptions = (params?: {
+  filters?: Record<string, string[]>;
+  search?: string;
+}) =>
+  queryOptions({
+    queryKey: ["liabilities-export", params],
+    queryFn: () => fetchExportLiabilities(params),
+  });
+
+export const exportLiabilities = (params?: {
+  filters?: Record<string, string[]>;
+  search?: string;
+}) => {
+  return fetchExportLiabilities(params);
+};

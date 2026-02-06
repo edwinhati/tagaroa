@@ -101,6 +101,19 @@ const deleteAccount = async (id: string): Promise<void> => {
   await financeApi.delete(`/account/${id}`);
 };
 
+// Fetch all accounts for export (with large limit)
+const fetchExportAccounts = async (params?: {
+  filters?: Record<string, string[]>;
+  search?: string;
+}): Promise<Account[]> => {
+  const result = await fetchAccounts({
+    ...params,
+    limit: 10000,
+    page: 1,
+  });
+  return result.accounts;
+};
+
 export const accountQueryOptions = (params?: {
   page?: number;
   limit?: number;
@@ -139,5 +152,15 @@ export const accountTypesQueryOptions = () => {
   return queryOptions({
     queryKey: ["account-types"],
     queryFn: fetchAccountTypes,
+  });
+};
+
+export const exportAccountsQueryOptions = (params?: {
+  filters?: Record<string, string[]>;
+  search?: string;
+}) => {
+  return queryOptions({
+    queryKey: ["accounts-export", params],
+    queryFn: () => fetchExportAccounts(params),
   });
 };

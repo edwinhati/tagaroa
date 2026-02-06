@@ -79,6 +79,19 @@ const deleteAsset = async (id: string): Promise<void> => {
   await financeApi.delete(`/asset/${id}`);
 };
 
+// Fetch all assets for export (with large limit)
+const fetchExportAssets = async (params?: {
+  filters?: Record<string, string[]>;
+  search?: string;
+}): Promise<Asset[]> => {
+  const result = await fetchAssets({
+    ...params,
+    limit: 10000,
+    page: 1,
+  });
+  return result.assets;
+};
+
 export const assetQueryOptions = (params?: {
   page?: number;
   limit?: number;
@@ -111,3 +124,20 @@ export const assetTypesQueryOptions = () =>
     queryKey: ["asset-types"],
     queryFn: fetchAssetTypes,
   });
+
+export const exportAssetsQueryOptions = (params?: {
+  filters?: Record<string, string[]>;
+  search?: string;
+}) => {
+  return queryOptions({
+    queryKey: ["assets-export", params],
+    queryFn: () => fetchExportAssets(params),
+  });
+};
+
+export const exportAssets = (params?: {
+  filters?: Record<string, string[]>;
+  search?: string;
+}) => {
+  return fetchExportAssets(params);
+};

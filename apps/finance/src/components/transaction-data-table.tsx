@@ -1,12 +1,14 @@
 "use client";
 
 import { DataTableBulkDeleteDialog } from "@repo/common/components/data-table-bulk-delete-dialog";
+import { DataTableExportButton } from "@repo/common/components/data-table-export-button";
 import { DataTableMultiSelectFilter } from "@repo/common/components/data-table-multi-select-filter";
 import { DataTablePagination } from "@repo/common/components/data-table-pagination";
 import { Loading } from "@repo/common/components/loading";
 import { useBudgetPeriod } from "@repo/common/hooks/use-budget-period";
-import { useFilters } from "@repo/common/hooks/use-filters";
+import { exportToCSV } from "@repo/common/lib/csv-export";
 import {
+  exportTransactionsQueryOptions,
   transactionDeleteMutationOptions,
   transactionQueryOptions,
 } from "@repo/common/lib/query/transaction-query";
@@ -48,7 +50,7 @@ import {
   TableHeader,
   TableRow,
 } from "@repo/ui/components/table";
-import { useMutation, useQuery } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   type ColumnDef,
   flexRender,
@@ -197,23 +199,11 @@ function TransactionDataTableContent() {
     pageIndex: 0,
     pageSize: 5,
   });
+  const [serverFilters, setServerFilters] = useState<Record<string, string[]>>(
+    {},
+  );
 
-  // Global filter state from store
-  const {
-    serverFilters,
-    range,
-    openPopovers,
-    setServerFilters,
-    setRange,
-    setOpenPopovers,
-  } = useFilters((s) => ({
-    serverFilters: s.serverFilters,
-    range: s.range,
-    openPopovers: s.openPopovers,
-    setServerFilters: s.setServerFilters,
-    setRange: s.setRange,
-    setOpenPopovers: s.setOpenPopovers,
-  }));
+  const [openPopovers, setOpenPopovers] = useState<Record<string, boolean>>({});
 
   // Stable data state to prevent re-renders during refetch
   const [stableData, setStableData] =
@@ -225,19 +215,14 @@ function TransactionDataTableContent() {
     year: s.year,
   }));
 
-  // Initialize range from budget period if not set
-  useEffect(() => {
-    if (!range) {
-      setRange({
-        from: new Date(
-          month === 1 ? year - 1 : year,
-          month === 1 ? 11 : month - 2,
-          25,
-        ),
-        to: new Date(year, month - 1, 25),
-      });
-    }
-  }, [month, year, range, setRange]);
+  const [range, setRange] = useState<DateRange | undefined>({
+    from: new Date(
+      month === 1 ? year - 1 : year,
+      month === 1 ? 11 : month - 2,
+      25,
+    ),
+    to: new Date(year, month - 1, 25),
+  });
 
   const { mutate: deleteTransaction } = useMutation(
     transactionDeleteMutationOptions(),
@@ -252,6 +237,8 @@ function TransactionDataTableContent() {
       endDate: range?.to,
     }),
   );
+
+  const queryClient = useQueryClient();
 
   const columns: ColumnDef<TransactionWithRelations>[] = useMemo(
     () => [
@@ -410,38 +397,72 @@ function TransactionDataTableContent() {
     checked: boolean,
   ) => {
     // Keep the popover open during filter changes
-    setOpenPopovers({ ...openPopovers, [filterKey]: true });
+    setOpenPopovers((prev) => ({ ...prev, [filterKey]: true }));
 
-    const currentValues = serverFilters[filterKey] || [];
-    let newValues: string[];
+    setServerFilters((prev) => {
+      const currentValues = prev[filterKey] || [];
+      let newValues: string[];
 
-    if (checked) {
-      newValues = [...currentValues, value];
-    } else {
-      newValues = currentValues.filter((v) => v !== value);
-    }
+      if (checked) {
+        newValues = [...currentValues, value];
+      } else {
+        newValues = currentValues.filter((v) => v !== value);
+      }
 
-    const newFilters = { ...serverFilters };
-    if (newValues.length === 0) {
-      delete newFilters[filterKey];
-    } else {
-      newFilters[filterKey] = newValues;
-    }
+      const newFilters = { ...prev };
+      if (newValues.length === 0) {
+        delete newFilters[filterKey];
+      } else {
+        newFilters[filterKey] = newValues;
+      }
 
-    setServerFilters(newFilters);
+      // Reset to first page when filters change
+      setPagination((prev) => ({ ...prev, pageIndex: 0 }));
 
-    // Reset to first page when filters change
-    setPagination((prev) => ({ ...prev, pageIndex: 0 }));
+      return newFilters;
+    });
   };
 
   const handleServerFilterClear = (filterKey: string) => {
-    const newFilters = { ...serverFilters };
-    delete newFilters[filterKey];
+    setServerFilters((prev) => {
+      const newFilters = { ...prev };
+      delete newFilters[filterKey];
 
-    setServerFilters(newFilters);
+      // Reset to first page when filters change
+      setPagination((prev) => ({ ...prev, pageIndex: 0 }));
 
-    // Reset to first page when filters change
-    setPagination((prev) => ({ ...prev, pageIndex: 0 }));
+      return newFilters;
+    });
+  };
+
+  const handleExport = async () => {
+    // Fetch all transactions for export using query client
+    const exportData = await queryClient.fetchQuery(
+      exportTransactionsQueryOptions({
+        filters: serverFilters,
+        startDate: range?.from,
+        endDate: range?.to,
+      }),
+    );
+
+    if (!exportData || exportData.length === 0) {
+      return;
+    }
+
+    // Map transactions to CSV-friendly format
+    const csvData = exportData.map((transaction) => ({
+      Date: format(transaction.date, "yyyy-MM-dd"),
+      Type: transaction.type,
+      Amount: transaction.amount,
+      Account: transaction.account?.name || "",
+      Category: transaction.budget_item?.category || "",
+      Currency: transaction.currency,
+      Notes: transaction.notes ?? "",
+    }));
+
+    exportToCSV(csvData, {
+      filename: "transactions",
+    });
   };
 
   // Show error state
@@ -508,7 +529,7 @@ function TransactionDataTableContent() {
               onClear={() => handleServerFilterClear(filterKey)}
               open={openPopovers[filterKey]}
               onOpenChange={(open) =>
-                setOpenPopovers({ ...openPopovers, [filterKey]: open })
+                setOpenPopovers((prev) => ({ ...prev, [filterKey]: open }))
               }
             />
           ))}
@@ -521,6 +542,7 @@ function TransactionDataTableContent() {
             description={`This action cannot be undone. This will permanently delete ${selectedCount} selected ${selectedCount === 1 ? "row" : "rows"}.`}
             buttonClassName="ml-auto"
           />
+          <DataTableExportButton onClick={handleExport} />
           <TransactionFormDialog
             trigger={
               <Button size="sm">

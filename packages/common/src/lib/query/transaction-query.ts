@@ -150,6 +150,20 @@ const deleteTransaction = async (id: string): Promise<void> => {
   await financeApi.delete(`/transaction/${id}`);
 };
 
+// Fetch all transactions for export (with large limit)
+const fetchExportTransactions = async (params?: {
+  filters?: Record<string, string[]>;
+  startDate?: Date;
+  endDate?: Date;
+}): Promise<Transaction[]> => {
+  const result = await fetchTransactions({
+    ...params,
+    limit: 10000,
+    page: 1,
+  });
+  return result.transactions;
+};
+
 export const transactionQueryOptions = (params?: {
   page?: number;
   limit?: number;
@@ -182,6 +196,17 @@ export const transactionDeleteMutationOptions = () => {
     onSettled: () => {
       queryClient.invalidateQueries({ queryKey: ["transactions"] });
     },
+  });
+};
+
+export const exportTransactionsQueryOptions = (params?: {
+  filters?: Record<string, string[]>;
+  startDate?: Date;
+  endDate?: Date;
+}) => {
+  return queryOptions({
+    queryKey: ["transactions-export", params],
+    queryFn: () => fetchExportTransactions(params),
   });
 };
 
