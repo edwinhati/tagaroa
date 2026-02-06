@@ -16,15 +16,24 @@ const AccountOverviewChart = dynamic(
     loading: () => <AccountOverviewChartSkeleton />,
   },
 );
+
+const ExpenseBreakdownChart = dynamic(
+  () =>
+    import("@/components/expense-breakdown-chart").then(
+      (mod) => mod.ExpenseBreakdownChart,
+    ),
+  {
+    ssr: false,
+    loading: () => <ExpenseBreakdownChartSkeleton />,
+  },
+);
+
 import {
   BudgetVsActualChart,
   BudgetVsActualChartSkeleton,
 } from "@/components/budget-vs-actual-chart";
 import { DateRangePicker } from "@/components/date-range-picker";
-import {
-  ExpenseBreakdownChart,
-  ExpenseBreakdownChartSkeleton,
-} from "@/components/expense-breakdown-chart";
+import { ExpenseBreakdownChartSkeleton } from "@/components/expense-breakdown-chart";
 import {
   MonthlyComparisonChart,
   MonthlyComparisonChartSkeleton,
