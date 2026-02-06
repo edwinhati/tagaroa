@@ -37,7 +37,7 @@ interface StatCardProps {
   className?: string;
 }
 
-const StatCard = ({
+const StatCard: React.FC<StatCardProps> = React.memo(({
   title,
   value,
   change,
@@ -45,7 +45,7 @@ const StatCard = ({
   icon,
   iconBgColor,
   className,
-}: StatCardProps) => {
+}) => {
   return (
     <Card
       className={cn(
@@ -103,9 +103,11 @@ const StatCard = ({
       </CardContent>
     </Card>
   );
-};
+});
 
-const StatCardSkeleton = () => (
+StatCard.displayName = "StatCard";
+
+const StatCardSkeleton: React.FC = React.memo(() => (
   <Card className="bg-card/80 backdrop-blur-sm">
     <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
       <Skeleton className="h-4 w-24" />
@@ -116,9 +118,11 @@ const StatCardSkeleton = () => (
       <Skeleton className="h-3 w-40" />
     </CardContent>
   </Card>
-);
+));
 
-export function StatCardsSection({ range }: StatCardsSectionProps) {
+StatCardSkeleton.displayName = "StatCardSkeleton";
+
+const StatCardsSection: React.FC<StatCardsSectionProps> = React.memo(({ range }) => {
   const { data: summary, isLoading: summaryLoading } = useQuery({
     ...dashboardSummaryQueryOptions({
       startDate: range?.from ? format(range.from, "yyyy-MM-dd") : undefined,
@@ -226,7 +230,11 @@ export function StatCardsSection({ range }: StatCardsSectionProps) {
       />
     </div>
   );
-}
+});
+
+StatCardsSection.displayName = "StatCardsSection";
+
+export { StatCardsSection };
 
 function getBudgetIcon({ percentage }: { percentage: number }) {
   if (percentage < 70) return <CheckCircle2 className="h-4 w-4" />;
