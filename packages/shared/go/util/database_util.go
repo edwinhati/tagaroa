@@ -95,12 +95,20 @@ func (b *whereBuilder) validateField(field string) error {
 
 func (b *whereBuilder) addSearchCondition(searchConditionTemplate string, value any) {
 	searchTerm := fmt.Sprintf(searchLikeFormat, value)
+
+	// Count placeholders and generate corresponding indices
+	placeholderCount := strings.Count(searchConditionTemplate, "$%d")
+	indices := make([]any, placeholderCount)
+	for i := range placeholderCount {
+		indices[i] = b.argIndex + i
+		b.args = append(b.args, searchTerm)
+	}
+
 	b.conditions = append(
 		b.conditions,
-		fmt.Sprintf(searchConditionTemplate, b.argIndex, b.argIndex),
+		fmt.Sprintf(searchConditionTemplate, indices...),
 	)
-	b.args = append(b.args, searchTerm)
-	b.argIndex++
+	b.argIndex += placeholderCount
 }
 
 func (b *whereBuilder) addSliceCondition(field string, slice []string) {

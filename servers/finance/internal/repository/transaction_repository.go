@@ -85,6 +85,8 @@ const transactionSelectCols = `
 	bi.id, bi.allocation, bi.category
 `
 
+const transactionSearchClause = "(LOWER(t.notes) LIKE LOWER($%d) OR LOWER(COALESCE(a.name, '')) LIKE LOWER($%d) OR LOWER(COALESCE(bi.category, '')) LIKE LOWER($%d))"
+
 // toPostgresArray converts a string slice to PostgreSQL array literal format
 // with proper escaping of special characters
 func toPostgresArray(arr []string) string {
@@ -282,9 +284,10 @@ func (r *transactionRepository) FindUnique(ctx context.Context, params shareduti
 
 	filteredWhere := filterDateParams(params.Where)
 	whereClause, args := sharedutil.BuildWhere(filteredWhere, sharedutil.WhereBuildOpts{
-		FieldOrder:     []string{"user_id", "type", "currency"},
-		SkipField:      "",
-		ExcludeDeleted: true,
+		FieldOrder:           []string{"user_id", "search", "type", "currency"},
+		SkipField:            "",
+		ExcludeDeleted:       true,
+		SearchClauseTemplate: transactionSearchClause,
 	})
 
 	whereClause, args = addDateRangeFilters(whereClause, args, params.Where)
@@ -315,9 +318,10 @@ func (r *transactionRepository) FindMany(ctx context.Context, params sharedutil.
 
 	filteredWhere := filterDateParams(params.Where)
 	whereClause, args := sharedutil.BuildWhere(filteredWhere, sharedutil.WhereBuildOpts{
-		FieldOrder:     []string{"user_id", "type", "currency", "account", "category"},
-		SkipField:      "",
-		ExcludeDeleted: true,
+		FieldOrder:           []string{"user_id", "search", "type", "currency", "account", "category"},
+		SkipField:            "",
+		ExcludeDeleted:       true,
+		SearchClauseTemplate: transactionSearchClause,
 	})
 
 	whereClause, args = addDateRangeFilters(whereClause, args, params.Where)
@@ -366,9 +370,10 @@ func (r *transactionRepository) Count(ctx context.Context, where map[string]any)
 
 	filteredWhere := filterDateParams(where)
 	whereClause, args := sharedutil.BuildWhere(filteredWhere, sharedutil.WhereBuildOpts{
-		FieldOrder:     []string{"user_id", "type", "currency", "account", "category"},
-		SkipField:      "",
-		ExcludeDeleted: true,
+		FieldOrder:           []string{"user_id", "search", "type", "currency", "account", "category"},
+		SkipField:            "",
+		ExcludeDeleted:       true,
+		SearchClauseTemplate: transactionSearchClause,
 	})
 
 	whereClause, args = addDateRangeFilters(whereClause, args, where)
@@ -415,19 +420,19 @@ func (r *transactionRepository) Update(ctx context.Context, transaction *model.T
 /* --------------------------- Aggregations ---------------------------- */
 
 func (r *transactionRepository) GetTypeAggregations(ctx context.Context, where map[string]any) (map[string]sharedutil.AggregationResult, error) {
-	return r.getAggregations(ctx, "t.type", "type", []string{"user_id", "currency", "account", "category"}, where)
+	return r.getAggregations(ctx, "t.type", "type", []string{"user_id", "search", "currency", "account", "category"}, where)
 }
 
 func (r *transactionRepository) GetCurrencyAggregations(ctx context.Context, where map[string]any) (map[string]sharedutil.AggregationResult, error) {
-	return r.getAggregations(ctx, "t.currency", "currency", []string{"user_id", "type", "account", "category"}, where)
+	return r.getAggregations(ctx, "t.currency", "currency", []string{"user_id", "search", "type", "account", "category"}, where)
 }
 
 func (r *transactionRepository) GetAccountAggregations(ctx context.Context, where map[string]any) (map[string]sharedutil.AggregationResult, error) {
-	return r.getAggregations(ctx, "a.name", "account", []string{"user_id", "type", "currency", "category"}, where)
+	return r.getAggregations(ctx, "a.name", "account", []string{"user_id", "search", "type", "currency", "category"}, where)
 }
 
 func (r *transactionRepository) GetCategoryAggregations(ctx context.Context, where map[string]any) (map[string]sharedutil.AggregationResult, error) {
-	return r.getAggregations(ctx, "bi.category", "category", []string{"user_id", "type", "currency", "account"}, where)
+	return r.getAggregations(ctx, "bi.category", "category", []string{"user_id", "search", "type", "currency", "account"}, where)
 }
 
 func (r *transactionRepository) getAggregations(
@@ -460,9 +465,10 @@ func (r *transactionRepository) getAggregations(
 
 	filteredWhere := filterDateParams(where)
 	whereClause, args := sharedutil.BuildWhere(filteredWhere, sharedutil.WhereBuildOpts{
-		FieldOrder:     fieldOrder,
-		SkipField:      skipFilter,
-		ExcludeDeleted: true,
+		FieldOrder:           fieldOrder,
+		SkipField:            skipFilter,
+		ExcludeDeleted:       true,
+		SearchClauseTemplate: transactionSearchClause,
 	})
 
 	whereClause, args = addDateRangeFilters(whereClause, args, where)

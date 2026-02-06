@@ -1,14 +1,12 @@
 "use client";
 
 import { DataTableBulkDeleteDialog } from "@repo/common/components/data-table-bulk-delete-dialog";
-import { DataTableExportButton } from "@repo/common/components/data-table-export-button";
 import { DataTableMultiSelectFilter } from "@repo/common/components/data-table-multi-select-filter";
 import { DataTablePagination } from "@repo/common/components/data-table-pagination";
+import { ServerSearchInput } from "@repo/common/components/data-table-search-input";
 import { Loading } from "@repo/common/components/loading";
 import { useBudgetPeriod } from "@repo/common/hooks/use-budget-period";
-import { exportToCSV } from "@repo/common/lib/csv-export";
 import {
-  exportTransactionsQueryOptions,
   transactionDeleteMutationOptions,
   transactionQueryOptions,
 } from "@repo/common/lib/query/transaction-query";
@@ -50,7 +48,7 @@ import {
   TableHeader,
   TableRow,
 } from "@repo/ui/components/table";
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useMutation, useQuery } from "@tanstack/react-query";
 import {
   type ColumnDef,
   flexRender,
@@ -202,6 +200,7 @@ function TransactionDataTableContent() {
   const [serverFilters, setServerFilters] = useState<Record<string, string[]>>(
     {},
   );
+  const [searchQuery, setSearchQuery] = useState<string>("");
 
   const [openPopovers, setOpenPopovers] = useState<Record<string, boolean>>({});
 
@@ -233,12 +232,11 @@ function TransactionDataTableContent() {
       page: pagination.pageIndex + 1,
       limit: pagination.pageSize,
       filters: serverFilters,
+      search: searchQuery,
       startDate: range?.from,
       endDate: range?.to,
     }),
   );
-
-  const queryClient = useQueryClient();
 
   const columns: ColumnDef<TransactionWithRelations>[] = useMemo(
     () => [
@@ -332,6 +330,10 @@ function TransactionDataTableContent() {
 
   // Check if there's truly no data (no transactions at all for the user)
   const hasTotalData = (paginationInfo?.total ?? 0) > 0;
+
+  // Check if there are any active filters or search
+  const hasActiveFilters =
+    Object.keys(serverFilters).length > 0 || searchQuery.length > 0;
 
   // Memoize filter options to prevent re-ordering and popover closing
   const filterOptions = useMemo(() => {
@@ -435,34 +437,10 @@ function TransactionDataTableContent() {
     });
   };
 
-  const handleExport = async () => {
-    // Fetch all transactions for export using query client
-    const exportData = await queryClient.fetchQuery(
-      exportTransactionsQueryOptions({
-        filters: serverFilters,
-        startDate: range?.from,
-        endDate: range?.to,
-      }),
-    );
-
-    if (!exportData || exportData.length === 0) {
-      return;
-    }
-
-    // Map transactions to CSV-friendly format
-    const csvData = exportData.map((transaction) => ({
-      Date: format(transaction.date, "yyyy-MM-dd"),
-      Type: transaction.type,
-      Amount: transaction.amount,
-      Account: transaction.account?.name || "",
-      Category: transaction.budget_item?.category || "",
-      Currency: transaction.currency,
-      Notes: transaction.notes ?? "",
-    }));
-
-    exportToCSV(csvData, {
-      filename: "transactions",
-    });
+  const handleSearchChange = (value: string) => {
+    setSearchQuery(value);
+    // Reset to first page when search changes
+    setPagination((prev) => ({ ...prev, pageIndex: 0 }));
   };
 
   // Show error state
@@ -486,6 +464,13 @@ function TransactionDataTableContent() {
       {/* Filters */}
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div className="flex items-center gap-3">
+          <ServerSearchInput
+            value={searchQuery}
+            onChange={handleSearchChange}
+            placeholder="Search transactions..."
+            className="min-w-60"
+            aria-label="Search transactions"
+          />
           <Popover>
             <PopoverTrigger asChild>
               <Button variant="outline">
@@ -542,7 +527,6 @@ function TransactionDataTableContent() {
             description={`This action cannot be undone. This will permanently delete ${selectedCount} selected ${selectedCount === 1 ? "row" : "rows"}.`}
             buttonClassName="ml-auto"
           />
-          <DataTableExportButton onClick={handleExport} />
           <TransactionFormDialog
             trigger={
               <Button size="sm">
@@ -646,8 +630,7 @@ function TransactionDataTableContent() {
                 ));
               }
 
-              const renderEmptyState =
-                !hasTotalData && Object.keys(serverFilters).length <= 0;
+              const renderEmptyState = !hasTotalData && !hasActiveFilters;
               return (
                 <TableRow>
                   <TableCell colSpan={columns.length} className="h-96">

@@ -38,6 +38,7 @@ const fetchTransactions = async (params?: {
   page?: number;
   limit?: number;
   filters?: Record<string, string[]>;
+  search?: string;
   startDate?: Date;
   endDate?: Date;
 }): Promise<PaginatedTransactionsResult> => {
@@ -45,6 +46,7 @@ const fetchTransactions = async (params?: {
 
   if (params?.page) searchParams.append("page", params.page.toString());
   if (params?.limit) searchParams.append("limit", params.limit.toString());
+  if (params?.search) searchParams.append("search", params.search);
 
   // Add date range filters
   if (params?.startDate) {
@@ -150,24 +152,11 @@ const deleteTransaction = async (id: string): Promise<void> => {
   await financeApi.delete(`/transaction/${id}`);
 };
 
-// Fetch all transactions for export (with large limit)
-const fetchExportTransactions = async (params?: {
-  filters?: Record<string, string[]>;
-  startDate?: Date;
-  endDate?: Date;
-}): Promise<Transaction[]> => {
-  const result = await fetchTransactions({
-    ...params,
-    limit: 10000,
-    page: 1,
-  });
-  return result.transactions;
-};
-
 export const transactionQueryOptions = (params?: {
   page?: number;
   limit?: number;
   filters?: Record<string, string[]>;
+  search?: string;
   startDate?: Date;
   endDate?: Date;
 }) => {
@@ -196,17 +185,6 @@ export const transactionDeleteMutationOptions = () => {
     onSettled: () => {
       queryClient.invalidateQueries({ queryKey: ["transactions"] });
     },
-  });
-};
-
-export const exportTransactionsQueryOptions = (params?: {
-  filters?: Record<string, string[]>;
-  startDate?: Date;
-  endDate?: Date;
-}) => {
-  return queryOptions({
-    queryKey: ["transactions-export", params],
-    queryFn: () => fetchExportTransactions(params),
   });
 };
 

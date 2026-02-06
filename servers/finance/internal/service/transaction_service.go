@@ -32,6 +32,7 @@ type GetTransactionsParams struct {
 	Currencies []string
 	Accounts   []string
 	Categories []string
+	Search     string
 	StartDate  *time.Time
 	EndDate    *time.Time
 	OrderBy    string
@@ -177,6 +178,10 @@ func (s *transactionService) GetTransactions(ctx context.Context, params GetTran
 
 	if len(params.Categories) > 0 {
 		whereClause["category"] = params.Categories
+	}
+
+	if params.Search != "" {
+		whereClause["search"] = params.Search
 	}
 
 	typeAggregationWhere := map[string]any{

@@ -73,6 +73,7 @@ func buildTransactionQueryParams(r *http.Request, userID uuid.UUID) service.GetT
 		Currencies: parseQueryValues(query["currency"]),
 		Accounts:   parseQueryValues(query["account"]),
 		Categories: parseQueryValues(query["category"]),
+		Search:     strings.TrimSpace(query.Get("search")),
 		StartDate:  startDate,
 		EndDate:    endDate,
 		Limit:      clampLimit(util.GetQueryInt(r, "limit", minQueryLimit)),
