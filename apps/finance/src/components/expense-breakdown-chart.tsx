@@ -17,7 +17,7 @@ import {
 import { Skeleton } from "@repo/ui/components/skeleton";
 import { useQuery } from "@tanstack/react-query";
 import { PieChart as PieChartIcon } from "lucide-react";
-import { useMemo } from "react";
+import React, { useMemo } from "react";
 import type { DateRange } from "react-day-picker";
 import { Cell, Label, Pie, PieChart } from "recharts";
 import { formatCurrencySmart } from "@/utils/currency";
@@ -34,7 +34,7 @@ const CHART_COLORS = [
   "hsl(280, 87%, 65%)", // Purple
 ];
 
-const ExpenseBreakdownChart = ({ range }: { range?: DateRange }) => {
+const ExpenseBreakdownChart = React.memo(({ range }: { range?: DateRange }) => {
   const { data, isLoading } = useQuery({
     ...expenseBreakdownQueryOptions({
       startDate: range?.from
@@ -219,5 +219,7 @@ const ExpenseBreakdownChart = ({ range }: { range?: DateRange }) => {
     </Card>
   );
 };
+
+ExpenseBreakdownChart.displayName = "ExpenseBreakdownChart";
 
 export { ExpenseBreakdownChart };
