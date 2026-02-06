@@ -182,3 +182,26 @@ const TransactionTrendsChart = ({ range }: { range?: DateRange }) => {
 };
 
 export { TransactionTrendsChart };
+
+export const TransactionTrendsChartSkeleton = () => {
+  return (
+    <Card className="flex flex-col h-full">
+      <CardHeader className="flex flex-row items-start justify-between space-y-0 pb-3">
+        <div>
+          <CardTitle className="text-base font-semibold">
+            Transaction Trends
+          </CardTitle>
+          <CardDescription className="text-xs">
+            Income vs Expenses over time
+          </CardDescription>
+        </div>
+        <div className="p-2.5 rounded-xl bg-cyan-500/10 ring-1 ring-cyan-500/20">
+          <TrendingUp className="h-4 w-4 text-cyan-500" />
+        </div>
+      </CardHeader>
+      <CardContent className="flex-1 flex items-center justify-center pb-4">
+        <Skeleton className="h-[200px] w-full rounded-lg" />
+      </CardContent>
+    </Card>
+  );
+};

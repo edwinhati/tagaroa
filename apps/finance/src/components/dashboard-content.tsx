@@ -3,13 +3,28 @@
 import { useBudgetPeriod } from "@repo/common/hooks/use-budget-period";
 import { useFilters } from "@repo/common/hooks/use-filters";
 import { useEffect } from "react";
-import { AccountOverviewChart } from "@/components/account-overview-chart";
-import { BudgetVsActualChart } from "@/components/budget-vs-actual-chart";
+import {
+  AccountOverviewChart,
+  AccountOverviewChartSkeleton,
+} from "@/components/account-overview-chart";
+import {
+  BudgetVsActualChart,
+  BudgetVsActualChartSkeleton,
+} from "@/components/budget-vs-actual-chart";
 import { DateRangePicker } from "@/components/date-range-picker";
-import { ExpenseBreakdownChart } from "@/components/expense-breakdown-chart";
-import { MonthlyComparisonChart } from "@/components/monthly-comparison-chart";
+import {
+  ExpenseBreakdownChart,
+  ExpenseBreakdownChartSkeleton,
+} from "@/components/expense-breakdown-chart";
+import {
+  MonthlyComparisonChart,
+  MonthlyComparisonChartSkeleton,
+} from "@/components/monthly-comparison-chart";
 import { StatCardsSection } from "@/components/stat-cards-section";
-import { TransactionTrendsChart } from "@/components/transaction-trends-chart";
+import {
+  TransactionTrendsChart,
+  TransactionTrendsChartSkeleton,
+} from "@/components/transaction-trends-chart";
 
 export function DashboardContent() {
   const { month, year } = useBudgetPeriod((s) => ({

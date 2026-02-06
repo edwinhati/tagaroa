@@ -130,3 +130,26 @@ const BudgetVsActualChart = ({ range }: { range?: DateRange }) => {
 };
 
 export { BudgetVsActualChart };
+
+export const BudgetVsActualChartSkeleton = () => {
+  return (
+    <Card className="col-span-3 h-full">
+      <CardHeader className="flex flex-row items-start justify-between space-y-0 pb-3">
+        <div>
+          <CardTitle className="text-base font-semibold">
+            Budget vs Actual
+          </CardTitle>
+          <CardDescription className="text-xs">
+            Budget performance overview
+          </CardDescription>
+        </div>
+        <div className="p-2.5 rounded-xl bg-amber-500/10 ring-1 ring-amber-500/20">
+          <Target className="h-4 w-4 text-amber-500" />
+        </div>
+      </CardHeader>
+      <CardContent className="pl-2">
+        <Skeleton className="h-[280px] w-full rounded-lg" />
+      </CardContent>
+    </Card>
+  );
+};
