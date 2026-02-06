@@ -117,10 +117,42 @@ export const liabilityMutationOptions = () => {
 
 export const liabilityDeleteMutationOptions = () => {
   const queryClient = useQueryClient();
+
   return mutationOptions({
     mutationFn: deleteLiability,
-    onSettled: () =>
-      queryClient.invalidateQueries({ queryKey: ["liabilities"] }),
+    onMutate: async (id) => {
+      // Cancel outgoing refetches
+      await queryClient.cancelQueries({ queryKey: ["liabilities"] });
+
+      // Snapshot previous value
+      const previous = queryClient.getQueryData([
+        "liabilities",
+      ]);
+
+      // Optimistically update to the new value
+      queryClient.setQueryData(["liabilities"], (old: any) => {
+        if (!old) return old;
+        return {
+          ...old,
+          liabilities: old.liabilities.filter(
+            (l: Liability) => l.id !== id,
+          ),
+        };
+      });
+
+      // Return context with previous value
+      return { previous };
+    },
+    onError: (err, id, context) => {
+      // Rollback to previous value
+      if (context?.previous) {
+        queryClient.setQueryData(["liabilities"], context.previous);
+      }
+    },
+    onSettled: () => {
+      // Refetch after success or error
+      queryClient.invalidateQueries({ queryKey: ["liabilities"] });
+    },
   });
 };
 
