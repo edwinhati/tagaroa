@@ -1,8 +1,8 @@
 "use client";
 
-import dynamic from "next/dynamic";
 import { useBudgetPeriod } from "@repo/common/hooks/use-budget-period";
 import { useFilters } from "@repo/common/hooks/use-filters";
+import dynamic from "next/dynamic";
 import { useEffect } from "react";
 import { AccountOverviewChartSkeleton } from "@/components/account-overview-chart";
 
@@ -39,10 +39,18 @@ const TransactionTrendsChart = dynamic(
   },
 );
 
-import {
-  BudgetVsActualChart,
-  BudgetVsActualChartSkeleton,
-} from "@/components/budget-vs-actual-chart";
+const BudgetVsActualChart = dynamic(
+  () =>
+    import("@/components/budget-vs-actual-chart").then(
+      (mod) => mod.BudgetVsActualChart,
+    ),
+  {
+    ssr: false,
+    loading: () => <BudgetVsActualChartSkeleton />,
+  },
+);
+
+import { BudgetVsActualChartSkeleton } from "@/components/budget-vs-actual-chart";
 import { DateRangePicker } from "@/components/date-range-picker";
 import { ExpenseBreakdownChartSkeleton } from "@/components/expense-breakdown-chart";
 import {
