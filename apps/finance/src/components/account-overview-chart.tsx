@@ -32,7 +32,7 @@ const CHART_COLORS = [
   "hsl(349, 89%, 60%)", // Rose red
 ];
 
-const AccountOverviewChart = () => {
+const AccountOverviewChart = React.memo(() => {
   const { data, isLoading } = useQuery(accountAggregationsQueryOptions());
 
   const chartData = useMemo(() => {
@@ -211,5 +211,7 @@ const AccountOverviewChart = () => {
     </Card>
   );
 };
+
+AccountOverviewChart.displayName = "AccountOverviewChart";
 
 export { AccountOverviewChart };
