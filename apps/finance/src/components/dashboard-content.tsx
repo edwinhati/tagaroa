@@ -5,6 +5,7 @@ import { useFilters } from "@repo/common/hooks/use-filters";
 import dynamic from "next/dynamic";
 import { useEffect } from "react";
 import { AccountOverviewChartSkeleton } from "@/components/account-overview-chart";
+import { MonthlyComparisonChartSkeleton } from "@/components/monthly-comparison-chart";
 
 const AccountOverviewChart = dynamic(
   () =>
@@ -50,13 +51,20 @@ const BudgetVsActualChart = dynamic(
   },
 );
 
+const MonthlyComparisonChart = dynamic(
+  () =>
+    import("@/components/monthly-comparison-chart").then(
+      (mod) => mod.MonthlyComparisonChart,
+    ),
+  {
+    ssr: false,
+    loading: () => <MonthlyComparisonChartSkeleton />,
+  },
+);
+
 import { BudgetVsActualChartSkeleton } from "@/components/budget-vs-actual-chart";
 import { DateRangePicker } from "@/components/date-range-picker";
 import { ExpenseBreakdownChartSkeleton } from "@/components/expense-breakdown-chart";
-import {
-  MonthlyComparisonChart,
-  MonthlyComparisonChartSkeleton,
-} from "@/components/monthly-comparison-chart";
 import { StatCardsSection } from "@/components/stat-cards-section";
 import { TransactionTrendsChartSkeleton } from "@/components/transaction-trends-chart";
 
