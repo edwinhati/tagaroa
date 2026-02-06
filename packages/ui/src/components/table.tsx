@@ -11,7 +11,12 @@ function Table({ className, ...props }: React.ComponentProps<"table">) {
     >
       <table
         data-slot="table"
-        className={cn("min-w-full caption-bottom text-sm", className)}
+        className={cn(
+          "min-w-full caption-bottom text-sm",
+          // Responsive layout: auto on mobile for horizontal scroll, fixed on desktop for consistent columns
+          "max-md:table-auto md:table-fixed",
+          className,
+        )}
         {...props}
       />
     </div>
