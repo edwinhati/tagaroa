@@ -35,7 +35,7 @@ const chartConfig = {
   },
 } satisfies ChartConfig;
 
-const MonthlyComparisonChart = ({ range }: { range?: DateRange }) => {
+const MonthlyComparisonChart = React.memo(({ range }: { range?: DateRange }) => {
   const { data, isLoading } = useQuery({
     ...transactionTrendsQueryOptions({
       startDate: range?.from
@@ -150,5 +150,7 @@ const MonthlyComparisonChart = ({ range }: { range?: DateRange }) => {
     </Card>
   );
 };
+
+MonthlyComparisonChart.displayName = "MonthlyComparisonChart";
 
 export { MonthlyComparisonChart };
