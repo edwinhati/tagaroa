@@ -1,10 +1,15 @@
 "use client";
 
-import { useBudgetPeriod } from "@repo/common/hooks/use-budget-period";
-import { useFilters } from "@repo/common/hooks/use-filters";
 import dynamic from "next/dynamic";
 import { useEffect } from "react";
+import { useBudgetPeriod } from "@repo/common/hooks/use-budget-period";
+import { useFilters } from "@repo/common/hooks/use-filters";
+import { DateRangePicker } from "@/components/date-range-picker";
+import { StatCardsSection } from "@/components/stat-cards-section";
 import { AccountOverviewChartSkeleton } from "@/components/account-overview-chart";
+import { BudgetVsActualChartSkeleton } from "@/components/budget-vs-actual-chart";
+import { ExpenseBreakdownChartSkeleton } from "@/components/expense-breakdown-chart";
+import { TransactionTrendsChartSkeleton } from "@/components/transaction-trends-chart";
 import { MonthlyComparisonChartSkeleton } from "@/components/monthly-comparison-chart";
 
 const AccountOverviewChart = dynamic(
@@ -61,12 +66,6 @@ const MonthlyComparisonChart = dynamic(
     loading: () => <MonthlyComparisonChartSkeleton />,
   },
 );
-
-import { BudgetVsActualChartSkeleton } from "@/components/budget-vs-actual-chart";
-import { DateRangePicker } from "@/components/date-range-picker";
-import { ExpenseBreakdownChartSkeleton } from "@/components/expense-breakdown-chart";
-import { StatCardsSection } from "@/components/stat-cards-section";
-import { TransactionTrendsChartSkeleton } from "@/components/transaction-trends-chart";
 
 export function DashboardContent() {
   const { month, year } = useBudgetPeriod((s) => ({
