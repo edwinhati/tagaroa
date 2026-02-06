@@ -66,14 +66,14 @@ export const authConfiguration = {
         "authorization_code",
         "refresh_token",
       ],
-      subject_types_supported: ["public"],
+      subject_types_supported: ["public"] as ["public"],
       id_token_signing_alg_values_supported: [CONSTANTS.JWT.ALGORITHM],
       token_endpoint_auth_methods_supported: [
         "client_secret_basic",
         "client_secret_post",
         "none",
-      ],
-      code_challenge_methods_supported: ["S256"],
+      ] as ["client_secret_basic", "client_secret_post", "none"],
+      code_challenge_methods_supported: ["S256"] as ["S256"],
       claims_supported: [
         "sub",
         "name",

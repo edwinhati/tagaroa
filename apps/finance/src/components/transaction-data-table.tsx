@@ -5,6 +5,7 @@ import { DataTableMultiSelectFilter } from "@repo/common/components/data-table-m
 import { DataTablePagination } from "@repo/common/components/data-table-pagination";
 import { Loading } from "@repo/common/components/loading";
 import { useBudgetPeriod } from "@repo/common/hooks/use-budget-period";
+import { useFilters } from "@repo/common/hooks/use-filters";
 import {
   transactionDeleteMutationOptions,
   transactionQueryOptions,
@@ -196,11 +197,23 @@ function TransactionDataTableContent() {
     pageIndex: 0,
     pageSize: 5,
   });
-  const [serverFilters, setServerFilters] = useState<Record<string, string[]>>(
-    {},
-  );
 
-  const [openPopovers, setOpenPopovers] = useState<Record<string, boolean>>({});
+  // Global filter state from store
+  const {
+    serverFilters,
+    range,
+    openPopovers,
+    setServerFilters,
+    setRange,
+    setOpenPopovers,
+  } = useFilters((s) => ({
+    serverFilters: s.serverFilters,
+    range: s.range,
+    openPopovers: s.openPopovers,
+    setServerFilters: s.setServerFilters,
+    setRange: s.setRange,
+    setOpenPopovers: s.setOpenPopovers,
+  }));
 
   // Stable data state to prevent re-renders during refetch
   const [stableData, setStableData] =
@@ -212,14 +225,19 @@ function TransactionDataTableContent() {
     year: s.year,
   }));
 
-  const [range, setRange] = useState<DateRange | undefined>({
-    from: new Date(
-      month === 1 ? year - 1 : year,
-      month === 1 ? 11 : month - 2,
-      25,
-    ),
-    to: new Date(year, month - 1, 25),
-  });
+  // Initialize range from budget period if not set
+  useEffect(() => {
+    if (!range) {
+      setRange({
+        from: new Date(
+          month === 1 ? year - 1 : year,
+          month === 1 ? 11 : month - 2,
+          25,
+        ),
+        to: new Date(year, month - 1, 25),
+      });
+    }
+  }, [month, year, range, setRange]);
 
   const { mutate: deleteTransaction } = useMutation(
     transactionDeleteMutationOptions(),
@@ -392,42 +410,38 @@ function TransactionDataTableContent() {
     checked: boolean,
   ) => {
     // Keep the popover open during filter changes
-    setOpenPopovers((prev) => ({ ...prev, [filterKey]: true }));
+    setOpenPopovers({ ...openPopovers, [filterKey]: true });
 
-    setServerFilters((prev) => {
-      const currentValues = prev[filterKey] || [];
-      let newValues: string[];
+    const currentValues = serverFilters[filterKey] || [];
+    let newValues: string[];
 
-      if (checked) {
-        newValues = [...currentValues, value];
-      } else {
-        newValues = currentValues.filter((v) => v !== value);
-      }
+    if (checked) {
+      newValues = [...currentValues, value];
+    } else {
+      newValues = currentValues.filter((v) => v !== value);
+    }
 
-      const newFilters = { ...prev };
-      if (newValues.length === 0) {
-        delete newFilters[filterKey];
-      } else {
-        newFilters[filterKey] = newValues;
-      }
+    const newFilters = { ...serverFilters };
+    if (newValues.length === 0) {
+      delete newFilters[filterKey];
+    } else {
+      newFilters[filterKey] = newValues;
+    }
 
-      // Reset to first page when filters change
-      setPagination((prev) => ({ ...prev, pageIndex: 0 }));
+    setServerFilters(newFilters);
 
-      return newFilters;
-    });
+    // Reset to first page when filters change
+    setPagination((prev) => ({ ...prev, pageIndex: 0 }));
   };
 
   const handleServerFilterClear = (filterKey: string) => {
-    setServerFilters((prev) => {
-      const newFilters = { ...prev };
-      delete newFilters[filterKey];
+    const newFilters = { ...serverFilters };
+    delete newFilters[filterKey];
 
-      // Reset to first page when filters change
-      setPagination((prev) => ({ ...prev, pageIndex: 0 }));
+    setServerFilters(newFilters);
 
-      return newFilters;
-    });
+    // Reset to first page when filters change
+    setPagination((prev) => ({ ...prev, pageIndex: 0 }));
   };
 
   // Show error state
@@ -494,7 +508,7 @@ function TransactionDataTableContent() {
               onClear={() => handleServerFilterClear(filterKey)}
               open={openPopovers[filterKey]}
               onOpenChange={(open) =>
-                setOpenPopovers((prev) => ({ ...prev, [filterKey]: open }))
+                setOpenPopovers({ ...openPopovers, [filterKey]: open })
               }
             />
           ))}

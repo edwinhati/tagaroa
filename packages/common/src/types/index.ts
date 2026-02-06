@@ -1,3 +1,5 @@
+import type { DateRange } from "react-day-picker";
+
 export type PaginationInfo = {
   page: number;
   limit: number;
@@ -15,4 +17,13 @@ export type AggregationItem = {
   max: number;
   avg: number;
   sum: number;
+};
+
+export type FilterState = {
+  serverFilters: Record<string, string[]>;
+  range: DateRange | undefined;
+  openPopovers: Record<string, boolean>;
+  setServerFilters: (filters: Record<string, string[]>) => void;
+  setRange: (range: DateRange | undefined) => void;
+  setOpenPopovers: (popovers: Record<string, boolean>) => void;
 };

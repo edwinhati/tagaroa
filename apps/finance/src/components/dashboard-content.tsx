@@ -1,8 +1,8 @@
 "use client";
 
 import { useBudgetPeriod } from "@repo/common/hooks/use-budget-period";
-import { useState } from "react";
-import type { DateRange } from "react-day-picker";
+import { useFilters } from "@repo/common/hooks/use-filters";
+import { useEffect } from "react";
 import { AccountOverviewChart } from "@/components/account-overview-chart";
 import { BudgetVsActualChart } from "@/components/budget-vs-actual-chart";
 import { DateRangePicker } from "@/components/date-range-picker";
@@ -17,14 +17,24 @@ export function DashboardContent() {
     year: s.year,
   }));
 
-  const [range, setRange] = useState<DateRange | undefined>({
-    from: new Date(
-      month === 1 ? year - 1 : year,
-      month === 1 ? 11 : month - 2,
-      25,
-    ),
-    to: new Date(year, month - 1, 25),
-  });
+  const { range, setRange } = useFilters((s) => ({
+    range: s.range,
+    setRange: s.setRange,
+  }));
+
+  // Initialize range from budget period if not set
+  useEffect(() => {
+    if (!range) {
+      setRange({
+        from: new Date(
+          month === 1 ? year - 1 : year,
+          month === 1 ? 11 : month - 2,
+          25,
+        ),
+        to: new Date(year, month - 1, 25),
+      });
+    }
+  }, [month, year, range, setRange]);
 
   return (
     <div className="space-y-6">

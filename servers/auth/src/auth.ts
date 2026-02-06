@@ -63,8 +63,9 @@ export const auth = betterAuth({
       getAdditionalUserInfoClaim: authConfiguration.getAdditionalUserInfoClaim,
     }),
     multiSession({ maximumSessions: CONSTANTS.SESSIONS.MAX_PER_USER }),
-    haveIBeenPwned(),
-    ...(process.env.NODE_ENV === "production" ? [] : [openAPI()]),
+    ...(process.env.NODE_ENV === "production"
+      ? [haveIBeenPwned()]
+      : [openAPI()]),
   ],
   trustedOrigins,
   logger: {

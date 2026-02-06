@@ -4,6 +4,7 @@ import { DataTablePagination } from "@repo/common/components/data-table-paginati
 import { DataTableSearchInput } from "@repo/common/components/data-table-search-input";
 import { Loading } from "@repo/common/components/loading";
 import { useBudgetPeriod } from "@repo/common/hooks/use-budget-period";
+import { useFilters } from "@repo/common/hooks/use-filters";
 import {
   budgetItemMutationOptions,
   budgetMutationOptions,
@@ -415,14 +416,24 @@ function BudgetDataTableContent() {
     setYear: s.setYear,
   }));
 
-  const [range, setRange] = useState<DateRange | undefined>({
-    from: new Date(
-      month === 1 ? year - 1 : year,
-      month === 1 ? 11 : month - 2,
-      25,
-    ),
-    to: new Date(year, month - 1, 25),
-  });
+  const { range, setRange } = useFilters((s) => ({
+    range: s.range,
+    setRange: s.setRange,
+  }));
+
+  // Initialize range from budget period if not set
+  useEffect(() => {
+    if (!range) {
+      setRange({
+        from: new Date(
+          month === 1 ? year - 1 : year,
+          month === 1 ? 11 : month - 2,
+          25,
+        ),
+        to: new Date(year, month - 1, 25),
+      });
+    }
+  }, [range, month, year, setRange]);
 
   // Stable data state to prevent re-renders during refetch
   const [stableData, setStableData] = useState<Budget | null>(null);

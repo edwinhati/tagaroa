@@ -3,6 +3,7 @@
 import { AppNavbar } from "@repo/common/components/app-navbar";
 import { AppSidebar } from "@repo/common/components/app-sidebar";
 import { BudgetProvider } from "@repo/common/providers/budget-provider";
+import { FilterProvider } from "@repo/common/providers/filter-provider";
 import { SidebarInset, SidebarProvider } from "@repo/ui/components/sidebar";
 import {
   ArrowLeftRight,
@@ -29,15 +30,17 @@ export default function RootTemplate({
 }) {
   return (
     <div className="[--header-height:calc(--spacing(14))]">
-      <BudgetProvider>
-        <SidebarProvider defaultOpen={false}>
-          <AppSidebar appName="Finance" nav={nav} />
-          <SidebarInset>
-            <AppNavbar />
-            <div className="flex flex-1 flex-col">{children}</div>
-          </SidebarInset>
-        </SidebarProvider>
-      </BudgetProvider>
+      <FilterProvider>
+        <BudgetProvider>
+          <SidebarProvider defaultOpen={false}>
+            <AppSidebar appName="Finance" nav={nav} />
+            <SidebarInset>
+              <AppNavbar />
+              <div className="flex flex-1 flex-col">{children}</div>
+            </SidebarInset>
+          </SidebarProvider>
+        </BudgetProvider>
+      </FilterProvider>
     </div>
   );
 }
