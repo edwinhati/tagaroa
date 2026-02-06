@@ -1,12 +1,21 @@
 "use client";
 
+import dynamic from "next/dynamic";
 import { useBudgetPeriod } from "@repo/common/hooks/use-budget-period";
 import { useFilters } from "@repo/common/hooks/use-filters";
 import { useEffect } from "react";
-import {
-  AccountOverviewChart,
-  AccountOverviewChartSkeleton,
-} from "@/components/account-overview-chart";
+import { AccountOverviewChartSkeleton } from "@/components/account-overview-chart";
+
+const AccountOverviewChart = dynamic(
+  () =>
+    import("@/components/account-overview-chart").then(
+      (mod) => mod.AccountOverviewChart,
+    ),
+  {
+    ssr: false,
+    loading: () => <AccountOverviewChartSkeleton />,
+  },
+);
 import {
   BudgetVsActualChart,
   BudgetVsActualChartSkeleton,
