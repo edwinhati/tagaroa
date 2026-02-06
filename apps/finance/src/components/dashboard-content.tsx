@@ -28,6 +28,17 @@ const ExpenseBreakdownChart = dynamic(
   },
 );
 
+const TransactionTrendsChart = dynamic(
+  () =>
+    import("@/components/transaction-trends-chart").then(
+      (mod) => mod.TransactionTrendsChart,
+    ),
+  {
+    ssr: false,
+    loading: () => <TransactionTrendsChartSkeleton />,
+  },
+);
+
 import {
   BudgetVsActualChart,
   BudgetVsActualChartSkeleton,
@@ -39,10 +50,7 @@ import {
   MonthlyComparisonChartSkeleton,
 } from "@/components/monthly-comparison-chart";
 import { StatCardsSection } from "@/components/stat-cards-section";
-import {
-  TransactionTrendsChart,
-  TransactionTrendsChartSkeleton,
-} from "@/components/transaction-trends-chart";
+import { TransactionTrendsChartSkeleton } from "@/components/transaction-trends-chart";
 
 export function DashboardContent() {
   const { month, year } = useBudgetPeriod((s) => ({
