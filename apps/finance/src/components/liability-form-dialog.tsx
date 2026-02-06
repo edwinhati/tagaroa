@@ -29,7 +29,7 @@ import {
   SelectValue,
 } from "@repo/ui/components/select";
 import { useMutation, useQuery } from "@tanstack/react-query";
-import { PlusIcon } from "lucide-react";
+import { Loader2, PlusIcon } from "lucide-react";
 import { useState } from "react";
 import { Controller, useForm, useWatch } from "react-hook-form";
 import { NumericFormat } from "react-number-format";
@@ -208,11 +208,15 @@ export function LiabilityFormDialog({
               Cancel
             </Button>
             <Button type="submit" disabled={isPending} className="flex-1">
-              {isPending
-                ? "Saving..."
-                : initialData
-                  ? "Update Liability"
-                  : "Add Liability"}
+              {isPending ? (
+                <>
+                  <Loader2 className="animate-spin" /> Saving...
+                </>
+              ) : initialData ? (
+                "Update Liability"
+              ) : (
+                "Add Liability"
+              )}
             </Button>
           </div>
         </form>
