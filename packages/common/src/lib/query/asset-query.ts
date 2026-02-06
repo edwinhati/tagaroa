@@ -113,9 +113,38 @@ export const assetMutationOptions = () => {
 
 export const assetDeleteMutationOptions = () => {
   const queryClient = useQueryClient();
+
   return mutationOptions({
     mutationFn: deleteAsset,
-    onSettled: () => queryClient.invalidateQueries({ queryKey: ["assets"] }),
+    onMutate: async (id) => {
+      // Cancel outgoing refetches
+      await queryClient.cancelQueries({ queryKey: ["assets"] });
+
+      // Snapshot previous value
+      const previous = queryClient.getQueryData(["assets"]);
+
+      // Optimistically update to the new value
+      queryClient.setQueryData(["assets"], (old: any) => {
+        if (!old) return old;
+        return {
+          ...old,
+          assets: old.assets.filter((asset: Asset) => asset.id !== id),
+        };
+      });
+
+      // Return context with previous value
+      return { previous };
+    },
+    onError: (err, id, context) => {
+      // Rollback to previous value
+      if (context?.previous) {
+        queryClient.setQueryData(["assets"], context.previous);
+      }
+    },
+    onSettled: () => {
+      // Refetch after success or error
+      queryClient.invalidateQueries({ queryKey: ["assets"] });
+    },
   });
 };
 
