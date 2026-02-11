@@ -210,7 +210,7 @@ const AccountOverviewChart = React.memo(() => {
       </CardContent>
     </Card>
   );
-};
+});
 
 AccountOverviewChart.displayName = "AccountOverviewChart";
 

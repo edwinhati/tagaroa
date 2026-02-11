@@ -218,7 +218,7 @@ const ExpenseBreakdownChart = React.memo(({ range }: { range?: DateRange }) => {
       </CardContent>
     </Card>
   );
-};
+});
 
 ExpenseBreakdownChart.displayName = "ExpenseBreakdownChart";
 

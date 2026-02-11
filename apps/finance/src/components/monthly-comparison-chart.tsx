@@ -150,7 +150,7 @@ const MonthlyComparisonChart = React.memo(({ range }: { range?: DateRange }) => 
       </CardContent>
     </Card>
   );
-};
+});
 
 MonthlyComparisonChart.displayName = "MonthlyComparisonChart";
 

@@ -1,4 +1,8 @@
-import type { AggregationItem, JsonApiResponse, PaginationInfo } from "@repo/common/types";
+import type {
+  AggregationItem,
+  JsonApiResponse,
+  PaginationInfo,
+} from "@repo/common/types";
 import { z } from "zod";
 
 export const transactionSchema = z.object({
