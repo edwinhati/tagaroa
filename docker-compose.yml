@@ -111,53 +111,6 @@ services:
     networks:
       - default
 
-  traefik:
-    image: "traefik:latest"
-    container_name: "traefik"
-    ports:
-      - "80:80"
-      - "8080:8080"
-    command:
-      - "--entrypoints.web.address=:80"
-      - "--api.dashboard=true"
-      - "--api.insecure=true"
-      - "--providers.docker=true"
-      - "--providers.docker.exposedbydefault=false"
-      - "--log.level=DEBUG"
-      - "--accesslog=true"
-    volumes:
-      - "/var/run/docker.sock:/var/run/docker.sock:ro"
-    
-  api-gateway:
-    image: "alpine"
-    command:
-      - "sleep"
-      - "infinity"
-    labels:
-      - "traefik.enable=true"
-      # API routes on main domain
-      - "traefik.http.routers.auth-api.rule=PathPrefix(`/api/auth`)"
-      - "traefik.http.routers.auth-api.entrypoints=web"
-      - "traefik.http.routers.auth-api.priority=300"
-      - "traefik.http.services.auth-server.loadbalancer.server.url=http://host.docker.internal:8081"
-      - "traefik.http.routers.auth-api.service=auth-server"
-
-      - "traefik.http.routers.finance-api.rule=PathPrefix(`/api/finance`)"
-      - "traefik.http.routers.finance-api.entrypoints=web"
-      - "traefik.http.routers.finance-api.priority=300"
-      - "traefik.http.services.finance-server.loadbalancer.server.url=http://host.docker.internal:8082"
-      - "traefik.http.middlewares.finance-stripprefix.stripprefix.prefixes=/api/finance"
-      - "traefik.http.routers.finance-api.middlewares=finance-stripprefix"
-      - "traefik.http.routers.finance-api.service=finance-server"
-
-      - "traefik.http.routers.storage-api.rule=PathPrefix(`/api/storage`)"
-      - "traefik.http.routers.storage-api.entrypoints=web"
-      - "traefik.http.routers.storage-api.priority=300"
-      - "traefik.http.services.storage-server.loadbalancer.server.url=http://host.docker.internal:8084"
-      - "traefik.http.middlewares.storage-stripprefix.stripprefix.prefixes=/api/storage"
-      - "traefik.http.routers.storage-api.middlewares=storage-stripprefix"
-      - "traefik.http.routers.storage-api.service=storage-server"
-
   drizzle-gateway:
     container_name: drizzle-gate
     image: ghcr.io/drizzle-team/gateway:latest
@@ -219,7 +172,6 @@ volumes:
   kafka_data:
   minio_data:
   n8n_data:
-  traefik_data:
   drizzle_data:
   prometheus-data:
   grafana-data:

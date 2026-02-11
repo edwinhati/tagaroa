@@ -8,12 +8,10 @@
 # Project Configuration
 PROJECT_NAME := tagaroa
 DOCKER_REGISTRY := registry.gitlab.com/tagaroa
-GO_VERSION := 1.24.0
 
 # Package Managers
 NODE_PKG_MANAGER := bun
 NODE_PKG_EXEC := bunx
-GO_CMD := go
 
 # Directories
 APPS_DIR := apps
@@ -30,17 +28,9 @@ TF_DIR := $(INFRA_DIR)/terraform/envs/$(TF_ENV)
 # Ansible
 ANSIBLE_DIR := $(INFRA_DIR)/ansible
 
-# Node.js Apps & Servers
-NODE_APPS := web auth admin finance
-NODE_SERVERS := auth
-
-# Go Servers
-GO_SERVERS := finance
-
-# Docker Configuration
 DOCKER_TARGETOS ?= linux
 DOCKER_TARGETARCH ?= amd64
-COMPOSE_FILE := docker-compose.yaml
+COMPOSE_FILE := docker-compose.yml
 
 # Colors
 RED := \033[0;31m
@@ -69,10 +59,8 @@ help: ## Show available commands
 info: ## Show project information
 	@echo "$(BLUE)━━━ Project Information ━━━$(NC)"
 	@echo "  Project: $(PROJECT_NAME)"
-	@echo "  Go Version: $(GO_VERSION)"
 	@echo "  Node Package Manager: $(NODE_PKG_MANAGER)"
 	@echo "  Node Apps: $(NODE_APPS)"
-	@echo "  Go Servers: $(GO_SERVERS)"
 	@echo "  Current TF Environment: $(TF_ENV)"
 
 # =============================================================================
@@ -101,7 +89,7 @@ install-ansible: ## Install Ansible collections (Dependencies)
 .PHONY: env-setup
 env-setup: ## Setup environment files from examples (Setup)
 	@echo "$(BLUE)Setting up environment files...$(NC)"
-	@for server in $(NODE_SERVERS) $(GO_SERVERS); do \
+	@for server in $(NODE_SERVERS); do \
 		if [ -f servers/$$server/.env.example ] && [ ! -f servers/$$server/.env ]; then \
 			cp servers/$$server/.env.example servers/$$server/.env; \
 			echo "$(YELLOW)Created servers/$$server/.env$(NC)"; \
@@ -121,14 +109,7 @@ env-setup: ## Setup environment files from examples (Setup)
 .PHONY: dev
 dev: ## Start development servers
 	@echo "$(BLUE)Starting development servers...$(NC)"
-	@$(NODE_PKG_MANAGER) run dev
-
-.PHONY: dev-finance
-dev-finance: ## Start finance development servers
-	@echo "$(BLUE)Starting finance development servers...$(NC)"
-	@$(NODE_PKG_EXEC) turbo run dev --filter=auth --filter=auth-server --filter=storage-server --filter=finance --filter=finance-server
-
-.PHONY: dev-docker
+	
 dev-docker: docker-up ## Start Docker infrastructure for development
 	@echo "$(GREEN)✅ Docker infrastructure ready!$(NC)"
 	@echo "$(BLUE)Run 'make dev' in another terminal to start development servers$(NC)"
@@ -138,39 +119,13 @@ dev-docker: docker-up ## Start Docker infrastructure for development
 # =============================================================================
 
 .PHONY: build
-build: build-apps build-servers ## Build all projects
+build: build-apps ## Build all projects
 
 .PHONY: build-apps
 build-apps: ## Build all Node.js apps
 	@echo "$(BLUE)Building Node.js apps...$(NC)"
 	@$(NODE_PKG_MANAGER) run build
 	@echo "$(GREEN)✅ Node.js apps built!$(NC)"
-
-.PHONY: build-servers
-build-servers: ## Build all servers (Node.js + Go)
-	@echo "$(BLUE)Building all servers...$(NC)"
-	@mkdir -p $(BIN_DIR)
-	@for server in $(GO_SERVERS); do \
-		$(MAKE) build-server SERVER=$$server; \
-	done
-	@echo "$(GREEN)✅ All servers built!$(NC)"
-
-.PHONY: build-server
-build-server: ## Build specific server (SERVER=name)
-	@if [ -z "$(SERVER)" ]; then \
-		echo "$(RED)SERVER required. Usage: make build-server SERVER=finance$(NC)"; \
-		exit 1; \
-	fi
-	@echo "$(BLUE)Building server: $(SERVER)$(NC)"
-	@if [ -f "servers/$(SERVER)/go.mod" ]; then \
-		cd servers/$(SERVER) && \
-		CGO_ENABLED=0 GOOS=linux GOARCH=amd64 \
-		$(GO_CMD) build -a -installsuffix cgo \
-		-ldflags '-extldflags "-static"' \
-		-o ../../$(BIN_DIR)/$(SERVER)-server \
-		./cmd/main.go; \
-		echo "$(GREEN)✅ Built: $(BIN_DIR)/$(SERVER)-server$(NC)"; \
-	fi
 
 .PHONY: clean
 clean: ## Clean all build artifacts
@@ -186,64 +141,23 @@ clean: ## Clean all build artifacts
 
 .PHONY: format
 format: ## Format all code
-	@echo "$(BLUE)Formatting code...$(NC)"
-	@$(NODE_PKG_MANAGER) run format 2>/dev/null || true
-	@gofmt -w ./packages/shared/go/ ./servers/finance/ 2>/dev/null || true
-	@echo "$(GREEN)✅ Formatted!$(NC)"
-
+	
 .PHONY: lint
-lint: lint-node lint-go ## Run all lint checks
+lint: lint-node ## Run all lint checks
 
 .PHONY: lint-node
 lint-node: ## Run lint checks for Node.js
 	@echo "$(BLUE)Linting Node.js...$(NC)"
 	@$(NODE_PKG_MANAGER) run lint
 
-.PHONY: lint-go
-lint-go: ## Run lint checks for Go
-	@echo "$(BLUE)Linting Go...$(NC)"
-	@for server in $(GO_SERVERS); do \
-		cd servers/$$server && $(GO_CMD) vet ./... && cd ../..; \
-	done
-
 COVERAGE_FLAG ?=
 
 .PHONY: test
-test: test-apps test-servers ## Run all tests
+test: test-apps ## Run all tests
 
 .PHONY: test-apps
 test-apps: ## Run tests for Node.js apps
 	@$(NODE_PKG_MANAGER) run test 2>/dev/null || echo "$(YELLOW)No tests configured$(NC)"
-
-.PHONY: test-servers
-test-servers: ## Run tests for all servers
-	@for server in $(GO_SERVERS); do \
-		cd servers/$$server && $(GO_CMD) test -v ./... $(COVERAGE_FLAG) && cd ../..; \
-	done
-
-.PHONY: test-coverage
-test-coverage: ## Run all tests with coverage
-	@echo ""
-	@echo "$(BLUE)━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━$(NC)"
-	@echo "$(BLUE)  Coverage Summary$(NC)"
-	@echo "$(BLUE)━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━$(NC)"
-	@for server in $(GO_SERVERS); do \
-		echo ""; \
-		echo "$(CYAN)━━━ $$server ━━━$(NC)"; \
-		cd servers/$$server && go clean -testcache && \
-		go test -coverprofile=coverage.out -covermode=count ./... 2>&1 | grep -E "^(ok|FAIL)" | while read line; do \
-			pkg_path=$$(echo "$$line" | awk '{print $$2}'); \
-			cov=$$(echo "$$line" | grep -oE '[0-9]+\.[0-9]+%'); \
-			if [ -n "$$cov" ]; then \
-				pkg_name=$$(echo "$$pkg_path" | sed 's|github.com/edwinhati/tagaroa/servers/||'); \
-				printf "  %-35s %s\n" "$$pkg_name" "$$cov"; \
-			fi; \
-		done && \
-		rm -f coverage.out; \
-		cd ../..; \
-	done
-	@echo ""
-	@echo "$(GREEN)✅ Coverage report complete!$(NC)"
 
 # =============================================================================
 # DOCKER COMMANDS
@@ -273,7 +187,7 @@ docker-build: ## Build all Docker images
 			docker build -t $(DOCKER_REGISTRY)/$$app-app:latest -f apps/$$app/Dockerfile .; \
 		fi; \
 	done
-	@for server in $(NODE_SERVERS) $(GO_SERVERS); do \
+	@for server in $(NODE_SERVERS); do \
 		if [ -f servers/$$server/Dockerfile ]; then \
 			docker build -t $(DOCKER_REGISTRY)/$$server-server:latest -f servers/$$server/Dockerfile .; \
 		fi; \
@@ -359,10 +273,6 @@ infra-status: tf-output k8s-status ## Show infrastructure status
 .PHONY: db-init
 db-init: ## Initialize databases
 	@echo "$(BLUE)Initializing databases...$(NC)"
-	@docker compose up -d postgres
-	@sleep 5
-	@for db in auth finance storage n8n; do \
-		docker compose exec postgres psql -U postgres -tAc "SELECT 1 FROM pg_database WHERE datname='$$db'" | grep -q 1 || \
-		docker compose exec postgres psql -U postgres -c "CREATE DATABASE $$db;"; \
+	
 	done
 	@echo "$(GREEN)✅ Databases initialized!$(NC)"
