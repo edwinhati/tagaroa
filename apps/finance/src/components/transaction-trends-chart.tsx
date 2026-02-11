@@ -15,6 +15,7 @@ import {
   ChartTooltipContent,
 } from "@repo/ui/components/chart";
 import { Skeleton } from "@repo/ui/components/skeleton";
+import React from "react";
 import { useQuery } from "@tanstack/react-query";
 import { TrendingUp } from "lucide-react";
 import type { DateRange } from "react-day-picker";
@@ -33,7 +34,7 @@ const chartConfig = {
   },
 } satisfies ChartConfig;
 
-const TransactionTrendsChart = ({ range }: { range?: DateRange }) => {
+const TransactionTrendsChart = React.memo(({ range }: { range?: DateRange }) => {
   const { data, isLoading } = useQuery({
     ...transactionTrendsQueryOptions({
       startDate: range?.from
@@ -179,6 +180,8 @@ const TransactionTrendsChart = ({ range }: { range?: DateRange }) => {
       </CardContent>
     </Card>
   );
-};
+});
+
+TransactionTrendsChart.displayName = "TransactionTrendsChart";
 
 export { TransactionTrendsChart };

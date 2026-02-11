@@ -17,6 +17,7 @@ import {
 import { Skeleton } from "@repo/ui/components/skeleton";
 import { useQuery } from "@tanstack/react-query";
 import { BarChart3 } from "lucide-react";
+import React from "react";
 import type { DateRange } from "react-day-picker";
 import { Bar, BarChart, CartesianGrid, XAxis, YAxis } from "recharts";
 
@@ -35,7 +36,7 @@ const chartConfig = {
   },
 } satisfies ChartConfig;
 
-const MonthlyComparisonChart = ({ range }: { range?: DateRange }) => {
+const MonthlyComparisonChart = React.memo(({ range }: { range?: DateRange }) => {
   const { data, isLoading } = useQuery({
     ...transactionTrendsQueryOptions({
       startDate: range?.from
@@ -150,5 +151,7 @@ const MonthlyComparisonChart = ({ range }: { range?: DateRange }) => {
     </Card>
   );
 };
+
+MonthlyComparisonChart.displayName = "MonthlyComparisonChart";
 
 export { MonthlyComparisonChart };

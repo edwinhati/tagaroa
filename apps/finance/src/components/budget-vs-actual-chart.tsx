@@ -17,6 +17,7 @@ import {
 import { Skeleton } from "@repo/ui/components/skeleton";
 import { useQuery } from "@tanstack/react-query";
 import { Target } from "lucide-react";
+import React from "react";
 import type { DateRange } from "react-day-picker";
 import { Bar, BarChart, CartesianGrid, XAxis, YAxis } from "recharts";
 
@@ -31,7 +32,7 @@ const chartConfig = {
   },
 } satisfies ChartConfig;
 
-const BudgetVsActualChart = ({ range }: { range?: DateRange }) => {
+const BudgetVsActualChart = React.memo(({ range }: { range?: DateRange }) => {
   // Use range.to for budget period since budget periods run from 25th of prev month to 25th of current month
   // The budget period is named after the ending month (e.g., Dec 25 - Jan 25 is January's budget)
   const month = range?.to ? range.to.getMonth() + 1 : new Date().getMonth() + 1;
@@ -127,6 +128,8 @@ const BudgetVsActualChart = ({ range }: { range?: DateRange }) => {
       </CardContent>
     </Card>
   );
-};
+});
+
+BudgetVsActualChart.displayName = "BudgetVsActualChart";
 
 export { BudgetVsActualChart };

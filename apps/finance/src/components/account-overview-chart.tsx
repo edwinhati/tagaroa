@@ -17,7 +17,7 @@ import {
 import { Skeleton } from "@repo/ui/components/skeleton";
 import { useQuery } from "@tanstack/react-query";
 import { Wallet } from "lucide-react";
-import { useMemo } from "react";
+import React, { useMemo } from "react";
 import { Cell, Label, Pie, PieChart } from "recharts";
 import { formatCurrencySmart } from "@/utils/currency";
 
@@ -32,7 +32,7 @@ const CHART_COLORS = [
   "hsl(349, 89%, 60%)", // Rose red
 ];
 
-const AccountOverviewChart = () => {
+const AccountOverviewChart = React.memo(() => {
   const { data, isLoading } = useQuery(accountAggregationsQueryOptions());
 
   const chartData = useMemo(() => {
@@ -211,5 +211,7 @@ const AccountOverviewChart = () => {
     </Card>
   );
 };
+
+AccountOverviewChart.displayName = "AccountOverviewChart";
 
 export { AccountOverviewChart };
