@@ -223,3 +223,26 @@ const ExpenseBreakdownChart = React.memo(({ range }: { range?: DateRange }) => {
 ExpenseBreakdownChart.displayName = "ExpenseBreakdownChart";
 
 export { ExpenseBreakdownChart };
+
+export const ExpenseBreakdownChartSkeleton = () => {
+  return (
+    <Card className="flex flex-col h-full">
+      <CardHeader className="flex flex-row items-start justify-between space-y-0 pb-3">
+        <div>
+          <CardTitle className="text-base font-semibold">
+            Expense Breakdown
+          </CardTitle>
+          <CardDescription className="text-xs">
+            Spending by category
+          </CardDescription>
+        </div>
+        <div className="p-2.5 rounded-xl bg-rose-500/10 ring-1 ring-rose-500/20">
+          <PieChartIcon className="h-4 w-4 text-rose-500" />
+        </div>
+      </CardHeader>
+      <CardContent className="flex-1 flex items-center justify-center pb-4">
+        <Skeleton className="aspect-square h-[180px] rounded-full" />
+      </CardContent>
+    </Card>
+  );
+};

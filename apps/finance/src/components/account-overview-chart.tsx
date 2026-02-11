@@ -215,3 +215,26 @@ const AccountOverviewChart = React.memo(() => {
 AccountOverviewChart.displayName = "AccountOverviewChart";
 
 export { AccountOverviewChart };
+
+export const AccountOverviewChartSkeleton = () => {
+  return (
+    <Card className="flex flex-col h-full">
+      <CardHeader className="flex flex-row items-start justify-between space-y-0 pb-3">
+        <div>
+          <CardTitle className="text-base font-semibold">
+            Account Overview
+          </CardTitle>
+          <CardDescription className="text-xs">
+            Balance by account type
+          </CardDescription>
+        </div>
+        <div className="p-2.5 rounded-xl bg-blue-500/10 ring-1 ring-blue-500/20">
+          <Wallet className="h-4 w-4 text-blue-500" />
+        </div>
+      </CardHeader>
+      <CardContent className="flex-1 flex items-center justify-center pb-4">
+        <Skeleton className="aspect-square h-[180px] rounded-full" />
+      </CardContent>
+    </Card>
+  );
+};

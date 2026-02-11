@@ -155,3 +155,26 @@ const MonthlyComparisonChart = React.memo(({ range }: { range?: DateRange }) => 
 MonthlyComparisonChart.displayName = "MonthlyComparisonChart";
 
 export { MonthlyComparisonChart };
+
+export const MonthlyComparisonChartSkeleton = () => {
+  return (
+    <Card className="w-full h-full">
+      <CardHeader className="flex flex-row items-start justify-between space-y-0 pb-3">
+        <div>
+          <CardTitle className="text-base font-semibold">
+            Monthly Comparison
+          </CardTitle>
+          <CardDescription className="text-xs">
+            Income, Expenses, and Net by month
+          </CardDescription>
+        </div>
+        <div className="p-2.5 rounded-xl bg-indigo-500/10 ring-1 ring-indigo-500/20">
+          <BarChart3 className="h-4 w-4 text-indigo-500" />
+        </div>
+      </CardHeader>
+      <CardContent className="pl-2">
+        <Skeleton className="h-[280px] w-full rounded-lg" />
+      </CardContent>
+    </Card>
+  );
+};
