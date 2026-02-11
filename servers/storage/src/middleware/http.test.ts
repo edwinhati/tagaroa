@@ -23,17 +23,22 @@ const captureConsole = () => {
   return { calls, restore };
 };
 
-type HttpMiddlewareFactory = (opts: {
-  logger: LoggerPort;
-}) => import("hono").MiddlewareHandler;
+type HttpMiddlewareFactory = (
+  opts: import("../middleware/http").HttpMiddlewareOptions,
+) => import("hono").MiddlewareHandler;
 
 describe("storage httpMiddleware", () => {
   let httpMiddleware: HttpMiddlewareFactory;
-  let mockLogger: LoggerPort;
+  let mockLogger: LoggerPort & {
+    honoSink: (message: string, ...rest: unknown[]) => void;
+  };
 
   beforeEach(async () => {
     const { createLoggerPort } = await import("../ports/logger.port");
-    mockLogger = createLoggerPort();
+    mockLogger = {
+      ...createLoggerPort(),
+      honoSink: () => {},
+    };
     const module = await import("../middleware/http");
     httpMiddleware = module.createHttpMiddleware;
   });

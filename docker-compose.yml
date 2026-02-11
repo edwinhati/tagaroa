@@ -141,7 +141,7 @@ services:
       - "traefik.http.routers.auth-api.priority=300"
       - "traefik.http.services.auth-server.loadbalancer.server.url=http://host.docker.internal:8081"
       - "traefik.http.routers.auth-api.service=auth-server"
-      
+
       - "traefik.http.routers.finance-api.rule=PathPrefix(`/api/finance`)"
       - "traefik.http.routers.finance-api.entrypoints=web"
       - "traefik.http.routers.finance-api.priority=300"
@@ -149,7 +149,7 @@ services:
       - "traefik.http.middlewares.finance-stripprefix.stripprefix.prefixes=/api/finance"
       - "traefik.http.routers.finance-api.middlewares=finance-stripprefix"
       - "traefik.http.routers.finance-api.service=finance-server"
-      
+
       - "traefik.http.routers.storage-api.rule=PathPrefix(`/api/storage`)"
       - "traefik.http.routers.storage-api.entrypoints=web"
       - "traefik.http.routers.storage-api.priority=300"
@@ -171,6 +171,48 @@ services:
     volumes:
       - drizzle_data:/app
 
+  # Observability Stack
+  jaeger:
+    image: jaegertracing/all-in-one:latest
+    container_name: tagaroa-jaeger
+    ports:
+      - "16686:16686"  # Jaeger UI
+      - "4318:4318"    # OTLP HTTP receiver
+    environment:
+      - COLLECTOR_OTLP_ENABLED=true
+    networks:
+      - tagaroa
+
+  prometheus:
+    image: prom/prometheus:latest
+    container_name: tagaroa-prometheus
+    ports:
+      - "9091:9090"
+    volumes:
+      - ./infra/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - prometheus-data:/prometheus
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+      - '--storage.tsdb.path=/prometheus'
+    networks:
+      - tagaroa
+
+  grafana:
+    image: grafana/grafana:latest
+    container_name: tagaroa-grafana
+    ports:
+      - "3030:3000"
+    environment:
+      - GF_SECURITY_ADMIN_USER=admin
+      - GF_SECURITY_ADMIN_PASSWORD=admin
+      - GF_SERVER_ROOT_URL=http://localhost:3030
+    volumes:
+      - grafana-data:/var/lib/grafana
+      - ./infra/grafana/datasources:/etc/grafana/provisioning/datasources:ro
+      - ./infra/grafana/dashboards:/etc/grafana/provisioning/dashboards:ro
+    networks:
+      - tagaroa
+
 volumes:
   postgres_data:
   clickhouse_data:
@@ -179,5 +221,12 @@ volumes:
   n8n_data:
   traefik_data:
   drizzle_data:
+  prometheus-data:
+  grafana-data:
 
 
+networks:
+  tagaroa:
+    driver: bridge
+
+  

@@ -46,7 +46,9 @@ const fetchBudget = async (
 ): Promise<Budget | null> => {
   type BudgetEnvelope = {
     data?: BudgetResponse | null;
-    message?: string;
+    meta?: {
+      message?: string;
+    };
   };
 
   try {
@@ -55,7 +57,7 @@ const fetchBudget = async (
     // that shape to a Budget and instead return null so the UI can show an
     // empty state rather than freezing on invalid dates.
     const response = await financeApi.get<BudgetEnvelope>(
-      `/budget?month=${month}&year=${year}`,
+      `/budgets/${month}/${year}`,
       { unwrapData: false },
     );
 
@@ -89,7 +91,7 @@ const fetchBudgets = async (params?: {
 
     return {
       budgets: data.data ? data.data.map(mapBudget) : [],
-      pagination: data.pagination,
+      pagination: data.meta?.pagination,
     };
   } catch (error) {
     console.error("Error fetching budgets:", error);

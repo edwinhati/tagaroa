@@ -3,7 +3,6 @@ import type { NextConfig } from "next";
 const nextConfig: NextConfig = {
   output: "standalone",
   transpilePackages: ["@repo/ui", "@repo/common"],
-  allowedDevOrigins: ["http://finance.tagaroa.local"],
   images: {
     remotePatterns: [
       {
@@ -13,6 +12,23 @@ const nextConfig: NextConfig = {
         pathname: "/storage/**",
       },
     ],
+  },
+  async rewrites() {
+    const apiUrl = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost";
+    return [
+      {
+        source: "/api/auth/:path*",
+        destination: `${apiUrl}/api/auth/:path*`,
+      },
+      {
+        source: "/api/finance/:path*",
+        destination: `${apiUrl}/api/finance/:path*`,
+      },
+      {
+        source: "/api/storage/:path*",
+        destination: `${apiUrl}/api/storage/:path*`,
+      },
+    ];
   },
 };
 

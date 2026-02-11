@@ -40,8 +40,8 @@ describe("FileService", () => {
     mockRepository = createMockRepository();
     mockS3Service = createMockS3Service();
     fileService = new FileService(
-      mockRepository as unknown,
-      mockS3Service as unknown,
+      mockRepository as any,
+      mockS3Service as any,
       mockLogger,
     );
   });

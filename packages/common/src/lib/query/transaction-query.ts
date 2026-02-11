@@ -86,8 +86,8 @@ const fetchTransactions = async (params?: {
 
     return {
       transactions: data.data ? data.data.map(mapTransaction) : [],
-      pagination: data.pagination,
-      aggregations: data.aggregations || {},
+      pagination: data.meta?.pagination,
+      aggregations: data.meta?.aggregations || {},
     };
   } catch (error) {
     console.error("Error fetching transactions:", error);
@@ -121,7 +121,7 @@ const mutateTransaction = async (
     };
 
     const data = await financeApi.put<TransactionResponse>(
-      `/transaction/${transaction.id}`,
+      `/transactions/${transaction.id}`,
       updatePayload,
     );
     return mapTransaction(data);
@@ -140,7 +140,7 @@ const mutateTransaction = async (
     };
 
     const data = await financeApi.post<TransactionResponse>(
-      "/transaction",
+      "/transactions",
       createPayload,
     );
     return mapTransaction(data);
@@ -149,7 +149,7 @@ const mutateTransaction = async (
 
 // Delete a transaction
 const deleteTransaction = async (id: string): Promise<void> => {
-  await financeApi.delete(`/transaction/${id}`);
+  await financeApi.delete(`/transactions/${id}`);
 };
 
 export const transactionQueryOptions = (params?: {

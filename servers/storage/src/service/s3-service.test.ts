@@ -7,20 +7,21 @@ import {
   S3Service,
 } from "./s3-service";
 
-const createMockS3File = (): S3File => ({
-  write: mock(() => Promise.resolve()),
-  stat: mock(() =>
-    Promise.resolve({
-      size: 1024,
-      type: "text/plain",
-      lastModified: new Date("2024-01-01"),
-      etag: '"abc123"',
-    }),
-  ),
-  exists: mock(() => Promise.resolve(true)),
-  delete: mock(() => Promise.resolve()),
-  presign: mock(() => "https://presigned-url.com"),
-});
+const createMockS3File = (): S3File =>
+  ({
+    write: mock(() => Promise.resolve(0)),
+    stat: mock(() =>
+      Promise.resolve({
+        size: 1024,
+        type: "text/plain",
+        lastModified: new Date("2024-01-01"),
+        etag: '"abc123"',
+      }),
+    ),
+    exists: mock(() => Promise.resolve(true)),
+    delete: mock(() => Promise.resolve()),
+    presign: mock(() => "https://presigned-url.com"),
+  }) as unknown as S3File;
 
 const createMockS3Client = (mockFile: S3File): S3ClientInterface => ({
   file: mock(() => mockFile),

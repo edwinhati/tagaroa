@@ -59,8 +59,8 @@ const fetchAccounts = async (params?: {
 
     return {
       accounts: data.data ? data.data.map(mapAccount) : [],
-      pagination: data.pagination,
-      aggregations: data.aggregations || {},
+      pagination: data.meta?.pagination,
+      aggregations: data.meta?.aggregations || {},
     };
   } catch (error) {
     console.error("Error fetching accounts:", error);
@@ -90,15 +90,15 @@ const mutateAccount = async (account: Account): Promise<Account> => {
   const hasValidId = account.id && account.id.trim() !== "";
 
   const data = await (hasValidId
-    ? financeApi.put<AccountResponse>(`/account/${account.id}`, payload)
-    : financeApi.post<AccountResponse>("/account", payload));
+    ? financeApi.put<AccountResponse>(`/accounts/${account.id}`, payload)
+    : financeApi.post<AccountResponse>("/accounts", payload));
 
   return mapAccount(data);
 };
 
 // Delete an account
 const deleteAccount = async (id: string): Promise<void> => {
-  await financeApi.delete(`/account/${id}`);
+  await financeApi.delete(`/accounts/${id}`);
 };
 
 // Fetch all accounts for export (with large limit)

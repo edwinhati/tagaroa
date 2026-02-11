@@ -5,8 +5,8 @@ import (
 	"encoding/json"
 	"time"
 
-	"github.com/edwinhati/tagaroa/packages/shared/go/kafka"
-	"github.com/edwinhati/tagaroa/packages/shared/go/logger"
+	"github.com/edwinhati/tagaroa/servers/finance/pkg/kafka"
+	"github.com/edwinhati/tagaroa/servers/finance/pkg/logger"
 	"github.com/google/uuid"
 	"go.uber.org/zap"
 )

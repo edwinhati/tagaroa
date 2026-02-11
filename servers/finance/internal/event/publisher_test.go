@@ -6,7 +6,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/edwinhati/tagaroa/packages/shared/go/kafka"
+	"github.com/edwinhati/tagaroa/servers/finance/pkg/kafka"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 )

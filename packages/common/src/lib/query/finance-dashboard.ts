@@ -24,12 +24,25 @@ const fetchDashboardSummary = async (params?: {
     ? `/dashboard/summary?${queryString}`
     : "/dashboard/summary";
 
-  return financeApi.get<SummaryResult>(url);
+  type DashboardSummaryResponse = {
+    data: SummaryResult;
+  };
+  const response = await financeApi.get<DashboardSummaryResponse>(url, {
+    unwrapData: false,
+  });
+  return response.data;
 };
 
 const fetchAccountAggregations =
   async (): Promise<AccountAggregationsResult> => {
-    return financeApi.get<AccountAggregationsResult>("/dashboard/accounts");
+    type AccountAggregationsResponse = {
+      data: AccountAggregationsResult;
+    };
+    const response = await financeApi.get<AccountAggregationsResponse>(
+      "/dashboard/accounts",
+      { unwrapData: false },
+    );
+    return response.data;
   };
 
 const fetchBudgetPerformance = async (params?: {
@@ -46,7 +59,13 @@ const fetchBudgetPerformance = async (params?: {
     ? `/dashboard/budget-performance?${queryString}`
     : "/dashboard/budget-performance";
 
-  return financeApi.get<BudgetPerformanceResult>(url);
+  type BudgetPerformanceResponse = {
+    data: BudgetPerformanceResult;
+  };
+  const response = await financeApi.get<BudgetPerformanceResponse>(url, {
+    unwrapData: false,
+  });
+  return response.data;
 };
 
 const fetchTransactionTrends = async (params?: {
@@ -66,7 +85,13 @@ const fetchTransactionTrends = async (params?: {
     ? `/dashboard/transaction-trends?${queryString}`
     : "/dashboard/transaction-trends";
 
-  return financeApi.get<TransactionTrendsResult>(url);
+  type TransactionTrendsResponse = {
+    data: TransactionTrendsResult;
+  };
+  const response = await financeApi.get<TransactionTrendsResponse>(url, {
+    unwrapData: false,
+  });
+  return response.data;
 };
 
 const fetchExpenseBreakdown = async (params?: {
@@ -83,7 +108,13 @@ const fetchExpenseBreakdown = async (params?: {
     ? `/dashboard/expense-breakdown?${queryString}`
     : "/dashboard/expense-breakdown";
 
-  return financeApi.get<ExpenseBreakdownResult>(url);
+  type ExpenseBreakdownResponse = {
+    data: ExpenseBreakdownResult;
+  };
+  const response = await financeApi.get<ExpenseBreakdownResponse>(url, {
+    unwrapData: false,
+  });
+  return response.data;
 };
 
 export const dashboardSummaryQueryOptions = (params?: {
@@ -93,6 +124,7 @@ export const dashboardSummaryQueryOptions = (params?: {
   return queryOptions({
     queryKey: ["dashboard-summary", params],
     queryFn: () => fetchDashboardSummary(params),
+    enabled: !!params?.startDate && !!params?.endDate,
   });
 };
 
@@ -121,6 +153,7 @@ export const transactionTrendsQueryOptions = (params?: {
   return queryOptions({
     queryKey: ["transaction-trends", params],
     queryFn: () => fetchTransactionTrends(params),
+    enabled: !!params?.startDate && !!params?.endDate,
   });
 };
 
@@ -131,5 +164,6 @@ export const expenseBreakdownQueryOptions = (params?: {
   return queryOptions({
     queryKey: ["expense-breakdown", params],
     queryFn: () => fetchExpenseBreakdown(params),
+    enabled: !!params?.startDate && !!params?.endDate,
   });
 };

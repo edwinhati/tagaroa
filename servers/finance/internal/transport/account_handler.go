@@ -1,118 +1,95 @@
-package handler
+package httphandler
 
 import (
 	"net/http"
 
-	"github.com/edwinhati/tagaroa/packages/shared/go/client"
-	"github.com/edwinhati/tagaroa/packages/shared/go/logger"
-	sharedmiddleware "github.com/edwinhati/tagaroa/packages/shared/go/middleware"
-	"github.com/edwinhati/tagaroa/packages/shared/go/router"
-	"github.com/edwinhati/tagaroa/packages/shared/go/util"
-	"github.com/edwinhati/tagaroa/servers/finance/internal/middleware"
-	"github.com/edwinhati/tagaroa/servers/finance/internal/model"
-	"github.com/edwinhati/tagaroa/servers/finance/internal/service"
-	"github.com/google/uuid"
-	"go.uber.org/zap"
+	appaccount "github.com/edwinhati/tagaroa/servers/finance/internal/application/account"
+	"github.com/edwinhati/tagaroa/servers/finance/internal/domain/account"
+	"github.com/edwinhati/tagaroa/servers/finance/internal/domain/shared"
+	infrahttp "github.com/edwinhati/tagaroa/servers/finance/internal/infrastructure/http"
+	"github.com/edwinhati/tagaroa/servers/finance/pkg/util"
 )
 
-type CreateAccountRequest struct {
-	Name     string            `json:"name" validate:"required"`
-	Type     model.AccountType `json:"type" validate:"required"`
-	Balance  float64           `json:"balance"`
-	Currency string            `json:"currency" validate:"required"`
-	Notes    *string           `json:"notes,omitempty"`
-}
-
-type UpdateAccountRequest struct {
-	Name     *string  `json:"name,omitempty"`
-	Balance  *float64 `json:"balance,omitempty"`
-	Currency *string  `json:"currency,omitempty"`
-	Notes    *string  `json:"notes,omitempty"`
-}
-
+// AccountHandler handles HTTP requests for accounts
 type AccountHandler struct {
-	oidcClient     *client.OIDCClient
-	accountService service.AccountService
-	log            *zap.SugaredLogger
+	accountService *appaccount.Service
 }
 
-func NewAccountHandler(oidcClient *client.OIDCClient, accountService service.AccountService) *AccountHandler {
+// NewAccountHandler creates a new account handler
+func NewAccountHandler(accountService *appaccount.Service) *AccountHandler {
 	return &AccountHandler{
-		oidcClient:     oidcClient,
 		accountService: accountService,
-		log:            logger.New().With("handler", "account"),
 	}
 }
 
-func (h *AccountHandler) SetupRoutes(router *router.Router, middlewares ...func(http.Handler) http.Handler) {
-	// Combine middlewares with auth middleware
-	allMiddlewares := append(middlewares, sharedmiddleware.AuthMiddleware(h.oidcClient))
+// SetupRoutes sets up the account routes
+func (h *AccountHandler) SetupRoutes(router *infrahttp.RouterGroup) {
+	router.HandleFunc("GET /accounts", h.GetAccounts)
+	router.HandleFunc("POST /accounts", h.CreateAccount)
+	router.HandleFunc("GET /accounts/{id}", h.GetAccount)
+	router.HandleFunc("PUT /accounts/{id}", h.UpdateAccount)
+	router.HandleFunc("DELETE /accounts/{id}", h.DeleteAccount)
+	router.HandleFunc("GET /account/types", h.GetAccountTypes)
+}
 
-	// Apply middleware to individual routes
-	applyMiddleware := func(handler http.HandlerFunc) http.HandlerFunc {
-		h := http.Handler(handler)
-		for i := len(allMiddlewares) - 1; i >= 0; i-- {
-			h = allMiddlewares[i](h)
-		}
-		return h.ServeHTTP
-	}
+// CreateAccountRequest represents a request to create an account
+type CreateAccountRequest struct {
+	Name     string  `json:"name" validate:"required"`
+	Type     string  `json:"type" validate:"required"`
+	Balance  float64 `json:"balance"`
+	Currency string  `json:"currency" validate:"required"`
+	Notes    *string `json:"notes,omitempty"`
+}
 
-	// Register specific routes first
-	router.HandleFunc("GET /account/types", applyMiddleware(h.GetAccountTypes))
-
-	// Handler for listing and creating accounts
-	router.HandleFunc("GET /accounts", applyMiddleware(h.GetAccounts))
-	router.HandleFunc("POST /account", applyMiddleware(h.CreateAccount))
-
-	// Handler for getting and updating specific accounts
-	router.HandleFunc("GET /account/{id}", applyMiddleware(h.GetAccount))
-	router.HandleFunc("PUT /account/{id}", applyMiddleware(h.UpdateAccount))
-
-	// Handler for deleting specific accounts
-	router.HandleFunc("DELETE /account/{id}", applyMiddleware(h.DeleteAccount))
+// UpdateAccountRequest represents a request to update an account
+type UpdateAccountRequest struct {
+	Name    *string  `json:"name,omitempty"`
+	Balance *float64 `json:"balance,omitempty"`
+	Notes   *string  `json:"notes,omitempty"`
 }
 
 func (h *AccountHandler) CreateAccount(w http.ResponseWriter, r *http.Request) {
-	requestID := middleware.GetRequestID(r.Context())
-
 	var req CreateAccountRequest
 	if !util.ParseJSONBody(w, r, &req) {
-		h.log.Warnw("CreateAccount invalid request body", "request_id", requestID)
 		return
 	}
 
-	userID, ok := util.RequireUserID(w, r)
+	userIDUUID, ok := util.RequireUserID(w, r)
 	if !ok {
 		return
 	}
 
-	h.log.Infow("CreateAccount request started", "request_id", requestID, "user_id", userID, "account_type", req.Type, "currency", req.Currency)
-
-	account := &model.Account{
-		ID:       uuid.New(),
-		Name:     req.Name,
-		Type:     req.Type,
-		Balance:  req.Balance,
-		UserID:   userID,
-		Currency: req.Currency,
-		Notes:    req.Notes,
-	}
-
-	account, err := h.accountService.CreateAccount(r.Context(), account)
-	if err != nil {
-		switch err {
-		case service.ErrInvalidAccountType:
-			h.log.Warnw("CreateAccount invalid account type", "request_id", requestID, "error", err.Error())
-			util.WriteErrorResponse(w, http.StatusBadRequest, "Invalid account", err.Error())
-		default:
-			h.log.Errorw("CreateAccount failed", "request_id", requestID, "error", err.Error())
-			util.WriteErrorResponse(w, http.StatusInternalServerError, "Failed to create account", err.Error())
-		}
+	currency := shared.Currency(req.Currency)
+	if !currency.IsValid() {
+		util.WriteJsonApiError(w, r, http.StatusBadRequest, "INVALID_CURRENCY", "Invalid Currency", "Currency must be one of: USD, IDR, EUR, GBP, JPY, SGD")
 		return
 	}
 
-	h.log.Infow("CreateAccount success", "request_id", requestID, "account_id", account.ID, "account_type", account.Type)
-	util.WriteJSONResponse(w, http.StatusOK, account, "Account created successfully")
+	accountType := account.AccountType(req.Type)
+	if !accountType.IsValid() {
+		util.WriteJsonApiError(w, r, http.StatusBadRequest, "INVALID_TYPE", "Invalid Account Type", "Account type must be one of: checking, savings, credit, investment, cash")
+		return
+	}
+
+	userID := shared.UserIDFromUUID(userIDUUID)
+	input := appaccount.CreateAccountInput{
+		Name:           req.Name,
+		Type:           accountType,
+		InitialBalance: req.Balance,
+		UserID:         userID,
+		Currency:       currency,
+		Notes:          req.Notes,
+	}
+
+	acc, err := h.accountService.CreateAccount(r.Context(), input)
+	if err != nil {
+		util.WriteJsonApiError(w, r, http.StatusInternalServerError, "CREATE_FAILED", "Failed to Create Account", err.Error())
+		return
+	}
+
+	util.WriteJsonApiResponse(w, r, http.StatusCreated, acc, util.JsonApiMeta{
+		Message: "Account created successfully",
+	}, nil)
 }
 
 func (h *AccountHandler) GetAccount(w http.ResponseWriter, r *http.Request) {
@@ -122,55 +99,46 @@ func (h *AccountHandler) GetAccount(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	userID, ok := util.RequireUserID(w, r)
+	userIDUUID, ok := util.RequireUserID(w, r)
 	if !ok {
 		return
 	}
 
-	account, err := h.accountService.GetAccount(r.Context(), id, userID)
+	userID := shared.UserIDFromUUID(userIDUUID)
+	acc, err := h.accountService.GetAccount(r.Context(), id, userID)
 	if err != nil {
-		switch err {
-		case service.ErrAccountNotFound:
-			util.WriteErrorResponse(w, http.StatusNotFound, errMsgAccountNotFound, err.Error())
-		case service.ErrAccountAccessDenied:
-			util.WriteErrorResponse(w, http.StatusForbidden, errMsgAccessDenied, errMsgAccountAccessDenied)
-		default:
-			util.WriteErrorResponse(w, http.StatusInternalServerError, errMsgFailedToGetAccount, err.Error())
-		}
+		util.WriteJsonApiError(w, r, http.StatusInternalServerError, "FETCH_FAILED", "Failed to Get Account", err.Error())
 		return
 	}
 
-	util.WriteJSONResponse(w, http.StatusOK, account, "Account retrieved successfully")
+	util.WriteJsonApiResponse(w, r, http.StatusOK, acc, util.JsonApiMeta{
+		Message: "Account retrieved successfully",
+	}, nil)
 }
 
 func (h *AccountHandler) GetAccounts(w http.ResponseWriter, r *http.Request) {
-	userID, ok := util.RequireUserID(w, r)
+	userIDUUID, ok := util.RequireUserID(w, r)
 	if !ok {
 		return
 	}
 
-	params := buildAccountQueryParams(r, userID)
-
-	result, err := h.accountService.GetAccounts(r.Context(), params)
+	userID := shared.UserIDFromUUID(userIDUUID)
+	accounts, err := h.accountService.GetAccounts(r.Context(), userID)
 	if err != nil {
-		util.WriteErrorResponse(w, http.StatusInternalServerError, "Failed to get accounts", err.Error())
+		util.WriteJsonApiError(w, r, http.StatusInternalServerError, "FETCH_FAILED", "Failed to Get Accounts", err.Error())
 		return
 	}
 
-	pagination := util.NewPagination(params.Page, params.Limit, result.Total)
-	aggregations := convertAggregations(result)
-
-	if aggregations != nil {
-		util.WriteListResponse(w, http.StatusOK, result.Accounts, pagination, aggregations, "Accounts retrieved successfully")
-		return
-	}
-
-	util.WritePaginatedJSONResponse(w, http.StatusOK, result.Accounts, pagination, "Accounts retrieved successfully")
+	util.WriteJsonApiResponse(w, r, http.StatusOK, accounts, util.JsonApiMeta{
+		Message: "Accounts retrieved successfully",
+	}, nil)
 }
 
 func (h *AccountHandler) GetAccountTypes(w http.ResponseWriter, r *http.Request) {
-	raw := model.AccountTypes()
-	util.WriteJSONResponse(w, http.StatusOK, &raw, "Account types retrieved successfully")
+	types := account.AllAccountTypes()
+	util.WriteJsonApiResponse(w, r, http.StatusOK, types, util.JsonApiMeta{
+		Message: "Account types retrieved successfully",
+	}, nil)
 }
 
 func (h *AccountHandler) UpdateAccount(w http.ResponseWriter, r *http.Request) {
@@ -185,30 +153,27 @@ func (h *AccountHandler) UpdateAccount(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	userID, ok := util.RequireUserID(w, r)
+	userIDUUID, ok := util.RequireUserID(w, r)
 	if !ok {
 		return
 	}
-	input := service.UpdateAccountInput{
-		Name:     req.Name,
-		Currency: req.Currency,
-		Notes:    req.Notes,
-		Balance:  req.Balance,
+
+	userID := shared.UserIDFromUUID(userIDUUID)
+	input := appaccount.UpdateAccountInput{
+		Name:    req.Name,
+		Balance: req.Balance,
+		Notes:   req.Notes,
 	}
-	account, err := h.accountService.UpdateAccount(r.Context(), id, input, userID)
+
+	acc, err := h.accountService.UpdateAccount(r.Context(), id, userID, input)
 	if err != nil {
-		switch err {
-		case service.ErrAccountNotFound:
-			util.WriteErrorResponse(w, http.StatusNotFound, errMsgAccountNotFound, err.Error())
-		case service.ErrAccountAccessDenied:
-			util.WriteErrorResponse(w, http.StatusForbidden, errMsgAccessDenied, errMsgAccountAccessDenied)
-		default:
-			util.WriteErrorResponse(w, http.StatusInternalServerError, errMsgFailedToUpdateAccount, err.Error())
-		}
+		util.WriteJsonApiError(w, r, http.StatusInternalServerError, "UPDATE_FAILED", "Failed to Update Account", err.Error())
 		return
 	}
 
-	util.WriteJSONResponse(w, http.StatusOK, account, "Account updated successfully")
+	util.WriteJsonApiResponse(w, r, http.StatusOK, acc, util.JsonApiMeta{
+		Message: "Account updated successfully",
+	}, nil)
 }
 
 func (h *AccountHandler) DeleteAccount(w http.ResponseWriter, r *http.Request) {
@@ -218,35 +183,19 @@ func (h *AccountHandler) DeleteAccount(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	userID, ok := util.RequireUserID(w, r)
+	userIDUUID, ok := util.RequireUserID(w, r)
 	if !ok {
 		return
 	}
-	account, err := h.accountService.GetAccount(r.Context(), id, userID)
+
+	userID := shared.UserIDFromUUID(userIDUUID)
+	err := h.accountService.DeleteAccount(r.Context(), id, userID)
 	if err != nil {
-		switch err {
-		case service.ErrAccountNotFound:
-			util.WriteErrorResponse(w, http.StatusNotFound, errMsgAccountNotFound, err.Error())
-		case service.ErrAccountAccessDenied:
-			util.WriteErrorResponse(w, http.StatusForbidden, errMsgAccessDenied, errMsgAccountAccessDenied)
-		default:
-			util.WriteErrorResponse(w, http.StatusInternalServerError, errMsgFailedToGetAccount, err.Error())
-		}
+		util.WriteJsonApiError(w, r, http.StatusInternalServerError, "DELETE_FAILED", "Failed to Delete Account", err.Error())
 		return
 	}
 
-	err = h.accountService.DeleteAccount(r.Context(), id, userID)
-	if err != nil {
-		switch err {
-		case service.ErrAccountNotFound:
-			util.WriteErrorResponse(w, http.StatusNotFound, errMsgAccountNotFound, err.Error())
-		case service.ErrAccountAccessDenied:
-			util.WriteErrorResponse(w, http.StatusForbidden, errMsgAccessDenied, errMsgAccountAccessDenied)
-		default:
-			util.WriteErrorResponse(w, http.StatusInternalServerError, errMsgFailedToDeleteAccount, err.Error())
-		}
-		return
-	}
-
-	util.WriteJSONResponse(w, http.StatusOK, account, "Account deleted successfully")
+	util.WriteJsonApiResponse(w, r, http.StatusOK, map[string]string{"message": "Account deleted successfully"}, util.JsonApiMeta{
+		Message: "Account deleted successfully",
+	}, nil)
 }

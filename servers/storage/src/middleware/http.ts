@@ -1,8 +1,16 @@
 import type { Context, MiddlewareHandler } from "hono";
 import type { LoggerPort } from "../ports/logger.port.js";
 
-interface HttpMiddlewareOptions {
-  logger: LoggerPort;
+export interface HttpMiddlewareOptions {
+  logger: LoggerPort & {
+    honoSink: (message: string, ...rest: unknown[]) => void;
+  };
+}
+
+declare module "hono" {
+  interface ContextVariableMap {
+    requestStart: number;
+  }
 }
 
 export const createHttpMiddleware = ({

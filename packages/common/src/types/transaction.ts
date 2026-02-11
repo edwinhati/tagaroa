@@ -1,4 +1,4 @@
-import type { AggregationItem, PaginationInfo } from "@repo/common/types";
+import type { AggregationItem, JsonApiResponse, PaginationInfo } from "@repo/common/types";
 import { z } from "zod";
 
 export const transactionSchema = z.object({
@@ -60,12 +60,14 @@ export type TransactionResponse = {
   };
 };
 
-export type TransactionsApiResponse = {
-  timestamp: string;
-  data: TransactionResponse[] | null;
-  pagination: PaginationInfo;
-  aggregations: Record<string, AggregationItem[]>;
-  message: string;
+export type TransactionsApiResponse = JsonApiResponse<TransactionResponse[]>;
+export type TransactionsApiError = {
+  errors: Array<{
+    status?: string;
+    code?: string;
+    title?: string;
+    detail?: string;
+  }>;
 };
 
 export type PaginatedTransactionsResult = {

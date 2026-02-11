@@ -19,6 +19,52 @@ export type AggregationItem = {
   sum: number;
 };
 
+// JSON:API compliant types
+export type JsonApiMeta = {
+  pagination?: PaginationInfo;
+  aggregations?: Record<string, AggregationItem[]>;
+  timestamp?: string;
+  message?: string;
+  requestId?: string;
+  traceId?: string;
+};
+
+export type JsonApiLinks = {
+  self?: string;
+  first?: string;
+  last?: string;
+  next?: string;
+  prev?: string;
+};
+
+export type JsonApiResponse<T> = {
+  data: T;
+  meta?: JsonApiMeta;
+  jsonapi?: { version: string };
+  links?: JsonApiLinks;
+};
+
+export type JsonApiErrorResponse = {
+  errors: Array<{
+    status?: string;
+    code?: string;
+    title?: string;
+    detail?: string;
+    meta?: Record<string, unknown>;
+  }>;
+  jsonapi?: { version: string };
+};
+
+// Legacy - marked as deprecated
+/** @deprecated Use JsonApiResponse instead */
+export type LegacyApiResponse<T> = {
+  timestamp: string;
+  data: T | null;
+  pagination?: PaginationInfo;
+  aggregations?: Record<string, AggregationItem[]>;
+  message: string;
+};
+
 export type FilterState = {
   serverFilters: Record<string, string[]>;
   range: DateRange | undefined;

@@ -86,7 +86,6 @@ export function createAuthMiddleware(
     if (typeof tokenResult === "object") {
       logger.info(
         `Authentication failed: ${tokenResult.error}`,
-        undefined,
         `ip:${c.req.header("x-forwarded-for") || c.req.header("x-real-ip") || "unknown"}`,
       );
       return writeAuthError(c, tokenResult);
@@ -101,7 +100,6 @@ export function createAuthMiddleware(
 
       logger.info(
         `Authentication successful`,
-        undefined,
         `user:${userId} path:${c.req.path}`,
       );
 
@@ -109,11 +107,7 @@ export function createAuthMiddleware(
       await next();
     } catch (err) {
       const message = err instanceof Error ? err.message : "Unknown error";
-      logger.info(
-        `Authentication failed: ${message}`,
-        undefined,
-        `path:${c.req.path}`,
-      );
+      logger.info(`Authentication failed: ${message}`, `path:${c.req.path}`);
 
       return writeAuthError(c, {
         status: 401,

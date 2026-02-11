@@ -9,11 +9,21 @@ export interface S3Config {
   region?: string;
 }
 
-export interface S3File {
+export type S3Acl =
+  | "private"
+  | "public-read"
+  | "public-read-write"
+  | "aws-exec-read"
+  | "authenticated-read"
+  | "bucket-owner-read"
+  | "bucket-owner-full-control"
+  | "log-delivery-write";
+
+export interface S3File extends Blob {
   write(
     data: string | ArrayBuffer | Blob | Response,
     options?: { type?: string },
-  ): Promise<void>;
+  ): Promise<number>;
   stat(): Promise<{
     size: number;
     type?: string;
@@ -23,10 +33,10 @@ export interface S3File {
   exists(): Promise<boolean>;
   delete(): Promise<void>;
   presign(options: {
-    method: string;
+    method: "GET" | "POST" | "PUT" | "DELETE" | "HEAD";
     expiresIn?: number;
     type?: string;
-    acl?: string;
+    acl?: S3Acl;
   }): string;
 }
 
@@ -64,7 +74,7 @@ export class S3Service {
     data: string | Uint8Array | ArrayBuffer | Blob | ReadableStream,
     options?: {
       contentType?: string;
-      acl?: string;
+      acl?: S3Acl;
     },
   ): Promise<{ url: string; key: string }> {
     const ctx = "S3Service";
@@ -156,7 +166,7 @@ export class S3Service {
     options?: {
       expiresIn?: number;
       contentType?: string;
-      acl?: string;
+      acl?: S3Acl;
     },
   ): string {
     const ctx = "S3Service";

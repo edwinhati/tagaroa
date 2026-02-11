@@ -1,7 +1,15 @@
 import { serve } from "@hono/node-server";
-import { createApp } from "./app";
 import { config } from "./config";
+import { createApp } from "./app";
 import { CONSTANTS } from "./lib/constants";
+import { initTelemetry } from "@repo/common/telemetry";
+
+// Initialize OpenTelemetry first (before any other imports)
+initTelemetry({
+  serviceName: "auth-server",
+  serviceVersion: "1.0.0",
+  enabled: process.env.OTEL_ENABLED !== "false",
+});
 
 async function startServer() {
   const { app, logger } = createApp();

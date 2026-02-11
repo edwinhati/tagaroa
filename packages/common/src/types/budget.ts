@@ -1,3 +1,4 @@
+import type { JsonApiResponse } from "@repo/common/types";
 import { z } from "zod";
 
 export type PaginationInfo = {
@@ -53,11 +54,14 @@ export type BudgetResponse = {
   updated_at: Date;
 };
 
-export type BudgetsApiResponse = {
-  timestamp: string;
-  data: BudgetResponse[] | null;
-  pagination: PaginationInfo;
-  message: string;
+export type BudgetsApiResponse = JsonApiResponse<BudgetResponse[]>;
+export type BudgetsApiError = {
+  errors: Array<{
+    status?: string;
+    code?: string;
+    title?: string;
+    detail?: string;
+  }>;
 };
 
 export type PaginatedBudgetsResult = {

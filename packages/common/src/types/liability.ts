@@ -1,4 +1,4 @@
-import type { AggregationItem, PaginationInfo } from "@repo/common/types";
+import type { AggregationItem, JsonApiResponse, PaginationInfo } from "@repo/common/types";
 import { z } from "zod";
 
 export const liabilitySchema = z.object({
@@ -27,11 +27,14 @@ export type LiabilityResponse = {
   updated_at: string;
 };
 
-export type LiabilitiesApiResponse = {
-  timestamp: string;
-  data: LiabilityResponse[] | null;
-  pagination: PaginationInfo;
-  message: string;
+export type LiabilitiesApiResponse = JsonApiResponse<LiabilityResponse[]>;
+export type LiabilitiesApiError = {
+  errors: Array<{
+    status?: string;
+    code?: string;
+    title?: string;
+    detail?: string;
+  }>;
 };
 
 export type PaginatedLiabilitiesResult = {

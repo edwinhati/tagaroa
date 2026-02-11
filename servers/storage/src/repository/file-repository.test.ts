@@ -4,11 +4,11 @@ import { FileRepository } from "./file-repository";
 
 // Mock SQL database
 const createMockDb = () => {
-  const mockDb = mock(() => Promise.resolve([]));
+  const mockDb = mock(() => Promise.resolve([])) as any;
   mockDb.unsafe = mock(() => Promise.resolve([]));
-  return mockDb as unknown as Parameters<
-    (typeof FileRepository)["prototype"]["constructor"]
-  >[0];
+  return mockDb as unknown as ConstructorParameters<
+    typeof FileRepository
+  >[0] as any;
 };
 
 describe("FileRepository", () => {
