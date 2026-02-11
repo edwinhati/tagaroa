@@ -3,15 +3,16 @@
   "version": "0.0.0",
   "private": true,
   "scripts": {
+    "build": "tsc",
     "check-types": "tsc --noEmit",
     "lint": "echo 'Skipping lint for UI component library'"
   },
   "exports": {
-    "./lib/*": "./src/lib/*.ts",
-    "./hooks/*": "./src/hooks/*.ts",
-    "./globals.css": "./src/styles/globals.css",
+    "./lib/*": "./dist/lib/*.js",
+    "./hooks/*": "./dist/hooks/*.js",
+    "./globals.css": "./dist/styles/globals.css",
     "./postcss.config": "./postcss.config.mjs",
-    "./components/*": "./src/components/*.tsx"
+    "./components/*": "./dist/components/*.js"
   },
   "devDependencies": {
     "@repo/typescript-config": "*",

@@ -187,9 +187,7 @@ export const transactionDeleteMutationOptions = () => {
       await queryClient.cancelQueries({ queryKey: ["transactions"] });
 
       // Snapshot previous value
-      const previous = queryClient.getQueryData([
-        "transactions",
-      ]);
+      const previous = queryClient.getQueryData(["transactions"]);
 
       // Optimistically update to the new value
       queryClient.setQueryData(["transactions"], (old: any) => {

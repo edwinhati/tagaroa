@@ -61,7 +61,12 @@ function extractHeaders<T extends Record<string, unknown>>(
     return [];
   }
 
-  return Object.keys(data[0]);
+  const firstItem = data[0];
+  if (!firstItem) {
+    return [];
+  }
+
+  return Object.keys(firstItem);
 }
 
 /**

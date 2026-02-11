@@ -147,9 +147,7 @@ export const accountDeleteMutationOptions = () => {
       await queryClient.cancelQueries({ queryKey: ["accounts"] });
 
       // Snapshot the previous value
-      const previousAccounts = queryClient.getQueryData([
-        "accounts",
-      ]);
+      const previousAccounts = queryClient.getQueryData(["accounts"]);
 
       // Optimistically update to the new value
       queryClient.setQueryData(
@@ -159,9 +157,11 @@ export const accountDeleteMutationOptions = () => {
 
           return {
             ...old,
-            accounts: old.accounts.filter((account) => account.id !== deletedId),
+            accounts: old.accounts.filter(
+              (account) => account.id !== deletedId,
+            ),
           };
-        }
+        },
       );
 
       // Return a context object with the snapshotted value

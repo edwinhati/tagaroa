@@ -125,18 +125,14 @@ export const liabilityDeleteMutationOptions = () => {
       await queryClient.cancelQueries({ queryKey: ["liabilities"] });
 
       // Snapshot previous value
-      const previous = queryClient.getQueryData([
-        "liabilities",
-      ]);
+      const previous = queryClient.getQueryData(["liabilities"]);
 
       // Optimistically update to the new value
       queryClient.setQueryData(["liabilities"], (old: any) => {
         if (!old) return old;
         return {
           ...old,
-          liabilities: old.liabilities.filter(
-            (l: Liability) => l.id !== id,
-          ),
+          liabilities: old.liabilities.filter((l: Liability) => l.id !== id),
         };
       });
 
