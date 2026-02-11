@@ -182,7 +182,37 @@ export const transactionDeleteMutationOptions = () => {
 
   return mutationOptions({
     mutationFn: deleteTransaction,
+    onMutate: async (id) => {
+      // Cancel outgoing refetches
+      await queryClient.cancelQueries({ queryKey: ["transactions"] });
+
+      // Snapshot previous value
+      const previous = queryClient.getQueryData([
+        "transactions",
+      ]);
+
+      // Optimistically update to the new value
+      queryClient.setQueryData(["transactions"], (old: any) => {
+        if (!old) return old;
+        return {
+          ...old,
+          transactions: old.transactions.filter(
+            (t: Transaction) => t.id !== id,
+          ),
+        };
+      });
+
+      // Return context with previous value
+      return { previous };
+    },
+    onError: (err, id, context) => {
+      // Rollback to previous value
+      if (context?.previous) {
+        queryClient.setQueryData(["transactions"], context.previous);
+      }
+    },
     onSettled: () => {
+      // Refetch after success or error
       queryClient.invalidateQueries({ queryKey: ["transactions"] });
     },
   });

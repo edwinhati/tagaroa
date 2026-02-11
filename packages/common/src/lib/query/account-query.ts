@@ -142,7 +142,39 @@ export const accountDeleteMutationOptions = () => {
 
   return mutationOptions({
     mutationFn: deleteAccount,
+    onMutate: async (deletedId: string) => {
+      // Cancel outgoing refetches
+      await queryClient.cancelQueries({ queryKey: ["accounts"] });
+
+      // Snapshot the previous value
+      const previousAccounts = queryClient.getQueryData([
+        "accounts",
+      ]);
+
+      // Optimistically update to the new value
+      queryClient.setQueryData(
+        ["accounts"],
+        (old: PaginatedAccountsResult | undefined) => {
+          if (!old) return old;
+
+          return {
+            ...old,
+            accounts: old.accounts.filter((account) => account.id !== deletedId),
+          };
+        }
+      );
+
+      // Return a context object with the snapshotted value
+      return { previousAccounts };
+    },
+    onError: (err, deletedId, context) => {
+      // If the mutation fails, use the context returned from onMutate to roll back
+      if (context?.previousAccounts) {
+        queryClient.setQueryData(["accounts"], context.previousAccounts);
+      }
+    },
     onSettled: () => {
+      // Refetch after success or error
       queryClient.invalidateQueries({ queryKey: ["accounts"] });
     },
   });
