@@ -73,3 +73,32 @@ export type ExpenseBreakdownResult = {
   total_expenses: number;
   items: ExpenseBreakdownItem[];
 };
+
+export type NetWorthSnapshot = {
+  date: string;
+  total_assets: number;
+  total_liabilities: number;
+  net_worth: number;
+};
+
+export type NetWorthResult = {
+  current_net_worth: number;
+  total_assets: number;
+  total_liabilities: number;
+  currency: string;
+  snapshots: NetWorthSnapshot[];
+};
+
+export type InsightItem = {
+  category: string;
+  amount: number;
+  percentage: number;
+};
+
+export type InsightsResult = {
+  savings_rate: number;
+  savings_rate_trend: "up" | "down" | "stable";
+  top_income_sources: InsightItem[];
+  top_expenses: InsightItem[];
+  recommendations: string[];
+};

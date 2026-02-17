@@ -327,7 +327,7 @@ function BudgetHistoryDataTableContent() {
     getCoreRowModel: getCoreRowModel(),
     getSortedRowModel: getSortedRowModel(),
     manualPagination: true,
-    pageCount: paginationInfo?.totalPages ?? 0,
+    pageCount: paginationInfo?.total_pages ?? 0,
     onPaginationChange: setPagination,
     state: {
       pagination,
@@ -549,8 +549,8 @@ function BudgetHistoryDataTableContent() {
             ? {
                 total: paginationInfo.total,
                 page: paginationInfo.page,
-                totalPages: paginationInfo.totalPages,
-                hasNext: paginationInfo.page < paginationInfo.totalPages,
+                totalPages: paginationInfo.total_pages,
+                hasNext: paginationInfo.page < paginationInfo.total_pages,
                 hasPrev: paginationInfo.page > 1,
               }
             : undefined

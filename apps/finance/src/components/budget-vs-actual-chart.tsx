@@ -1,6 +1,6 @@
 "use client";
 
-import { budgetPerformanceQueryOptions } from "@repo/common/lib/query/finance-dashboard";
+import { budgetPerformanceQueryOptions } from "@repo/common/lib/query/finance-dashboard-query";
 import {
   Card,
   CardContent,
@@ -19,7 +19,8 @@ import { useQuery } from "@tanstack/react-query";
 import { Target } from "lucide-react";
 import React from "react";
 import type { DateRange } from "react-day-picker";
-import { Bar, BarChart, CartesianGrid, XAxis, YAxis } from "recharts";
+import { Bar, BarChart, CartesianGrid, Cell, XAxis, YAxis } from "recharts";
+import { formatCurrencyCompact } from "@/utils/currency";
 
 const chartConfig = {
   allocated: {
@@ -49,8 +50,8 @@ const BudgetVsActualChart = React.memo(({ range }: { range?: DateRange }) => {
 
   if (isLoading) {
     return (
-      <Card className="col-span-3 h-full">
-        <CardHeader className="flex flex-row items-start justify-between space-y-0 pb-3">
+      <Card className="h-full">
+        <CardHeader className="flex flex-row items-start justify-between space-y-0 pb-4">
           <div>
             <CardTitle className="text-base font-semibold">
               Budget vs Actual
@@ -73,18 +74,21 @@ const BudgetVsActualChart = React.memo(({ range }: { range?: DateRange }) => {
       category: item.category,
       allocated: item.allocated,
       spent: item.spent,
+      remaining: item.remaining,
+      percentage: item.percentage,
+      is_over_budget: item.is_over_budget,
     })) ?? [];
 
   return (
-    <Card className="col-span-3 h-full cursor-pointer group transition-all duration-300 hover:shadow-xl hover:shadow-primary/10 hover:-translate-y-1 border-border/50 hover:border-primary/30 bg-card/80 backdrop-blur-sm">
-      <CardHeader className="flex flex-row items-start justify-between space-y-0 pb-3">
+    <Card className="h-full border-border/50 bg-card/80 backdrop-blur-sm shadow-sm hover:shadow-md transition-shadow duration-200">
+      <CardHeader className="flex flex-row items-start justify-between space-y-0 pb-4">
         <div>
-          <CardTitle className="text-base font-semibold group-hover:text-primary transition-colors duration-200">
+          <CardTitle className="text-base font-semibold">
             Budget vs Actual
           </CardTitle>
           <CardDescription className="text-xs">{monthName}</CardDescription>
         </div>
-        <div className="p-2.5 rounded-xl bg-amber-500/10 ring-1 ring-amber-500/20 group-hover:bg-amber-500/20 group-hover:scale-110 transition-all duration-200">
+        <div className="p-2.5 rounded-xl bg-amber-500/10 ring-1 ring-amber-500/20">
           <Target className="h-4 w-4 text-amber-500" />
         </div>
       </CardHeader>
@@ -109,7 +113,43 @@ const BudgetVsActualChart = React.memo(({ range }: { range?: DateRange }) => {
             <YAxis hide />
             <ChartTooltip
               cursor={{ fill: "hsl(var(--muted)/0.3)" }}
-              content={<ChartTooltipContent indicator="dashed" />}
+              content={
+                <ChartTooltipContent
+                  indicator="dashed"
+                  formatter={(value, name, item) => {
+                    const payload = item.payload;
+                    if (name === "allocated") {
+                      return formatCurrencyCompact(value as number, "IDR");
+                    }
+                    if (name === "spent") {
+                      return (
+                        <div className="flex flex-col gap-0.5">
+                          <span className="font-medium">
+                            {formatCurrencyCompact(value as number, "IDR")}
+                          </span>
+                          <span className="text-xs text-muted-foreground">
+                            {payload.percentage.toFixed(1)}% of budget
+                          </span>
+                          <span
+                            className={`text-xs ${
+                              payload.is_over_budget
+                                ? "text-rose-500"
+                                : "text-emerald-500"
+                            }`}
+                          >
+                            {payload.is_over_budget ? "Over" : "Remaining"}:{" "}
+                            {formatCurrencyCompact(
+                              Math.abs(payload.remaining),
+                              "IDR",
+                            )}
+                          </span>
+                        </div>
+                      );
+                    }
+                    return value;
+                  }}
+                />
+              }
             />
             <Bar
               dataKey="allocated"
@@ -117,12 +157,19 @@ const BudgetVsActualChart = React.memo(({ range }: { range?: DateRange }) => {
               radius={[4, 4, 0, 0]}
               className="transition-opacity duration-200 hover:opacity-80"
             />
-            <Bar
-              dataKey="spent"
-              fill="var(--color-spent)"
-              radius={[4, 4, 0, 0]}
-              className="transition-opacity duration-200 hover:opacity-80"
-            />
+            <Bar dataKey="spent" radius={[4, 4, 0, 0]}>
+              {chartData.map((entry) => (
+                <Cell
+                  key={entry.category}
+                  fill={
+                    entry.is_over_budget
+                      ? "hsl(349, 89%, 60%)"
+                      : "var(--color-spent)"
+                  }
+                  className="transition-opacity duration-200 hover:opacity-80"
+                />
+              ))}
+            </Bar>
           </BarChart>
         </ChartContainer>
       </CardContent>
@@ -136,8 +183,8 @@ export { BudgetVsActualChart };
 
 export const BudgetVsActualChartSkeleton = () => {
   return (
-    <Card className="col-span-3 h-full">
-      <CardHeader className="flex flex-row items-start justify-between space-y-0 pb-3">
+    <Card className="h-full">
+      <CardHeader className="flex flex-row items-start justify-between space-y-0 pb-4">
         <div>
           <CardTitle className="text-base font-semibold">
             Budget vs Actual

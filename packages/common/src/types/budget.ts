@@ -1,12 +1,5 @@
-import type { JsonApiResponse } from "@repo/common/types";
+import type { JsonApiResponse, PaginationInfo } from "@repo/common/types";
 import { z } from "zod";
-
-export type PaginationInfo = {
-  page: number;
-  pageSize: number;
-  total: number;
-  totalPages: number;
-};
 
 export const budgetItemSchema = z.object({
   id: z.string().optional(),
@@ -40,6 +33,7 @@ export type BudgetItemResponse = {
   deleted_at: string | null;
   created_at: Date;
   updated_at: Date;
+  version: number;
 };
 
 export type BudgetResponse = {
@@ -52,6 +46,7 @@ export type BudgetResponse = {
   deleted_at: string | null;
   created_at: Date;
   updated_at: Date;
+  version: number;
 };
 
 export type BudgetsApiResponse = JsonApiResponse<BudgetResponse[]>;
@@ -66,5 +61,6 @@ export type BudgetsApiError = {
 
 export type PaginatedBudgetsResult = {
   budgets: Budget[];
-  pagination: PaginationInfo;
+  pagination?: PaginationInfo;
 };
+export type { PaginationInfo };

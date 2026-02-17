@@ -509,7 +509,7 @@ function BudgetDataTableContent() {
 
   // Memoized handler for budget item updates
   const handleBudgetItemUpdate = useMemo(
-    () => (itemId: string, newAllocation: number, category: string) => {
+    () => (itemId: string, newAllocation: number) => {
       if (!tableData.id) {
         toast.error("Cannot update budget item", {
           description: "Missing budget ID",
@@ -520,7 +520,6 @@ function BudgetDataTableContent() {
         itemId,
         allocation: newAllocation,
         budgetId: tableData.id,
-        category,
       });
     },
     [tableData.id, updateBudgetItem],
@@ -557,11 +556,7 @@ function BudgetDataTableContent() {
                 });
                 return;
               }
-              handleBudgetItemUpdate(
-                itemId,
-                newAllocation,
-                row.original.category,
-              );
+              handleBudgetItemUpdate(itemId, newAllocation);
             }}
           />
         ),

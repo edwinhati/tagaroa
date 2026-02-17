@@ -113,8 +113,8 @@ const mutateBudget = async (budget: Budget): Promise<Budget> => {
   const hasValidId = budget.id && budget.id.trim() !== "";
 
   const data = await (hasValidId
-    ? financeApi.put<BudgetResponse>(`/budget/${budget.id}`, payload)
-    : financeApi.post<BudgetResponse>("/budget", payload));
+    ? financeApi.patch<BudgetResponse>(`/budgets/${budget.id}`, payload)
+    : financeApi.post<BudgetResponse>("/budgets", payload));
 
   return mapBudget(data);
 };
@@ -152,16 +152,14 @@ const updateBudgetItem = async (
   itemId: string,
   allocation: number,
   budgetId: string,
-  category: string,
 ): Promise<BudgetItem> => {
   const payload = {
     allocation,
-    category,
     budget_id: budgetId,
   };
 
-  const data = await financeApi.put<BudgetItemResponse>(
-    `/budget/item/${itemId}`,
+  const data = await financeApi.patch<BudgetItemResponse>(
+    `/budgets/items/${itemId}`,
     payload,
   );
 
@@ -176,13 +174,11 @@ export const budgetItemMutationOptions = () => {
       itemId,
       allocation,
       budgetId,
-      category,
     }: {
       itemId: string;
       allocation: number;
       budgetId: string;
-      category: string;
-    }) => updateBudgetItem(itemId, allocation, budgetId, category),
+    }) => updateBudgetItem(itemId, allocation, budgetId),
     onSettled: () => {
       queryClient.invalidateQueries({ queryKey: ["budgets"] });
     },

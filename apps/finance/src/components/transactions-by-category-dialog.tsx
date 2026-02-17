@@ -269,8 +269,8 @@ export function TransactionsByCategoryDialog({
   };
 
   const isEditing = !!editingTransaction?.id;
-  const totalPages = data?.pagination.total_pages ?? 1;
-  const totalCount = data?.pagination.total ?? 0;
+  const totalPages = data?.pagination?.total_pages ?? 1;
+  const totalCount = data?.pagination?.total ?? 0;
 
   return (
     <Dialog open={open} onOpenChange={handleOpenChange}>

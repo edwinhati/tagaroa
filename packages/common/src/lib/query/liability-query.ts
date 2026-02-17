@@ -30,11 +30,13 @@ const fetchLiabilities = async (params?: {
   limit?: number;
   filters?: Record<string, string[]>;
   search?: string;
+  includePaid?: boolean;
 }): Promise<PaginatedLiabilitiesResult> => {
   const searchParams = new URLSearchParams();
   if (params?.page) searchParams.append("page", params.page.toString());
   if (params?.limit) searchParams.append("limit", params.limit.toString());
   if (params?.search) searchParams.append("search", params.search);
+  if (params?.includePaid) searchParams.append("includePaid", "true");
   if (params?.filters) {
     for (const [key, values] of Object.entries(params.filters)) {
       if (values.length > 0) searchParams.append(key, values.join(","));
@@ -50,15 +52,13 @@ const fetchLiabilities = async (params?: {
 
   return {
     liabilities: data.data ? data.data.map(mapLiability) : [],
-    pagination: data.pagination,
-    aggregations:
-      (data as { aggregations?: Record<string, AggregationItem[]> })
-        .aggregations ?? {},
+    pagination: data.meta?.pagination,
+    aggregations: data.meta?.aggregations || {},
   };
 };
 
 const fetchLiabilityTypes = async (): Promise<string[]> => {
-  return financeApi.get<string[]>("/liability/types");
+  return financeApi.get<string[]>("/liabilities/types");
 };
 
 const mutateLiability = async (liability: Liability): Promise<Liability> => {
@@ -67,19 +67,22 @@ const mutateLiability = async (liability: Liability): Promise<Liability> => {
     type: liability.type,
     amount: liability.amount,
     currency: liability.currency,
-    paid_at: liability.paidAt,
+    paidAt: liability.paidAt,
     notes: liability.notes ?? "",
   };
 
   const data = await (liability.id
-    ? financeApi.put<LiabilityResponse>(`/liability/${liability.id}`, payload)
-    : financeApi.post<LiabilityResponse>("/liability", payload));
+    ? financeApi.patch<LiabilityResponse>(
+        `/liabilities/${liability.id}`,
+        payload,
+      )
+    : financeApi.post<LiabilityResponse>("/liabilities", payload));
 
   return mapLiability(data);
 };
 
 const deleteLiability = async (id: string): Promise<void> => {
-  await financeApi.delete(`/liability/${id}`);
+  await financeApi.delete(`/liabilities/${id}`);
 };
 
 // Fetch all liabilities for export (with large limit)
@@ -100,6 +103,7 @@ export const liabilityQueryOptions = (params?: {
   limit?: number;
   filters?: Record<string, string[]>;
   search?: string;
+  includePaid?: boolean;
 }) =>
   queryOptions({
     queryKey: ["liabilities", params],
@@ -128,18 +132,21 @@ export const liabilityDeleteMutationOptions = () => {
       const previous = queryClient.getQueryData(["liabilities"]);
 
       // Optimistically update to the new value
-      queryClient.setQueryData(["liabilities"], (old: any) => {
-        if (!old) return old;
-        return {
-          ...old,
-          liabilities: old.liabilities.filter((l: Liability) => l.id !== id),
-        };
-      });
+      queryClient.setQueryData(
+        ["liabilities"],
+        (old: { liabilities: Liability[] } | undefined) => {
+          if (!old) return old;
+          return {
+            ...old,
+            liabilities: old.liabilities.filter((l: Liability) => l.id !== id),
+          };
+        },
+      );
 
       // Return context with previous value
       return { previous };
     },
-    onError: (err, id, context) => {
+    onError: (_err, _id, context) => {
       // Rollback to previous value
       if (context?.previous) {
         queryClient.setQueryData(["liabilities"], context.previous);

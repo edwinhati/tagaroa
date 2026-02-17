@@ -11,6 +11,7 @@ export type PaginationInfo = {
 };
 
 export type AggregationItem = {
+  id: string;
   key: string;
   count: number;
   min: number;

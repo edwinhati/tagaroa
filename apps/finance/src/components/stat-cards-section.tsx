@@ -1,27 +1,24 @@
 "use client";
 
-import { useBudgetPeriod } from "@repo/common/hooks/use-budget-period";
 import {
-  budgetPerformanceQueryOptions,
   dashboardSummaryQueryOptions,
-} from "@repo/common/lib/query/finance-dashboard";
+  transactionTrendsQueryOptions,
+} from "@repo/common/lib/query/finance-dashboard-query";
 import { Card, CardContent, CardHeader } from "@repo/ui/components/card";
 import { Skeleton } from "@repo/ui/components/skeleton";
 import { cn } from "@repo/ui/lib/utils";
 import { useQuery } from "@tanstack/react-query";
-import { format } from "date-fns";
+import { format, subMonths } from "date-fns";
 import {
-  AlertTriangle,
   ArrowDownRight,
   ArrowUpRight,
-  CheckCircle2,
   CircleDollarSign,
   PiggyBank,
   Receipt,
-  XCircle,
 } from "lucide-react";
 import type { DateRange } from "react-day-picker";
 import { formatCurrency } from "@/utils/currency";
+import { MiniSparkline } from "./mini-sparkline";
 
 interface StatCardsSectionProps {
   range?: DateRange;
@@ -34,6 +31,7 @@ interface StatCardProps {
   trend?: "up" | "down" | "neutral";
   icon?: React.ReactNode;
   iconBgColor?: string;
+  sparklineData?: { value: number }[];
   className?: string;
 }
 
@@ -44,26 +42,29 @@ const StatCard = ({
   trend,
   icon,
   iconBgColor,
+  sparklineData,
   className,
 }: StatCardProps) => {
   return (
     <Card
       className={cn(
-        "relative",
+        "relative overflow-hidden",
         "border-border/50",
         "bg-card/80 backdrop-blur-sm",
+        "shadow-sm",
+        "transition-shadow duration-200 hover:shadow-md",
         className,
       )}
     >
       <CardHeader className="flex flex-row items-start justify-between space-y-0 pb-2">
-        <p className="text-sm font-medium text-muted-foreground">
+        <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
           {title}
         </p>
         {icon && (
           <div
             className={cn(
-              "flex items-center justify-center",
-              "ring-1 ring-current/20",
+              "flex items-center justify-center shrink-0",
+              "ring-2 ring-current/20",
               iconBgColor,
             )}
           >
@@ -71,31 +72,44 @@ const StatCard = ({
           </div>
         )}
       </CardHeader>
-      <CardContent>
-        <div className="text-2xl font-bold tracking-tight">
+      <CardContent className="space-y-2.5 pt-0">
+        <div className="text-2xl font-bold tracking-tight text-foreground">
           {value}
         </div>
         {change && (
-          <p className="text-xs text-muted-foreground flex items-center gap-1 mt-1.5">
+          <p className="text-xs flex items-center gap-1.5">
             {trend === "up" && (
-              <span className="flex items-center gap-0.5 text-emerald-500 font-medium">
-                <ArrowUpRight className="h-3 w-3" />
+              <span className="flex items-center gap-0.5 text-emerald-600 font-bold">
+                <ArrowUpRight className="h-4 w-4" />
                 {change}
               </span>
             )}
             {trend === "down" && (
-              <span className="flex items-center gap-0.5 text-rose-500 font-medium">
-                <ArrowDownRight className="h-3 w-3" />
+              <span className="flex items-center gap-0.5 text-rose-600 font-bold">
+                <ArrowDownRight className="h-4 w-4" />
                 {change}
               </span>
             )}
             {trend === "neutral" && (
-              <span className="font-medium text-muted-foreground">
-                {change}
-              </span>
+              <span className="font-bold text-slate-500">{change}</span>
             )}
-            <span className="text-muted-foreground/80">from last period</span>
+            <span className="text-slate-500 font-medium">from last period</span>
           </p>
+        )}
+        {sparklineData && sparklineData.length > 0 && (
+          <div className="pt-1">
+            <MiniSparkline
+              data={sparklineData}
+              className="h-10 w-full"
+              color={
+                trend === "up"
+                  ? "hsl(142, 76%, 36%)"
+                  : trend === "down"
+                    ? "hsl(349, 89%, 60%)"
+                    : "hsl(var(--muted-foreground))"
+              }
+            />
+          </div>
         )}
       </CardContent>
     </Card>
@@ -123,24 +137,20 @@ export function StatCardsSection({ range }: StatCardsSectionProps) {
     }),
   });
 
-  const { month, year } = useBudgetPeriod((s) => ({
-    month: s.month,
-    year: s.year,
-  }));
-
-  const { data: budget, isLoading: budgetLoading } = useQuery({
-    ...budgetPerformanceQueryOptions({
-      month,
-      year,
+  // Fetch 6-month trend data for sparklines
+  const sixMonthsAgo = subMonths(new Date(), 6);
+  const { data: trendData, isLoading: trendLoading } = useQuery({
+    ...transactionTrendsQueryOptions({
+      startDate: format(sixMonthsAgo, "yyyy-MM-dd"),
+      endDate: format(new Date(), "yyyy-MM-dd"),
     }),
   });
 
-  const isLoading = summaryLoading || budgetLoading;
+  const isLoading = summaryLoading || trendLoading;
 
   if (isLoading) {
     return (
-      <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-4">
-        <StatCardSkeleton />
+      <div className="grid gap-4 grid-cols-1 md:grid-cols-3">
         <StatCardSkeleton />
         <StatCardSkeleton />
         <StatCardSkeleton />
@@ -169,8 +179,16 @@ export function StatCardsSection({ range }: StatCardsSectionProps) {
         ? "up"
         : "neutral";
 
+  // Prepare sparkline data from trends
+  const incomeSparkline =
+    trendData?.trends.map((t) => ({ value: t.income })) ?? [];
+  const expenseSparkline =
+    trendData?.trends.map((t) => ({ value: t.expenses })) ?? [];
+  const savingsSparkline =
+    trendData?.trends.map((t) => ({ value: t.net_flow })) ?? [];
+
   return (
-    <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-4">
+    <div className="grid gap-4 grid-cols-1 md:grid-cols-3">
       <StatCard
         title="Total Income"
         value={formatCurrency(summary?.income.amount ?? 0, "IDR")}
@@ -180,6 +198,7 @@ export function StatCardsSection({ range }: StatCardsSectionProps) {
         trend={incomeTrend}
         icon={<CircleDollarSign className="h-4 w-4" />}
         iconBgColor="text-emerald-500 bg-emerald-500/10 rounded-xl p-2.5"
+        sparklineData={incomeSparkline}
       />
       <StatCard
         title="Total Expenses"
@@ -190,6 +209,7 @@ export function StatCardsSection({ range }: StatCardsSectionProps) {
         trend={expenseTrend}
         icon={<Receipt className="h-4 w-4" />}
         iconBgColor="text-rose-500 bg-rose-500/10 rounded-xl p-2.5"
+        sparklineData={expenseSparkline}
       />
       <StatCard
         title="Net Savings"
@@ -205,28 +225,8 @@ export function StatCardsSection({ range }: StatCardsSectionProps) {
           savingsTrend === "down" && "text-rose-500 bg-rose-500/10",
           savingsTrend === "neutral" && "text-muted-foreground bg-muted",
         )}
-      />
-      <StatCard
-        title="Budget Utilization"
-        value={`${(budget?.overall_percentage ?? 0).toFixed(1)}%`}
-        icon={getBudgetIcon({ percentage: budget?.overall_percentage ?? 0 })}
-        iconBgColor={cn(
-          "rounded-xl p-2.5",
-          (budget?.overall_percentage ?? 0) < 70 &&
-            "text-emerald-500 bg-emerald-500/10",
-          (budget?.overall_percentage ?? 0) >= 70 &&
-            (budget?.overall_percentage ?? 0) < 90 &&
-            "text-amber-500 bg-amber-500/10",
-          (budget?.overall_percentage ?? 0) >= 90 &&
-            "text-rose-500 bg-rose-500/10",
-        )}
+        sparklineData={savingsSparkline}
       />
     </div>
   );
-}
-
-function getBudgetIcon({ percentage }: { percentage: number }) {
-  if (percentage < 70) return <CheckCircle2 className="h-4 w-4" />;
-  if (percentage < 90) return <AlertTriangle className="h-4 w-4" />;
-  return <XCircle className="h-4 w-4" />;
 }

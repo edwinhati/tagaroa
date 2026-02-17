@@ -4,11 +4,11 @@
  */
 
 import {
-  Registry,
   Counter,
-  Histogram,
-  Gauge,
   collectDefaultMetrics,
+  Gauge,
+  Histogram,
+  Registry,
 } from "prom-client";
 
 export interface MetricsConfig {

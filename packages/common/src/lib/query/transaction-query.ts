@@ -70,8 +70,16 @@ const fetchTransactions = async (params?: {
   if (params?.filters) {
     for (const [key, values] of Object.entries(params.filters)) {
       if (values.length > 0) {
+        // Map frontend filter keys to backend parameter names
+        const paramName =
+          key === "account"
+            ? "account_id"
+            : key === "category"
+              ? "budget_item_id"
+              : key; // type and currency use same name
+
         // Join multiple values with comma for multi-select support
-        searchParams.append(key, values.join(","));
+        searchParams.append(paramName, values.join(","));
       }
     }
   }
@@ -97,7 +105,7 @@ const fetchTransactions = async (params?: {
 
 // Fetch transaction types
 const fetchTransactionTypes = async (): Promise<string[]> => {
-  return financeApi.get<string[]>("/transaction/types");
+  return financeApi.get<string[]>("/transactions/types");
 };
 
 // Create or update a transaction
@@ -190,20 +198,23 @@ export const transactionDeleteMutationOptions = () => {
       const previous = queryClient.getQueryData(["transactions"]);
 
       // Optimistically update to the new value
-      queryClient.setQueryData(["transactions"], (old: any) => {
-        if (!old) return old;
-        return {
-          ...old,
-          transactions: old.transactions.filter(
-            (t: Transaction) => t.id !== id,
-          ),
-        };
-      });
+      queryClient.setQueryData(
+        ["transactions"],
+        (old: { transactions: Transaction[] } | undefined) => {
+          if (!old) return old;
+          return {
+            ...old,
+            transactions: old.transactions.filter(
+              (t: Transaction) => t.id !== id,
+            ),
+          };
+        },
+      );
 
       // Return context with previous value
       return { previous };
     },
-    onError: (err, id, context) => {
+    onError: (_err, _id, context) => {
       // Rollback to previous value
       if (context?.previous) {
         queryClient.setQueryData(["transactions"], context.previous);

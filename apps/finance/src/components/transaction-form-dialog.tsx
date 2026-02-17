@@ -168,6 +168,14 @@ export function TransactionFormDialog({
     }
   }, [initialData, form]);
 
+  // Sync uploaded files with form field
+  useEffect(() => {
+    const fileIds = uploadedFiles
+      .filter((f) => !(f.file instanceof File))
+      .map((f) => f.id);
+    form.setValue("files", fileIds);
+  }, [uploadedFiles, form]);
+
   const selectedDate = useWatch({
     control: form.control,
     name: "date",
@@ -232,8 +240,8 @@ export function TransactionFormDialog({
       uploadingFilesRef.current.delete(fileKey);
 
       // Update the uploaded files by replacing the temporary file with the uploaded one
-      setUploadedFiles((prev) => {
-        const newFiles = prev.map((fileWithPreview) => {
+      setUploadedFiles((prev) =>
+        prev.map((fileWithPreview) => {
           // If this is a temporary file (File instance), replace it with the uploaded metadata
           if (
             fileWithPreview.file instanceof File &&
@@ -247,16 +255,8 @@ export function TransactionFormDialog({
             };
           }
           return fileWithPreview;
-        });
-
-        // Update form field with file IDs
-        const fileIds = newFiles
-          .filter((f) => !(f.file instanceof File))
-          .map((f) => f.id);
-        form.setValue("files", fileIds);
-
-        return newFiles;
-      });
+        }),
+      );
     },
     onError: (err, file) => {
       // Remove from uploading set on error
@@ -688,5 +688,5 @@ export function TransactionFormDialog({
 
 // Helper functions for file operations
 const getFile = async (id: string): Promise<StorageFileMetadata> => {
-  return storageApi.get<StorageFileMetadata>(`/files/${id}`);
+  return storageApi.get<StorageFileMetadata>(`/${id}`);
 };

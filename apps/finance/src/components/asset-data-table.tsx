@@ -1,6 +1,7 @@
 "use client";
 
 import { DataTableBulkDeleteDialog } from "@repo/common/components/data-table-bulk-delete-dialog";
+import { DataTableDeleteDialog } from "@repo/common/components/data-table-delete-dialog";
 import { DataTableExportButton } from "@repo/common/components/data-table-export-button";
 import { DataTableMultiSelectFilter } from "@repo/common/components/data-table-multi-select-filter";
 import { DataTablePagination } from "@repo/common/components/data-table-pagination";
@@ -17,6 +18,7 @@ import {
 import type { Asset, PaginatedAssetsResult } from "@repo/common/types/asset";
 import { Badge } from "@repo/ui/components/badge";
 import { Button } from "@repo/ui/components/button";
+import { Card, CardContent } from "@repo/ui/components/card";
 import { Checkbox } from "@repo/ui/components/checkbox";
 import {
   DropdownMenu,
@@ -59,10 +61,16 @@ import {
   ChevronDownIcon,
   ChevronUpIcon,
   EllipsisIcon,
+  LayoutGridIcon,
+  LineChartIcon,
   PlusIcon,
+  TrendingUpIcon,
+  WalletIcon,
+  XIcon,
 } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { AssetFormDialog } from "@/components/asset-form-dialog";
+import { getStaggerDelay } from "@/lib/animations";
 
 const SelectHeaderCell = ({
   table,
@@ -270,6 +278,29 @@ function AssetDataTableContent() {
 
   const hasTotalData = (paginationInfo?.total ?? 0) > 0;
 
+  const summaryStats = useMemo(() => {
+    const assets = stableData?.assets ?? [];
+    const byCurrency: Record<string, number> = {};
+    const byType: Record<string, number> = {};
+    let investableCount = 0;
+
+    for (const a of assets) {
+      byCurrency[a.currency] = (byCurrency[a.currency] ?? 0) + a.value;
+      byType[a.type] = (byType[a.type] ?? 0) + 1;
+      if (
+        a.type === "STOCK" ||
+        a.type === "CRYPTO" ||
+        a.type === "INVESTMENT" ||
+        a.type === "BOND" ||
+        a.type === "MUTUAL_FUND"
+      ) {
+        investableCount++;
+      }
+    }
+
+    return { byCurrency, byType, investableCount, total: assets.length };
+  }, [stableData?.assets]);
+
   const table = useReactTable({
     data: tableData,
     columns,
@@ -342,8 +373,87 @@ function AssetDataTableContent() {
     return <AssetTableSkeleton />;
   }
 
+  const formatCurrency = (amount: number, currency: string) =>
+    new Intl.NumberFormat(currency === "IDR" ? "id-ID" : "en-US", {
+      style: "currency",
+      currency,
+    }).format(amount);
+
   return (
     <div className="relative space-y-4">
+      {hasTotalData && (
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+          {[
+            {
+              label: "Total Value",
+              icon: (
+                <TrendingUpIcon className="h-5 w-5 text-blue-600 dark:text-blue-400" />
+              ),
+              iconBg: "rounded-full bg-blue-100 p-2 dark:bg-blue-900",
+              content: Object.entries(summaryStats.byCurrency).map(
+                ([cur, val]) => (
+                  <span key={cur} className="block text-sm">
+                    {formatCurrency(val, cur)}
+                  </span>
+                ),
+              ),
+            },
+            {
+              label: "Asset Types",
+              icon: (
+                <LayoutGridIcon className="h-5 w-5 text-purple-600 dark:text-purple-400" />
+              ),
+              iconBg: "rounded-full bg-purple-100 p-2 dark:bg-purple-900",
+              content: (
+                <span className="text-lg font-semibold">
+                  {Object.keys(summaryStats.byType).length}
+                </span>
+              ),
+            },
+            {
+              label: "Investable Assets",
+              icon: (
+                <LineChartIcon className="h-5 w-5 text-green-600 dark:text-green-400" />
+              ),
+              iconBg: "rounded-full bg-green-100 p-2 dark:bg-green-900",
+              content: (
+                <span className="text-lg font-semibold">
+                  {summaryStats.investableCount}
+                </span>
+              ),
+            },
+            {
+              label: "Total Count",
+              icon: (
+                <WalletIcon className="h-5 w-5 text-orange-600 dark:text-orange-400" />
+              ),
+              iconBg: "rounded-full bg-orange-100 p-2 dark:bg-orange-900",
+              content: (
+                <span className="text-lg font-semibold">
+                  {summaryStats.total} assets
+                </span>
+              ),
+            },
+          ].map((stat, index) => (
+            <Card
+              key={stat.label}
+              className="py-4"
+              style={{ animationDelay: `${getStaggerDelay(index)}ms` }}
+            >
+              <CardContent className="flex items-center gap-4 py-0">
+                <div className={stat.iconBg} aria-hidden="true">
+                  {stat.icon}
+                </div>
+                <div>
+                  <p className="text-sm text-muted-foreground">{stat.label}</p>
+                  <p className="text-lg font-semibold">{stat.content}</p>
+                </div>
+              </CardContent>
+            </Card>
+          ))}
+        </div>
+      )}
+
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div className="flex items-center gap-3">
           <ServerSearchInput
@@ -360,6 +470,20 @@ function AssetDataTableContent() {
             onChange={handleTypeFilterChange}
             onClear={handleTypeFilterClear}
           />
+          {hasActiveFilters && (
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => {
+                setSearchQuery("");
+                handleTypeFilterClear();
+              }}
+              className="text-muted-foreground"
+            >
+              <XIcon size={14} className="mr-1" />
+              Clear filters
+            </Button>
+          )}
         </div>
         <div className="flex items-center gap-3">
           <DataTableBulkDeleteDialog
@@ -382,7 +506,7 @@ function AssetDataTableContent() {
       </div>
 
       <div className="bg-background overflow-hidden rounded-md border">
-        <Table className="table-fixed">
+        <Table className="table-fixed" role="table" aria-label="Assets table">
           <TableHeader>
             {table.getHeaderGroups().map((headerGroup) => (
               <TableRow key={headerGroup.id} className="hover:bg-transparent">
@@ -416,6 +540,7 @@ function AssetDataTableContent() {
                         className={cn(
                           "flex h-full items-center justify-between gap-2 select-none",
                           "cursor-pointer",
+                          "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 rounded-sm",
                         )}
                         onClick={toggleSorting}
                       >
@@ -443,6 +568,15 @@ function AssetDataTableContent() {
                       key={header.id}
                       style={widthStyle}
                       className="h-11"
+                      aria-sort={
+                        canSort
+                          ? sortState === "asc"
+                            ? "ascending"
+                            : sortState === "desc"
+                              ? "descending"
+                              : "none"
+                          : undefined
+                      }
                     >
                       {headerContent}
                     </TableHead>
@@ -477,6 +611,7 @@ function AssetDataTableContent() {
                   <TableRow
                     key={row.id}
                     data-state={row.getIsSelected() ? "selected" : undefined}
+                    className="transition-colors"
                   >
                     {row.getVisibleCells().map((cell) => (
                       <TableCell key={cell.id} className="last:py-0">
@@ -575,7 +710,7 @@ function RowActions({ row, mutateAsset, deleteAsset }: RowActionsProps) {
             size="icon"
             variant="ghost"
             className="shadow-none"
-            aria-label="Edit item"
+            aria-label={`Actions for ${row.original.name}`}
           >
             <EllipsisIcon size={16} aria-hidden="true" />
           </Button>
@@ -612,16 +747,20 @@ function RowActions({ row, mutateAsset, deleteAsset }: RowActionsProps) {
           </DropdownMenuItem>
         </DropdownMenuGroup>
         <DropdownMenuSeparator />
-        <DropdownMenuItem
-          onSelect={(e) => {
-            e.preventDefault();
-            deleteAsset(row.original.id as string);
-          }}
-          className="text-destructive focus:text-destructive"
-        >
-          <span>Delete</span>
-          <DropdownMenuShortcut>⌘⌫</DropdownMenuShortcut>
-        </DropdownMenuItem>
+        <DataTableDeleteDialog
+          itemName={row.original.name}
+          itemType="Asset"
+          onConfirm={() => deleteAsset(row.original.id as string)}
+          trigger={
+            <DropdownMenuItem
+              onSelect={(e) => e.preventDefault()}
+              className="text-destructive focus:text-destructive"
+            >
+              <span>Delete</span>
+              <DropdownMenuShortcut>⌘⌫</DropdownMenuShortcut>
+            </DropdownMenuItem>
+          }
+        />
       </DropdownMenuContent>
     </DropdownMenu>
   );

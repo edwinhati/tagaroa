@@ -43,6 +43,6 @@ export type LiabilitiesApiError = {
 
 export type PaginatedLiabilitiesResult = {
   liabilities: Liability[];
-  pagination: PaginationInfo;
+  pagination?: PaginationInfo;
   aggregations?: Record<string, AggregationItem[]>;
 };

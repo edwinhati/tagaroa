@@ -33,6 +33,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@repo/ui/components/select";
+import { cn } from "@repo/ui/lib/utils";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { Loader2, PlusIcon } from "lucide-react";
 import { useState } from "react";
@@ -280,63 +281,73 @@ export function AssetFormDialog({
             />
           </div>
 
-          {showStockFields && (
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              <Controller
-                control={form.control}
-                name="ticker"
-                render={({ field, fieldState }) => (
-                  <Field>
-                    <FieldLabel>Ticker Symbol</FieldLabel>
-                    <InputGroup>
-                      <InputGroupInput
-                        {...field}
-                        type="text"
-                        placeholder="e.g., AAPL, BTC"
-                        value={field.value ?? ""}
-                      />
-                    </InputGroup>
-                    <FieldDescription>
-                      The stock ticker or cryptocurrency symbol.
-                    </FieldDescription>
-                    {fieldState.invalid && (
-                      <FieldError errors={[fieldState.error]} />
-                    )}
-                  </Field>
-                )}
-              />
+          <div
+            className={cn(
+              "transition-all duration-300 ease-out overflow-hidden",
+              showStockFields
+                ? "grid grid-cols-1 md:grid-cols-2 gap-6 max-h-96 opacity-100 mb-6"
+                : "max-h-0 opacity-0 mb-0",
+            )}
+          >
+            <Controller
+              control={form.control}
+              name="ticker"
+              render={({ field, fieldState }) => (
+                <Field>
+                  <FieldLabel>Ticker Symbol</FieldLabel>
+                  <InputGroup>
+                    <InputGroupInput
+                      {...field}
+                      type="text"
+                      placeholder="e.g., AAPL, BTC"
+                      value={field.value ?? ""}
+                      className={cn(
+                        fieldState.invalid &&
+                          "border-destructive focus-visible:ring-destructive",
+                      )}
+                      aria-invalid={fieldState.invalid}
+                    />
+                  </InputGroup>
+                  <FieldDescription>
+                    The stock ticker or cryptocurrency symbol.
+                  </FieldDescription>
+                  {fieldState.invalid && (
+                    <FieldError errors={[fieldState.error]} />
+                  )}
+                </Field>
+              )}
+            />
 
-              <Controller
-                control={form.control}
-                name="shares"
-                render={({ field, fieldState }) => (
-                  <Field>
-                    <FieldLabel>Number of Shares</FieldLabel>
-                    <InputGroup>
-                      <NumericFormat
-                        customInput={InputGroupInput}
-                        decimalScale={6}
-                        value={field.value ?? ""}
-                        onValueChange={(values) => {
-                          field.onChange(values.floatValue ?? null);
-                        }}
-                        onBlur={field.onBlur}
-                        name={field.name}
-                        getInputRef={field.ref}
-                        placeholder="0.000000"
-                      />
-                    </InputGroup>
-                    <FieldDescription>
-                      The quantity of shares or units held.
-                    </FieldDescription>
-                    {fieldState.invalid && (
-                      <FieldError errors={[fieldState.error]} />
-                    )}
-                  </Field>
-                )}
-              />
-            </div>
-          )}
+            <Controller
+              control={form.control}
+              name="shares"
+              render={({ field, fieldState }) => (
+                <Field>
+                  <FieldLabel>Number of Shares</FieldLabel>
+                  <InputGroup>
+                    <NumericFormat
+                      customInput={InputGroupInput}
+                      decimalScale={6}
+                      value={field.value ?? ""}
+                      onValueChange={(values) => {
+                        field.onChange(values.floatValue ?? null);
+                      }}
+                      onBlur={field.onBlur}
+                      name={field.name}
+                      getInputRef={field.ref}
+                      placeholder="0.000000"
+                    />
+                  </InputGroup>
+                  <FieldDescription>
+                    The quantity of shares or units held.
+                  </FieldDescription>
+                  {fieldState.invalid && (
+                    <FieldError errors={[fieldState.error]} />
+                  )}
+                </Field>
+              )}
+            />
+          </div>
 
           <Controller
             control={form.control}
@@ -371,8 +382,18 @@ export function AssetFormDialog({
             >
               Cancel
             </Button>
-            <Button type="submit" disabled={isPending} className="flex-1">
-              {isPending && <Loader2 className="animate-spin mr-2" />}
+            <Button
+              type="submit"
+              disabled={isPending}
+              aria-busy={isPending}
+              className="flex-1"
+            >
+              {isPending && (
+                <Loader2
+                  className="animate-spin mr-2 h-4 w-4"
+                  aria-hidden="true"
+                />
+              )}
               {submitLabel}
             </Button>
           </div>

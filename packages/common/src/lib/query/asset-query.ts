@@ -48,13 +48,13 @@ const fetchAssets = async (params?: {
 
   return {
     assets: data.data ? data.data.map(mapAsset) : [],
-    pagination: data.pagination,
-    aggregations: data.aggregations || {},
+    pagination: data.meta?.pagination,
+    aggregations: data.meta?.aggregations || {},
   };
 };
 
 const fetchAssetTypes = async (): Promise<string[]> => {
-  return financeApi.get<string[]>("/asset/types");
+  return financeApi.get<string[]>("/assets/types");
 };
 
 const mutateAsset = async (asset: Asset): Promise<Asset> => {
@@ -69,14 +69,14 @@ const mutateAsset = async (asset: Asset): Promise<Asset> => {
   };
 
   const data = await (asset.id
-    ? financeApi.put<AssetResponse>(`/asset/${asset.id}`, payload)
-    : financeApi.post<AssetResponse>("/asset", payload));
+    ? financeApi.patch<AssetResponse>(`/assets/${asset.id}`, payload)
+    : financeApi.post<AssetResponse>("/assets", payload));
 
   return mapAsset(data);
 };
 
 const deleteAsset = async (id: string): Promise<void> => {
-  await financeApi.delete(`/asset/${id}`);
+  await financeApi.delete(`/assets/${id}`);
 };
 
 // Fetch all assets for export (with large limit)
@@ -124,18 +124,21 @@ export const assetDeleteMutationOptions = () => {
       const previous = queryClient.getQueryData(["assets"]);
 
       // Optimistically update to the new value
-      queryClient.setQueryData(["assets"], (old: any) => {
-        if (!old) return old;
-        return {
-          ...old,
-          assets: old.assets.filter((asset: Asset) => asset.id !== id),
-        };
-      });
+      queryClient.setQueryData(
+        ["assets"],
+        (old: { assets: Asset[] } | undefined) => {
+          if (!old) return old;
+          return {
+            ...old,
+            assets: old.assets.filter((asset: Asset) => asset.id !== id),
+          };
+        },
+      );
 
       // Return context with previous value
       return { previous };
     },
-    onError: (err, id, context) => {
+    onError: (_err, _id, context) => {
       // Rollback to previous value
       if (context?.previous) {
         queryClient.setQueryData(["assets"], context.previous);

@@ -1,9 +1,8 @@
 "use client";
 
-import React from "react";
 import { Button } from "@repo/ui/components/button";
 import { DownloadIcon, LoaderIcon } from "lucide-react";
-import { type ComponentProps, useState } from "react";
+import React, { type ComponentProps, useState } from "react";
 
 type ButtonComponentProps = ComponentProps<typeof Button>;
 

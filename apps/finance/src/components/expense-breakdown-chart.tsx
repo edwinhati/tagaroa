@@ -1,6 +1,7 @@
 "use client";
 
-import { expenseBreakdownQueryOptions } from "@repo/common/lib/query/finance-dashboard";
+import { expenseBreakdownQueryOptions } from "@repo/common/lib/query/finance-dashboard-query";
+import { Button } from "@repo/ui/components/button";
 import {
   Card,
   CardContent,
@@ -15,12 +16,13 @@ import {
   ChartTooltipContent,
 } from "@repo/ui/components/chart";
 import { Skeleton } from "@repo/ui/components/skeleton";
+import { cn } from "@repo/ui/lib/utils";
 import { useQuery } from "@tanstack/react-query";
 import { PieChart as PieChartIcon } from "lucide-react";
-import React, { useMemo } from "react";
+import React, { useMemo, useState } from "react";
 import type { DateRange } from "react-day-picker";
 import { Cell, Label, Pie, PieChart } from "recharts";
-import { formatCurrencySmart } from "@/utils/currency";
+import { formatCurrencyCompact, formatCurrencySmart } from "@/utils/currency";
 
 export const description =
   "A donut chart showing expense breakdown by category";
@@ -35,6 +37,8 @@ const CHART_COLORS = [
 ];
 
 const ExpenseBreakdownChart = React.memo(({ range }: { range?: DateRange }) => {
+  const [showAll, setShowAll] = useState(false);
+
   const { data, isLoading } = useQuery({
     ...expenseBreakdownQueryOptions({
       startDate: range?.from
@@ -44,7 +48,7 @@ const ExpenseBreakdownChart = React.memo(({ range }: { range?: DateRange }) => {
     }),
   });
 
-  const chartData = useMemo(() => {
+  const allChartData = useMemo(() => {
     return (
       data?.items.map((item, index) => ({
         name: item.category,
@@ -54,6 +58,29 @@ const ExpenseBreakdownChart = React.memo(({ range }: { range?: DateRange }) => {
       })) ?? []
     );
   }, [data]);
+
+  const chartData = useMemo(() => {
+    if (showAll || allChartData.length <= 5) {
+      return allChartData;
+    }
+    // Show top 5 and combine the rest into "Others"
+    const top5 = allChartData.slice(0, 5);
+    const others = allChartData.slice(5);
+    if (others.length > 0) {
+      const othersTotal = others.reduce((sum, item) => sum + item.value, 0);
+      const othersPercentage = others.reduce(
+        (sum, item) => sum + item.percentage,
+        0,
+      );
+      top5.push({
+        name: "Others",
+        value: othersTotal,
+        percentage: othersPercentage,
+        fill: "hsl(var(--muted-foreground))",
+      });
+    }
+    return top5;
+  }, [allChartData, showAll]);
 
   const chartConfig = useMemo(() => {
     const config: ChartConfig = {
@@ -75,7 +102,7 @@ const ExpenseBreakdownChart = React.memo(({ range }: { range?: DateRange }) => {
   if (isLoading) {
     return (
       <Card className="flex flex-col h-full">
-        <CardHeader className="flex flex-row items-start justify-between space-y-0 pb-3">
+        <CardHeader className="flex flex-row items-start justify-between space-y-0 pb-4">
           <div>
             <CardTitle className="text-base font-semibold">
               Expense Breakdown
@@ -99,7 +126,7 @@ const ExpenseBreakdownChart = React.memo(({ range }: { range?: DateRange }) => {
   if (!chartData.length) {
     return (
       <Card className="flex flex-col h-full">
-        <CardHeader className="flex flex-row items-start justify-between space-y-0 pb-3">
+        <CardHeader className="flex flex-row items-start justify-between space-y-0 pb-4">
           <div>
             <CardTitle className="text-base font-semibold">
               Expense Breakdown
@@ -122,17 +149,29 @@ const ExpenseBreakdownChart = React.memo(({ range }: { range?: DateRange }) => {
   }
 
   return (
-    <Card className="flex flex-col h-full cursor-pointer group transition-all duration-300 hover:shadow-xl hover:shadow-primary/10 hover:-translate-y-1 border-border/50 hover:border-primary/30 bg-card/80 backdrop-blur-sm">
-      <CardHeader className="flex flex-row items-start justify-between space-y-0 pb-3">
-        <div>
-          <CardTitle className="text-base font-semibold group-hover:text-primary transition-colors duration-200">
-            Expense Breakdown
-          </CardTitle>
+    <Card className="flex flex-col h-full border-border/50 bg-card/80 backdrop-blur-sm shadow-sm hover:shadow-md transition-shadow duration-200">
+      <CardHeader className="flex flex-row items-start justify-between space-y-0 pb-4">
+        <div className="flex-1">
+          <div className="flex items-center justify-between mb-2">
+            <CardTitle className="text-base font-semibold">
+              Expense Breakdown
+            </CardTitle>
+            {allChartData.length > 5 && (
+              <Button
+                variant="ghost"
+                size="sm"
+                className="h-6 text-xs px-2"
+                onClick={() => setShowAll(!showAll)}
+              >
+                {showAll ? "Top 5" : "View All"}
+              </Button>
+            )}
+          </div>
           <CardDescription className="text-xs">
             Spending by category
           </CardDescription>
         </div>
-        <div className="p-2.5 rounded-xl bg-rose-500/10 ring-1 ring-rose-500/20 group-hover:bg-rose-500/20 group-hover:scale-110 transition-all duration-200">
+        <div className="p-2.5 rounded-xl bg-rose-500/10 ring-1 ring-rose-500/20">
           <PieChartIcon className="h-4 w-4 text-rose-500" />
         </div>
       </CardHeader>
@@ -144,7 +183,21 @@ const ExpenseBreakdownChart = React.memo(({ range }: { range?: DateRange }) => {
           <PieChart>
             <ChartTooltip
               cursor={false}
-              content={<ChartTooltipContent hideLabel />}
+              content={
+                <ChartTooltipContent
+                  hideLabel
+                  formatter={(value, _name, item) => (
+                    <div className="flex flex-col gap-0.5">
+                      <span className="font-medium">
+                        {formatCurrencyCompact(value as number, "IDR")}
+                      </span>
+                      <span className="text-xs text-muted-foreground">
+                        {item.payload.percentage.toFixed(1)}% of total
+                      </span>
+                    </div>
+                  )}
+                />
+              }
             />
             <Pie
               data={chartData}
@@ -227,7 +280,7 @@ export { ExpenseBreakdownChart };
 export const ExpenseBreakdownChartSkeleton = () => {
   return (
     <Card className="flex flex-col h-full">
-      <CardHeader className="flex flex-row items-start justify-between space-y-0 pb-3">
+      <CardHeader className="flex flex-row items-start justify-between space-y-0 pb-4">
         <div>
           <CardTitle className="text-base font-semibold">
             Expense Breakdown

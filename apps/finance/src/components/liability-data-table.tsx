@@ -1,6 +1,7 @@
 "use client";
 
 import { DataTableBulkDeleteDialog } from "@repo/common/components/data-table-bulk-delete-dialog";
+import { DataTableDeleteDialog } from "@repo/common/components/data-table-delete-dialog";
 import { DataTableExportButton } from "@repo/common/components/data-table-export-button";
 import { DataTableMultiSelectFilter } from "@repo/common/components/data-table-multi-select-filter";
 import { DataTablePagination } from "@repo/common/components/data-table-pagination";
@@ -67,8 +68,11 @@ import {
   ChevronUpIcon,
   CircleDollarSignIcon,
   EllipsisIcon,
+  EyeIcon,
+  EyeOffIcon,
   PlusIcon,
   WalletIcon,
+  XIcon,
 } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
@@ -173,6 +177,7 @@ function LiabilityDataTableContent() {
   });
   const [searchQuery, setSearchQuery] = useState<string>("");
   const [typeFilter, setTypeFilter] = useState<string[]>([]);
+  const [showPaid, setShowPaid] = useState(false);
 
   const [stableData, setStableData] =
     useState<PaginatedLiabilitiesResult | null>(null);
@@ -193,6 +198,7 @@ function LiabilityDataTableContent() {
       limit: pagination.pageSize,
       search: searchQuery,
       filters: typeFilter.length > 0 ? { type: typeFilter } : undefined,
+      includePaid: showPaid,
     }),
   );
 
@@ -504,6 +510,33 @@ function LiabilityDataTableContent() {
             onChange={handleTypeFilterChange}
             onClear={handleTypeFilterClear}
           />
+          <Button
+            variant={showPaid ? "secondary" : "ghost"}
+            size="sm"
+            onClick={() => setShowPaid((v) => !v)}
+            className={showPaid ? "" : "text-muted-foreground"}
+          >
+            {showPaid ? (
+              <EyeIcon size={14} className="mr-1" />
+            ) : (
+              <EyeOffIcon size={14} className="mr-1" />
+            )}
+            {showPaid ? "Hiding paid" : "Show paid"}
+          </Button>
+          {hasActiveFilters && (
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => {
+                setSearchQuery("");
+                handleTypeFilterClear();
+              }}
+              className="text-muted-foreground"
+            >
+              <XIcon size={14} className="mr-1" />
+              Clear filters
+            </Button>
+          )}
         </div>
         <div className="flex items-center gap-3">
           <DataTableBulkDeleteDialog
@@ -526,7 +559,11 @@ function LiabilityDataTableContent() {
       </div>
 
       <div className="bg-background overflow-hidden rounded-md border">
-        <Table className="table-fixed">
+        <Table
+          className="table-fixed"
+          role="table"
+          aria-label="Liabilities table"
+        >
           <TableHeader>
             {table.getHeaderGroups().map((headerGroup) => (
               <TableRow key={headerGroup.id} className="hover:bg-transparent">
@@ -560,6 +597,7 @@ function LiabilityDataTableContent() {
                         className={cn(
                           "flex h-full items-center justify-between gap-2 select-none",
                           "cursor-pointer",
+                          "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 rounded-sm",
                         )}
                         onClick={toggleSorting}
                       >
@@ -587,6 +625,15 @@ function LiabilityDataTableContent() {
                       key={header.id}
                       style={widthStyle}
                       className="h-11"
+                      aria-sort={
+                        canSort
+                          ? sortState === "asc"
+                            ? "ascending"
+                            : sortState === "desc"
+                              ? "descending"
+                              : "none"
+                          : undefined
+                      }
                     >
                       {headerContent}
                     </TableHead>
@@ -621,6 +668,7 @@ function LiabilityDataTableContent() {
                   <TableRow
                     key={row.id}
                     data-state={row.getIsSelected() ? "selected" : undefined}
+                    className="transition-colors"
                   >
                     {row.getVisibleCells().map((cell) => (
                       <TableCell key={cell.id} className="last:py-0">
@@ -744,7 +792,7 @@ function RowActions({
             size="icon"
             variant="ghost"
             className="shadow-none"
-            aria-label="Edit item"
+            aria-label={`Actions for ${row.original.name}`}
           >
             <EllipsisIcon size={16} aria-hidden="true" />
           </Button>
@@ -783,16 +831,20 @@ function RowActions({
           )}
         </DropdownMenuGroup>
         <DropdownMenuSeparator />
-        <DropdownMenuItem
-          onSelect={(e) => {
-            e.preventDefault();
-            deleteLiability(row.original.id as string);
-          }}
-          className="text-destructive focus:text-destructive"
-        >
-          <span>Delete</span>
-          <DropdownMenuShortcut>⌘⌫</DropdownMenuShortcut>
-        </DropdownMenuItem>
+        <DataTableDeleteDialog
+          itemName={row.original.name}
+          itemType="Liability"
+          onConfirm={() => deleteLiability(row.original.id as string)}
+          trigger={
+            <DropdownMenuItem
+              onSelect={(e) => e.preventDefault()}
+              className="text-destructive focus:text-destructive"
+            >
+              <span>Delete</span>
+              <DropdownMenuShortcut>⌘⌫</DropdownMenuShortcut>
+            </DropdownMenuItem>
+          }
+        />
       </DropdownMenuContent>
     </DropdownMenu>
   );

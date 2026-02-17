@@ -1,7 +1,5 @@
 "use client";
 
-import { authClient } from "@repo/common/lib/auth-client";
-
 type Service = "auth" | "finance" | "storage";
 
 function getApiUrl(service: Service, path: string): string {
@@ -21,8 +19,6 @@ export type ApiRequestInit = Omit<RequestInit, "headers" | "body"> & {
   json?: unknown;
   // When provided, body will be sent as FormData (for file uploads)
   formData?: FormData;
-  // If false, do not attach Authorization header
-  auth?: boolean;
   // If false, return the parsed response without unwrapping the { data, pagination, ... } envelope
   unwrapData?: boolean;
 };
@@ -36,13 +32,14 @@ export async function apiRequest<T = unknown>(
 ): Promise<T> {
   const url = getApiUrl(service, path);
 
-  const headers = await buildHeaders(init);
+  const headers: Record<string, string> = init.headers ?? {};
   const body = buildBody(init, headers);
 
   const response = await fetch(url, {
     ...init,
     headers,
     body,
+    credentials: "include",
   });
 
   const unwrapData = init.unwrapData ?? true;
@@ -86,47 +83,6 @@ export const storageApi = {
     });
   },
 };
-
-async function buildHeaders(
-  init: ApiRequestInit,
-): Promise<Record<string, string>> {
-  const headers: Record<string, string> = init.headers ?? {};
-
-  const authHeader = await resolveAuthHeader(init.auth);
-  if (authHeader) {
-    headers.Authorization = authHeader;
-  }
-
-  return headers;
-}
-
-async function resolveAuthHeader(
-  authEnabled?: boolean,
-): Promise<string | undefined> {
-  if (authEnabled === false) {
-    return undefined;
-  }
-
-  const token = await fetchAccessToken();
-  return token ? `Bearer ${token}` : undefined;
-}
-
-async function fetchAccessToken(): Promise<string | undefined> {
-  try {
-    const { data: jwtData, error } = await authClient.token();
-    if (jwtData?.token) {
-      return jwtData.token;
-    }
-    if (error) {
-      console.warn("Failed to get JWT token:", error);
-    }
-  } catch (error) {
-    console.warn("Error getting JWT token:", error);
-  }
-
-  const { data: session } = await authClient.getSession();
-  return session?.session.token;
-}
 
 function buildBody(
   init: ApiRequestInit,

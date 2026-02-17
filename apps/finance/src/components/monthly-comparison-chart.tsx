@@ -1,6 +1,6 @@
 "use client";
 
-import { transactionTrendsQueryOptions } from "@repo/common/lib/query/finance-dashboard";
+import { transactionTrendsQueryOptions } from "@repo/common/lib/query/finance-dashboard-query";
 import {
   Card,
   CardContent,
@@ -20,6 +20,7 @@ import { BarChart3 } from "lucide-react";
 import React from "react";
 import type { DateRange } from "react-day-picker";
 import { Bar, BarChart, CartesianGrid, XAxis, YAxis } from "recharts";
+import { formatCurrencyCompact } from "@/utils/currency";
 
 const chartConfig = {
   income: {
@@ -38,20 +39,21 @@ const chartConfig = {
 
 const MonthlyComparisonChart = React.memo(
   ({ range }: { range?: DateRange }) => {
+    const queryParams = {
+      startDate: range?.from
+        ? range.from.toISOString().split("T")[0]
+        : undefined,
+      endDate: range?.to ? range.to.toISOString().split("T")[0] : undefined,
+    };
+
     const { data, isLoading } = useQuery({
-      ...transactionTrendsQueryOptions({
-        startDate: range?.from
-          ? range.from.toISOString().split("T")[0]
-          : undefined,
-        endDate: range?.to ? range.to.toISOString().split("T")[0] : undefined,
-        granularity: "month",
-      }),
+      ...transactionTrendsQueryOptions(queryParams),
     });
 
     if (isLoading) {
       return (
-        <Card className="w-full h-full">
-          <CardHeader className="flex flex-row items-start justify-between space-y-0 pb-3">
+        <Card className="h-full">
+          <CardHeader className="flex flex-row items-start justify-between space-y-0 pb-4">
             <div>
               <CardTitle className="text-base font-semibold">
                 Monthly Comparison
@@ -79,18 +81,48 @@ const MonthlyComparisonChart = React.memo(
         net: item.net_flow,
       })) ?? [];
 
+    // Check if we have any non-zero data
+    const hasData = chartData.some(
+      (item) => item.income > 0 || item.expenses > 0,
+    );
+
+    if (!hasData && chartData.length > 0) {
+      return (
+        <Card className="h-full">
+          <CardHeader className="flex flex-row items-start justify-between space-y-0 pb-4">
+            <div>
+              <CardTitle className="text-base font-semibold">
+                Monthly Comparison
+              </CardTitle>
+              <CardDescription className="text-xs">
+                Income, Expenses, and Net by month
+              </CardDescription>
+            </div>
+            <div className="p-2.5 rounded-xl bg-indigo-500/10 ring-1 ring-indigo-500/20">
+              <BarChart3 className="h-4 w-4 text-indigo-500" />
+            </div>
+          </CardHeader>
+          <CardContent className="pl-2 flex items-center justify-center h-[280px]">
+            <p className="text-sm text-muted-foreground">
+              No transaction data for this period
+            </p>
+          </CardContent>
+        </Card>
+      );
+    }
+
     return (
-      <Card className="w-full h-full cursor-pointer group transition-all duration-300 hover:shadow-xl hover:shadow-primary/10 hover:-translate-y-1 border-border/50 hover:border-primary/30 bg-card/80 backdrop-blur-sm">
-        <CardHeader className="flex flex-row items-start justify-between space-y-0 pb-3">
+      <Card className="h-full border-border/50 bg-card/80 backdrop-blur-sm shadow-sm hover:shadow-md transition-shadow duration-200">
+        <CardHeader className="flex flex-row items-start justify-between space-y-0 pb-4">
           <div>
-            <CardTitle className="text-base font-semibold group-hover:text-primary transition-colors duration-200">
+            <CardTitle className="text-base font-semibold">
               Monthly Comparison
             </CardTitle>
             <CardDescription className="text-xs">
               Income, Expenses, and Net by month
             </CardDescription>
           </div>
-          <div className="p-2.5 rounded-xl bg-indigo-500/10 ring-1 ring-indigo-500/20 group-hover:bg-indigo-500/20 group-hover:scale-110 transition-all duration-200">
+          <div className="p-2.5 rounded-xl bg-indigo-500/10 ring-1 ring-indigo-500/20">
             <BarChart3 className="h-4 w-4 text-indigo-500" />
           </div>
         </CardHeader>
@@ -124,6 +156,9 @@ const MonthlyComparisonChart = React.memo(
                         year: "numeric",
                       });
                     }}
+                    formatter={(value) =>
+                      formatCurrencyCompact(value as number, "IDR")
+                    }
                     indicator="dashed"
                   />
                 }
@@ -160,7 +195,7 @@ export { MonthlyComparisonChart };
 
 export const MonthlyComparisonChartSkeleton = () => {
   return (
-    <Card className="w-full h-full">
+    <Card className="h-full">
       <CardHeader className="flex flex-row items-start justify-between space-y-0 pb-3">
         <div>
           <CardTitle className="text-base font-semibold">

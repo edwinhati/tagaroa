@@ -28,6 +28,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@repo/ui/components/select";
+import { cn } from "@repo/ui/lib/utils";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { Loader2, PlusIcon } from "lucide-react";
 import { useState } from "react";
@@ -118,6 +119,11 @@ export function LiabilityFormDialog({
                 {...form.register("name")}
                 placeholder="Liability name"
                 autoFocus
+                className={cn(
+                  form.formState.errors.name &&
+                    "border-destructive focus-visible:ring-destructive",
+                )}
+                aria-invalid={!!form.formState.errors.name}
               />
             </InputGroup>
             {form.formState.errors.name && (
@@ -176,14 +182,16 @@ export function LiabilityFormDialog({
               name="amount"
               control={form.control}
               render={({ field }) => (
-                <NumericFormat
-                  customInput={InputGroupInput}
-                  thousandSeparator={selectedCurrency === "IDR" ? "." : ","}
-                  decimalSeparator={selectedCurrency === "IDR" ? "," : "."}
-                  prefix={selectedCurrency === "IDR" ? "Rp " : "$ "}
-                  value={field.value}
-                  onValueChange={(v) => field.onChange(v.floatValue ?? 0)}
-                />
+                <InputGroup>
+                  <NumericFormat
+                    customInput={InputGroupInput}
+                    thousandSeparator={selectedCurrency === "IDR" ? "." : ","}
+                    decimalSeparator={selectedCurrency === "IDR" ? "," : "."}
+                    prefix={selectedCurrency === "IDR" ? "Rp " : "$ "}
+                    value={field.value}
+                    onValueChange={(v) => field.onChange(v.floatValue ?? 0)}
+                  />
+                </InputGroup>
               )}
             />
           </Field>
@@ -207,10 +215,19 @@ export function LiabilityFormDialog({
             >
               Cancel
             </Button>
-            <Button type="submit" disabled={isPending} className="flex-1">
+            <Button
+              type="submit"
+              disabled={isPending}
+              aria-busy={isPending}
+              className="flex-1"
+            >
               {isPending ? (
                 <>
-                  <Loader2 className="animate-spin" /> Saving...
+                  <Loader2
+                    className="animate-spin mr-2 h-4 w-4"
+                    aria-hidden="true"
+                  />
+                  Saving...
                 </>
               ) : initialData ? (
                 "Update Liability"

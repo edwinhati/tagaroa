@@ -22,6 +22,7 @@ node_modules
 
 # Testing
 coverage.*
+.nyc_output
 
 # Turbo
 .turbo
@@ -34,11 +35,7 @@ coverage.*
 out/
 build
 dist
-target
-.gocache
-finance-server
 
-# Python
 __pycache__/
 *.py[cod]
 *$py.class
@@ -67,11 +64,29 @@ yarn-error.log*
 # Misc
 .DS_Store
 *.pem
+.temp
+.tmp
+pids
+*.pid
+*.seed
+*.pid.lock
+report.[0-9]*.[0-9]*.[0-9]*.[0-9]*.json
 
 # IDE
-.vscode
+.vscode/*
+!.vscode/settings.json
+!.vscode/tasks.json
+!.vscode/launch.json
+!.vscode/extensions.json
 .zed
 .kiro
+.idea
+.project
+.classpath
+.c9/
+*.launch
+.settings/
+*.sublime-workspace
 
 misc
 .scannerwork

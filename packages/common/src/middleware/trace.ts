@@ -3,7 +3,7 @@
  * Injects trace ID into Hono context for error responses
  */
 
-import { trace, context } from "@opentelemetry/api";
+import { context, trace } from "@opentelemetry/api";
 import type { MiddlewareHandler } from "hono";
 
 declare module "hono" {
@@ -21,7 +21,7 @@ export const traceMiddleware: MiddlewareHandler = async (c, next) => {
 
   if (currentSpan) {
     const spanContext = currentSpan.spanContext();
-    if (spanContext && spanContext.traceId) {
+    if (spanContext?.traceId) {
       c.set("traceId", spanContext.traceId);
     }
   }

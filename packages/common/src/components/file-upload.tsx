@@ -85,6 +85,7 @@ const getFilePreview = (file: {
     <img
       src={src}
       alt={fileName}
+      crossOrigin="use-credentials"
       className="absolute inset-0 w-full h-full rounded-t-[inherit] object-cover"
     />
   );

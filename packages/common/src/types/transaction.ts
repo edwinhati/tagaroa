@@ -50,6 +50,7 @@ export type TransactionResponse = {
   deleted_at: string | null;
   created_at: Date;
   updated_at: Date;
+  version: number;
   account?: {
     id: string;
     name: string;
@@ -76,6 +77,6 @@ export type TransactionsApiError = {
 
 export type PaginatedTransactionsResult = {
   transactions: Transaction[];
-  pagination: PaginationInfo;
+  pagination?: PaginationInfo;
   aggregations: Record<string, AggregationItem[]>;
 };

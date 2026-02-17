@@ -24,9 +24,11 @@ export type AccountResponse = {
   currency: string;
   type: string;
   balance: number;
+  user_id: string;
   deleted_at: string | null;
   created_at: Date;
   updated_at: Date;
+  version: number;
 };
 
 export type AccountsApiResponse = JsonApiResponse<AccountResponse[]>;
@@ -41,6 +43,6 @@ export type AccountsApiError = {
 
 export type PaginatedAccountsResult = {
   accounts: Account[];
-  pagination: PaginationInfo;
+  pagination?: PaginationInfo;
   aggregations: Record<string, AggregationItem[]>;
 };

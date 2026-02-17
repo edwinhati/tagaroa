@@ -70,7 +70,7 @@ const fetchAccounts = async (params?: {
 
 // Fetch account types
 const fetchAccountTypes = async (): Promise<string[]> => {
-  return financeApi.get<string[]>("/account/types");
+  return financeApi.get<string[]>("/accounts/types");
 };
 
 // Create or update an account
@@ -90,7 +90,7 @@ const mutateAccount = async (account: Account): Promise<Account> => {
   const hasValidId = account.id && account.id.trim() !== "";
 
   const data = await (hasValidId
-    ? financeApi.put<AccountResponse>(`/accounts/${account.id}`, payload)
+    ? financeApi.patch<AccountResponse>(`/accounts/${account.id}`, payload)
     : financeApi.post<AccountResponse>("/accounts", payload));
 
   return mapAccount(data);
@@ -167,7 +167,7 @@ export const accountDeleteMutationOptions = () => {
       // Return a context object with the snapshotted value
       return { previousAccounts };
     },
-    onError: (err, deletedId, context) => {
+    onError: (_err, _deletedId, context) => {
       // If the mutation fails, use the context returned from onMutate to roll back
       if (context?.previousAccounts) {
         queryClient.setQueryData(["accounts"], context.previousAccounts);

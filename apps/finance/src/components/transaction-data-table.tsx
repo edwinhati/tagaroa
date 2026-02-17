@@ -356,7 +356,7 @@ function TransactionDataTableContent() {
       );
 
       options[filterKey] = sortedItems.map((item) => ({
-        value: item.key,
+        value: item.id,
         label: item.key.replaceAll("_", "-"),
         count: item.count,
       }));

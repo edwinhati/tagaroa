@@ -1,6 +1,6 @@
 "use client";
 
-import { transactionTrendsQueryOptions } from "@repo/common/lib/query/finance-dashboard";
+import { transactionTrendsQueryOptions } from "@repo/common/lib/query/finance-dashboard-query";
 import {
   Card,
   CardContent,
@@ -15,11 +15,12 @@ import {
   ChartTooltipContent,
 } from "@repo/ui/components/chart";
 import { Skeleton } from "@repo/ui/components/skeleton";
-import React from "react";
 import { useQuery } from "@tanstack/react-query";
 import { TrendingUp } from "lucide-react";
+import React from "react";
 import type { DateRange } from "react-day-picker";
-import { Area, AreaChart, CartesianGrid, XAxis, YAxis } from "recharts";
+import { Area, AreaChart, CartesianGrid, Line, XAxis, YAxis } from "recharts";
+import { formatCurrencyCompact } from "@/utils/currency";
 
 export const description = "An area chart showing transaction trends over time";
 
@@ -32,18 +33,23 @@ const chartConfig = {
     label: "Expenses",
     color: "hsl(349, 89%, 60%)", // Rose red
   },
+  net_flow: {
+    label: "Net Flow",
+    color: "hsl(38, 92%, 50%)", // Amber/gold
+  },
 } satisfies ChartConfig;
 
 const TransactionTrendsChart = React.memo(
   ({ range }: { range?: DateRange }) => {
+    const queryParams = {
+      startDate: range?.from
+        ? range.from.toISOString().split("T")[0]
+        : undefined,
+      endDate: range?.to ? range.to.toISOString().split("T")[0] : undefined,
+    };
+
     const { data, isLoading } = useQuery({
-      ...transactionTrendsQueryOptions({
-        startDate: range?.from
-          ? range.from.toISOString().split("T")[0]
-          : undefined,
-        endDate: range?.to ? range.to.toISOString().split("T")[0] : undefined,
-        granularity: "month",
-      }),
+      ...transactionTrendsQueryOptions(queryParams),
     });
 
     if (isLoading) {
@@ -63,7 +69,7 @@ const TransactionTrendsChart = React.memo(
             </div>
           </CardHeader>
           <CardContent className="flex-1 flex items-center justify-center pb-4">
-            <Skeleton className="h-[200px] w-full rounded-lg" />
+            <Skeleton className="h-[280px] w-full rounded-lg" />
           </CardContent>
         </Card>
       );
@@ -74,27 +80,58 @@ const TransactionTrendsChart = React.memo(
         period: item.period,
         income: item.income,
         expenses: item.expenses,
+        net_flow: item.net_flow,
       })) ?? [];
 
+    // Check if we have any non-zero data
+    const hasData = chartData.some(
+      (item) => item.income > 0 || item.expenses > 0,
+    );
+
+    if (!hasData && chartData.length > 0) {
+      return (
+        <Card className="flex flex-col h-full">
+          <CardHeader className="flex flex-row items-start justify-between space-y-0 pb-3">
+            <div>
+              <CardTitle className="text-base font-semibold">
+                Transaction Trends
+              </CardTitle>
+              <CardDescription className="text-xs">
+                Income vs Expenses over time
+              </CardDescription>
+            </div>
+            <div className="p-2.5 rounded-xl bg-cyan-500/10 ring-1 ring-cyan-500/20">
+              <TrendingUp className="h-4 w-4 text-cyan-500" />
+            </div>
+          </CardHeader>
+          <CardContent className="flex-1 flex items-center justify-center pb-4">
+            <p className="text-sm text-muted-foreground">
+              No transaction data for this period
+            </p>
+          </CardContent>
+        </Card>
+      );
+    }
+
     return (
-      <Card className="flex flex-col h-full cursor-pointer group transition-all duration-300 hover:shadow-xl hover:shadow-primary/10 hover:-translate-y-1 border-border/50 hover:border-primary/30 bg-card/80 backdrop-blur-sm">
-        <CardHeader className="flex flex-row items-start justify-between space-y-0 pb-3">
+      <Card className="flex flex-col h-full border-border/50 bg-card/80 backdrop-blur-sm shadow-sm hover:shadow-md transition-shadow duration-200">
+        <CardHeader className="flex flex-row items-start justify-between space-y-0 pb-4">
           <div>
-            <CardTitle className="text-base font-semibold group-hover:text-primary transition-colors duration-200">
+            <CardTitle className="text-base font-semibold">
               Transaction Trends
             </CardTitle>
             <CardDescription className="text-xs">
               Income vs Expenses over time
             </CardDescription>
           </div>
-          <div className="p-2.5 rounded-xl bg-cyan-500/10 ring-1 ring-cyan-500/20 group-hover:bg-cyan-500/20 group-hover:scale-110 transition-all duration-200">
+          <div className="p-2.5 rounded-xl bg-cyan-500/10 ring-1 ring-cyan-500/20">
             <TrendingUp className="h-4 w-4 text-cyan-500" />
           </div>
         </CardHeader>
         <CardContent className="flex-1 pb-4">
           <ChartContainer
             config={chartConfig}
-            className="mx-auto h-[200px] w-full"
+            className="mx-auto h-[280px] w-full"
           >
             <AreaChart data={chartData} accessibilityLayer>
               <defs>
@@ -155,9 +192,13 @@ const TransactionTrendsChart = React.memo(
                     labelFormatter={(value) => {
                       return new Date(value).toLocaleDateString("en-US", {
                         month: "long",
+                        day: "numeric",
                         year: "numeric",
                       });
                     }}
+                    formatter={(value) =>
+                      formatCurrencyCompact(value as number, "IDR")
+                    }
                     indicator="dot"
                   />
                 }
@@ -175,6 +216,13 @@ const TransactionTrendsChart = React.memo(
                 fill="url(#fillIncome)"
                 stroke="var(--color-income)"
                 strokeWidth={2}
+              />
+              <Line
+                dataKey="net_flow"
+                type="monotone"
+                stroke="var(--color-net_flow)"
+                strokeWidth={2}
+                dot={false}
               />
             </AreaChart>
           </ChartContainer>
@@ -205,7 +253,7 @@ export const TransactionTrendsChartSkeleton = () => {
         </div>
       </CardHeader>
       <CardContent className="flex-1 flex items-center justify-center pb-4">
-        <Skeleton className="h-[200px] w-full rounded-lg" />
+        <Skeleton className="h-[280px] w-full rounded-lg" />
       </CardContent>
     </Card>
   );

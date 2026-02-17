@@ -45,6 +45,6 @@ export type AssetsApiError = {
 
 export type PaginatedAssetsResult = {
   assets: Asset[];
-  pagination: PaginationInfo;
+  pagination?: PaginationInfo;
   aggregations?: Record<string, AggregationItem[]>;
 };

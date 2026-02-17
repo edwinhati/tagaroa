@@ -1,6 +1,6 @@
 "use client";
 
-import { accountAggregationsQueryOptions } from "@repo/common/lib/query/finance-dashboard";
+import { accountAggregationsQueryOptions } from "@repo/common/lib/query/finance-dashboard-query";
 import {
   Card,
   CardContent,
@@ -19,7 +19,7 @@ import { useQuery } from "@tanstack/react-query";
 import { Wallet } from "lucide-react";
 import React, { useMemo } from "react";
 import { Cell, Label, Pie, PieChart } from "recharts";
-import { formatCurrencySmart } from "@/utils/currency";
+import { formatCurrencyCompact, formatCurrencySmart } from "@/utils/currency";
 
 export const description = "A donut chart showing account balances by type";
 
@@ -67,7 +67,7 @@ const AccountOverviewChart = React.memo(() => {
   if (isLoading) {
     return (
       <Card className="flex flex-col h-full">
-        <CardHeader className="flex flex-row items-start justify-between space-y-0 pb-3">
+        <CardHeader className="flex flex-row items-start justify-between space-y-0 pb-4">
           <div>
             <CardTitle className="text-base font-semibold">
               Account Overview
@@ -91,7 +91,7 @@ const AccountOverviewChart = React.memo(() => {
   if (!chartData.length) {
     return (
       <Card className="flex flex-col h-full">
-        <CardHeader className="flex flex-row items-start justify-between space-y-0 pb-3">
+        <CardHeader className="flex flex-row items-start justify-between space-y-0 pb-4">
           <div>
             <CardTitle className="text-base font-semibold">
               Account Overview
@@ -114,17 +114,17 @@ const AccountOverviewChart = React.memo(() => {
   }
 
   return (
-    <Card className="flex flex-col h-full cursor-pointer group transition-all duration-300 hover:shadow-xl hover:shadow-primary/10 hover:-translate-y-1 border-border/50 hover:border-primary/30 bg-card/80 backdrop-blur-sm">
-      <CardHeader className="flex flex-row items-start justify-between space-y-0 pb-3">
+    <Card className="flex flex-col h-full border-border/50 bg-card/80 backdrop-blur-sm shadow-sm hover:shadow-md transition-shadow duration-200">
+      <CardHeader className="flex flex-row items-start justify-between space-y-0 pb-4">
         <div>
-          <CardTitle className="text-base font-semibold group-hover:text-primary transition-colors duration-200">
+          <CardTitle className="text-base font-semibold">
             Account Overview
           </CardTitle>
           <CardDescription className="text-xs">
             Balance by account type
           </CardDescription>
         </div>
-        <div className="p-2.5 rounded-xl bg-blue-500/10 ring-1 ring-blue-500/20 group-hover:bg-blue-500/20 group-hover:scale-110 transition-all duration-200">
+        <div className="p-2.5 rounded-xl bg-blue-500/10 ring-1 ring-blue-500/20">
           <Wallet className="h-4 w-4 text-blue-500" />
         </div>
       </CardHeader>
@@ -136,7 +136,14 @@ const AccountOverviewChart = React.memo(() => {
           <PieChart>
             <ChartTooltip
               cursor={false}
-              content={<ChartTooltipContent hideLabel />}
+              content={
+                <ChartTooltipContent
+                  hideLabel
+                  formatter={(value) =>
+                    formatCurrencyCompact(value as number, "IDR")
+                  }
+                />
+              }
             />
             <Pie
               data={chartData}
@@ -219,7 +226,7 @@ export { AccountOverviewChart };
 export const AccountOverviewChartSkeleton = () => {
   return (
     <Card className="flex flex-col h-full">
-      <CardHeader className="flex flex-row items-start justify-between space-y-0 pb-3">
+      <CardHeader className="flex flex-row items-start justify-between space-y-0 pb-4">
         <div>
           <CardTitle className="text-base font-semibold">
             Account Overview
