@@ -28,8 +28,8 @@ export class DrizzleNetWorthSnapshotRepository
     startDate: Date,
     endDate: Date,
   ): Promise<NetWorthSnapshot[]> {
-    const startDateStr = startDate.toISOString().split("T")[0];
-    const endDateStr = endDate.toISOString().split("T")[0];
+    const startDateStr = startDate.toISOString().slice(0, 10);
+    const endDateStr = endDate.toISOString().slice(0, 10);
 
     const rows = await this.db
       .select()

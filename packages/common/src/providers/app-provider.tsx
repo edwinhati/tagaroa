@@ -8,7 +8,15 @@ import { PostHogProvider } from "posthog-js/react";
 import * as React from "react";
 import { useEffect } from "react";
 
-const queryClient = new QueryClient();
+const queryClient = new QueryClient({
+  defaultOptions: {
+    queries: {
+      staleTime: 60_000, // 1 minute
+      gcTime: 5 * 60_000, // 5 minutes
+      retry: 1,
+    },
+  },
+});
 type AppProviderProps = Readonly<{ children: React.ReactNode }>;
 
 export function AppProvider({ children }: AppProviderProps) {

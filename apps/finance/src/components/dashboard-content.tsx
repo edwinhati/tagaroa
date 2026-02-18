@@ -2,72 +2,16 @@
 
 import { useBudgetPeriod } from "@repo/common/hooks/use-budget-period";
 import { useFilters } from "@repo/common/hooks/use-filters";
-import dynamic from "next/dynamic";
-import { useEffect, useState } from "react";
-import { AccountOverviewChartSkeleton } from "@/components/account-overview-chart";
-import { BudgetVsActualChartSkeleton } from "@/components/budget-vs-actual-chart";
+import { useEffect } from "react";
+import { AccountOverviewChart } from "@/components/account-overview-chart";
+import { BudgetVsActualChart } from "@/components/budget-vs-actual-chart";
 import { DateRangePicker } from "@/components/date-range-picker";
-import { ExpenseBreakdownChartSkeleton } from "@/components/expense-breakdown-chart";
+import { ExpenseBreakdownChart } from "@/components/expense-breakdown-chart";
 import { FinancialHealthSection } from "@/components/financial-health-section";
 import { InsightsPanel } from "@/components/insights-panel";
-import { MonthlyComparisonChartSkeleton } from "@/components/monthly-comparison-chart";
+import { MonthlyComparisonChart } from "@/components/monthly-comparison-chart";
 import { StatCardsSection } from "@/components/stat-cards-section";
-import { TransactionTrendsChartSkeleton } from "@/components/transaction-trends-chart";
-
-const AccountOverviewChart = dynamic(
-  () =>
-    import("@/components/account-overview-chart").then(
-      (mod) => mod.AccountOverviewChart,
-    ),
-  {
-    ssr: false,
-    loading: () => <AccountOverviewChartSkeleton />,
-  },
-);
-
-const ExpenseBreakdownChart = dynamic(
-  () =>
-    import("@/components/expense-breakdown-chart").then(
-      (mod) => mod.ExpenseBreakdownChart,
-    ),
-  {
-    ssr: false,
-    loading: () => <ExpenseBreakdownChartSkeleton />,
-  },
-);
-
-const TransactionTrendsChart = dynamic(
-  () =>
-    import("@/components/transaction-trends-chart").then(
-      (mod) => mod.TransactionTrendsChart,
-    ),
-  {
-    ssr: false,
-    loading: () => <TransactionTrendsChartSkeleton />,
-  },
-);
-
-const BudgetVsActualChart = dynamic(
-  () =>
-    import("@/components/budget-vs-actual-chart").then(
-      (mod) => mod.BudgetVsActualChart,
-    ),
-  {
-    ssr: false,
-    loading: () => <BudgetVsActualChartSkeleton />,
-  },
-);
-
-const MonthlyComparisonChart = dynamic(
-  () =>
-    import("@/components/monthly-comparison-chart").then(
-      (mod) => mod.MonthlyComparisonChart,
-    ),
-  {
-    ssr: false,
-    loading: () => <MonthlyComparisonChartSkeleton />,
-  },
-);
+import { TransactionTrendsChart } from "@/components/transaction-trends-chart";
 
 export function DashboardContent() {
   const { month, year } = useBudgetPeriod((s) => ({

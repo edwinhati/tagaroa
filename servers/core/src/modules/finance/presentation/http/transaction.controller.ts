@@ -10,8 +10,10 @@ import {
   Post,
   Put,
   Query,
+  UseGuards,
 } from "@nestjs/common";
 import { Session, type UserSession } from "@thallesp/nestjs-better-auth";
+import { SessionGuard } from "../../../../shared/guards/session.guard";
 import {
   buildJsonApiResponse,
   buildPaginationInfo,
@@ -30,6 +32,7 @@ import { GetTransactionTypesUseCase } from "../../application/use-cases/get-tran
 import { GetTransactionsUseCase } from "../../application/use-cases/get-transactions.use-case";
 import { UpdateTransactionUseCase } from "../../application/use-cases/update-transaction.use-case";
 
+@UseGuards(SessionGuard)
 @Controller("finance/transactions")
 export class TransactionController {
   constructor(

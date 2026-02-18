@@ -185,18 +185,15 @@ export class DrizzleTransactionRepository implements ITransactionRepository {
       const field = parts[0];
       const direction = parts[1];
 
-      const allowedSortFields: Record<string, typeof transactions.date> = {
+      const allowedSortFields: Record<string, unknown> = {
         date: transactions.date,
         amount: transactions.amount,
         createdAt: transactions.createdAt,
       };
 
       if (field && allowedSortFields[field]) {
-        query.orderBy(
-          direction === "asc"
-            ? asc(allowedSortFields[field])
-            : desc(allowedSortFields[field]),
-        );
+        const col = allowedSortFields[field] as typeof transactions.date;
+        query.orderBy(direction === "asc" ? asc(col) : desc(col));
       } else {
         query.orderBy(desc(transactions.date));
       }

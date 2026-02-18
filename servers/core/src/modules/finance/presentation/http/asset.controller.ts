@@ -8,12 +8,14 @@ import {
   Patch,
   Post,
   Query,
+  UseGuards,
 } from "@nestjs/common";
 import {
   AllowAnonymous,
   Session,
   type UserSession,
 } from "@thallesp/nestjs-better-auth";
+import { SessionGuard } from "../../../../shared/guards/session.guard";
 import {
   buildJsonApiResponse,
   buildPaginationInfo,
@@ -32,6 +34,7 @@ import { GetAssetsUseCase } from "../../application/use-cases/get-assets.use-cas
 import { UpdateAssetUseCase } from "../../application/use-cases/update-asset.use-case";
 import { AssetType } from "../../domain/value-objects/asset-type";
 
+@UseGuards(SessionGuard)
 @Controller("finance/assets")
 export class AssetController {
   constructor(

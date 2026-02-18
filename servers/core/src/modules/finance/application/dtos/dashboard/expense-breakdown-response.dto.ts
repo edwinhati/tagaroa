@@ -1,10 +1,10 @@
 export class ExpenseBreakdownItemDto {
-  category: string;
-  amount: number;
-  percentage: number;
+  category!: string;
+  amount!: number;
+  percentage!: number;
 }
 
 export class ExpenseBreakdownResponseDto {
-  total_expenses: number;
-  items: ExpenseBreakdownItemDto[];
+  total_expenses!: number;
+  items!: ExpenseBreakdownItemDto[];
 }

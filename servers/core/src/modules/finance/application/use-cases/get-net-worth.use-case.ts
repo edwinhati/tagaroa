@@ -56,7 +56,7 @@ export class GetNetWorthUseCase {
         );
 
       snapshots = historicalSnapshots.map((snapshot) => ({
-        date: snapshot.snapshotDate.toISOString().split("T")[0],
+        date: snapshot.snapshotDate.toISOString().slice(0, 10),
         total_assets: snapshot.totalAssets,
         total_liabilities: snapshot.totalLiabilities,
         net_worth: snapshot.netWorth,

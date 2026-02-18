@@ -6,15 +6,17 @@ import {
 } from "../../domain/exceptions/storage.exceptions";
 import type { IFileRepository } from "../../domain/repositories/file.repository.interface";
 import { FILE_REPOSITORY } from "../../domain/repositories/file.repository.interface";
+import type { IStorageService } from "../../domain/services/storage.service.interface";
+import { STORAGE_SERVICE } from "../../domain/services/storage.service.interface";
 import { FileStatus } from "../../domain/value-objects/file-status";
-import { S3ClientService } from "../../infrastructure/s3/s3-client.service";
 
 @Injectable()
 export class DownloadFileUseCase {
   constructor(
     @Inject(FILE_REPOSITORY)
     private readonly fileRepository: IFileRepository,
-    private readonly s3Client: S3ClientService,
+    @Inject(STORAGE_SERVICE)
+    private readonly storageService: IStorageService,
   ) {}
 
   async execute(
@@ -38,7 +40,7 @@ export class DownloadFileUseCase {
     }
 
     // 4. Download file from S3
-    const buffer = await this.s3Client.download(file.key);
+    const buffer = await this.storageService.download(file.key);
 
     return {
       buffer,

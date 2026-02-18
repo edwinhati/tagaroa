@@ -6,10 +6,12 @@ import { DataTablePagination } from "@repo/common/components/data-table-paginati
 import { ServerSearchInput } from "@repo/common/components/data-table-search-input";
 import { Loading } from "@repo/common/components/loading";
 import { useBudgetPeriod } from "@repo/common/hooks/use-budget-period";
+import { useFilters } from "@repo/common/hooks/use-filters";
 import {
   transactionDeleteMutationOptions,
   transactionQueryOptions,
 } from "@repo/common/lib/query/transaction-query";
+import type { AggregationItem } from "@repo/common/types";
 import type {
   PaginatedTransactionsResult,
   Transaction,
@@ -70,7 +72,8 @@ import { useEffect, useMemo, useState } from "react";
 import type { DateRange } from "react-day-picker";
 import { TransactionFormDialog } from "./transaction-form-dialog";
 
-// Extended transaction type with related data
+// Types
+
 type TransactionWithRelations = Transaction & {
   account?: {
     id: string;
@@ -86,620 +89,7 @@ type TransactionWithRelations = Transaction & {
   };
 };
 
-// Cell renderer components - defined outside to avoid recreation on each render
-const TransactionSelectHeaderCell = ({
-  table,
-}: {
-  table: ReturnType<typeof useReactTable<TransactionWithRelations>>;
-}) => (
-  <Checkbox
-    checked={
-      table.getIsAllPageRowsSelected() ||
-      (table.getIsSomePageRowsSelected() && "indeterminate")
-    }
-    onCheckedChange={(value) => table.toggleAllPageRowsSelected(!!value)}
-    aria-label="Select all"
-  />
-);
-
-const TransactionSelectRowCell = ({
-  row,
-}: {
-  row: Row<TransactionWithRelations>;
-}) => (
-  <Checkbox
-    checked={row.getIsSelected()}
-    onCheckedChange={(value) => row.toggleSelected(!!value)}
-    aria-label="Select row"
-  />
-);
-
-const DateCell = ({ row }: { row: Row<TransactionWithRelations> }) => (
-  <div className="font-medium">
-    {format(row.getValue("date"), "MMM dd, yyyy")}
-  </div>
-);
-
-const TypeCell = ({ row }: { row: Row<TransactionWithRelations> }) => {
-  const typeValue = row.getValue("type")?.toString().replaceAll("_", "-");
-  return <Badge variant="outline">{typeValue}</Badge>;
-};
-
-const AmountCell = ({ row }: { row: Row<TransactionWithRelations> }) => {
-  const amount = Number.parseFloat(row.getValue("amount"));
-  const formatted = new Intl.NumberFormat(
-    row.original.currency === "IDR" ? "id-ID" : "en-US",
-    {
-      style: "currency",
-      currency: row.original.currency,
-    },
-  ).format(amount);
-  return formatted;
-};
-
-const AccountCell = ({ row }: { row: Row<TransactionWithRelations> }) => {
-  const account = row.original.account;
-  return <div className="font-medium">{account?.name || "—"}</div>;
-};
-
-const CategoryCell = ({ row }: { row: Row<TransactionWithRelations> }) => {
-  const budgetItem = row.original.budget_item;
-  return (
-    <div className="text-muted-foreground">{budgetItem?.category || "—"}</div>
-  );
-};
-
-const CurrencyCell = ({ row }: { row: Row<TransactionWithRelations> }) => (
-  <Badge variant="outline">{row.getValue("currency")}</Badge>
-);
-
-const NotesCell = ({ row }: { row: Row<TransactionWithRelations> }) => {
-  const notes = row.getValue("notes");
-  if (!notes) {
-    return (
-      <div className="max-w-[200px] truncate text-muted-foreground">—</div>
-    );
-  }
-  const notesStr =
-    typeof notes === "object" ? JSON.stringify(notes) : String(notes);
-  return (
-    <div className="max-w-[200px] truncate text-muted-foreground">
-      {notesStr}
-    </div>
-  );
-};
-
-const TransactionActionsHeaderCell = () => (
-  <span className="sr-only">Actions</span>
-);
-
-export function TransactionDataTable() {
-  const [isMounted, setIsMounted] = useState(false);
-
-  useEffect(() => {
-    const id = requestAnimationFrame(() => setIsMounted(true));
-    return () => cancelAnimationFrame(id);
-  }, []);
-
-  if (!isMounted) {
-    return (
-      <div className="flex justify-center items-center h-full">
-        <Loading />
-      </div>
-    );
-  }
-
-  return <TransactionDataTableContent />;
-}
-
-function TransactionDataTableContent() {
-  const [pagination, setPagination] = useState<PaginationState>({
-    pageIndex: 0,
-    pageSize: 5,
-  });
-  const [serverFilters, setServerFilters] = useState<Record<string, string[]>>(
-    {},
-  );
-  const [searchQuery, setSearchQuery] = useState<string>("");
-
-  const [openPopovers, setOpenPopovers] = useState<Record<string, boolean>>({});
-
-  // Stable data state to prevent re-renders during refetch
-  const [stableData, setStableData] =
-    useState<PaginatedTransactionsResult | null>(null);
-  const [isInitialLoading, setIsInitialLoading] = useState(true);
-
-  const { month, year } = useBudgetPeriod((s) => ({
-    month: s.month,
-    year: s.year,
-  }));
-
-  const [range, setRange] = useState<DateRange | undefined>({
-    from: new Date(
-      month === 1 ? year - 1 : year,
-      month === 1 ? 11 : month - 2,
-      25,
-    ),
-    to: new Date(year, month - 1, 25),
-  });
-
-  const { mutate: deleteTransaction } = useMutation(
-    transactionDeleteMutationOptions(),
-  );
-
-  const { data: transactionsResponse, error } = useQuery(
-    transactionQueryOptions({
-      page: pagination.pageIndex + 1,
-      limit: pagination.pageSize,
-      filters: serverFilters,
-      search: searchQuery,
-      startDate: range?.from,
-      endDate: range?.to,
-    }),
-  );
-
-  const columns: ColumnDef<TransactionWithRelations>[] = useMemo(
-    () => [
-      {
-        id: "select",
-        header: TransactionSelectHeaderCell,
-        cell: TransactionSelectRowCell,
-        size: 28,
-        enableSorting: false,
-        enableHiding: false,
-      },
-      {
-        header: "Date",
-        accessorKey: "date",
-        cell: DateCell,
-        size: 120,
-      },
-      {
-        header: "Type",
-        accessorKey: "type",
-        cell: TypeCell,
-        size: 100,
-      },
-      {
-        header: "Amount",
-        accessorKey: "amount",
-        cell: AmountCell,
-        size: 150,
-      },
-      {
-        header: "Account",
-        accessorFn: (row) => row.account?.name,
-        cell: AccountCell,
-        size: 150,
-      },
-      {
-        header: "Category",
-        accessorFn: (row) => row.budget_item?.category,
-        cell: CategoryCell,
-        size: 150,
-      },
-      {
-        header: "Currency",
-        accessorKey: "currency",
-        cell: CurrencyCell,
-        size: 100,
-      },
-      {
-        header: "Notes",
-        accessorKey: "notes",
-        cell: NotesCell,
-        size: 220,
-      },
-      {
-        id: "actions",
-        header: TransactionActionsHeaderCell,
-        cell: ({ row }) => (
-          <RowActions row={row} deleteTransaction={deleteTransaction} />
-        ),
-        size: 60,
-        enableHiding: false,
-      },
-    ],
-    [deleteTransaction],
-  );
-
-  // Update stable data only when new data arrives, not during loading
-  useEffect(() => {
-    if (transactionsResponse && !error) {
-      setStableData({
-        transactions: transactionsResponse.transactions || [],
-        pagination: transactionsResponse.pagination,
-        aggregations: transactionsResponse.aggregations || {},
-      });
-      setIsInitialLoading(false);
-    }
-  }, [transactionsResponse, error]);
-
-  // Use stable data to prevent re-renders during refetch
-  const tableData = useMemo(
-    () => (stableData?.transactions ?? []) as TransactionWithRelations[],
-    [stableData?.transactions],
-  );
-
-  const paginationInfo = stableData?.pagination;
-  const aggregations = useMemo(
-    () => stableData?.aggregations ?? {},
-    [stableData?.aggregations],
-  );
-  const showLoadingState = isInitialLoading;
-
-  // Check if there's truly no data (no transactions at all for the user)
-  const hasTotalData = (paginationInfo?.total ?? 0) > 0;
-
-  // Check if there are any active filters or search
-  const hasActiveFilters =
-    Object.keys(serverFilters).length > 0 || searchQuery.length > 0;
-
-  // Memoize filter options to prevent re-ordering and popover closing
-  const filterOptions = useMemo(() => {
-    const options: Record<
-      string,
-      Array<{ value: string; label: string; count: number }>
-    > = {};
-
-    // Sort aggregation keys for consistent order
-    const sortedAggregationKeys = Object.keys(aggregations).sort((a, b) =>
-      a.localeCompare(b),
-    );
-
-    for (const filterKey of sortedAggregationKeys) {
-      const aggregationItems = aggregations[filterKey] || [];
-
-      // Sort items by key for consistent order
-      const sortedItems = [...aggregationItems].sort((a, b) =>
-        a.key.localeCompare(b.key),
-      );
-
-      options[filterKey] = sortedItems.map((item) => ({
-        value: item.id,
-        label: item.key.replaceAll("_", "-"),
-        count: item.count,
-      }));
-    }
-
-    return options;
-  }, [aggregations]);
-
-  // TanStack Table exposes functions that React Compiler cannot memoize; suppress rule locally.
-  const table = useReactTable({
-    data: tableData,
-    columns,
-    getCoreRowModel: getCoreRowModel(),
-    getSortedRowModel: getSortedRowModel(),
-    manualPagination: true,
-    pageCount: paginationInfo?.total_pages ?? 0,
-    onPaginationChange: setPagination,
-    state: {
-      pagination,
-    },
-  });
-
-  const handleDeleteRows = () => {
-    const selectedRows = table.getSelectedRowModel().rows;
-
-    for (const row of selectedRows) {
-      deleteTransaction(row.original.id as string);
-    }
-
-    table.resetRowSelection();
-  };
-
-  const hasRows = table.getRowModel().rows.length > 0;
-  const selectedCount = table.getSelectedRowModel().rows.length;
-
-  // Handle server-side filter changes
-  const handleServerFilterChange = (
-    filterKey: string,
-    value: string,
-    checked: boolean,
-  ) => {
-    // Keep the popover open during filter changes
-    setOpenPopovers((prev) => ({ ...prev, [filterKey]: true }));
-
-    setServerFilters((prev) => {
-      const currentValues = prev[filterKey] || [];
-      let newValues: string[];
-
-      if (checked) {
-        newValues = [...currentValues, value];
-      } else {
-        newValues = currentValues.filter((v) => v !== value);
-      }
-
-      const newFilters = { ...prev };
-      if (newValues.length === 0) {
-        delete newFilters[filterKey];
-      } else {
-        newFilters[filterKey] = newValues;
-      }
-
-      // Reset to first page when filters change
-      setPagination((prev) => ({ ...prev, pageIndex: 0 }));
-
-      return newFilters;
-    });
-  };
-
-  const handleServerFilterClear = (filterKey: string) => {
-    setServerFilters((prev) => {
-      const newFilters = { ...prev };
-      delete newFilters[filterKey];
-
-      // Reset to first page when filters change
-      setPagination((prev) => ({ ...prev, pageIndex: 0 }));
-
-      return newFilters;
-    });
-  };
-
-  const handleSearchChange = (value: string) => {
-    setSearchQuery(value);
-    // Reset to first page when search changes
-    setPagination((prev) => ({ ...prev, pageIndex: 0 }));
-  };
-
-  // Show error state
-  if (error) {
-    return (
-      <div className="space-y-4">
-        <div className="text-red-500">
-          Error loading transactions: {error.message}
-        </div>
-      </div>
-    );
-  }
-
-  // Show initial loading state only on first load
-  if (isInitialLoading) {
-    return <TransactionTableSkeleton />;
-  }
-
-  return (
-    <div className="relative space-y-4">
-      {/* Filters */}
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <div className="flex items-center gap-3">
-          <ServerSearchInput
-            value={searchQuery}
-            onChange={handleSearchChange}
-            placeholder="Search transactions..."
-            className="min-w-60"
-            aria-label="Search transactions"
-          />
-          <Popover>
-            <PopoverTrigger asChild>
-              <Button variant="outline">
-                <CalendarIcon />
-                {range?.from &&
-                  range?.to &&
-                  `${range.from.toLocaleDateString()} - ${range.to.toLocaleDateString()}`}
-              </Button>
-            </PopoverTrigger>
-            <PopoverContent
-              className="w-auto overflow-hidden p-0 ml-4"
-              align="end"
-            >
-              <Calendar
-                className="w-full"
-                mode="range"
-                defaultMonth={range?.from}
-                selected={range}
-                onSelect={setRange}
-                fixedWeeks
-                showOutsideDays
-                numberOfMonths={2}
-                disabled={{
-                  after: new Date(),
-                }}
-              />
-            </PopoverContent>
-          </Popover>
-          {/* Dynamic filters based on aggregations */}
-          {Object.entries(filterOptions).map(([filterKey, options]) => (
-            <DataTableMultiSelectFilter
-              key={filterKey}
-              triggerLabel={
-                filterKey.charAt(0).toUpperCase() + filterKey.slice(1)
-              }
-              options={options}
-              selectedValues={serverFilters[filterKey] || []}
-              onChange={(value, checked) =>
-                handleServerFilterChange(filterKey, value, checked)
-              }
-              onClear={() => handleServerFilterClear(filterKey)}
-              open={openPopovers[filterKey]}
-              onOpenChange={(open) =>
-                setOpenPopovers((prev) => ({ ...prev, [filterKey]: open }))
-              }
-            />
-          ))}
-        </div>
-        <div className="flex items-center gap-3">
-          <DataTableBulkDeleteDialog
-            buttonSize="sm"
-            selectedCount={selectedCount}
-            onConfirm={handleDeleteRows}
-            description={`This action cannot be undone. This will permanently delete ${selectedCount} selected ${selectedCount === 1 ? "row" : "rows"}.`}
-            buttonClassName="ml-auto"
-          />
-          <TransactionFormDialog
-            trigger={
-              <Button size="sm">
-                <PlusIcon className="mr-2 h-4 w-4" />
-                Add Transaction
-              </Button>
-            }
-          />
-        </div>
-      </div>
-
-      {/* Table */}
-      <div className="bg-background overflow-x-auto rounded-md border">
-        <Table>
-          <TableHeader>
-            {table.getHeaderGroups().map((headerGroup) => (
-              <TableRow key={headerGroup.id} className="hover:bg-transparent">
-                {headerGroup.headers.map((header) => {
-                  const widthStyle = { width: `${header.getSize()}px` };
-
-                  if (header.isPlaceholder) {
-                    return (
-                      <TableHead
-                        key={header.id}
-                        style={widthStyle}
-                        className="h-11"
-                      />
-                    );
-                  }
-
-                  const canSort = header.column.getCanSort();
-                  const sortState = header.column.getIsSorted();
-                  const headerLabel = flexRender(
-                    header.column.columnDef.header,
-                    header.getContext(),
-                  );
-                  let headerContent = headerLabel;
-
-                  if (canSort) {
-                    const toggleSorting =
-                      header.column.getToggleSortingHandler();
-                    headerContent = (
-                      <button
-                        type="button"
-                        className="flex h-full items-center justify-between gap-2 select-none cursor-pointer"
-                        onClick={toggleSorting}
-                      >
-                        {headerLabel}
-                        {sortState === "asc" && (
-                          <ChevronUpIcon
-                            className="shrink-0 opacity-60"
-                            size={16}
-                            aria-hidden="true"
-                          />
-                        )}
-                        {sortState === "desc" && (
-                          <ChevronDownIcon
-                            className="shrink-0 opacity-60"
-                            size={16}
-                            aria-hidden="true"
-                          />
-                        )}
-                      </button>
-                    );
-                  }
-
-                  return (
-                    <TableHead
-                      key={header.id}
-                      style={widthStyle}
-                      className="h-11"
-                    >
-                      {headerContent}
-                    </TableHead>
-                  );
-                })}
-              </TableRow>
-            ))}
-          </TableHeader>
-          <TableBody>
-            {(() => {
-              if (showLoadingState) {
-                return <TransactionTableSkeletonRows />;
-              }
-
-              if (hasRows) {
-                return table.getRowModel().rows.map((row) => (
-                  <TableRow
-                    key={row.id}
-                    data-state={row.getIsSelected() ? "selected" : undefined}
-                  >
-                    {row.getVisibleCells().map((cell) => (
-                      <TableCell key={cell.id} className="last:py-0">
-                        {flexRender(
-                          cell.column.columnDef.cell,
-                          cell.getContext(),
-                        )}
-                      </TableCell>
-                    ))}
-                  </TableRow>
-                ));
-              }
-
-              const renderEmptyState = !hasTotalData && !hasActiveFilters;
-              return (
-                <TableRow>
-                  <TableCell colSpan={columns.length} className="h-96">
-                    <div className="flex h-full">
-                      {renderEmptyState ? (
-                        <Empty>
-                          <EmptyHeader>
-                            <EmptyTitle>No Transactions Yet</EmptyTitle>
-                            <EmptyDescription>
-                              You haven&apos;t added any transactions yet. Get
-                              started by adding your first transaction to track
-                              your finances.
-                            </EmptyDescription>
-                          </EmptyHeader>
-                          <EmptyContent>
-                            <TransactionFormDialog
-                              trigger={
-                                <Button size="sm">
-                                  <PlusIcon
-                                    className="-ms-1 opacity-60"
-                                    size={16}
-                                    aria-hidden="true"
-                                  />
-                                  Add transaction
-                                </Button>
-                              }
-                            />
-                          </EmptyContent>
-                        </Empty>
-                      ) : (
-                        <div className="flex h-full w-full flex-col items-center justify-center text-center">
-                          <div className="text-muted-foreground">
-                            <h3 className="text-lg font-medium">
-                              No results found
-                            </h3>
-                            <p className="mt-1 text-sm">
-                              Try adjusting your search or filter criteria
-                            </p>
-                          </div>
-                        </div>
-                      )}
-                    </div>
-                  </TableCell>
-                </TableRow>
-              );
-            })()}
-          </TableBody>
-        </Table>
-      </div>
-
-      {/* Pagination */}
-      <DataTablePagination
-        table={table}
-        pageSizeOptions={[5, 10, 25, 50]}
-        serverSidePagination={
-          paginationInfo
-            ? {
-                total: paginationInfo.total,
-                page: paginationInfo.page,
-                totalPages: paginationInfo.total_pages,
-                hasNext: paginationInfo.has_next,
-                hasPrev: paginationInfo.has_prev,
-              }
-            : undefined
-        }
-      />
-    </div>
-  );
-}
+// Skeleton
 
 function TransactionTableSkeleton() {
   const headerKeys = Array.from(
@@ -783,6 +173,8 @@ function TransactionTableSkeletonRows() {
   );
 }
 
+// Row Actions
+
 type RowActionsProps = Readonly<{
   row: Row<TransactionWithRelations>;
   deleteTransaction: (id: string) => void;
@@ -828,5 +220,590 @@ function RowActions({ row, deleteTransaction }: RowActionsProps) {
         </DropdownMenuItem>
       </DropdownMenuContent>
     </DropdownMenu>
+  );
+}
+
+// Columns
+
+function buildColumns(
+  deleteTransaction: (id: string) => void,
+): ColumnDef<TransactionWithRelations>[] {
+  return [
+    {
+      id: "select",
+      header: ({ table }) => (
+        <Checkbox
+          checked={
+            table.getIsAllPageRowsSelected() ||
+            (table.getIsSomePageRowsSelected() && "indeterminate")
+          }
+          onCheckedChange={(value) => table.toggleAllPageRowsSelected(!!value)}
+          aria-label="Select all"
+        />
+      ),
+      cell: ({ row }) => (
+        <Checkbox
+          checked={row.getIsSelected()}
+          onCheckedChange={(value) => row.toggleSelected(!!value)}
+          aria-label="Select row"
+        />
+      ),
+      size: 28,
+      enableSorting: false,
+      enableHiding: false,
+    },
+    {
+      header: "Date",
+      accessorKey: "date",
+      cell: ({ row }) => (
+        <div className="font-medium">
+          {format(row.getValue("date"), "MMM dd, yyyy")}
+        </div>
+      ),
+      size: 120,
+    },
+    {
+      header: "Type",
+      accessorKey: "type",
+      cell: ({ row }) => {
+        const typeValue = row.getValue("type")?.toString().replaceAll("_", "-");
+        return <Badge variant="outline">{typeValue}</Badge>;
+      },
+      size: 100,
+    },
+    {
+      header: "Amount",
+      accessorKey: "amount",
+      cell: ({ row }) => {
+        const amount = Number.parseFloat(row.getValue("amount"));
+        return new Intl.NumberFormat(
+          row.original.currency === "IDR" ? "id-ID" : "en-US",
+          { style: "currency", currency: row.original.currency },
+        ).format(amount);
+      },
+      size: 150,
+    },
+    {
+      header: "Account",
+      accessorFn: (row) => row.account?.name,
+      cell: ({ row }) => (
+        <div className="font-medium">{row.original.account?.name || "—"}</div>
+      ),
+      size: 150,
+    },
+    {
+      header: "Category",
+      accessorFn: (row) => row.budget_item?.category,
+      cell: ({ row }) => (
+        <div className="text-muted-foreground">
+          {row.original.budget_item?.category || "—"}
+        </div>
+      ),
+      size: 150,
+    },
+    {
+      header: "Currency",
+      accessorKey: "currency",
+      cell: ({ row }) => (
+        <Badge variant="outline">{row.getValue("currency")}</Badge>
+      ),
+      size: 100,
+    },
+    {
+      header: "Notes",
+      accessorKey: "notes",
+      cell: ({ row }) => {
+        const notes = row.getValue("notes");
+        if (!notes) {
+          return (
+            <div className="max-w-[200px] truncate text-muted-foreground">
+              —
+            </div>
+          );
+        }
+        const notesStr =
+          typeof notes === "object" ? JSON.stringify(notes) : String(notes);
+        return (
+          <div className="max-w-[200px] truncate text-muted-foreground">
+            {notesStr}
+          </div>
+        );
+      },
+      size: 220,
+    },
+    {
+      id: "actions",
+      header: () => <span className="sr-only">Actions</span>,
+      cell: ({ row }) => (
+        <RowActions row={row} deleteTransaction={deleteTransaction} />
+      ),
+      size: 60,
+      enableHiding: false,
+    },
+  ];
+}
+
+// Toolbar
+
+type ToolbarProps = Readonly<{
+  searchQuery: string;
+  onSearchChange: (value: string) => void;
+  range: DateRange | undefined;
+  onRangeChange: (range: DateRange | undefined) => void;
+  aggregations: Record<string, AggregationItem[]>;
+  serverFilters: Record<string, string[]>;
+  openPopovers: Record<string, boolean>;
+  onFilterChange: (filterKey: string, value: string, checked: boolean) => void;
+  onFilterClear: (filterKey: string) => void;
+  onOpenPopoverChange: (filterKey: string, open: boolean) => void;
+  selectedCount: number;
+  onBulkDelete: () => void;
+}>;
+
+function buildFilterOptions(
+  aggregations: Record<string, AggregationItem[]>,
+): Record<string, Array<{ value: string; label: string; count: number }>> {
+  const options: Record<
+    string,
+    Array<{ value: string; label: string; count: number }>
+  > = {};
+
+  const sortedKeys = Object.keys(aggregations).sort((a, b) =>
+    a.localeCompare(b),
+  );
+
+  for (const filterKey of sortedKeys) {
+    const items = aggregations[filterKey] || [];
+    const sortedItems = [...items].sort((a, b) => a.key.localeCompare(b.key));
+    options[filterKey] = sortedItems.map((item) => ({
+      value: item.id,
+      label: item.key.replaceAll("_", "-"),
+      count: item.count,
+    }));
+  }
+
+  return options;
+}
+
+function TransactionToolbar({
+  searchQuery,
+  onSearchChange,
+  range,
+  onRangeChange,
+  aggregations,
+  serverFilters,
+  openPopovers,
+  onFilterChange,
+  onFilterClear,
+  onOpenPopoverChange,
+  selectedCount,
+  onBulkDelete,
+}: ToolbarProps) {
+  const filterOptions = buildFilterOptions(aggregations);
+
+  return (
+    <div className="flex flex-wrap items-center justify-between gap-3">
+      <div className="flex items-center gap-3">
+        <ServerSearchInput
+          value={searchQuery}
+          onChange={onSearchChange}
+          placeholder="Search transactions..."
+          className="min-w-60"
+          aria-label="Search transactions"
+        />
+        <Popover>
+          <PopoverTrigger asChild>
+            <Button variant="outline">
+              <CalendarIcon />
+              {range?.from &&
+                range?.to &&
+                `${range.from.toLocaleDateString()} - ${range.to.toLocaleDateString()}`}
+            </Button>
+          </PopoverTrigger>
+          <PopoverContent
+            className="w-auto overflow-hidden p-0 ml-4"
+            align="end"
+          >
+            <Calendar
+              className="w-full"
+              mode="range"
+              defaultMonth={range?.from}
+              selected={range}
+              onSelect={onRangeChange}
+              fixedWeeks
+              showOutsideDays
+              numberOfMonths={2}
+              disabled={{ after: new Date() }}
+            />
+          </PopoverContent>
+        </Popover>
+        {Object.entries(filterOptions).map(([filterKey, options]) => (
+          <DataTableMultiSelectFilter
+            key={filterKey}
+            triggerLabel={
+              filterKey.charAt(0).toUpperCase() + filterKey.slice(1)
+            }
+            options={options}
+            selectedValues={serverFilters[filterKey] || []}
+            onChange={(value, checked) =>
+              onFilterChange(filterKey, value, checked)
+            }
+            onClear={() => onFilterClear(filterKey)}
+            open={openPopovers[filterKey]}
+            onOpenChange={(open) => onOpenPopoverChange(filterKey, open)}
+          />
+        ))}
+      </div>
+      <div className="flex items-center gap-3">
+        <DataTableBulkDeleteDialog
+          buttonSize="sm"
+          selectedCount={selectedCount}
+          onConfirm={onBulkDelete}
+          description={`This action cannot be undone. This will permanently delete ${selectedCount} selected ${selectedCount === 1 ? "row" : "rows"}.`}
+          buttonClassName="ml-auto"
+        />
+        <TransactionFormDialog
+          trigger={
+            <Button size="sm">
+              <PlusIcon className="mr-2 h-4 w-4" />
+              Add Transaction
+            </Button>
+          }
+        />
+      </div>
+    </div>
+  );
+}
+
+// Main component
+
+export function TransactionDataTable() {
+  const [isMounted, setIsMounted] = useState(false);
+
+  useEffect(() => {
+    const id = requestAnimationFrame(() => setIsMounted(true));
+    return () => cancelAnimationFrame(id);
+  }, []);
+
+  if (!isMounted) {
+    return (
+      <div className="flex justify-center items-center h-full">
+        <Loading />
+      </div>
+    );
+  }
+
+  return <TransactionDataTableContent />;
+}
+
+function TransactionDataTableContent() {
+  const [pagination, setPagination] = useState<PaginationState>({
+    pageIndex: 0,
+    pageSize: 5,
+  });
+  const [searchQuery, setSearchQuery] = useState<string>("");
+
+  const [stableData, setStableData] =
+    useState<PaginatedTransactionsResult | null>(null);
+  const [isInitialLoading, setIsInitialLoading] = useState(true);
+
+  const {
+    serverFilters,
+    setServerFilters,
+    range,
+    setRange,
+    openPopovers,
+    setOpenPopovers,
+  } = useFilters((s) => ({
+    serverFilters: s.serverFilters,
+    setServerFilters: s.setServerFilters,
+    range: s.range,
+    setRange: s.setRange,
+    openPopovers: s.openPopovers,
+    setOpenPopovers: s.setOpenPopovers,
+  }));
+
+  const { mutate: deleteTransaction } = useMutation(
+    transactionDeleteMutationOptions(),
+  );
+
+  const { data: transactionsResponse, error } = useQuery(
+    transactionQueryOptions({
+      page: pagination.pageIndex + 1,
+      limit: pagination.pageSize,
+      filters: serverFilters,
+      search: searchQuery,
+      startDate: range?.from,
+      endDate: range?.to,
+    }),
+  );
+
+  const columns = useMemo(
+    () => buildColumns(deleteTransaction),
+    [deleteTransaction],
+  );
+
+  useEffect(() => {
+    if (transactionsResponse && !error) {
+      setStableData({
+        transactions: transactionsResponse.transactions || [],
+        pagination: transactionsResponse.pagination,
+        aggregations: transactionsResponse.aggregations || {},
+      });
+      setIsInitialLoading(false);
+    }
+  }, [transactionsResponse, error]);
+
+  const tableData = useMemo(
+    () => (stableData?.transactions ?? []) as TransactionWithRelations[],
+    [stableData?.transactions],
+  );
+
+  const paginationInfo = stableData?.pagination;
+  const aggregations = useMemo(
+    () => stableData?.aggregations ?? {},
+    [stableData?.aggregations],
+  );
+
+  const hasTotalData = (paginationInfo?.total ?? 0) > 0;
+  const hasActiveFilters =
+    Object.keys(serverFilters).length > 0 || searchQuery.length > 0;
+
+  const table = useReactTable({
+    data: tableData,
+    columns,
+    getCoreRowModel: getCoreRowModel(),
+    getSortedRowModel: getSortedRowModel(),
+    manualPagination: true,
+    pageCount: paginationInfo?.total_pages ?? 0,
+    onPaginationChange: setPagination,
+    state: { pagination },
+  });
+
+  const handleBulkDelete = () => {
+    for (const row of table.getSelectedRowModel().rows) {
+      deleteTransaction(row.original.id as string);
+    }
+    table.resetRowSelection();
+  };
+
+  const handleFilterChange = (
+    filterKey: string,
+    value: string,
+    checked: boolean,
+  ) => {
+    setOpenPopovers({ ...openPopovers, [filterKey]: true });
+    const currentValues = serverFilters[filterKey] || [];
+    const newValues = checked
+      ? [...currentValues, value]
+      : currentValues.filter((v) => v !== value);
+    const newFilters = { ...serverFilters };
+    if (newValues.length === 0) {
+      delete newFilters[filterKey];
+    } else {
+      newFilters[filterKey] = newValues;
+    }
+    setServerFilters(newFilters);
+    setPagination((prev) => ({ ...prev, pageIndex: 0 }));
+  };
+
+  const handleFilterClear = (filterKey: string) => {
+    const newFilters = { ...serverFilters };
+    delete newFilters[filterKey];
+    setServerFilters(newFilters);
+    setPagination((prev) => ({ ...prev, pageIndex: 0 }));
+  };
+
+  const handleSearchChange = (value: string) => {
+    setSearchQuery(value);
+    setPagination((prev) => ({ ...prev, pageIndex: 0 }));
+  };
+
+  if (error) {
+    return (
+      <div className="space-y-4">
+        <div className="text-red-500">
+          Error loading transactions: {error.message}
+        </div>
+      </div>
+    );
+  }
+
+  if (isInitialLoading) {
+    return <TransactionTableSkeleton />;
+  }
+
+  const hasRows = table.getRowModel().rows.length > 0;
+  const selectedCount = table.getSelectedRowModel().rows.length;
+
+  return (
+    <div className="relative space-y-4">
+      <TransactionToolbar
+        searchQuery={searchQuery}
+        onSearchChange={handleSearchChange}
+        range={range}
+        onRangeChange={setRange}
+        aggregations={aggregations}
+        serverFilters={serverFilters}
+        openPopovers={openPopovers}
+        onFilterChange={handleFilterChange}
+        onFilterClear={handleFilterClear}
+        onOpenPopoverChange={(filterKey, open) =>
+          setOpenPopovers({ ...openPopovers, [filterKey]: open })
+        }
+        selectedCount={selectedCount}
+        onBulkDelete={handleBulkDelete}
+      />
+
+      <div className="bg-background overflow-x-auto rounded-md border">
+        <Table>
+          <TableHeader>
+            {table.getHeaderGroups().map((headerGroup) => (
+              <TableRow key={headerGroup.id} className="hover:bg-transparent">
+                {headerGroup.headers.map((header) => {
+                  const widthStyle = { width: `${header.getSize()}px` };
+                  if (header.isPlaceholder) {
+                    return (
+                      <TableHead
+                        key={header.id}
+                        style={widthStyle}
+                        className="h-11"
+                      />
+                    );
+                  }
+                  const canSort = header.column.getCanSort();
+                  const sortState = header.column.getIsSorted();
+                  const headerLabel = flexRender(
+                    header.column.columnDef.header,
+                    header.getContext(),
+                  );
+                  let headerContent = headerLabel;
+                  if (canSort) {
+                    const toggleSorting =
+                      header.column.getToggleSortingHandler();
+                    headerContent = (
+                      <button
+                        type="button"
+                        className="flex h-full items-center justify-between gap-2 select-none cursor-pointer"
+                        onClick={toggleSorting}
+                      >
+                        {headerLabel}
+                        {sortState === "asc" && (
+                          <ChevronUpIcon
+                            className="shrink-0 opacity-60"
+                            size={16}
+                            aria-hidden="true"
+                          />
+                        )}
+                        {sortState === "desc" && (
+                          <ChevronDownIcon
+                            className="shrink-0 opacity-60"
+                            size={16}
+                            aria-hidden="true"
+                          />
+                        )}
+                      </button>
+                    );
+                  }
+                  return (
+                    <TableHead
+                      key={header.id}
+                      style={widthStyle}
+                      className="h-11"
+                    >
+                      {headerContent}
+                    </TableHead>
+                  );
+                })}
+              </TableRow>
+            ))}
+          </TableHeader>
+          <TableBody>
+            {(() => {
+              if (isInitialLoading) return <TransactionTableSkeletonRows />;
+              if (hasRows) {
+                return table.getRowModel().rows.map((row) => (
+                  <TableRow
+                    key={row.id}
+                    data-state={row.getIsSelected() ? "selected" : undefined}
+                  >
+                    {row.getVisibleCells().map((cell) => (
+                      <TableCell key={cell.id} className="last:py-0">
+                        {flexRender(
+                          cell.column.columnDef.cell,
+                          cell.getContext(),
+                        )}
+                      </TableCell>
+                    ))}
+                  </TableRow>
+                ));
+              }
+              const renderEmptyState = !hasTotalData && !hasActiveFilters;
+              return (
+                <TableRow>
+                  <TableCell colSpan={columns.length} className="h-96">
+                    <div className="flex h-full">
+                      {renderEmptyState ? (
+                        <Empty>
+                          <EmptyHeader>
+                            <EmptyTitle>No Transactions Yet</EmptyTitle>
+                            <EmptyDescription>
+                              You haven&apos;t added any transactions yet. Get
+                              started by adding your first transaction to track
+                              your finances.
+                            </EmptyDescription>
+                          </EmptyHeader>
+                          <EmptyContent>
+                            <TransactionFormDialog
+                              trigger={
+                                <Button size="sm">
+                                  <PlusIcon
+                                    className="-ms-1 opacity-60"
+                                    size={16}
+                                    aria-hidden="true"
+                                  />
+                                  Add transaction
+                                </Button>
+                              }
+                            />
+                          </EmptyContent>
+                        </Empty>
+                      ) : (
+                        <div className="flex h-full w-full flex-col items-center justify-center text-center">
+                          <div className="text-muted-foreground">
+                            <h3 className="text-lg font-medium">
+                              No results found
+                            </h3>
+                            <p className="mt-1 text-sm">
+                              Try adjusting your search or filter criteria
+                            </p>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  </TableCell>
+                </TableRow>
+              );
+            })()}
+          </TableBody>
+        </Table>
+      </div>
+
+      <DataTablePagination
+        table={table}
+        pageSizeOptions={[5, 10, 25, 50]}
+        serverSidePagination={
+          paginationInfo
+            ? {
+                total: paginationInfo.total,
+                page: paginationInfo.page,
+                totalPages: paginationInfo.total_pages,
+                hasNext: paginationInfo.has_next,
+                hasPrev: paginationInfo.has_prev,
+              }
+            : undefined
+        }
+      />
+    </div>
   );
 }

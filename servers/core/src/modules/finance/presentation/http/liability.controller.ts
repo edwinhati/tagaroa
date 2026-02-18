@@ -8,12 +8,14 @@ import {
   Patch,
   Post,
   Query,
+  UseGuards,
 } from "@nestjs/common";
 import {
   AllowAnonymous,
   Session,
   type UserSession,
 } from "@thallesp/nestjs-better-auth";
+import { SessionGuard } from "../../../../shared/guards/session.guard";
 import {
   buildJsonApiResponse,
   buildPaginationInfo,
@@ -32,6 +34,7 @@ import { GetLiabilityUseCase } from "../../application/use-cases/get-liability.u
 import { UpdateLiabilityUseCase } from "../../application/use-cases/update-liability.use-case";
 import { LiabilityType } from "../../domain/value-objects/liability-type";
 
+@UseGuards(SessionGuard)
 @Controller("finance/liabilities")
 export class LiabilityController {
   constructor(

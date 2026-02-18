@@ -23,7 +23,7 @@ export function formatPeriod(
 ): string {
   switch (granularity) {
     case "day":
-      return date.toISOString().split("T")[0]; // YYYY-MM-DD
+      return date.toISOString().slice(0, 10); // YYYY-MM-DD
     case "week": {
       const year = date.getFullYear();
       const week = getISOWeek(date);

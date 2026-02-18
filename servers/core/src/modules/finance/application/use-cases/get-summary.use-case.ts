@@ -109,8 +109,8 @@ export class GetSummaryUseCase {
         previous: previousSavings,
         change: calculateChange(previousSavings, currentSavings),
       },
-      previous_period_start: previousPeriod.start.toISOString().split("T")[0],
-      previous_period_end: previousPeriod.end.toISOString().split("T")[0],
+      previous_period_start: previousPeriod.start.toISOString().slice(0, 10),
+      previous_period_end: previousPeriod.end.toISOString().slice(0, 10),
     };
   }
 }

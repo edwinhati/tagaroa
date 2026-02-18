@@ -15,7 +15,7 @@ import { DRIZZLE } from "./database.constants";
 })
 export class DatabaseModule implements OnModuleDestroy {
   async onModuleDestroy() {
-    const db = getDatabase() as BunSQLDatabase | null;
+    const db = getDatabase() as unknown as BunSQLDatabase | null;
     if (db && "$client" in db) {
       const client = (
         db as BunSQLDatabase & { $client: { close: () => Promise<void> } }

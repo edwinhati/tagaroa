@@ -6,7 +6,7 @@ import {
   HttpStatus,
   Logger,
 } from "@nestjs/common";
-import type { Response } from "express";
+import type { Request, Response } from "express";
 import { DomainException } from "../exceptions/domain.exception";
 
 const DOMAIN_CODE_TO_STATUS: Record<string, number> = {
@@ -27,7 +27,9 @@ export class AllExceptionsFilter implements ExceptionFilter {
 
   catch(exception: unknown, host: ArgumentsHost) {
     const ctx = host.switchToHttp();
+    const request = ctx.getRequest<Request & { requestId?: string }>();
     const response = ctx.getResponse<Response>();
+    const requestId = request.requestId;
 
     const { status, code, title, detail } = this.resolveError(exception);
 
@@ -42,6 +44,7 @@ export class AllExceptionsFilter implements ExceptionFilter {
 
     response.status(status).json({
       errors: [{ status, code, title, detail }],
+      ...(requestId ? { meta: { requestId } } : {}),
     });
   }
 

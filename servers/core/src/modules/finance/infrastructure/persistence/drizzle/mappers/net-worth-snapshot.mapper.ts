@@ -15,7 +15,7 @@ export function mapNetWorthSnapshotToDomain(
     Number(row.totalAssets),
     Number(row.totalLiabilities),
     Number(row.netWorth),
-    new Currency(row.currency),
+    row.currency as Currency,
     row.createdAt ?? new Date(),
   );
 }
@@ -26,11 +26,11 @@ export function mapNetWorthSnapshotToPersistence(
   return {
     id: entity.id,
     userId: entity.userId,
-    snapshotDate: entity.snapshotDate.toISOString().split("T")[0],
+    snapshotDate: entity.snapshotDate.toISOString().slice(0, 10),
     totalAssets: String(entity.totalAssets),
     totalLiabilities: String(entity.totalLiabilities),
     netWorth: String(entity.netWorth),
-    currency: entity.currency.code,
+    currency: entity.currency,
   };
 }
 

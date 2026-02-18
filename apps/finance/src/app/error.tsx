@@ -1,6 +1,7 @@
 "use client";
 
 import { Button } from "@repo/ui/components/button";
+import posthog from "posthog-js";
 import { useEffect } from "react";
 
 export default function ErrorBoundary({
@@ -12,6 +13,7 @@ export default function ErrorBoundary({
 }) {
   useEffect(() => {
     console.error(error);
+    posthog.captureException(error, { digest: error.digest });
   }, [error]);
 
   return (

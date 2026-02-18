@@ -1,8 +1,10 @@
 import { ClassSerializerInterceptor, ValidationPipe } from "@nestjs/common";
+import { ConfigService } from "@nestjs/config";
 import { NestFactory, Reflector } from "@nestjs/core";
+import { DocumentBuilder, SwaggerModule } from "@nestjs/swagger";
 import helmet from "helmet";
 import { AppModule } from "./app.module";
-import { validateEnv } from "./shared/config/env";
+import type { AppConfig } from "./shared/config/env.validation";
 
 const DEFAULT_ORIGINS = [
   "http://localhost:3000",
@@ -12,23 +14,17 @@ const DEFAULT_ORIGINS = [
 ];
 
 async function bootstrap() {
-  validateEnv();
-
   const app = await NestFactory.create(AppModule);
+  const configService = app.get(ConfigService<AppConfig, true>);
 
   // Set global API prefix
   app.setGlobalPrefix("api");
 
   app.use(helmet());
 
-  const origins = process.env.ALLOWED_ORIGINS
-    ? process.env.ALLOWED_ORIGINS.split(",")
-        .map((o) => o.trim())
-        .filter(Boolean)
-    : DEFAULT_ORIGINS;
-
+  const allowedOrigins = configService.get("ALLOWED_ORIGINS", { infer: true });
   app.enableCors({
-    origin: origins,
+    origin: allowedOrigins.length > 0 ? allowedOrigins : DEFAULT_ORIGINS,
     credentials: true,
   });
 
@@ -48,8 +44,18 @@ async function bootstrap() {
     }),
   );
 
+  // OpenAPI / Swagger
+  const swaggerConfig = new DocumentBuilder()
+    .setTitle("Tagaroa API")
+    .setDescription("Finance management platform API")
+    .setVersion("1.0")
+    .addCookieAuth("session")
+    .build();
+  const document = SwaggerModule.createDocument(app, swaggerConfig);
+  SwaggerModule.setup("docs", app, document);
+
   app.enableShutdownHooks();
 
-  await app.listen(process.env.PORT ?? 8080);
+  await app.listen(configService.get("PORT", { infer: true }));
 }
 bootstrap();

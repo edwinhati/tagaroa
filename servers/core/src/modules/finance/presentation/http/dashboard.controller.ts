@@ -1,5 +1,6 @@
-import { Controller, Get, Query } from "@nestjs/common";
+import { Controller, Get, Query, UseGuards } from "@nestjs/common";
 import { Session, type UserSession } from "@thallesp/nestjs-better-auth";
+import { SessionGuard } from "../../../../shared/guards/session.guard";
 import { buildJsonApiResponse } from "../../../../shared/types/pagination";
 import { GetBudgetPerformanceDto } from "../../application/dtos/dashboard/get-budget-performance.dto";
 import { GetExpenseBreakdownDto } from "../../application/dtos/dashboard/get-expense-breakdown.dto";
@@ -15,6 +16,7 @@ import { GetNetWorthUseCase } from "../../application/use-cases/get-net-worth.us
 import { GetSummaryUseCase } from "../../application/use-cases/get-summary.use-case";
 import { GetTransactionTrendsUseCase } from "../../application/use-cases/get-transaction-trends.use-case";
 
+@UseGuards(SessionGuard)
 @Controller("finance/dashboard")
 export class DashboardController {
   constructor(

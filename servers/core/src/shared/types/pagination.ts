@@ -51,13 +51,13 @@ export function buildPaginationInfo(
 
 export function buildJsonApiResponse<T>(
   data: T,
-  pagination: PaginationInfo,
+  pagination?: PaginationInfo,
   aggregations: Aggregations = {},
 ) {
   return {
     data,
     meta: {
-      pagination,
+      ...(pagination ? { pagination } : {}),
       aggregations,
     },
   };

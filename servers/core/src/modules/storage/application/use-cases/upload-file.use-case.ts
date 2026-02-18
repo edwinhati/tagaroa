@@ -1,4 +1,6 @@
 import { Inject, Injectable } from "@nestjs/common";
+import { ConfigService } from "@nestjs/config";
+import type { AppConfig } from "../../../../shared/config/env.validation";
 import { File } from "../../domain/entities/file.entity";
 import {
   FileSizeLimitExceededException,
@@ -6,20 +8,18 @@ import {
 } from "../../domain/exceptions/storage.exceptions";
 import type { IFileRepository } from "../../domain/repositories/file.repository.interface";
 import { FILE_REPOSITORY } from "../../domain/repositories/file.repository.interface";
+import type { IStorageService } from "../../domain/services/storage.service.interface";
+import { STORAGE_SERVICE } from "../../domain/services/storage.service.interface";
 import { MimeType } from "../../domain/value-objects/mime-type";
-import { S3ClientService } from "../../infrastructure/s3/s3-client.service";
-
-const MAX_FILE_SIZE = Number.parseInt(
-  process.env.MAX_FILE_SIZE || "10485760",
-  10,
-); // 10MB default
 
 @Injectable()
 export class UploadFileUseCase {
   constructor(
     @Inject(FILE_REPOSITORY)
     private readonly fileRepository: IFileRepository,
-    private readonly s3Client: S3ClientService,
+    @Inject(STORAGE_SERVICE)
+    private readonly storageService: IStorageService,
+    private readonly configService: ConfigService<AppConfig, true>,
   ) {}
 
   async execute(
@@ -28,12 +28,13 @@ export class UploadFileUseCase {
     originalName: string,
     contentType: string,
   ): Promise<File> {
+    const maxFileSize = this.configService.get("MAX_FILE_SIZE", {
+      infer: true,
+    });
+
     // 1. Validate file size
-    if (fileBuffer.length > MAX_FILE_SIZE) {
-      throw new FileSizeLimitExceededException(
-        fileBuffer.length,
-        MAX_FILE_SIZE,
-      );
+    if (fileBuffer.length > maxFileSize) {
+      throw new FileSizeLimitExceededException(fileBuffer.length, maxFileSize);
     }
 
     // 2. Validate MIME type
@@ -44,10 +45,10 @@ export class UploadFileUseCase {
     // 3. Generate file metadata
     const fileId = crypto.randomUUID();
     const key = `uploads/${userId}/${fileId}`;
-    const bucket = this.s3Client.getBucket();
+    const bucket = this.storageService.getBucket();
 
     // 4. Upload to S3
-    await this.s3Client.upload(key, fileBuffer, contentType);
+    await this.storageService.upload(key, fileBuffer, contentType);
 
     // 5. Create file entity
     const file = File.create(

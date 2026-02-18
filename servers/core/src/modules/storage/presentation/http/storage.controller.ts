@@ -12,17 +12,20 @@ import {
   Req,
   Res,
   UploadedFile,
+  UseGuards,
   UseInterceptors,
 } from "@nestjs/common";
 import { FileInterceptor } from "@nestjs/platform-express";
 import { Session, type UserSession } from "@thallesp/nestjs-better-auth";
 import type { Request, Response } from "express";
+import { SessionGuard } from "../../../../shared/guards/session.guard";
 import { DeleteFileUseCase } from "../../application/use-cases/delete-file.use-case";
 import { DownloadFileUseCase } from "../../application/use-cases/download-file.use-case";
 import { GetFileUseCase } from "../../application/use-cases/get-file.use-case";
 import { GetPresignedUrlUseCase } from "../../application/use-cases/get-presigned-url.use-case";
 import { UploadFileUseCase } from "../../application/use-cases/upload-file.use-case";
 
+@UseGuards(SessionGuard)
 @Controller("storage")
 export class StorageController {
   constructor(
