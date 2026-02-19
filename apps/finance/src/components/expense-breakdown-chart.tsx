@@ -13,12 +13,11 @@ import {
   type ChartConfig,
   ChartContainer,
   ChartTooltip,
-  ChartTooltipContent,
 } from "@repo/ui/components/chart";
 import { Skeleton } from "@repo/ui/components/skeleton";
 import { cn } from "@repo/ui/lib/utils";
+import { IconChartPie } from "@tabler/icons-react";
 import { useQuery } from "@tanstack/react-query";
-import { PieChart as PieChartIcon } from "lucide-react";
 import React, { useMemo, useState } from "react";
 import type { DateRange } from "react-day-picker";
 import { Cell, Label, Pie, PieChart } from "recharts";
@@ -35,6 +34,47 @@ const CHART_COLORS = [
   "hsl(217, 91%, 60%)", // Vibrant blue
   "hsl(280, 87%, 65%)", // Purple
 ];
+
+interface ExpenseTooltipProps {
+  active?: boolean;
+  payload?: Array<{
+    name: string;
+    value: number;
+    payload: { name: string; value: number; percentage: number; fill: string };
+  }>;
+}
+
+function ExpenseTooltip({ active, payload }: ExpenseTooltipProps) {
+  if (!active || !payload?.length) return null;
+
+  const item = payload[0];
+  if (!item) return null;
+  const { name, value, percentage, fill } = item.payload;
+
+  return (
+    <div className="rounded-xl border border-border/50 bg-background/95 backdrop-blur-sm shadow-xl p-3 text-xs min-w-[160px]">
+      <div className="flex items-center gap-1.5 text-[11px] font-medium text-muted-foreground border-b border-border/40 pb-2 mb-2.5">
+        <span
+          className="size-2 rounded-full shrink-0"
+          style={{ backgroundColor: fill }}
+        />
+        <span>{name}</span>
+      </div>
+      <div className="flex items-center justify-between gap-4 mb-1.5">
+        <span className="text-muted-foreground">Amount</span>
+        <span className="font-semibold text-foreground tabular-nums">
+          {formatCurrencyCompact(value, "IDR")}
+        </span>
+      </div>
+      <div className="flex items-center justify-between gap-4">
+        <span className="text-muted-foreground">Share</span>
+        <span className="font-semibold text-foreground tabular-nums">
+          {percentage.toFixed(1)}% of total
+        </span>
+      </div>
+    </div>
+  );
+}
 
 const ExpenseBreakdownChart = React.memo(({ range }: { range?: DateRange }) => {
   const [showAll, setShowAll] = useState(false);
@@ -112,7 +152,7 @@ const ExpenseBreakdownChart = React.memo(({ range }: { range?: DateRange }) => {
             </CardDescription>
           </div>
           <div className="p-2.5 rounded-xl bg-rose-500/10 ring-1 ring-rose-500/20">
-            <PieChartIcon className="h-4 w-4 text-rose-500" />
+            <IconChartPie className="h-4 w-4 text-rose-500" />
           </div>
         </CardHeader>
         <CardContent className="flex-1 flex items-center justify-center pb-4">
@@ -136,7 +176,7 @@ const ExpenseBreakdownChart = React.memo(({ range }: { range?: DateRange }) => {
             </CardDescription>
           </div>
           <div className="p-2.5 rounded-xl bg-rose-500/10 ring-1 ring-rose-500/20">
-            <PieChartIcon className="h-4 w-4 text-rose-500" />
+            <IconChartPie className="h-4 w-4 text-rose-500" />
           </div>
         </CardHeader>
         <CardContent className="flex-1 flex items-center justify-center pb-4">
@@ -149,7 +189,7 @@ const ExpenseBreakdownChart = React.memo(({ range }: { range?: DateRange }) => {
   }
 
   return (
-    <Card className="flex flex-col h-full border-border/50 bg-card/80 backdrop-blur-sm shadow-sm hover:shadow-md transition-shadow duration-200">
+    <Card className="flex flex-col h-full border-border/40 bg-card/60 backdrop-blur-md shadow-sm">
       <CardHeader className="flex flex-row items-start justify-between space-y-0 pb-4">
         <div className="flex-1">
           <div className="flex items-center justify-between mb-2">
@@ -172,7 +212,7 @@ const ExpenseBreakdownChart = React.memo(({ range }: { range?: DateRange }) => {
           </CardDescription>
         </div>
         <div className="p-2.5 rounded-xl bg-rose-500/10 ring-1 ring-rose-500/20">
-          <PieChartIcon className="h-4 w-4 text-rose-500" />
+          <IconChartPie className="h-4 w-4 text-rose-500" />
         </div>
       </CardHeader>
       <CardContent className="flex-1 flex flex-col pb-4">
@@ -181,24 +221,7 @@ const ExpenseBreakdownChart = React.memo(({ range }: { range?: DateRange }) => {
           className="mx-auto aspect-square w-full max-h-[180px]"
         >
           <PieChart>
-            <ChartTooltip
-              cursor={false}
-              content={
-                <ChartTooltipContent
-                  hideLabel
-                  formatter={(value, _name, item) => (
-                    <div className="flex flex-col gap-0.5">
-                      <span className="font-medium">
-                        {formatCurrencyCompact(value as number, "IDR")}
-                      </span>
-                      <span className="text-xs text-muted-foreground">
-                        {item.payload.percentage.toFixed(1)}% of total
-                      </span>
-                    </div>
-                  )}
-                />
-              }
-            />
+            <ChartTooltip cursor={false} content={<ExpenseTooltip />} />
             <Pie
               data={chartData}
               dataKey="value"
@@ -290,7 +313,7 @@ export const ExpenseBreakdownChartSkeleton = () => {
           </CardDescription>
         </div>
         <div className="p-2.5 rounded-xl bg-rose-500/10 ring-1 ring-rose-500/20">
-          <PieChartIcon className="h-4 w-4 text-rose-500" />
+          <IconChartPie className="h-4 w-4 text-rose-500" />
         </div>
       </CardHeader>
       <CardContent className="flex-1 flex items-center justify-center pb-4">

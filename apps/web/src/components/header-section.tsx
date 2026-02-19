@@ -2,9 +2,9 @@
 
 import { Logo } from "@repo/common/components/logo";
 import { authClient } from "@repo/common/lib/auth-client";
-import { Button } from "@repo/ui/components/button";
+import { Button, buttonVariants } from "@repo/ui/components/button";
 import { cn } from "@repo/ui/lib/utils";
-import { Menu, X } from "lucide-react";
+import { IconMenu2, IconX } from "@tabler/icons-react";
 import Link from "next/link";
 import { useEffect, useState } from "react";
 
@@ -55,8 +55,8 @@ export const HeaderSection = () => {
                 aria-label={menuState ? "Close Menu" : "Open Menu"}
                 className="relative z-20 -m-2.5 -mr-4 block cursor-pointer p-2.5 lg:hidden"
               >
-                <Menu className="in-data-[state=active]:rotate-180 in-data-[state=active]:scale-0 in-data-[state=active]:opacity-0 m-auto size-6 duration-200" />
-                <X className="in-data-[state=active]:rotate-0 in-data-[state=active]:scale-100 in-data-[state=active]:opacity-100 absolute inset-0 m-auto size-6 -rotate-180 scale-0 opacity-0 duration-200" />
+                <IconMenu2 className="in-data-[state=active]:rotate-180 in-data-[state=active]:scale-0 in-data-[state=active]:opacity-0 m-auto size-6 duration-200" />
+                <IconX className="in-data-[state=active]:rotate-0 in-data-[state=active]:scale-100 in-data-[state=active]:opacity-100 absolute inset-0 m-auto size-6 -rotate-180 scale-0 opacity-0 duration-200" />
               </button>
             </div>
 
@@ -98,38 +98,35 @@ export const HeaderSection = () => {
               </div>
               <div className="flex w-full flex-col space-y-3 sm:flex-row sm:gap-3 sm:space-y-0 md:w-fit">
                 {session ? (
-                  <Button
-                    asChild
-                    size="sm"
-                    className={cn(isScrolled && "lg:hidden")}
+                  <Link
+                    href={process.env.NEXT_PUBLIC_DASHBOARD_APP_URL as string}
+                    className={cn(
+                      buttonVariants({ size: "sm" }),
+                      isScrolled && "lg:hidden",
+                    )}
                   >
-                    <Link
-                      href={process.env.NEXT_PUBLIC_DASHBOARD_APP_URL as string}
-                    >
-                      <span>Dashboard</span>
-                    </Link>
-                  </Button>
-                ) : (
-                  <Button
-                    asChild
-                    variant="outline"
-                    size="sm"
-                    className={cn(isScrolled && "lg:hidden")}
-                  >
-                    <Link href={process.env.NEXT_PUBLIC_AUTH_APP_URL as string}>
-                      <span>Login</span>
-                    </Link>
-                  </Button>
-                )}
-                <Button
-                  asChild
-                  size="sm"
-                  className={cn(isScrolled ? "lg:inline-flex" : "hidden")}
-                >
-                  <Link href="#">
-                    <span>Get Started</span>
+                    <span>Dashboard</span>
                   </Link>
-                </Button>
+                ) : (
+                  <Link
+                    href={process.env.NEXT_PUBLIC_AUTH_APP_URL as string}
+                    className={cn(
+                      buttonVariants({ variant: "outline", size: "sm" }),
+                      isScrolled && "lg:hidden",
+                    )}
+                  >
+                    <span>Login</span>
+                  </Link>
+                )}
+                <Link
+                  href="#"
+                  className={cn(
+                    buttonVariants({ size: "sm" }),
+                    isScrolled ? "lg:inline-flex" : "hidden",
+                  )}
+                >
+                  <span>Get Started</span>
+                </Link>
               </div>
             </div>
           </div>

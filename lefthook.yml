@@ -5,17 +5,16 @@ pre-commit:
   parallel: true
   commands:
     format:
-      glob: "*.{js,ts,jsx,tsx,json}"
+      glob: "*.{js,ts,jsx,tsx,json,css}"
       run: bun run format {staged_files}
       stage_fixed: true
     lint:
       run: bun run lint
-    test:
-      run: bun run test
 
 pre-push:
+  parallel: true
   commands:
-    lint:
-      run: bun run lint
+    test:
+      run: bun run test
     type-check:
       run: bun run check-types

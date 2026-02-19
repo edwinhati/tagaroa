@@ -7,7 +7,7 @@
   },
   "files": {
     "ignoreUnknown": false,
-    "includes": ["**", "!**/.source"]
+    "includes": ["**", "!**/.source", "!**/playwright-report/**"]
   },
   "formatter": {
     "enabled": true,

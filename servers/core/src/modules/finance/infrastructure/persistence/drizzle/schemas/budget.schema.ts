@@ -2,6 +2,7 @@ import { sql } from "drizzle-orm";
 import {
   check,
   decimal,
+  index,
   integer,
   timestamp,
   unique,
@@ -35,5 +36,6 @@ export const budgets = financeSchema.table(
     check("chk_budgets_month", sql`${table.month} BETWEEN 1 AND 12`),
     check("chk_budgets_year", sql`${table.year} BETWEEN 2000 AND 2100`),
     check("chk_budgets_amount_non_negative", sql`${table.amount} >= 0`),
+    index("idx_budgets_user_id").on(table.userId),
   ],
 );

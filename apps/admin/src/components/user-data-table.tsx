@@ -23,6 +23,7 @@ import {
   TableRow,
 } from "@repo/ui/components/table";
 import { cn } from "@repo/ui/lib/utils";
+import { IconChevronDown, IconChevronUp, IconDots } from "@tabler/icons-react";
 import {
   type ColumnDef,
   type ColumnFiltersState,
@@ -38,7 +39,6 @@ import {
   type VisibilityState,
 } from "@tanstack/react-table";
 import type { UserWithRole } from "better-auth/plugins/admin";
-import { ChevronDownIcon, ChevronUpIcon, EllipsisIcon } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { CreateUserDialog } from "@/components/create-user-dialog";
 import { UserDetailSheet } from "@/components/user-detail-sheet";
@@ -73,10 +73,8 @@ function createUserColumns(onRefresh: () => void): ColumnDef<User>[] {
       id: "select",
       header: ({ table }) => (
         <Checkbox
-          checked={
-            table.getIsAllPageRowsSelected() ||
-            (table.getIsSomePageRowsSelected() && "indeterminate")
-          }
+          checked={table.getIsAllPageRowsSelected()}
+          indeterminate={table.getIsSomePageRowsSelected()}
           onCheckedChange={(value) => table.toggleAllPageRowsSelected(!!value)}
           aria-label="Select all"
         />
@@ -623,14 +621,14 @@ export function UserDataTable() {
                       >
                         {headerLabel}
                         {sortState === "asc" && (
-                          <ChevronUpIcon
+                          <IconChevronUp
                             className="shrink-0 opacity-60"
                             size={16}
                             aria-hidden="true"
                           />
                         )}
                         {sortState === "desc" && (
-                          <ChevronDownIcon
+                          <IconChevronDown
                             className="shrink-0 opacity-60"
                             size={16}
                             aria-hidden="true"
@@ -762,7 +760,7 @@ function RowActions({ row, onRefresh }: RowActionsProps) {
         aria-label="User actions"
         onClick={() => setOpen(true)}
       >
-        <EllipsisIcon size={16} aria-hidden="true" />
+        <IconDots size={16} aria-hidden="true" />
       </Button>
 
       <UserDetailSheet

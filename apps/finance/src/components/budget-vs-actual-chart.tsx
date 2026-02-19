@@ -12,11 +12,10 @@ import {
   type ChartConfig,
   ChartContainer,
   ChartTooltip,
-  ChartTooltipContent,
 } from "@repo/ui/components/chart";
 import { Skeleton } from "@repo/ui/components/skeleton";
+import { IconTarget } from "@tabler/icons-react";
 import { useQuery } from "@tanstack/react-query";
-import { Target } from "lucide-react";
 import React from "react";
 import type { DateRange } from "react-day-picker";
 import { Bar, BarChart, CartesianGrid, Cell, XAxis, YAxis } from "recharts";
@@ -32,6 +31,84 @@ const chartConfig = {
     color: "hsl(38, 92%, 50%)", // Amber/gold
   },
 } satisfies ChartConfig;
+
+interface BudgetTooltipProps {
+  active?: boolean;
+  payload?: Array<{
+    dataKey: string;
+    value: number;
+    payload: {
+      category: string;
+      allocated: number;
+      spent: number;
+      remaining: number;
+      percentage: number;
+      is_over_budget: boolean;
+    };
+  }>;
+  label?: string;
+}
+
+function BudgetTooltip({ active, payload, label }: BudgetTooltipProps) {
+  if (!active || !payload?.length) return null;
+
+  const first = payload[0];
+  if (!first) return null;
+  const data = first.payload;
+  const categoryName = label ?? data.category;
+  const spentColor = data.is_over_budget
+    ? "hsl(349, 89%, 60%)"
+    : "hsl(38, 92%, 50%)";
+
+  return (
+    <div className="rounded-xl border border-border/50 bg-background/95 backdrop-blur-sm shadow-xl p-3 text-xs min-w-[160px]">
+      <p className="text-[11px] font-medium text-muted-foreground border-b border-border/40 pb-2 mb-2.5">
+        {categoryName}
+      </p>
+      <div className="flex items-center justify-between gap-4 mb-1.5">
+        <div className="flex items-center gap-1.5">
+          <span
+            className="size-2 rounded-full shrink-0"
+            style={{ backgroundColor: "hsl(217, 91%, 60%)" }}
+          />
+          <span className="text-muted-foreground">Allocated</span>
+        </div>
+        <span className="font-semibold text-foreground tabular-nums">
+          {formatCurrencyCompact(data.allocated, "IDR")}
+        </span>
+      </div>
+      <div className="flex items-center justify-between gap-4 mb-1.5">
+        <div className="flex items-center gap-1.5">
+          <span
+            className="size-2 rounded-full shrink-0"
+            style={{ backgroundColor: spentColor }}
+          />
+          <span className="text-muted-foreground">Spent</span>
+        </div>
+        <span className="font-semibold text-foreground tabular-nums">
+          {formatCurrencyCompact(data.spent, "IDR")}
+        </span>
+      </div>
+      <div className="flex items-center justify-between gap-4 mb-2">
+        <span className="text-muted-foreground">Usage</span>
+        <span className="font-semibold text-foreground tabular-nums">
+          {data.percentage.toFixed(1)}% used
+        </span>
+      </div>
+      <div>
+        {data.is_over_budget ? (
+          <span className="inline-flex items-center bg-rose-500/10 text-rose-500 px-1.5 py-0.5 rounded-md font-medium tabular-nums">
+            Over: {formatCurrencyCompact(Math.abs(data.remaining), "IDR")}
+          </span>
+        ) : (
+          <span className="inline-flex items-center bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 px-1.5 py-0.5 rounded-md font-medium tabular-nums">
+            Left: {formatCurrencyCompact(Math.abs(data.remaining), "IDR")}
+          </span>
+        )}
+      </div>
+    </div>
+  );
+}
 
 const BudgetVsActualChart = React.memo(({ range }: { range?: DateRange }) => {
   // Use range.to for budget period since budget periods run from 25th of prev month to 25th of current month
@@ -59,7 +136,7 @@ const BudgetVsActualChart = React.memo(({ range }: { range?: DateRange }) => {
             <CardDescription className="text-xs">{monthName}</CardDescription>
           </div>
           <div className="p-2.5 rounded-xl bg-amber-500/10 ring-1 ring-amber-500/20">
-            <Target className="h-4 w-4 text-amber-500" />
+            <IconTarget className="h-4 w-4 text-amber-500" />
           </div>
         </CardHeader>
         <CardContent className="pl-2">
@@ -80,7 +157,7 @@ const BudgetVsActualChart = React.memo(({ range }: { range?: DateRange }) => {
     })) ?? [];
 
   return (
-    <Card className="h-full border-border/50 bg-card/80 backdrop-blur-sm shadow-sm hover:shadow-md transition-shadow duration-200">
+    <Card className="h-full border-border/40 bg-card/60 backdrop-blur-md shadow-sm ">
       <CardHeader className="flex flex-row items-start justify-between space-y-0 pb-4">
         <div>
           <CardTitle className="text-base font-semibold">
@@ -89,7 +166,7 @@ const BudgetVsActualChart = React.memo(({ range }: { range?: DateRange }) => {
           <CardDescription className="text-xs">{monthName}</CardDescription>
         </div>
         <div className="p-2.5 rounded-xl bg-amber-500/10 ring-1 ring-amber-500/20">
-          <Target className="h-4 w-4 text-amber-500" />
+          <IconTarget className="h-4 w-4 text-amber-500" />
         </div>
       </CardHeader>
       <CardContent className="pl-2">
@@ -113,43 +190,7 @@ const BudgetVsActualChart = React.memo(({ range }: { range?: DateRange }) => {
             <YAxis hide />
             <ChartTooltip
               cursor={{ fill: "hsl(var(--muted)/0.3)" }}
-              content={
-                <ChartTooltipContent
-                  indicator="dashed"
-                  formatter={(value, name, item) => {
-                    const payload = item.payload;
-                    if (name === "allocated") {
-                      return formatCurrencyCompact(value as number, "IDR");
-                    }
-                    if (name === "spent") {
-                      return (
-                        <div className="flex flex-col gap-0.5">
-                          <span className="font-medium">
-                            {formatCurrencyCompact(value as number, "IDR")}
-                          </span>
-                          <span className="text-xs text-muted-foreground">
-                            {payload.percentage.toFixed(1)}% of budget
-                          </span>
-                          <span
-                            className={`text-xs ${
-                              payload.is_over_budget
-                                ? "text-rose-500"
-                                : "text-emerald-500"
-                            }`}
-                          >
-                            {payload.is_over_budget ? "Over" : "Remaining"}:{" "}
-                            {formatCurrencyCompact(
-                              Math.abs(payload.remaining),
-                              "IDR",
-                            )}
-                          </span>
-                        </div>
-                      );
-                    }
-                    return value;
-                  }}
-                />
-              }
+              content={<BudgetTooltip />}
             />
             <Bar
               dataKey="allocated"
@@ -194,7 +235,7 @@ export const BudgetVsActualChartSkeleton = () => {
           </CardDescription>
         </div>
         <div className="p-2.5 rounded-xl bg-amber-500/10 ring-1 ring-amber-500/20">
-          <Target className="h-4 w-4 text-amber-500" />
+          <IconTarget className="h-4 w-4 text-amber-500" />
         </div>
       </CardHeader>
       <CardContent className="pl-2">

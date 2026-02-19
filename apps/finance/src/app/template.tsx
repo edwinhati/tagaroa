@@ -6,36 +6,41 @@ import { BudgetProvider } from "@repo/common/providers/budget-provider";
 import { FilterProvider } from "@repo/common/providers/filter-provider";
 import { SidebarInset, SidebarProvider } from "@repo/ui/components/sidebar";
 import {
-  ArrowLeftRight,
-  Building2,
-  Home,
-  Landmark,
-  Scale,
-  Wallet,
-} from "lucide-react";
+  IconArrowsLeftRight,
+  IconBuilding,
+  IconBuildingBank,
+  IconHome,
+  IconScale,
+  IconWallet,
+} from "@tabler/icons-react";
+import { usePathname } from "next/navigation";
 
 const nav = [
-  { name: "Home", icon: Home, href: "/" },
-  { name: "Accounts", icon: Building2, href: "/accounts" },
-  { name: "Budgets", icon: Wallet, href: "/budgets" },
-  { name: "Transactions", icon: ArrowLeftRight, href: "/transactions" },
-  { name: "Assets", icon: Landmark, href: "/assets" },
-  { name: "Liabilities", icon: Scale, href: "/liabilities" },
+  { name: "Dashboard", icon: IconHome, href: "/" },
+  { name: "Accounts", icon: IconBuilding, href: "/accounts" },
+  { name: "Budgets", icon: IconWallet, href: "/budgets" },
+  { name: "Transactions", icon: IconArrowsLeftRight, href: "/transactions" },
+  { name: "Assets", icon: IconBuildingBank, href: "/assets" },
+  { name: "Liabilities", icon: IconScale, href: "/liabilities" },
 ];
+
+const navForNavbar = nav.map(({ name, href }) => ({ name, href }));
 
 export default function RootTemplate({
   children,
 }: {
   readonly children: React.ReactNode;
 }) {
+  const pathname = usePathname();
+
   return (
     <div className="[--header-height:calc(--spacing(14))]">
       <FilterProvider>
         <BudgetProvider>
-          <SidebarProvider defaultOpen={false}>
+          <SidebarProvider defaultOpen={true}>
             <AppSidebar appName="Finance" nav={nav} />
             <SidebarInset>
-              <AppNavbar />
+              <AppNavbar nav={navForNavbar} currentPath={pathname} />
               <div className="flex flex-1 flex-col">{children}</div>
             </SidebarInset>
           </SidebarProvider>

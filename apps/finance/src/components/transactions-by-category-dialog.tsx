@@ -31,16 +31,16 @@ import {
   TableRow,
 } from "@repo/ui/components/table";
 import { cn } from "@repo/ui/lib/utils";
+import {
+  IconChevronLeft,
+  IconChevronRight,
+  IconList,
+  IconPencil,
+  IconPlus,
+  IconReceipt,
+} from "@tabler/icons-react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { format } from "date-fns";
-import {
-  ChevronLeftIcon,
-  ChevronRightIcon,
-  List,
-  PencilIcon,
-  Plus,
-  Receipt,
-} from "lucide-react";
 import { useMemo, useState } from "react";
 import { CATEGORY_CONFIG } from "./budget-data-table";
 import { TransactionFormDialog } from "./transaction-form-dialog";
@@ -238,7 +238,7 @@ export function TransactionsByCategoryDialog({
     CATEGORY_CONFIG.other ?? {
       bg: "bg-slate-100 dark:bg-slate-900/30",
       text: "text-slate-700 dark:text-slate-300",
-      icon: Receipt,
+      icon: IconReceipt,
     };
   const CategoryIcon = categoryConfig.icon;
 
@@ -274,14 +274,16 @@ export function TransactionsByCategoryDialog({
 
   return (
     <Dialog open={open} onOpenChange={handleOpenChange}>
-      <DialogTrigger asChild>
-        {trigger || (
-          <Button variant="ghost" size="sm" className="text-xs">
-            <List className="h-3 w-3 mr-1" />
-            View Transactions
-          </Button>
-        )}
-      </DialogTrigger>
+      <DialogTrigger
+        render={
+          trigger || (
+            <Button variant="ghost" size="sm" className="text-xs">
+              <IconList className="h-3 w-3 mr-1" />
+              View Transactions
+            </Button>
+          )
+        }
+      />
       <DialogContent className="!max-w-4xl !w-full max-h-[85vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-3">
@@ -373,7 +375,7 @@ export function TransactionsByCategoryDialog({
                               setEditingTransaction(transaction);
                             }}
                           >
-                            <PencilIcon className="h-4 w-4" />
+                            <IconPencil className="h-4 w-4" />
                             <span className="sr-only">Edit</span>
                           </Button>
                         </div>
@@ -400,7 +402,7 @@ export function TransactionsByCategoryDialog({
               </EmptyHeader>
               <EmptyContent>
                 <Button size="sm" onClick={() => setAddDialogOpen(true)}>
-                  <Plus className="h-4 w-4 mr-1" />
+                  <IconPlus className="h-4 w-4 mr-1" />
                   Add Transaction
                 </Button>
               </EmptyContent>
@@ -423,7 +425,7 @@ export function TransactionsByCategoryDialog({
                 onClick={() => setPage((p) => Math.max(1, p - 1))}
                 disabled={page === 1}
               >
-                <ChevronLeftIcon className="h-4 w-4" />
+                <IconChevronLeft className="h-4 w-4" />
                 <span className="sr-only">Previous page</span>
               </Button>
               <span className="flex items-center text-sm min-w-[80px] justify-center">
@@ -436,7 +438,7 @@ export function TransactionsByCategoryDialog({
                 onClick={() => setPage((p) => p + 1)}
                 disabled={page >= totalPages}
               >
-                <ChevronRightIcon className="h-4 w-4" />
+                <IconChevronRight className="h-4 w-4" />
                 <span className="sr-only">Next page</span>
               </Button>
             </div>
@@ -467,7 +469,7 @@ export function TransactionsByCategoryDialog({
             size="sm"
             onClick={() => setAddDialogOpen(true)}
           >
-            <Plus className="h-4 w-4 mr-1" />
+            <IconPlus className="h-4 w-4 mr-1" />
             Add Transaction
           </Button>
           <Button variant="outline" size="sm" onClick={() => setOpen(false)}>

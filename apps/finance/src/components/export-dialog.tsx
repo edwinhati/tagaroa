@@ -11,8 +11,12 @@ import {
 } from "@repo/ui/components/dialog";
 import { Label } from "@repo/ui/components/label";
 import { RadioGroup, RadioGroupItem } from "@repo/ui/components/radio-group";
+import {
+  IconDownload,
+  IconFileSpreadsheet,
+  IconFileText,
+} from "@tabler/icons-react";
 import { format } from "date-fns";
-import { Download, FileSpreadsheet, FileText } from "lucide-react";
 import { useState } from "react";
 import type { DateRange } from "react-day-picker";
 
@@ -84,7 +88,7 @@ export function ExportDialog({
                   htmlFor="pdf"
                   className="flex-1 cursor-pointer flex items-center gap-2"
                 >
-                  <FileText className="h-4 w-4 text-rose-500" />
+                  <IconFileText className="h-4 w-4 text-rose-500" />
                   <div>
                     <div className="font-medium">PDF Document</div>
                     <div className="text-xs text-muted-foreground">
@@ -99,7 +103,7 @@ export function ExportDialog({
                   htmlFor="csv"
                   className="flex-1 cursor-pointer flex items-center gap-2"
                 >
-                  <FileSpreadsheet className="h-4 w-4 text-emerald-500" />
+                  <IconFileSpreadsheet className="h-4 w-4 text-emerald-500" />
                   <div>
                     <div className="font-medium">CSV Spreadsheet</div>
                     <div className="text-xs text-muted-foreground">
@@ -126,7 +130,7 @@ export function ExportDialog({
               <>Exporting...</>
             ) : (
               <>
-                <Download className="mr-2 h-4 w-4" />
+                <IconDownload className="mr-2 h-4 w-4" />
                 Export {exportFormat.toUpperCase()}
               </>
             )}

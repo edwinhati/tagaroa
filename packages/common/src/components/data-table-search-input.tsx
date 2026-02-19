@@ -2,8 +2,8 @@
 
 import { Input } from "@repo/ui/components/input";
 import { cn } from "@repo/ui/lib/utils";
+import { IconFilter, IconSearch, IconX } from "@tabler/icons-react";
 import type { Table } from "@tanstack/react-table";
-import { CircleXIcon, ListFilterIcon, SearchIcon } from "lucide-react";
 import * as React from "react";
 import { useCallback, useId, useMemo, useRef } from "react";
 
@@ -68,7 +68,7 @@ export function DataTableSearchInput<TData>({
         className={cn("peer ps-9", Boolean(value) && "pe-9", className)}
       />
       <div className="text-muted-foreground/80 pointer-events-none absolute inset-y-0 start-0 flex items-center justify-center ps-3 peer-disabled:opacity-50">
-        <ListFilterIcon size={16} aria-hidden="true" />
+        <IconFilter size={16} aria-hidden="true" />
       </div>
       {Boolean(value) && (
         <button
@@ -77,7 +77,7 @@ export function DataTableSearchInput<TData>({
           aria-label="Clear filter"
           onClick={handleClear}
         >
-          <CircleXIcon size={16} aria-hidden="true" />
+          <IconX size={16} aria-hidden="true" />
         </button>
       )}
     </div>
@@ -114,7 +114,7 @@ export function ServerSearchInput({
         className={cn("peer ps-9", Boolean(value) && "pe-9", className)}
       />
       <div className="text-muted-foreground/80 pointer-events-none absolute inset-y-0 start-0 flex items-center justify-center ps-3 peer-disabled:opacity-50">
-        <SearchIcon size={16} aria-hidden="true" />
+        <IconSearch size={16} aria-hidden="true" />
       </div>
       {Boolean(value) && (
         <button
@@ -123,7 +123,7 @@ export function ServerSearchInput({
           aria-label="Clear search"
           onClick={handleClear}
         >
-          <CircleXIcon size={16} aria-hidden="true" />
+          <IconX size={16} aria-hidden="true" />
         </button>
       )}
     </div>

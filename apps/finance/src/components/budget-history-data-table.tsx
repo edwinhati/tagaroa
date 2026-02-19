@@ -6,7 +6,7 @@ import { Loading } from "@repo/common/components/loading";
 import { useBudgetPeriod } from "@repo/common/hooks/use-budget-period";
 import { budgetHistoryQueryOptions } from "@repo/common/lib/query/budget-query";
 import type { Budget, PaginatedBudgetsResult } from "@repo/common/types/budget";
-import { Button } from "@repo/ui/components/button";
+import { Button, buttonVariants } from "@repo/ui/components/button";
 import { Card, CardContent } from "@repo/ui/components/card";
 import { Checkbox } from "@repo/ui/components/checkbox";
 import {
@@ -27,6 +27,15 @@ import {
   TableRow,
 } from "@repo/ui/components/table";
 import { cn } from "@repo/ui/lib/utils";
+import {
+  IconCalendar,
+  IconChartBar,
+  IconChevronDown,
+  IconChevronUp,
+  IconEye,
+  IconPlus,
+  IconWallet,
+} from "@tabler/icons-react";
 import { useQuery } from "@tanstack/react-query";
 import {
   type ColumnDef,
@@ -37,15 +46,6 @@ import {
   type Row,
   useReactTable,
 } from "@tanstack/react-table";
-import {
-  BarChart3,
-  Calendar,
-  ChevronDownIcon,
-  ChevronUpIcon,
-  Eye,
-  PlusIcon,
-  Wallet,
-} from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
@@ -124,19 +124,19 @@ const HistorySummary = ({
       <SummaryCard
         title="Total Budgets"
         value={total.toString()}
-        icon={<Calendar className="h-5 w-5" />}
+        icon={<IconCalendar className="h-5 w-5" />}
         iconColor="text-primary bg-primary/10"
       />
       <SummaryCard
         title="Total Amount"
         value={formatCurrency(totalAmount)}
-        icon={<Wallet className="h-5 w-5" />}
+        icon={<IconWallet className="h-5 w-5" />}
         iconColor="text-blue-500 bg-blue-50 dark:bg-blue-900/30"
       />
       <SummaryCard
         title="Average Budget"
         value={formatCurrency(avgAmount)}
-        icon={<BarChart3 className="h-5 w-5" />}
+        icon={<IconChartBar className="h-5 w-5" />}
         iconColor="text-emerald-500 bg-emerald-50 dark:bg-emerald-900/30"
       />
     </div>
@@ -150,10 +150,8 @@ const BudgetHistorySelectHeaderCell = ({
   table: ReturnType<typeof useReactTable<Budget>>;
 }) => (
   <Checkbox
-    checked={
-      table.getIsAllPageRowsSelected() ||
-      (table.getIsSomePageRowsSelected() && "indeterminate")
-    }
+    checked={table.getIsAllPageRowsSelected()}
+    indeterminate={table.getIsSomePageRowsSelected()}
     onCheckedChange={(value) => table.toggleAllPageRowsSelected(!!value)}
     aria-label="Select all"
   />
@@ -177,7 +175,7 @@ const PeriodCell = ({ row }: { row: Row<Budget> }) => {
   return (
     <div className="flex items-center gap-2">
       <div className="flex items-center justify-center rounded-lg p-1.5 bg-primary/10 text-primary">
-        <Calendar className="h-3.5 w-3.5" />
+        <IconCalendar className="h-3.5 w-3.5" />
       </div>
       <span className="font-medium">
         {monthName} {year}
@@ -215,7 +213,7 @@ const ActionsCell = ({ row }: { row: Row<Budget> }) => {
         className="h-8 gap-1.5"
         onClick={handleView}
       >
-        <Eye className="h-4 w-4" />
+        <IconEye className="h-4 w-4" />
         View
       </Button>
     </div>
@@ -421,14 +419,14 @@ function BudgetHistoryDataTableContent() {
                       >
                         {headerLabel}
                         {sortState === "asc" && (
-                          <ChevronUpIcon
+                          <IconChevronUp
                             className="shrink-0 opacity-60"
                             size={16}
                             aria-hidden="true"
                           />
                         )}
                         {sortState === "desc" && (
-                          <ChevronDownIcon
+                          <IconChevronDown
                             className="shrink-0 opacity-60"
                             size={16}
                             aria-hidden="true"
@@ -496,7 +494,7 @@ function BudgetHistoryDataTableContent() {
                             variant="icon"
                             className="bg-primary/10 text-primary"
                           >
-                            <Calendar className="h-6 w-6" />
+                            <IconCalendar className="h-6 w-6" />
                           </EmptyMedia>
                           <EmptyHeader>
                             <EmptyTitle>No Budget History</EmptyTitle>
@@ -507,16 +505,17 @@ function BudgetHistoryDataTableContent() {
                             </EmptyDescription>
                           </EmptyHeader>
                           <EmptyContent>
-                            <Button size="sm" asChild>
-                              <Link href="/budgets">
-                                <PlusIcon
-                                  className="-ms-1 opacity-60"
-                                  size={16}
-                                  aria-hidden="true"
-                                />
-                                Create Budget
-                              </Link>
-                            </Button>
+                            <Link
+                              href="/budgets"
+                              className={buttonVariants({ size: "sm" })}
+                            >
+                              <IconPlus
+                                className="-ms-1 opacity-60"
+                                size={16}
+                                aria-hidden="true"
+                              />
+                              Create Budget
+                            </Link>
                           </EmptyContent>
                         </Empty>
                       ) : (

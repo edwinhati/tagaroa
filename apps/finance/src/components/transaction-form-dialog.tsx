@@ -4,6 +4,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { FileUpload } from "@repo/common/components/file-upload";
 import { useBudgetPeriod } from "@repo/common/hooks/use-budget-period";
 import type { FileWithPreview } from "@repo/common/hooks/use-file-upload";
+import { currencies } from "@repo/common/lib/currencies";
 import { storageApi } from "@repo/common/lib/http";
 import { accountQueryOptions } from "@repo/common/lib/query/account-query";
 import { budgetQueryOptions } from "@repo/common/lib/query/budget-query";
@@ -51,19 +52,13 @@ import {
   SelectValue,
 } from "@repo/ui/components/select";
 import { cn } from "@repo/ui/lib/utils";
+import { IconCalendar, IconLoader2, IconPlus } from "@tabler/icons-react";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { format } from "date-fns";
-import { CalendarIcon, Loader2, PlusIcon } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { Controller, useForm, useWatch } from "react-hook-form";
 import { NumericFormat } from "react-number-format";
 import { toast } from "sonner";
-
-const currencies = [
-  { value: "IDR", label: "Indonesian Rupiah (IDR)" },
-  { value: "USD", label: "US Dollar (USD)" },
-  { value: "SGD", label: "Singapore Dollar (SGD)" },
-];
 
 type TransactionFormDialogProps = Readonly<{
   initialData?: Partial<Transaction>;
@@ -334,20 +329,23 @@ export function TransactionFormDialog({
   };
 
   return (
-    <Dialog open={open} onOpenChange={handleOpenChange}>
-      <DialogTrigger asChild>
-        {trigger ??
-          (externalOpen === undefined && (
+    <Dialog open={open} onOpenChange={handleOpenChange} modal={false}>
+      {trigger ? (
+        <DialogTrigger render={trigger} />
+      ) : externalOpen === undefined ? (
+        <DialogTrigger
+          render={
             <Button className="ml-auto" size="sm">
-              <PlusIcon
+              <IconPlus
                 className="-ms-1 opacity-60"
                 size={16}
                 aria-hidden="true"
               />
-              Add transaction
+              Add Transaction
             </Button>
-          ))}
-      </DialogTrigger>
+          }
+        />
+      ) : undefined}
       <DialogContent className="!max-w-2xl !w-full max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>
@@ -426,7 +424,7 @@ export function TransactionFormDialog({
                       allowNegative={false}
                       prefix={getCurrencyPrefix(selectedCurrency)}
                       placeholder={getCurrencyPlaceholder(selectedCurrency)}
-                      value={field.value}
+                      value={field.value || ""}
                       onValueChange={(values) => {
                         field.onChange(values.floatValue ?? 0);
                       }}
@@ -435,9 +433,6 @@ export function TransactionFormDialog({
                       getInputRef={field.ref}
                     />
                   </InputGroup>
-                  <FieldDescription>
-                    Enter the transaction amount in the selected currency.
-                  </FieldDescription>
                   {fieldState.invalid && (
                     <FieldError errors={[fieldState.error]} />
                   )}
@@ -452,22 +447,24 @@ export function TransactionFormDialog({
                 <Field>
                   <FieldLabel>Date</FieldLabel>
                   <Popover open={dateOpen} onOpenChange={setDateOpen}>
-                    <PopoverTrigger asChild>
-                      <Button
-                        variant="outline"
-                        className={cn(
-                          "w-full justify-start text-left font-normal",
-                          !field.value && "text-muted-foreground",
-                        )}
-                      >
-                        <CalendarIcon className="mr-2 h-4 w-4" />
-                        {field.value ? (
-                          format(field.value, "PPP")
-                        ) : (
-                          <span>Pick a date</span>
-                        )}
-                      </Button>
-                    </PopoverTrigger>
+                    <PopoverTrigger
+                      render={
+                        <Button
+                          variant="outline"
+                          className={cn(
+                            "w-full justify-start text-left font-normal",
+                            !field.value && "text-muted-foreground",
+                          )}
+                        >
+                          <IconCalendar className="mr-2 h-4 w-4" />
+                          {field.value ? (
+                            format(field.value, "PPP")
+                          ) : (
+                            <span>Pick a date</span>
+                          )}
+                        </Button>
+                      }
+                    />
                     <PopoverContent className="w-auto p-0" align="start">
                       <Calendar
                         mode="single"
@@ -480,9 +477,6 @@ export function TransactionFormDialog({
                       />
                     </PopoverContent>
                   </Popover>
-                  <FieldDescription>
-                    Select the date when this transaction occurred.
-                  </FieldDescription>
                   {fieldState.invalid && (
                     <FieldError errors={[fieldState.error]} />
                   )}
@@ -496,10 +490,7 @@ export function TransactionFormDialog({
               render={({ field, fieldState }) => (
                 <Field>
                   <FieldLabel>Transaction Type</FieldLabel>
-                  <Select
-                    onValueChange={field.onChange}
-                    defaultValue={field.value}
-                  >
+                  <Select value={field.value} onValueChange={field.onChange}>
                     <SelectTrigger className="w-full">
                       <SelectValue placeholder="Select transaction type" />
                     </SelectTrigger>
@@ -511,9 +502,6 @@ export function TransactionFormDialog({
                       ))}
                     </SelectContent>
                   </Select>
-                  <FieldDescription>
-                    Choose whether this is an income or expense transaction.
-                  </FieldDescription>
                   {fieldState.invalid && (
                     <FieldError errors={[fieldState.error]} />
                   )}
@@ -527,10 +515,7 @@ export function TransactionFormDialog({
               render={({ field, fieldState }) => (
                 <Field>
                   <FieldLabel>Currency</FieldLabel>
-                  <Select
-                    onValueChange={field.onChange}
-                    defaultValue={field.value}
-                  >
+                  <Select value={field.value} onValueChange={field.onChange}>
                     <SelectTrigger className="w-full">
                       <SelectValue placeholder="Select currency" />
                     </SelectTrigger>
@@ -542,9 +527,6 @@ export function TransactionFormDialog({
                       ))}
                     </SelectContent>
                   </Select>
-                  <FieldDescription>
-                    Choose the currency for this transaction.
-                  </FieldDescription>
                   {fieldState.invalid && (
                     <FieldError errors={[fieldState.error]} />
                   )}
@@ -555,83 +537,104 @@ export function TransactionFormDialog({
             <Controller
               control={form.control}
               name="account_id"
-              render={({ field, fieldState }) => (
-                <Field>
-                  <FieldLabel>Account</FieldLabel>
-                  <Select
-                    onValueChange={field.onChange}
-                    defaultValue={field.value}
-                  >
-                    <SelectTrigger className="w-full">
-                      <SelectValue placeholder="Select account" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {accounts.map((account) => (
-                        <SelectItem key={account.id} value={account.id || ""}>
-                          {account.name} -{" "}
-                          {formatBalance(
-                            account.balance || 0,
-                            account.currency,
-                          )}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                  <FieldDescription>
-                    Select the account for this transaction.
-                  </FieldDescription>
-                  {fieldState.invalid && (
-                    <FieldError errors={[fieldState.error]} />
-                  )}
-                </Field>
-              )}
+              render={({ field, fieldState }) => {
+                const selectedAccount =
+                  accounts.find((a) => a.id === field.value) ?? null;
+                return (
+                  <Field>
+                    <FieldLabel>Account</FieldLabel>
+                    <Select value={field.value} onValueChange={field.onChange}>
+                      <SelectTrigger className="w-full">
+                        {selectedAccount ? (
+                          <span className="flex flex-1 truncate text-left text-sm">
+                            {selectedAccount.name} —{" "}
+                            {formatBalance(
+                              selectedAccount.balance || 0,
+                              selectedAccount.currency,
+                            )}
+                          </span>
+                        ) : (
+                          <SelectValue placeholder="Select account" />
+                        )}
+                      </SelectTrigger>
+                      <SelectContent>
+                        {accounts.map((account) => (
+                          <SelectItem key={account.id} value={account.id || ""}>
+                            {account.name} —{" "}
+                            {formatBalance(
+                              account.balance || 0,
+                              account.currency,
+                            )}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    {fieldState.invalid && (
+                      <FieldError errors={[fieldState.error]} />
+                    )}
+                  </Field>
+                );
+              }}
             />
 
             <Controller
               control={form.control}
               name="budget_item_id"
-              render={({ field, fieldState }) => (
-                <Field>
-                  <FieldLabel>Category (Optional)</FieldLabel>
-                  <Select
-                    onValueChange={field.onChange}
-                    defaultValue={field.value}
-                  >
-                    <SelectTrigger className="w-full">
-                      <SelectValue placeholder="Select category" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="none">No category</SelectItem>
-                      {budgetItems.map((item) => {
-                        const remaining =
-                          (item.allocation || 0) - (item.spent || 0);
-                        return (
-                          <SelectItem key={item.id} value={item.id || ""}>
-                            {item.category} -{" "}
-                            <span
-                              className={
-                                remaining < 0 ? "text-destructive" : ""
-                              }
-                            >
-                              {formatBalance(
-                                remaining,
-                                budgetData?.currency || "IDR",
-                              )}
-                            </span>{" "}
+              render={({ field, fieldState }) => {
+                const selectedItem =
+                  budgetItems.find((item) => item.id === field.value) ?? null;
+                return (
+                  <Field>
+                    <FieldLabel>Category (Optional)</FieldLabel>
+                    <Select value={field.value} onValueChange={field.onChange}>
+                      <SelectTrigger className="w-full">
+                        {selectedItem ? (
+                          <span className="flex flex-1 truncate text-left text-sm">
+                            {selectedItem.category} —{" "}
+                            {formatBalance(
+                              (selectedItem.allocation || 0) -
+                                (selectedItem.spent || 0),
+                              budgetData?.currency || "IDR",
+                            )}{" "}
                             remaining
-                          </SelectItem>
-                        );
-                      })}
-                    </SelectContent>
-                  </Select>
-                  <FieldDescription>
-                    Link this transaction to a budget category.
-                  </FieldDescription>
-                  {fieldState.invalid && (
-                    <FieldError errors={[fieldState.error]} />
-                  )}
-                </Field>
-              )}
+                          </span>
+                        ) : (
+                          <SelectValue placeholder="Select category" />
+                        )}
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="none">No category</SelectItem>
+                        {budgetItems.map((item) => {
+                          const remaining =
+                            (item.allocation || 0) - (item.spent || 0);
+                          return (
+                            <SelectItem key={item.id} value={item.id || ""}>
+                              {item.category} —{" "}
+                              <span
+                                className={
+                                  remaining < 0 ? "text-destructive" : ""
+                                }
+                              >
+                                {formatBalance(
+                                  remaining,
+                                  budgetData?.currency || "IDR",
+                                )}
+                              </span>{" "}
+                              remaining
+                            </SelectItem>
+                          );
+                        })}
+                      </SelectContent>
+                    </Select>
+                    <FieldDescription>
+                      Link this transaction to a budget category.
+                    </FieldDescription>
+                    {fieldState.invalid && (
+                      <FieldError errors={[fieldState.error]} />
+                    )}
+                  </Field>
+                );
+              }}
             />
           </div>
 
@@ -649,10 +652,6 @@ export function TransactionFormDialog({
                     placeholder="Add any additional notes about this transaction..."
                   />
                 </InputGroup>
-                <FieldDescription>
-                  Add any notes or details to describe this transaction
-                  (optional).
-                </FieldDescription>
                 {fieldState.invalid && (
                   <FieldError errors={[fieldState.error]} />
                 )}
@@ -671,7 +670,7 @@ export function TransactionFormDialog({
             </Button>
             <Button type="submit" disabled={isPending} className="flex-1">
               {isPending && (
-                <Loader2
+                <IconLoader2
                   className="mr-2 animate-spin"
                   size={16}
                   aria-hidden="true"

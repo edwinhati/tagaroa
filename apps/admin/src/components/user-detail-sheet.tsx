@@ -24,23 +24,23 @@ import {
   SheetTitle,
 } from "@repo/ui/components/sheet";
 import { Skeleton } from "@repo/ui/components/skeleton";
+import type { IconProps } from "@tabler/icons-react";
+import {
+  IconAlertTriangle,
+  IconCircleCheck,
+  IconClock,
+  IconKey,
+  IconShield,
+  IconShieldCancel,
+  IconTrash,
+  IconUser,
+  IconUserCheck,
+  IconUserCircle,
+} from "@tabler/icons-react";
 import type {
   SessionWithImpersonatedBy,
   UserWithRole,
 } from "better-auth/plugins/admin";
-import {
-  AlertTriangle,
-  CircleUserRound,
-  Clock3,
-  KeyRound,
-  type LucideIcon,
-  Shield,
-  ShieldBan,
-  ShieldCheck,
-  Trash2,
-  User,
-  UserCheck,
-} from "lucide-react";
 import {
   type Dispatch,
   type SetStateAction,
@@ -114,11 +114,14 @@ type ResultWithData<T> = {
 
 const roleBadgeConfig: Record<
   string,
-  { variant: "default" | "secondary" | "outline"; Icon?: LucideIcon }
+  {
+    variant: "default" | "secondary" | "outline";
+    Icon?: React.ComponentType<IconProps>;
+  }
 > = {
-  admin: { variant: "default", Icon: Shield },
-  moderator: { variant: "outline", Icon: UserCheck },
-  user: { variant: "secondary", Icon: User },
+  admin: { variant: "default", Icon: IconShield },
+  moderator: { variant: "outline", Icon: IconUserCheck },
+  user: { variant: "secondary", Icon: IconUser },
 };
 
 const confirmAction = (message: string) => {
@@ -321,7 +324,7 @@ export function UserDetailSheet(props: Readonly<UserDetailSheetProps>) {
             <div className="flex items-center justify-between">
               {session.impersonatedBy ? (
                 <Badge variant="outline" className="gap-1">
-                  <Clock3 className="h-3 w-3" />
+                  <IconClock className="h-3 w-3" />
                   Impersonated by {session.impersonatedBy}
                 </Badge>
               ) : (
@@ -360,9 +363,9 @@ export function UserDetailSheet(props: Readonly<UserDetailSheetProps>) {
             <Card className="rounded-md bg-muted/40 px-4 text-sm">
               <div className="flex items-start gap-3">
                 {localUser.banned ? (
-                  <ShieldBan className="h-5 w-5 text-destructive mt-0.5" />
+                  <IconShieldCancel className="h-5 w-5 text-destructive mt-0.5" />
                 ) : (
-                  <ShieldCheck className="h-5 w-5 text-emerald-500 mt-0.5" />
+                  <IconCircleCheck className="h-5 w-5 text-emerald-500 mt-0.5" />
                 )}
 
                 <div>
@@ -472,7 +475,7 @@ export function UserDetailSheet(props: Readonly<UserDetailSheetProps>) {
                     disabled={isBanMutating}
                     className="gap-2 w-full"
                   >
-                    <ShieldBan className="h-4 w-4" />
+                    <IconShieldCancel className="h-4 w-4" />
                     {isBanMutating ? "Processing..." : "Confirm ban"}
                   </Button>
                 </div>
@@ -517,7 +520,7 @@ export function UserDetailSheet(props: Readonly<UserDetailSheetProps>) {
                       disabled={isSavingProfile}
                       className="gap-2"
                     >
-                      <ShieldCheck className="h-4 w-4" />
+                      <IconCircleCheck className="h-4 w-4" />
                       {isSavingProfile ? "Saving..." : "Save changes"}
                     </Button>
                   </CardAction>
@@ -582,7 +585,7 @@ export function UserDetailSheet(props: Readonly<UserDetailSheetProps>) {
                     >
                       <div className="flex items-center space-x-3 rounded-lg border p-3 hover:bg-muted/50 transition-colors">
                         <RadioGroupItem value="user" id="role-user" />
-                        <User className="h-4 w-4 text-muted-foreground" />
+                        <IconUser className="h-4 w-4 text-muted-foreground" />
                         <Label
                           htmlFor="role-user"
                           className="flex-1 cursor-pointer"
@@ -597,7 +600,7 @@ export function UserDetailSheet(props: Readonly<UserDetailSheetProps>) {
                       </div>
                       <div className="flex items-center space-x-3 rounded-lg border p-3 hover:bg-muted/50 transition-colors">
                         <RadioGroupItem value="admin" id="role-admin" />
-                        <Shield className="h-4 w-4 text-muted-foreground" />
+                        <IconShield className="h-4 w-4 text-muted-foreground" />
                         <Label
                           htmlFor="role-admin"
                           className="flex-1 cursor-pointer"
@@ -612,7 +615,7 @@ export function UserDetailSheet(props: Readonly<UserDetailSheetProps>) {
                       </div>
                       {/* <div className="flex items-center space-x-3 rounded-lg border p-3 hover:bg-muted/50 transition-colors">
                         <RadioGroupItem value="moderator" id="role-moderator" />
-                        <UserCheck className="h-4 w-4 text-muted-foreground" />
+                        <IconUserCheck className="h-4 w-4 text-muted-foreground" />
                         <Label
                           htmlFor="role-moderator"
                           className="flex-1 cursor-pointer"
@@ -661,7 +664,7 @@ export function UserDetailSheet(props: Readonly<UserDetailSheetProps>) {
                     onClick={handleImpersonateUser}
                     disabled={impersonateDisabled || !localUser}
                   >
-                    <CircleUserRound className="h-4 w-4" />
+                    <IconUserCircle className="h-4 w-4" />
                     {isImpersonatingUser ? "Starting..." : "Impersonate user"}
                   </Button>
                   {isViewingCurrentUser && (
@@ -700,7 +703,7 @@ export function UserDetailSheet(props: Readonly<UserDetailSheetProps>) {
                       disabled={isSettingPassword}
                       className="gap-2"
                     >
-                      <KeyRound className="h-4 w-4" />
+                      <IconKey className="h-4 w-4" />
                       {isSettingPassword ? "Saving..." : "Update password"}
                     </Button>
                   </div>
@@ -735,7 +738,7 @@ export function UserDetailSheet(props: Readonly<UserDetailSheetProps>) {
               <Card className="border-destructive/40 bg-destructive/5">
                 <CardHeader>
                   <CardTitle className="flex items-center gap-2 text-destructive text-sm font-semibold">
-                    <AlertTriangle className="h-4 w-4" />
+                    <IconAlertTriangle className="h-4 w-4" />
                     Danger zone
                   </CardTitle>
                   <CardDescription>
@@ -750,7 +753,7 @@ export function UserDetailSheet(props: Readonly<UserDetailSheetProps>) {
                     onClick={handleRemoveUser}
                     disabled={isRemovingUser}
                   >
-                    <Trash2 className="h-4 w-4" />
+                    <IconTrash className="h-4 w-4" />
                     {isRemovingUser ? "Deleting..." : "Delete user"}
                   </Button>
                 </CardContent>

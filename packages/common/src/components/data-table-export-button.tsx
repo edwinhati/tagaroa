@@ -1,7 +1,7 @@
 "use client";
 
 import { Button } from "@repo/ui/components/button";
-import { DownloadIcon, LoaderIcon } from "lucide-react";
+import { IconDownload, IconLoader2 } from "@tabler/icons-react";
 import React, { type ComponentProps, useState } from "react";
 
 type ButtonComponentProps = ComponentProps<typeof Button>;
@@ -54,12 +54,12 @@ export function DataTableExportButton({
     >
       {isLoading ? (
         <>
-          <LoaderIcon className="animate-spin" size={16} />
+          <IconLoader2 className="animate-spin" size={16} />
           {loadingLabel}
         </>
       ) : (
         <>
-          <DownloadIcon size={16} />
+          <IconDownload size={16} />
           {label}
         </>
       )}

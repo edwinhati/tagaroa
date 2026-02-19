@@ -1,16 +1,15 @@
-import { Button } from "@repo/ui/components/button";
-import { LoaderIcon } from "lucide-react";
+import { IconLoader2 } from "@tabler/icons-react";
 import * as React from "react";
 
 export function Loading() {
   return (
-    <Button
-      disabled
-      variant="outline"
-      className="m-0 p-3 border border-gray-500 rounded-md flex items-center"
+    <div
+      role="status"
+      aria-label="Loading"
+      className="m-0 p-3 border border-border rounded-md flex items-center text-sm text-muted-foreground"
     >
-      <LoaderIcon className="w-4 h-4 animate-spin mr-2" />
+      <IconLoader2 className="w-4 h-4 animate-spin mr-2" />
       Loading
-    </Button>
+    </div>
   );
 }

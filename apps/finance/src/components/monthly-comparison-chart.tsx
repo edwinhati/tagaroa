@@ -12,11 +12,10 @@ import {
   type ChartConfig,
   ChartContainer,
   ChartTooltip,
-  ChartTooltipContent,
 } from "@repo/ui/components/chart";
 import { Skeleton } from "@repo/ui/components/skeleton";
+import { IconChartBar } from "@tabler/icons-react";
 import { useQuery } from "@tanstack/react-query";
-import { BarChart3 } from "lucide-react";
 import React from "react";
 import type { DateRange } from "react-day-picker";
 import { Bar, BarChart, CartesianGrid, XAxis, YAxis } from "recharts";
@@ -36,6 +35,82 @@ const chartConfig = {
     color: "hsl(38, 92%, 50%)", // Amber/gold
   },
 } satisfies ChartConfig;
+
+interface MonthlyTooltipProps {
+  active?: boolean;
+  payload?: Array<{
+    dataKey: string;
+    value: number;
+    color: string;
+    name: string;
+  }>;
+  label?: string;
+}
+
+function MonthlyTooltip({ active, payload, label }: MonthlyTooltipProps) {
+  if (!active || !payload?.length) return null;
+
+  const income = payload.find((p) => p.dataKey === "income");
+  const expenses = payload.find((p) => p.dataKey === "expenses");
+  const net = payload.find((p) => p.dataKey === "net");
+
+  const formattedMonth = label
+    ? new Date(label).toLocaleDateString("en-US", {
+        month: "long",
+        year: "numeric",
+      })
+    : "";
+
+  return (
+    <div className="rounded-xl border border-border/50 bg-background/95 backdrop-blur-sm shadow-xl p-3 text-xs min-w-[160px]">
+      <p className="text-[11px] font-medium text-muted-foreground border-b border-border/40 pb-2 mb-2.5">
+        {formattedMonth}
+      </p>
+      {income && (
+        <div className="flex items-center justify-between gap-4 mb-1.5">
+          <div className="flex items-center gap-1.5">
+            <span
+              className="size-2 rounded-full shrink-0"
+              style={{ backgroundColor: "hsl(142, 76%, 36%)" }}
+            />
+            <span className="text-muted-foreground">Income</span>
+          </div>
+          <span className="font-semibold text-foreground tabular-nums">
+            {formatCurrencyCompact(income.value, "IDR")}
+          </span>
+        </div>
+      )}
+      {expenses && (
+        <div className="flex items-center justify-between gap-4 mb-1.5">
+          <div className="flex items-center gap-1.5">
+            <span
+              className="size-2 rounded-full shrink-0"
+              style={{ backgroundColor: "hsl(349, 89%, 60%)" }}
+            />
+            <span className="text-muted-foreground">Expenses</span>
+          </div>
+          <span className="font-semibold text-foreground tabular-nums">
+            {formatCurrencyCompact(expenses.value, "IDR")}
+          </span>
+        </div>
+      )}
+      {net && (
+        <div className="flex items-center justify-between gap-4">
+          <div className="flex items-center gap-1.5">
+            <span
+              className="size-2 rounded-full shrink-0"
+              style={{ backgroundColor: "hsl(38, 92%, 50%)" }}
+            />
+            <span className="text-muted-foreground">Net</span>
+          </div>
+          <span className="font-semibold text-foreground tabular-nums">
+            {formatCurrencyCompact(net.value, "IDR")}
+          </span>
+        </div>
+      )}
+    </div>
+  );
+}
 
 const MonthlyComparisonChart = React.memo(
   ({ range }: { range?: DateRange }) => {
@@ -63,7 +138,7 @@ const MonthlyComparisonChart = React.memo(
               </CardDescription>
             </div>
             <div className="p-2.5 rounded-xl bg-indigo-500/10 ring-1 ring-indigo-500/20">
-              <BarChart3 className="h-4 w-4 text-indigo-500" />
+              <IconChartBar className="h-4 w-4 text-indigo-500" />
             </div>
           </CardHeader>
           <CardContent className="pl-2">
@@ -99,7 +174,7 @@ const MonthlyComparisonChart = React.memo(
               </CardDescription>
             </div>
             <div className="p-2.5 rounded-xl bg-indigo-500/10 ring-1 ring-indigo-500/20">
-              <BarChart3 className="h-4 w-4 text-indigo-500" />
+              <IconChartBar className="h-4 w-4 text-indigo-500" />
             </div>
           </CardHeader>
           <CardContent className="pl-2 flex items-center justify-center h-[280px]">
@@ -112,7 +187,7 @@ const MonthlyComparisonChart = React.memo(
     }
 
     return (
-      <Card className="h-full border-border/50 bg-card/80 backdrop-blur-sm shadow-sm hover:shadow-md transition-shadow duration-200">
+      <Card className="h-full border-border/40 bg-card/60 backdrop-blur-md shadow-sm ">
         <CardHeader className="flex flex-row items-start justify-between space-y-0 pb-4">
           <div>
             <CardTitle className="text-base font-semibold">
@@ -123,7 +198,7 @@ const MonthlyComparisonChart = React.memo(
             </CardDescription>
           </div>
           <div className="p-2.5 rounded-xl bg-indigo-500/10 ring-1 ring-indigo-500/20">
-            <BarChart3 className="h-4 w-4 text-indigo-500" />
+            <IconChartBar className="h-4 w-4 text-indigo-500" />
           </div>
         </CardHeader>
         <CardContent className="pl-2">
@@ -148,20 +223,7 @@ const MonthlyComparisonChart = React.memo(
               <YAxis hide />
               <ChartTooltip
                 cursor={{ fill: "hsl(var(--muted)/0.3)" }}
-                content={
-                  <ChartTooltipContent
-                    labelFormatter={(value) => {
-                      return new Date(value).toLocaleDateString("en-US", {
-                        month: "long",
-                        year: "numeric",
-                      });
-                    }}
-                    formatter={(value) =>
-                      formatCurrencyCompact(value as number, "IDR")
-                    }
-                    indicator="dashed"
-                  />
-                }
+                content={<MonthlyTooltip />}
               />
               <Bar
                 dataKey="income"
@@ -206,7 +268,7 @@ export const MonthlyComparisonChartSkeleton = () => {
           </CardDescription>
         </div>
         <div className="p-2.5 rounded-xl bg-indigo-500/10 ring-1 ring-indigo-500/20">
-          <BarChart3 className="h-4 w-4 text-indigo-500" />
+          <IconChartBar className="h-4 w-4 text-indigo-500" />
         </div>
       </CardHeader>
       <CardContent className="pl-2">

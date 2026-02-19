@@ -46,6 +46,17 @@ import {
   TableRow,
 } from "@repo/ui/components/table";
 import { cn } from "@repo/ui/lib/utils";
+import {
+  IconChartLine,
+  IconChevronDown,
+  IconChevronUp,
+  IconDots,
+  IconLayoutGrid,
+  IconPlus,
+  IconTrendingUp,
+  IconWallet,
+  IconX,
+} from "@tabler/icons-react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   type ColumnDef,
@@ -57,17 +68,6 @@ import {
   type Row,
   useReactTable,
 } from "@tanstack/react-table";
-import {
-  ChevronDownIcon,
-  ChevronUpIcon,
-  EllipsisIcon,
-  LayoutGridIcon,
-  LineChartIcon,
-  PlusIcon,
-  TrendingUpIcon,
-  WalletIcon,
-  XIcon,
-} from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { AssetFormDialog } from "@/components/asset-form-dialog";
 import { getStaggerDelay } from "@/lib/animations";
@@ -78,10 +78,8 @@ const SelectHeaderCell = ({
   table: ReturnType<typeof useReactTable<Asset>>;
 }) => (
   <Checkbox
-    checked={
-      table.getIsAllPageRowsSelected() ||
-      (table.getIsSomePageRowsSelected() && "indeterminate")
-    }
+    checked={table.getIsAllPageRowsSelected()}
+    indeterminate={table.getIsSomePageRowsSelected()}
     onCheckedChange={(value) => table.toggleAllPageRowsSelected(!!value)}
     aria-label="Select all"
   />
@@ -387,7 +385,7 @@ function AssetDataTableContent() {
             {
               label: "Total Value",
               icon: (
-                <TrendingUpIcon className="h-5 w-5 text-blue-600 dark:text-blue-400" />
+                <IconTrendingUp className="h-5 w-5 text-blue-600 dark:text-blue-400" />
               ),
               iconBg: "rounded-full bg-blue-100 p-2 dark:bg-blue-900",
               content: Object.entries(summaryStats.byCurrency).map(
@@ -401,7 +399,7 @@ function AssetDataTableContent() {
             {
               label: "Asset Types",
               icon: (
-                <LayoutGridIcon className="h-5 w-5 text-purple-600 dark:text-purple-400" />
+                <IconLayoutGrid className="h-5 w-5 text-purple-600 dark:text-purple-400" />
               ),
               iconBg: "rounded-full bg-purple-100 p-2 dark:bg-purple-900",
               content: (
@@ -413,7 +411,7 @@ function AssetDataTableContent() {
             {
               label: "Investable Assets",
               icon: (
-                <LineChartIcon className="h-5 w-5 text-green-600 dark:text-green-400" />
+                <IconChartLine className="h-5 w-5 text-green-600 dark:text-green-400" />
               ),
               iconBg: "rounded-full bg-green-100 p-2 dark:bg-green-900",
               content: (
@@ -425,7 +423,7 @@ function AssetDataTableContent() {
             {
               label: "Total Count",
               icon: (
-                <WalletIcon className="h-5 w-5 text-orange-600 dark:text-orange-400" />
+                <IconWallet className="h-5 w-5 text-orange-600 dark:text-orange-400" />
               ),
               iconBg: "rounded-full bg-orange-100 p-2 dark:bg-orange-900",
               content: (
@@ -480,7 +478,7 @@ function AssetDataTableContent() {
               }}
               className="text-muted-foreground"
             >
-              <XIcon size={14} className="mr-1" />
+              <IconX size={14} className="mr-1" />
               Clear filters
             </Button>
           )}
@@ -497,7 +495,7 @@ function AssetDataTableContent() {
           <AssetFormDialog
             trigger={
               <Button size="sm">
-                <PlusIcon className="-ms-1 opacity-60" size={16} />
+                <IconPlus className="-ms-1 opacity-60" size={16} />
                 Add asset
               </Button>
             }
@@ -546,14 +544,14 @@ function AssetDataTableContent() {
                       >
                         {headerLabel}
                         {sortState === "asc" && (
-                          <ChevronUpIcon
+                          <IconChevronUp
                             className="shrink-0 opacity-60"
                             size={16}
                             aria-hidden="true"
                           />
                         )}
                         {sortState === "desc" && (
-                          <ChevronDownIcon
+                          <IconChevronDown
                             className="shrink-0 opacity-60"
                             size={16}
                             aria-hidden="true"
@@ -644,7 +642,7 @@ function AssetDataTableContent() {
                             <AssetFormDialog
                               trigger={
                                 <Button size="sm">
-                                  <PlusIcon
+                                  <IconPlus
                                     className="-ms-1 opacity-60"
                                     size={16}
                                     aria-hidden="true"
@@ -704,18 +702,20 @@ type RowActionsProps = Readonly<{
 function RowActions({ row, mutateAsset, deleteAsset }: RowActionsProps) {
   return (
     <DropdownMenu>
-      <DropdownMenuTrigger asChild>
-        <div className="flex justify-end">
-          <Button
-            size="icon"
-            variant="ghost"
-            className="shadow-none"
-            aria-label={`Actions for ${row.original.name}`}
-          >
-            <EllipsisIcon size={16} aria-hidden="true" />
-          </Button>
-        </div>
-      </DropdownMenuTrigger>
+      <DropdownMenuTrigger
+        render={
+          <div className="flex justify-end">
+            <Button
+              size="icon"
+              variant="ghost"
+              className="shadow-none"
+              aria-label={`Actions for ${row.original.name}`}
+            >
+              <IconDots size={16} aria-hidden="true" />
+            </Button>
+          </div>
+        }
+      />
       <DropdownMenuContent align="end">
         <DropdownMenuGroup>
           <AssetFormDialog

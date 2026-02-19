@@ -12,6 +12,7 @@ import {
   queryOptions,
   useQueryClient,
 } from "@tanstack/react-query";
+import { buildSearchParams } from "../utils/url";
 
 const mapAccount = (account: AccountResponse): Account => ({
   id:
@@ -33,21 +34,12 @@ const fetchAccounts = async (params?: {
   filters?: Record<string, string[]>;
   search?: string;
 }): Promise<PaginatedAccountsResult> => {
-  const searchParams = new URLSearchParams();
-
-  if (params?.page) searchParams.append("page", params.page.toString());
-  if (params?.limit) searchParams.append("limit", params.limit.toString());
-  if (params?.search) searchParams.append("search", params.search);
-
-  // Add dynamic filters - support comma-separated values for multi-select
-  if (params?.filters) {
-    for (const [key, values] of Object.entries(params.filters)) {
-      if (values.length > 0) {
-        // Join multiple values with comma for multi-select support
-        searchParams.append(key, values.join(","));
-      }
-    }
-  }
+  const searchParams = buildSearchParams({
+    page: params?.page,
+    limit: params?.limit,
+    search: params?.search,
+    ...params?.filters,
+  });
 
   const queryString = searchParams.toString();
   const url = queryString ? `/accounts?${queryString}` : "/accounts";

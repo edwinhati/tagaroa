@@ -26,7 +26,20 @@ export const envSchema = z.object({
   S3_ACCESS_KEY_ID: z.string().default(""),
   S3_SECRET_ACCESS_KEY: z.string().default(""),
   CLOUDFLARE_ACCOUNT_ID: z.string().optional(),
-  BASE_URL: z.string().default("http://localhost"),
+  BASE_URL: z.string().url().default("http://localhost:8080"),
+  GOOGLE_CLIENT_ID: z.string().optional(),
+  GOOGLE_CLIENT_SECRET: z.string().optional(),
+  TRUSTED_ORIGINS: z
+    .string()
+    .optional()
+    .transform((s) =>
+      s
+        ? s
+            .split(",")
+            .map((o) => o.trim())
+            .filter(Boolean)
+        : [],
+    ),
 });
 
 export type AppConfig = z.infer<typeof envSchema>;

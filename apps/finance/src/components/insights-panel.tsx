@@ -1,7 +1,6 @@
 "use client";
 
 import { insightsQueryOptions } from "@repo/common/lib/query/finance-dashboard-query";
-import { Badge } from "@repo/ui/components/badge";
 import {
   Card,
   CardContent,
@@ -12,17 +11,18 @@ import {
 import { ChartConfig, ChartContainer } from "@repo/ui/components/chart";
 import { Skeleton } from "@repo/ui/components/skeleton";
 import { cn } from "@repo/ui/lib/utils";
+import {
+  IconAlertCircle,
+  IconArrowDownRight,
+  IconArrowUpRight,
+  IconBulb,
+  IconMinus,
+  IconSparkles,
+  IconTrendingDown,
+  IconTrendingUp,
+} from "@tabler/icons-react";
 import { useQuery } from "@tanstack/react-query";
 import { format } from "date-fns";
-import {
-  AlertCircle,
-  ArrowDownRight,
-  ArrowUpRight,
-  Lightbulb,
-  Minus,
-  TrendingDown,
-  TrendingUp,
-} from "lucide-react";
 import type { DateRange } from "react-day-picker";
 import {
   Label,
@@ -35,7 +35,10 @@ import { formatCurrencyCompact } from "@/utils/currency";
 
 interface InsightsPanelProps {
   range?: DateRange;
+  currency?: string;
 }
+
+// ─── Savings Rate Gauge ────────────────────────────────────────────────────
 
 const SavingsRateGauge = ({
   rate,
@@ -46,189 +49,260 @@ const SavingsRateGauge = ({
 }) => {
   const percentage = Math.min(Math.max(rate, 0), 100);
 
-  const getTrendIcon = () => {
-    if (trend === "up")
-      return <ArrowUpRight className="h-4 w-4 text-emerald-500" />;
-    if (trend === "down")
-      return <ArrowDownRight className="h-4 w-4 text-rose-500" />;
-    return <Minus className="h-4 w-4 text-muted-foreground" />;
+  const getRateColor = () => {
+    if (percentage >= 20) return "hsl(142, 76%, 36%)";
+    if (percentage >= 10) return "hsl(38, 92%, 50%)";
+    return "hsl(349, 89%, 60%)";
   };
 
-  const getRateColor = () => {
-    if (percentage >= 20) return "hsl(142, 76%, 36%)"; // emerald-500
-    if (percentage >= 10) return "hsl(38, 92%, 50%)"; // amber-500
-    return "hsl(349, 89%, 60%)"; // rose-500
+  const getRateLabel = () => {
+    if (percentage >= 20) return "On track";
+    if (percentage >= 10) return "Below target";
+    return "Needs attention";
   };
 
   const chartData = [{ rate: percentage, fill: getRateColor() }];
-
   const chartConfig = {
-    rate: {
-      label: "Savings Rate",
-      color: getRateColor(),
-    },
+    rate: { label: "Savings Rate", color: getRateColor() },
   } satisfies ChartConfig;
 
+  const TrendIcon =
+    trend === "up"
+      ? IconArrowUpRight
+      : trend === "down"
+        ? IconArrowDownRight
+        : IconMinus;
+
+  const trendColor =
+    trend === "up"
+      ? "text-emerald-500"
+      : trend === "down"
+        ? "text-rose-500"
+        : "text-muted-foreground";
+
+  const trendLabel =
+    trend === "up" ? "Improving" : trend === "down" ? "Declining" : "Stable";
+
   return (
-    <div className="flex items-center justify-between p-5 rounded-lg border border-border/50 bg-muted/30">
-      <div className="flex items-center gap-4">
-        <ChartContainer
-          config={chartConfig}
-          className="mx-auto aspect-square w-28 h-28"
+    <div className="flex items-center gap-4 p-4 rounded-xl bg-muted/30 border border-border/40">
+      <ChartContainer
+        config={chartConfig}
+        className="aspect-square h-[72px] w-[72px] shrink-0"
+        aria-label={`Savings rate: ${percentage.toFixed(0)}%, ${trendLabel.toLowerCase()}`}
+      >
+        <RadialBarChart
+          data={chartData}
+          startAngle={90}
+          endAngle={90 - (360 * percentage) / 100}
+          innerRadius={26}
+          outerRadius={36}
         >
-          <RadialBarChart
-            data={chartData}
-            startAngle={90}
-            endAngle={90 - (360 * percentage) / 100}
-            innerRadius={45}
-            outerRadius={60}
-          >
-            <PolarGrid
-              gridType="circle"
-              radialLines={false}
-              stroke="none"
-              className="first:fill-muted last:fill-background"
-              polarRadius={[60, 45]}
-            />
-            <PolarRadiusAxis tick={false} tickLine={false} axisLine={false}>
-              <Label
-                content={({ viewBox }) => {
-                  if (viewBox && "cx" in viewBox && "cy" in viewBox) {
-                    return (
-                      <text
+          <PolarGrid
+            gridType="circle"
+            radialLines={false}
+            stroke="none"
+            className="first:fill-muted last:fill-background"
+            polarRadius={[36, 26]}
+          />
+          <PolarRadiusAxis tick={false} tickLine={false} axisLine={false}>
+            <Label
+              content={({ viewBox }) => {
+                if (viewBox && "cx" in viewBox && "cy" in viewBox) {
+                  return (
+                    <text
+                      x={viewBox.cx}
+                      y={viewBox.cy}
+                      textAnchor="middle"
+                      dominantBaseline="middle"
+                    >
+                      <tspan
                         x={viewBox.cx}
                         y={viewBox.cy}
-                        textAnchor="middle"
-                        dominantBaseline="middle"
+                        className="fill-foreground text-[11px] font-bold"
                       >
-                        <tspan
-                          x={viewBox.cx}
-                          y={viewBox.cy}
-                          className="fill-foreground text-2xl font-bold"
-                        >
-                          {percentage.toFixed(0)}%
-                        </tspan>
-                      </text>
-                    );
-                  }
-                }}
-              />
-            </PolarRadiusAxis>
-            <RadialBar dataKey="rate" cornerRadius={10} />
-          </RadialBarChart>
-        </ChartContainer>
-        <div>
-          <p className="text-base font-semibold text-foreground">
-            Savings Rate
-          </p>
-          <div className="flex items-center gap-1.5 mt-1.5">
-            {getTrendIcon()}
-            <span className="text-sm text-slate-400">
-              {trend === "up" && "Improving"}
-              {trend === "down" && "Declining"}
-              {trend === "stable" && "Stable"}
-            </span>
-          </div>
+                        {percentage.toFixed(0)}%
+                      </tspan>
+                    </text>
+                  );
+                }
+              }}
+            />
+          </PolarRadiusAxis>
+          <RadialBar dataKey="rate" cornerRadius={6} />
+        </RadialBarChart>
+      </ChartContainer>
+
+      <div className="min-w-0 flex-1">
+        <p className="text-sm font-semibold text-foreground">Savings Rate</p>
+        <div className="flex items-center gap-1 mt-0.5">
+          <TrendIcon className={cn("h-3.5 w-3.5", trendColor)} />
+          <span className={cn("text-xs font-medium", trendColor)}>
+            {trendLabel}
+          </span>
         </div>
+        <p className="text-xs text-muted-foreground mt-1">{getRateLabel()}</p>
       </div>
     </div>
   );
 };
 
-const RecommendationsList = ({
-  recommendations,
+// ─── Progress-bar item row ─────────────────────────────────────────────────
+
+const ProgressItem = ({
+  category,
+  amount,
+  percentage,
+  type,
+  currency = "IDR",
 }: {
-  recommendations: string[];
+  category: string;
+  amount: number;
+  percentage: number;
+  type: "income" | "expense";
+  currency?: string;
 }) => {
-  if (!recommendations || recommendations.length === 0) {
-    return (
-      <div className="text-sm text-muted-foreground p-4 text-center">
-        No recommendations at this time
-      </div>
-    );
-  }
+  const barColor = type === "income" ? "bg-emerald-500" : "bg-rose-500";
+  const textColor =
+    type === "income"
+      ? "text-emerald-600 dark:text-emerald-400"
+      : "text-rose-600 dark:text-rose-400";
 
   return (
-    <div className="space-y-3">
-      {recommendations.map((recommendation, index) => (
-        <div
-          // biome-ignore lint/suspicious/noArrayIndexKey: Recommendations are simple strings without IDs
-          key={index}
-          className="flex items-start gap-3 p-4 rounded-lg border border-border/50 bg-muted/20 hover:bg-muted/30 transition-colors"
-        >
-          <Lightbulb className="h-5 w-5 text-amber-500 mt-0.5 flex-shrink-0" />
-          <p className="text-sm leading-relaxed text-foreground">
-            {recommendation}
-          </p>
+    <div className="space-y-1.5">
+      <div className="flex items-center justify-between gap-2">
+        <span className="text-xs font-medium text-foreground truncate max-w-[100px]">
+          {category}
+        </span>
+        <div className="text-right shrink-0">
+          <span className={cn("text-xs font-semibold tabular-nums", textColor)}>
+            {formatCurrencyCompact(amount, currency)}
+          </span>
+          <span className="text-xs text-muted-foreground ml-1.5">
+            {percentage.toFixed(1)}%
+          </span>
         </div>
-      ))}
+      </div>
+      <div
+        role="meter"
+        aria-valuenow={percentage}
+        aria-valuemin={0}
+        aria-valuemax={100}
+        aria-label={`${category}: ${percentage.toFixed(1)}% of ${type === "expense" ? "expenses" : "income"}`}
+        className="h-1.5 w-full rounded-full bg-muted overflow-hidden"
+      >
+        <div
+          className={cn(
+            "h-full rounded-full motion-safe:transition-all",
+            barColor,
+          )}
+          style={{ width: `${Math.min(percentage, 100)}%` }}
+        />
+      </div>
     </div>
   );
 };
 
-const TopItemsList = ({
+// ─── Top Items Section ─────────────────────────────────────────────────────
+
+const TopItemsSection = ({
   items,
   title,
   type,
+  currency,
 }: {
   items: { category: string; amount: number; percentage: number }[];
   title: string;
   type: "income" | "expense";
+  currency?: string;
 }) => {
-  if (!items || items.length === 0) {
-    return null;
-  }
+  if (!items || items.length === 0) return null;
 
-  const colorClass = type === "income" ? "text-emerald-500" : "text-rose-500";
-  const Icon = type === "income" ? TrendingUp : TrendingDown;
+  const Icon = type === "income" ? IconTrendingUp : IconTrendingDown;
+  const iconColor = type === "income" ? "text-emerald-500" : "text-rose-500";
 
   return (
     <div className="space-y-3">
-      <div className="flex items-center gap-2 mb-4">
-        <Icon className={cn("h-5 w-5", colorClass)} />
-        <h4 className="text-base font-semibold">{title}</h4>
+      <div className="flex items-center gap-1.5">
+        <Icon className={cn("h-3.5 w-3.5 shrink-0", iconColor)} />
+        <h4 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+          {title}
+        </h4>
       </div>
-      <div className="space-y-2">
+      <div className="space-y-3">
         {items.slice(0, 3).map((item) => (
-          <div
+          <ProgressItem
             key={item.category}
-            className="flex items-center justify-between p-3 rounded-lg bg-muted/20"
-          >
-            <div className="flex items-center gap-2">
-              <Badge variant="outline" className="text-xs font-medium">
-                {item.category}
-              </Badge>
-            </div>
-            <div className="text-right">
-              <p className="text-sm font-semibold">
-                {formatCurrencyCompact(item.amount, "IDR")}
-              </p>
-              <p className="text-xs text-slate-400">
-                {item.percentage.toFixed(1)}%
-              </p>
-            </div>
-          </div>
+            category={item.category}
+            amount={item.amount}
+            percentage={item.percentage}
+            type={type}
+            currency={currency}
+          />
         ))}
       </div>
     </div>
   );
 };
 
+// ─── Recommendations ───────────────────────────────────────────────────────
+
+const RecommendationsList = ({
+  recommendations,
+}: {
+  recommendations: string[];
+}) => {
+  if (!recommendations || recommendations.length === 0) return null;
+
+  return (
+    <div className="space-y-2">
+      {recommendations.slice(0, 3).map((rec, i) => (
+        <div
+          // biome-ignore lint/suspicious/noArrayIndexKey: simple string list
+          key={i}
+          className="flex items-start gap-2.5"
+        >
+          <div className="mt-0.5 shrink-0 h-5 w-5 rounded-full bg-amber-500/10 flex items-center justify-center">
+            <IconBulb className="h-3 w-3 text-amber-500" />
+          </div>
+          <p className="text-xs leading-relaxed text-muted-foreground">{rec}</p>
+        </div>
+      ))}
+    </div>
+  );
+};
+
+// ─── Loading skeleton ──────────────────────────────────────────────────────
+
 const LoadingSkeleton = () => (
-  <Card className="h-full">
-    <CardHeader>
-      <Skeleton className="h-5 w-48" />
-      <Skeleton className="h-4 w-64 mt-1" />
+  <Card className="h-full border-border/40 bg-card/60 backdrop-blur-md shadow-sm">
+    <CardHeader className="pb-3">
+      <Skeleton className="h-4 w-40" />
+      <Skeleton className="h-3 w-32 mt-1" />
     </CardHeader>
-    <CardContent className="space-y-4">
-      <Skeleton className="h-24 w-full" />
-      <Skeleton className="h-32 w-full" />
-      <Skeleton className="h-24 w-full" />
+    <CardContent className="space-y-5">
+      <Skeleton className="h-[72px] w-full rounded-xl" />
+      <div className="space-y-2">
+        <Skeleton className="h-3 w-24" />
+        <Skeleton className="h-8 w-full" />
+        <Skeleton className="h-8 w-full" />
+        <Skeleton className="h-8 w-full" />
+      </div>
+      <div className="space-y-2">
+        <Skeleton className="h-3 w-24" />
+        <Skeleton className="h-8 w-full" />
+      </div>
+      <div className="space-y-2.5">
+        <Skeleton className="h-3 w-28" />
+        <Skeleton className="h-8 w-full" />
+        <Skeleton className="h-8 w-full" />
+      </div>
     </CardContent>
   </Card>
 );
 
-export function InsightsPanel({ range }: InsightsPanelProps) {
+// ─── Main Component ────────────────────────────────────────────────────────
+
+export function InsightsPanel({ range, currency }: InsightsPanelProps) {
   const startDate = range?.from
     ? format(range.from, "yyyy-MM-dd")
     : format(new Date(), "yyyy-MM-dd");
@@ -237,95 +311,98 @@ export function InsightsPanel({ range }: InsightsPanelProps) {
     : format(new Date(), "yyyy-MM-dd");
 
   const { data, isLoading, isError } = useQuery(
-    insightsQueryOptions({
-      startDate,
-      endDate,
-    }),
+    insightsQueryOptions({ startDate, endDate }),
   );
 
-  if (isLoading) {
-    return <LoadingSkeleton />;
-  }
+  if (isLoading) return <LoadingSkeleton />;
 
   if (isError) {
     return (
-      <Card className="border-border/50 bg-card/80 backdrop-blur-sm shadow-sm hover:shadow-md transition-shadow duration-200">
-        <CardHeader>
+      <Card className="h-full border-border/40 bg-card/60 backdrop-blur-md shadow-sm">
+        <CardHeader className="pb-3">
           <CardTitle className="text-base font-semibold flex items-center gap-2">
-            <AlertCircle className="h-4 w-4 text-violet-500" />
-            Insights & Recommendations
+            <IconAlertCircle className="h-4 w-4 text-violet-500" />
+            Insights
           </CardTitle>
-          <CardDescription className="text-xs">
-            AI-powered financial analysis
-          </CardDescription>
         </CardHeader>
-        <CardContent className="flex items-center justify-center py-12">
-          <div className="text-center space-y-2">
-            <p className="text-sm text-muted-foreground">
-              Unable to load insights at this time
-            </p>
-            <p className="text-xs text-muted-foreground">
-              Please check back later
-            </p>
-          </div>
+        <CardContent className="flex items-center justify-center py-8">
+          <p className="text-sm text-muted-foreground text-center">
+            Unable to load insights
+          </p>
         </CardContent>
       </Card>
     );
   }
 
-  if (!data) {
-    return null;
-  }
+  if (!data) return null;
+
+  const hasExpenses = data.top_expenses && data.top_expenses.length > 0;
+  const hasIncome =
+    data.top_income_sources && data.top_income_sources.length > 0;
+  const hasRecommendations =
+    data.recommendations && data.recommendations.length > 0;
 
   return (
-    <Card className="border-border/50 bg-card/80 backdrop-blur-sm shadow-sm hover:shadow-md transition-shadow duration-200">
-      <CardHeader>
-        <CardTitle className="text-lg font-semibold flex items-center gap-2">
-          <AlertCircle className="h-5 w-5 text-violet-500" />
-          Insights & Recommendations
+    <Card className="h-full border-border/40 bg-card/60 backdrop-blur-md shadow-sm flex flex-col">
+      <CardHeader className="pb-3 shrink-0">
+        <CardTitle className="text-base font-semibold flex items-center gap-2">
+          <div className="p-1.5 rounded-lg bg-violet-500/10">
+            <IconSparkles className="h-3.5 w-3.5 text-violet-500" />
+          </div>
+          Insights
         </CardTitle>
-        <CardDescription className="text-sm text-slate-400">
+        <CardDescription className="text-xs">
           AI-powered financial analysis
         </CardDescription>
       </CardHeader>
-      <CardContent>
-        <div className="grid gap-8 md:grid-cols-2">
-          {/* Left Column */}
-          <div className="space-y-6">
-            {/* Savings Rate Gauge */}
-            <SavingsRateGauge
-              rate={data.savings_rate}
-              trend={data.savings_rate_trend}
-            />
 
-            {/* Recommendations */}
-            <div>
-              <h4 className="text-sm font-semibold mb-4">Recommendations</h4>
+      <CardContent className="flex-1 overflow-y-auto space-y-5 pb-4">
+        {/* Savings Rate */}
+        <SavingsRateGauge
+          rate={data.savings_rate}
+          trend={data.savings_rate_trend}
+        />
+
+        {/* Top Expenses */}
+        {hasExpenses && (
+          <>
+            <div className="h-px bg-border/40" />
+            <TopItemsSection
+              items={data.top_expenses}
+              title="Top Expenses"
+              type="expense"
+              currency={currency}
+            />
+          </>
+        )}
+
+        {/* Top Income Sources */}
+        {hasIncome && (
+          <>
+            <div className="h-px bg-border/40" />
+            <TopItemsSection
+              items={data.top_income_sources}
+              title="Top Income"
+              type="income"
+            />
+          </>
+        )}
+
+        {/* Recommendations */}
+        {hasRecommendations && (
+          <>
+            <div className="h-px bg-border/40" />
+            <div className="space-y-3">
+              <div className="flex items-center gap-1.5">
+                <IconBulb className="h-3.5 w-3.5 text-amber-500 shrink-0" />
+                <h4 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                  Recommendations
+                </h4>
+              </div>
               <RecommendationsList recommendations={data.recommendations} />
             </div>
-          </div>
-
-          {/* Right Column */}
-          <div className="grid gap-6 sm:grid-cols-2">
-            {/* Top Expenses */}
-            {data.top_expenses && data.top_expenses.length > 0 && (
-              <TopItemsList
-                items={data.top_expenses}
-                title="Top Expenses"
-                type="expense"
-              />
-            )}
-
-            {/* Top Income Sources */}
-            {data.top_income_sources && data.top_income_sources.length > 0 && (
-              <TopItemsList
-                items={data.top_income_sources}
-                title="Top Income Sources"
-                type="income"
-              />
-            )}
-          </div>
-        </div>
+          </>
+        )}
       </CardContent>
     </Card>
   );

@@ -1,7 +1,7 @@
 "use client";
 
 import { ContentPanel } from "@repo/common/components/content-panel";
-import { UsersIcon } from "lucide-react";
+import { IconUsers } from "@tabler/icons-react";
 
 export default function AuthTemplate({
   children,
@@ -11,7 +11,7 @@ export default function AuthTemplate({
   const menu = [
     {
       name: "Users",
-      icon: UsersIcon,
+      icon: IconUsers,
       href: "/auth/users",
     },
   ];

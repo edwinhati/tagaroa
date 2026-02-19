@@ -9,15 +9,13 @@ import {
   ParseUUIDPipe,
   Post,
   Query,
-  Req,
-  Res,
+  StreamableFile,
   UploadedFile,
   UseGuards,
   UseInterceptors,
 } from "@nestjs/common";
 import { FileInterceptor } from "@nestjs/platform-express";
 import { Session, type UserSession } from "@thallesp/nestjs-better-auth";
-import type { Request, Response } from "express";
 import { SessionGuard } from "../../../../shared/guards/session.guard";
 import { DeleteFileUseCase } from "../../application/use-cases/delete-file.use-case";
 import { DownloadFileUseCase } from "../../application/use-cases/download-file.use-case";
@@ -111,30 +109,17 @@ export class StorageController {
   @Get(":id/download")
   @Header("Cache-Control", "private, max-age=3600")
   async downloadFile(
-    @Req() req: Request,
     @Session() session: UserSession,
     @Param("id", ParseUUIDPipe) id: string,
-    @Res() res: Response,
-  ) {
+  ): Promise<StreamableFile> {
     const { buffer, contentType, fileName } =
       await this.downloadFileUseCase.execute(id, session.user.id);
 
-    // Set CORS headers manually since we're using @Res() decorator
-    const origin =
-      req.headers.origin ||
-      req.headers.referer?.split("/").slice(0, 3).join("/");
-    if (origin) {
-      res.set("Access-Control-Allow-Origin", origin);
-      res.set("Access-Control-Allow-Credentials", "true");
-    }
-
-    res.set({
-      "Content-Type": contentType,
-      "Content-Disposition": `inline; filename="${fileName}"`,
-      "Content-Length": buffer.length.toString(),
+    return new StreamableFile(buffer, {
+      type: contentType,
+      disposition: `inline; filename="${fileName}"`,
+      length: buffer.length,
     });
-
-    res.send(buffer);
   }
 
   @Get(":id/url")

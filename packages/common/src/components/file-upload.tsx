@@ -4,18 +4,19 @@ import type { FileWithPreview } from "@repo/common/hooks/use-file-upload";
 import { formatBytes, useFileUpload } from "@repo/common/hooks/use-file-upload";
 import { Button } from "@repo/ui/components/button";
 import {
-  AlertCircleIcon,
-  FileArchiveIcon,
-  FileIcon,
-  FileSpreadsheetIcon,
-  FileTextIcon,
-  HeadphonesIcon,
-  ImageIcon,
-  Trash2Icon,
-  UploadIcon,
-  VideoIcon,
-  XIcon,
-} from "lucide-react";
+  IconAlertCircle,
+  IconCloudUpload,
+  IconFile,
+  IconFileText,
+  IconFileZip,
+  IconHeadphones,
+  IconMovie,
+  IconPhoto,
+  IconTable,
+  IconTrash,
+  IconUpload,
+  IconX,
+} from "@tabler/icons-react";
 import * as React from "react";
 import { useMemo } from "react";
 export type { FileWithPreview };
@@ -28,7 +29,7 @@ const getFileIcon = (file: {
 
   const iconMap = {
     pdf: {
-      icon: FileTextIcon,
+      icon: IconFileText,
       conditions: (type: string, name: string) =>
         type.includes("pdf") ||
         name.endsWith(".pdf") ||
@@ -37,7 +38,7 @@ const getFileIcon = (file: {
         name.endsWith(".docx"),
     },
     archive: {
-      icon: FileArchiveIcon,
+      icon: IconFileZip,
       conditions: (type: string, name: string) =>
         type.includes("zip") ||
         type.includes("archive") ||
@@ -45,22 +46,22 @@ const getFileIcon = (file: {
         name.endsWith(".rar"),
     },
     excel: {
-      icon: FileSpreadsheetIcon,
+      icon: IconTable,
       conditions: (type: string, name: string) =>
         type.includes("excel") ||
         name.endsWith(".xls") ||
         name.endsWith(".xlsx"),
     },
     video: {
-      icon: VideoIcon,
+      icon: IconMovie,
       conditions: (type: string) => type.includes("video/"),
     },
     audio: {
-      icon: HeadphonesIcon,
+      icon: IconHeadphones,
       conditions: (type: string) => type.includes("audio/"),
     },
     image: {
-      icon: ImageIcon,
+      icon: IconPhoto,
       conditions: (type: string) => type.startsWith("image/"),
     },
   };
@@ -71,7 +72,7 @@ const getFileIcon = (file: {
     }
   }
 
-  return <FileIcon className="size-5 opacity-60" />;
+  return <IconFile className="size-5 opacity-60" />;
 };
 
 const getFilePreview = (file: {
@@ -98,7 +99,7 @@ const getFilePreview = (file: {
     if (file.file.url) {
       return renderImage(file.file.url);
     }
-    return <ImageIcon className="size-5 opacity-60" />;
+    return <IconPhoto className="size-5 opacity-60" />;
   };
 
   return (
@@ -222,7 +223,7 @@ export function FileUpload({
                   }}
                   disabled={disabled}
                 >
-                  <UploadIcon
+                  <IconUpload
                     className="-ms-0.5 size-3.5 opacity-60"
                     aria-hidden="true"
                   />
@@ -238,7 +239,7 @@ export function FileUpload({
                   }}
                   disabled={disabled}
                 >
-                  <Trash2Icon
+                  <IconTrash
                     className="-ms-0.5 size-3.5 opacity-60"
                     aria-hidden="true"
                   />
@@ -264,7 +265,7 @@ export function FileUpload({
                     aria-label="Remove file"
                     disabled={disabled}
                   >
-                    <XIcon className="size-3.5" />
+                    <IconX className="size-3.5" />
                   </Button>
                   <div className="flex min-w-0 flex-col gap-0.5 border-t p-3">
                     <p className="truncate text-[13px] font-medium">
@@ -284,7 +285,7 @@ export function FileUpload({
               className="mb-2 flex size-11 shrink-0 items-center justify-center rounded-full border bg-background"
               aria-hidden="true"
             >
-              <FileIcon className="size-4 opacity-60" />
+              <IconFile className="size-4 opacity-60" />
             </div>
             <p className="mb-1.5 text-sm font-medium">Drop your files here</p>
             <p className="text-xs text-muted-foreground">
@@ -300,7 +301,7 @@ export function FileUpload({
               }}
               disabled={disabled}
             >
-              <UploadIcon className="-ms-1 opacity-60" aria-hidden="true" />
+              <IconUpload className="-ms-1 opacity-60" aria-hidden="true" />
               Select files
             </Button>
           </div>
@@ -312,7 +313,7 @@ export function FileUpload({
           className="flex items-center gap-1 text-xs text-destructive"
           role="alert"
         >
-          <AlertCircleIcon className="size-3 shrink-0" />
+          <IconAlertCircle className="size-3 shrink-0" />
           <span>{errors[0]}</span>
         </div>
       )}

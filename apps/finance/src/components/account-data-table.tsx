@@ -46,6 +46,12 @@ import {
   TableRow,
 } from "@repo/ui/components/table";
 import { cn } from "@repo/ui/lib/utils";
+import {
+  IconChevronDown,
+  IconChevronUp,
+  IconDots,
+  IconPlus,
+} from "@tabler/icons-react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   type ColumnDef,
@@ -57,12 +63,6 @@ import {
   type Row,
   useReactTable,
 } from "@tanstack/react-table";
-import {
-  ChevronDownIcon,
-  ChevronUpIcon,
-  EllipsisIcon,
-  PlusIcon,
-} from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { AccountFormDialog } from "@/components/account-form-dialog";
 
@@ -73,10 +73,8 @@ const SelectHeaderCell = ({
   table: ReturnType<typeof useReactTable<Account>>;
 }) => (
   <Checkbox
-    checked={
-      table.getIsAllPageRowsSelected() ||
-      (table.getIsSomePageRowsSelected() && "indeterminate")
-    }
+    checked={table.getIsAllPageRowsSelected()}
+    indeterminate={table.getIsSomePageRowsSelected()}
     onCheckedChange={(value) => table.toggleAllPageRowsSelected(!!value)}
     aria-label="Select all"
   />
@@ -500,14 +498,14 @@ function AccountDataTableContent() {
                       >
                         {headerLabel}
                         {sortState === "asc" && (
-                          <ChevronUpIcon
+                          <IconChevronUp
                             className="shrink-0 opacity-60"
                             size={16}
                             aria-hidden="true"
                           />
                         )}
                         {sortState === "desc" && (
-                          <ChevronDownIcon
+                          <IconChevronDown
                             className="shrink-0 opacity-60"
                             size={16}
                             aria-hidden="true"
@@ -588,7 +586,7 @@ function AccountDataTableContent() {
                             <AccountFormDialog
                               trigger={
                                 <Button size="sm">
-                                  <PlusIcon
+                                  <IconPlus
                                     className="-ms-1 opacity-60"
                                     size={16}
                                     aria-hidden="true"
@@ -649,18 +647,20 @@ type RowActionsProps = Readonly<{
 function RowActions({ row, mutateAccount, deleteAccount }: RowActionsProps) {
   return (
     <DropdownMenu>
-      <DropdownMenuTrigger asChild>
-        <div className="flex justify-end">
-          <Button
-            size="icon"
-            variant="ghost"
-            className="shadow-none"
-            aria-label="Edit item"
-          >
-            <EllipsisIcon size={16} aria-hidden="true" />
-          </Button>
-        </div>
-      </DropdownMenuTrigger>
+      <DropdownMenuTrigger
+        render={
+          <div className="flex justify-end">
+            <Button
+              size="icon"
+              variant="ghost"
+              className="shadow-none"
+              aria-label="Edit item"
+            >
+              <IconDots size={16} aria-hidden="true" />
+            </Button>
+          </div>
+        }
+      />
       <DropdownMenuContent align="end">
         <DropdownMenuGroup>
           <AccountFormDialog

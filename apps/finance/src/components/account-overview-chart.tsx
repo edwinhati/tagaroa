@@ -12,11 +12,10 @@ import {
   type ChartConfig,
   ChartContainer,
   ChartTooltip,
-  ChartTooltipContent,
 } from "@repo/ui/components/chart";
 import { Skeleton } from "@repo/ui/components/skeleton";
+import { IconWallet } from "@tabler/icons-react";
 import { useQuery } from "@tanstack/react-query";
-import { Wallet } from "lucide-react";
 import React, { useMemo } from "react";
 import { Cell, Label, Pie, PieChart } from "recharts";
 import { formatCurrencyCompact, formatCurrencySmart } from "@/utils/currency";
@@ -31,6 +30,41 @@ const CHART_COLORS = [
   "hsl(280, 87%, 65%)", // Purple
   "hsl(349, 89%, 60%)", // Rose red
 ];
+
+interface AccountTooltipProps {
+  active?: boolean;
+  payload?: Array<{
+    name: string;
+    value: number;
+    payload: { name: string; value: number; fill: string };
+  }>;
+}
+
+function AccountTooltip({ active, payload }: AccountTooltipProps) {
+  if (!active || !payload?.length) return null;
+
+  const item = payload[0];
+  if (!item) return null;
+  const { name, value, fill } = item.payload;
+
+  return (
+    <div className="rounded-xl border border-border/50 bg-background/95 backdrop-blur-sm shadow-xl p-3 text-xs min-w-[160px]">
+      <div className="flex items-center gap-1.5 text-[11px] font-medium text-muted-foreground border-b border-border/40 pb-2 mb-2.5">
+        <span
+          className="size-2 rounded-full shrink-0"
+          style={{ backgroundColor: fill }}
+        />
+        <span>{name}</span>
+      </div>
+      <div className="flex items-center justify-between gap-4">
+        <span className="text-muted-foreground">Balance</span>
+        <span className="font-semibold text-foreground tabular-nums">
+          {formatCurrencyCompact(value, "IDR")}
+        </span>
+      </div>
+    </div>
+  );
+}
 
 const AccountOverviewChart = React.memo(() => {
   const { data, isLoading } = useQuery(accountAggregationsQueryOptions());
@@ -77,7 +111,7 @@ const AccountOverviewChart = React.memo(() => {
             </CardDescription>
           </div>
           <div className="p-2.5 rounded-xl bg-blue-500/10 ring-1 ring-blue-500/20">
-            <Wallet className="h-4 w-4 text-blue-500" />
+            <IconWallet className="h-4 w-4 text-blue-500" />
           </div>
         </CardHeader>
         <CardContent className="flex-1 flex items-center justify-center pb-4">
@@ -101,7 +135,7 @@ const AccountOverviewChart = React.memo(() => {
             </CardDescription>
           </div>
           <div className="p-2.5 rounded-xl bg-blue-500/10 ring-1 ring-blue-500/20">
-            <Wallet className="h-4 w-4 text-blue-500" />
+            <IconWallet className="h-4 w-4 text-blue-500" />
           </div>
         </CardHeader>
         <CardContent className="flex-1 flex items-center justify-center pb-4">
@@ -114,7 +148,7 @@ const AccountOverviewChart = React.memo(() => {
   }
 
   return (
-    <Card className="flex flex-col h-full border-border/50 bg-card/80 backdrop-blur-sm shadow-sm hover:shadow-md transition-shadow duration-200">
+    <Card className="flex flex-col h-full border-border/40 bg-card/60 backdrop-blur-md shadow-sm">
       <CardHeader className="flex flex-row items-start justify-between space-y-0 pb-4">
         <div>
           <CardTitle className="text-base font-semibold">
@@ -125,7 +159,7 @@ const AccountOverviewChart = React.memo(() => {
           </CardDescription>
         </div>
         <div className="p-2.5 rounded-xl bg-blue-500/10 ring-1 ring-blue-500/20">
-          <Wallet className="h-4 w-4 text-blue-500" />
+          <IconWallet className="h-4 w-4 text-blue-500" />
         </div>
       </CardHeader>
       <CardContent className="flex-1 flex flex-col pb-4">
@@ -134,17 +168,7 @@ const AccountOverviewChart = React.memo(() => {
           className="mx-auto aspect-square w-full max-h-[180px]"
         >
           <PieChart>
-            <ChartTooltip
-              cursor={false}
-              content={
-                <ChartTooltipContent
-                  hideLabel
-                  formatter={(value) =>
-                    formatCurrencyCompact(value as number, "IDR")
-                  }
-                />
-              }
-            />
+            <ChartTooltip cursor={false} content={<AccountTooltip />} />
             <Pie
               data={chartData}
               dataKey="value"
@@ -236,7 +260,7 @@ export const AccountOverviewChartSkeleton = () => {
           </CardDescription>
         </div>
         <div className="p-2.5 rounded-xl bg-blue-500/10 ring-1 ring-blue-500/20">
-          <Wallet className="h-4 w-4 text-blue-500" />
+          <IconWallet className="h-4 w-4 text-blue-500" />
         </div>
       </CardHeader>
       <CardContent className="flex-1 flex items-center justify-center pb-4">

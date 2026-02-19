@@ -49,6 +49,19 @@ import {
   TableRow,
 } from "@repo/ui/components/table";
 import { cn } from "@repo/ui/lib/utils";
+import {
+  IconCashBanknote,
+  IconChevronDown,
+  IconChevronUp,
+  IconCircleCheck,
+  IconCurrencyDollar,
+  IconDots,
+  IconEye,
+  IconEyeOff,
+  IconPlus,
+  IconWallet,
+  IconX,
+} from "@tabler/icons-react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   type ColumnDef,
@@ -61,19 +74,6 @@ import {
   useReactTable,
 } from "@tanstack/react-table";
 import { format } from "date-fns";
-import {
-  BanknoteIcon,
-  CheckCircleIcon,
-  ChevronDownIcon,
-  ChevronUpIcon,
-  CircleDollarSignIcon,
-  EllipsisIcon,
-  EyeIcon,
-  EyeOffIcon,
-  PlusIcon,
-  WalletIcon,
-  XIcon,
-} from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 import { LiabilityFormDialog } from "@/components/liability-form-dialog";
@@ -84,10 +84,8 @@ const SelectHeaderCell = ({
   table: ReturnType<typeof useReactTable<Liability>>;
 }) => (
   <Checkbox
-    checked={
-      table.getIsAllPageRowsSelected() ||
-      (table.getIsSomePageRowsSelected() && "indeterminate")
-    }
+    checked={table.getIsAllPageRowsSelected()}
+    indeterminate={table.getIsSomePageRowsSelected()}
     onCheckedChange={(value) => table.toggleAllPageRowsSelected(!!value)}
     aria-label="Select all"
   />
@@ -126,7 +124,7 @@ const StatusCell = ({ row }: { row: Row<Liability> }) => {
   if (row.original.paidAt) {
     return (
       <Badge variant="outline" className="text-green-600">
-        <CheckCircleIcon className="mr-1 h-3 w-3" />
+        <IconCircleCheck className="mr-1 h-3 w-3" />
         Paid
       </Badge>
     );
@@ -420,7 +418,7 @@ function LiabilityDataTableContent() {
           <Card className="py-4">
             <CardContent className="flex items-center gap-4 py-0">
               <div className="rounded-full bg-blue-100 p-2 dark:bg-blue-900">
-                <BanknoteIcon className="h-5 w-5 text-blue-600 dark:text-blue-400" />
+                <IconCashBanknote className="h-5 w-5 text-blue-600 dark:text-blue-400" />
               </div>
               <div>
                 <p className="text-sm text-muted-foreground">Total Debt</p>
@@ -439,7 +437,7 @@ function LiabilityDataTableContent() {
           <Card className="py-4">
             <CardContent className="flex items-center gap-4 py-0">
               <div className="rounded-full bg-yellow-100 p-2 dark:bg-yellow-900">
-                <WalletIcon className="h-5 w-5 text-yellow-600 dark:text-yellow-400" />
+                <IconWallet className="h-5 w-5 text-yellow-600 dark:text-yellow-400" />
               </div>
               <div>
                 <p className="text-sm text-muted-foreground">Unpaid</p>
@@ -458,7 +456,7 @@ function LiabilityDataTableContent() {
           <Card className="py-4">
             <CardContent className="flex items-center gap-4 py-0">
               <div className="rounded-full bg-green-100 p-2 dark:bg-green-900">
-                <CheckCircleIcon className="h-5 w-5 text-green-600 dark:text-green-400" />
+                <IconCircleCheck className="h-5 w-5 text-green-600 dark:text-green-400" />
               </div>
               <div>
                 <p className="text-sm text-muted-foreground">Paid</p>
@@ -477,7 +475,7 @@ function LiabilityDataTableContent() {
           <Card className="py-4">
             <CardContent className="flex items-center gap-4 py-0">
               <div className="rounded-full bg-purple-100 p-2 dark:bg-purple-900">
-                <CircleDollarSignIcon className="h-5 w-5 text-purple-600 dark:text-purple-400" />
+                <IconCurrencyDollar className="h-5 w-5 text-purple-600 dark:text-purple-400" />
               </div>
               <div>
                 <p className="text-sm text-muted-foreground">Items</p>
@@ -517,9 +515,9 @@ function LiabilityDataTableContent() {
             className={showPaid ? "" : "text-muted-foreground"}
           >
             {showPaid ? (
-              <EyeIcon size={14} className="mr-1" />
+              <IconEye size={14} className="mr-1" />
             ) : (
-              <EyeOffIcon size={14} className="mr-1" />
+              <IconEyeOff size={14} className="mr-1" />
             )}
             {showPaid ? "Hiding paid" : "Show paid"}
           </Button>
@@ -533,7 +531,7 @@ function LiabilityDataTableContent() {
               }}
               className="text-muted-foreground"
             >
-              <XIcon size={14} className="mr-1" />
+              <IconX size={14} className="mr-1" />
               Clear filters
             </Button>
           )}
@@ -550,7 +548,7 @@ function LiabilityDataTableContent() {
           <LiabilityFormDialog
             trigger={
               <Button size="sm">
-                <PlusIcon className="-ms-1 opacity-60" size={16} />
+                <IconPlus className="-ms-1 opacity-60" size={16} />
                 Add liability
               </Button>
             }
@@ -603,14 +601,14 @@ function LiabilityDataTableContent() {
                       >
                         {headerLabel}
                         {sortState === "asc" && (
-                          <ChevronUpIcon
+                          <IconChevronUp
                             className="shrink-0 opacity-60"
                             size={16}
                             aria-hidden="true"
                           />
                         )}
                         {sortState === "desc" && (
-                          <ChevronDownIcon
+                          <IconChevronDown
                             className="shrink-0 opacity-60"
                             size={16}
                             aria-hidden="true"
@@ -701,7 +699,7 @@ function LiabilityDataTableContent() {
                             <LiabilityFormDialog
                               trigger={
                                 <Button size="sm">
-                                  <PlusIcon
+                                  <IconPlus
                                     className="-ms-1 opacity-60"
                                     size={16}
                                     aria-hidden="true"
@@ -786,18 +784,20 @@ function RowActions({
 
   return (
     <DropdownMenu>
-      <DropdownMenuTrigger asChild>
-        <div className="flex justify-end">
-          <Button
-            size="icon"
-            variant="ghost"
-            className="shadow-none"
-            aria-label={`Actions for ${row.original.name}`}
-          >
-            <EllipsisIcon size={16} aria-hidden="true" />
-          </Button>
-        </div>
-      </DropdownMenuTrigger>
+      <DropdownMenuTrigger
+        render={
+          <div className="flex justify-end">
+            <Button
+              size="icon"
+              variant="ghost"
+              className="shadow-none"
+              aria-label={`Actions for ${row.original.name}`}
+            >
+              <IconDots size={16} aria-hidden="true" />
+            </Button>
+          </div>
+        }
+      />
       <DropdownMenuContent align="end">
         <DropdownMenuGroup>
           <LiabilityFormDialog

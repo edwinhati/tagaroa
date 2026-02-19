@@ -1,0 +1,63 @@
+# Node modules and build artifacts
+node_modules
+dist
+build
+
+# Dependency lock files from other package managers
+yarn.lock
+pnpm-lock.yaml
+
+# Environment files
+.env*
+!.env.example
+
+# Logs
+*.log
+
+# Editor / IDE settings
+.vscode
+.idea
+*.swp
+*.swo
+
+# OS-specific
+.DS_Store
+Thumbs.db
+
+# Git
+.git
+.gitignore
+.gitattributes
+
+# Docker / CI artifacts
+Dockerfile*
+docker-compose*.yml
+.dockerignore
+
+# Testing
+coverage
+.nyc_output
+.jest
+**/*spec.ts
+**/*test.ts
+
+# Temporary folders
+tmp/
+temp/
+
+# Turborepo cache
+.turbo
+
+# Typescript build info
+*.tsbuildinfo
+
+# Documentation
+*.md
+
+# Playwright / e2e (from other apps)
+test-results/
+playwright-report/
+e2e/
+
+# Exclude frontend apps (not needed for core server)
+apps/

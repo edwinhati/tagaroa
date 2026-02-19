@@ -10,6 +10,7 @@ import {
 } from "@repo/ui/components/popover";
 import { Separator } from "@repo/ui/components/separator";
 import { cn } from "@repo/ui/lib/utils";
+import { IconCalendar, IconChevronDown } from "@tabler/icons-react";
 import {
   endOfMonth,
   format,
@@ -17,7 +18,6 @@ import {
   startOfYear,
   subMonths,
 } from "date-fns";
-import { Calendar as CalendarIcon, ChevronDownIcon } from "lucide-react";
 import { useState } from "react";
 import type { DateRange } from "react-day-picker";
 
@@ -116,32 +116,34 @@ export function DateRangePicker({
 
   return (
     <Popover open={isOpen} onOpenChange={setIsOpen}>
-      <PopoverTrigger asChild>
-        <Button
-          id="date-range"
-          variant="outline"
-          className={cn(
-            "w-full sm:w-[300px] justify-start text-left font-normal",
-            !date && "text-muted-foreground",
-            className,
-          )}
-        >
-          <CalendarIcon className="mr-2 h-4 w-4" />
-          {date?.from ? (
-            date.to ? (
-              <>
-                {format(date.from, "LLL dd, y")} -{" "}
-                {format(date.to, "LLL dd, y")}
-              </>
+      <PopoverTrigger
+        render={
+          <Button
+            id="date-range"
+            variant="outline"
+            className={cn(
+              "w-auto justify-start text-left font-normal",
+              !date && "text-muted-foreground",
+              className,
+            )}
+          >
+            <IconCalendar className="mr-2 h-4 w-4" />
+            {date?.from ? (
+              date.to ? (
+                <>
+                  {format(date.from, "LLL dd, y")} -{" "}
+                  {format(date.to, "LLL dd, y")}
+                </>
+              ) : (
+                format(date.from, "LLL dd, y")
+              )
             ) : (
-              format(date.from, "LLL dd, y")
-            )
-          ) : (
-            <span>Pick a date range</span>
-          )}
-          <ChevronDownIcon className="ml-auto h-4 w-4 opacity-50" />
-        </Button>
-      </PopoverTrigger>
+              <span>Pick a date range</span>
+            )}
+            <IconChevronDown className="ml-auto h-4 w-4 opacity-50" />
+          </Button>
+        }
+      />
       <PopoverContent className="w-auto p-0" align="start">
         <div className="flex flex-col space-y-2 p-2">
           <div className="grid grid-cols-3 gap-2">

@@ -3,13 +3,11 @@ import {
   type ITransactionRepository,
   TRANSACTION_REPOSITORY,
 } from "../../domain/repositories/transaction.repository.interface";
-import { TransactionType } from "../../domain/value-objects/transaction-type";
 import { GetTransactionTrendsDto } from "../dtos/dashboard/get-transaction-trends.dto";
 import {
   TransactionTrendItemDto,
   TransactionTrendsResponseDto,
 } from "../dtos/dashboard/transaction-trends-response.dto";
-import { formatPeriod } from "../utils/period-helpers";
 
 @Injectable()
 export class GetTransactionTrendsUseCase {
@@ -34,44 +32,19 @@ export class GetTransactionTrendsUseCase {
       | "month"
       | "year";
 
-    // Fetch all transactions in the date range
-    const transactions = await this.transactionRepository.findByUserId(userId);
+    const rows = await this.transactionRepository.aggregateTrends(
+      userId,
+      startDate,
+      endDate,
+      granularity,
+    );
 
-    // Filter transactions by date range
-    const filteredTransactions = transactions.filter((t) => {
-      const transactionDate = new Date(t.date);
-      return transactionDate >= startDate && transactionDate <= endDate;
-    });
-
-    // Group transactions by period
-    const periodMap = new Map<string, { income: number; expenses: number }>();
-
-    for (const transaction of filteredTransactions) {
-      const transactionDate = new Date(transaction.date);
-      const period = formatPeriod(transactionDate, granularity);
-
-      let data = periodMap.get(period);
-      if (!data) {
-        data = { income: 0, expenses: 0 };
-        periodMap.set(period, data);
-      }
-
-      if (transaction.type === TransactionType.INCOME) {
-        data.income += transaction.amount;
-      } else if (transaction.type === TransactionType.EXPENSE) {
-        data.expenses += transaction.amount;
-      }
-    }
-
-    // Convert to array and sort chronologically
-    const trends: TransactionTrendItemDto[] = Array.from(periodMap.entries())
-      .map(([period, data]) => ({
-        period,
-        income: data.income,
-        expenses: data.expenses,
-        net_flow: data.income - data.expenses,
-      }))
-      .sort((a, b) => a.period.localeCompare(b.period));
+    const trends: TransactionTrendItemDto[] = rows.map((row) => ({
+      period: row.period,
+      income: row.income,
+      expenses: row.expenses,
+      net_flow: row.income - row.expenses,
+    }));
 
     return {
       granularity,

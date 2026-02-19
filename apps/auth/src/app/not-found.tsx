@@ -1,4 +1,6 @@
-import { Button } from "@repo/ui/components/button";
+"use client";
+
+import { buttonVariants } from "@repo/ui/components/button";
 import Link from "next/link";
 
 export default function NotFound() {
@@ -8,9 +10,9 @@ export default function NotFound() {
       <p className="text-muted-foreground text-sm">
         The page you're looking for doesn't exist.
       </p>
-      <Button asChild variant="outline">
-        <Link href="/">Go Home</Link>
-      </Button>
+      <Link href="/" className={buttonVariants({ variant: "outline" })}>
+        Go Home
+      </Link>
     </div>
   );
 }

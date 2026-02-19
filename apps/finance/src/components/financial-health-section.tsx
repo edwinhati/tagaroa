@@ -7,16 +7,15 @@ import {
 import { Card, CardContent, CardHeader } from "@repo/ui/components/card";
 import { Skeleton } from "@repo/ui/components/skeleton";
 import { cn } from "@repo/ui/lib/utils";
+import {
+  IconArrowDownRight,
+  IconArrowUpRight,
+  IconBriefcase,
+  IconCreditCard,
+  IconTrendingUp,
+} from "@tabler/icons-react";
 import { useQuery } from "@tanstack/react-query";
 import { format } from "date-fns";
-import {
-  ArrowDownRight,
-  ArrowUpRight,
-  Briefcase,
-  CreditCard,
-  Percent,
-  TrendingUp,
-} from "lucide-react";
 import type { DateRange } from "react-day-picker";
 import { formatCurrencyCompact } from "@/utils/currency";
 import { MiniSparkline } from "./mini-sparkline";
@@ -49,15 +48,14 @@ const HealthCard = ({
   return (
     <Card
       className={cn(
-        "relative border-border/50",
-        "bg-gradient-to-br from-card via-card to-card/50",
-        "backdrop-blur-sm",
-        "transition-all duration-200 hover:shadow-md",
+        "relative border-border/40",
+        "bg-card/60 backdrop-blur-md",
+        "shadow-sm",
         className,
       )}
     >
       <CardHeader className="flex flex-row items-start justify-between space-y-0 pb-3">
-        <p className="text-sm font-medium text-slate-400">{title}</p>
+        <h3 className="text-sm font-medium text-slate-400">{title}</h3>
         {icon && (
           <div
             className={cn(
@@ -77,12 +75,12 @@ const HealthCard = ({
             <div className="flex items-center gap-0.5">
               {trend === "up" && (
                 <span className="flex items-center gap-0.5 text-emerald-500 text-sm font-medium">
-                  <ArrowUpRight className="h-4 w-4" />
+                  <IconArrowUpRight className="h-4 w-4" />
                 </span>
               )}
               {trend === "down" && (
                 <span className="flex items-center gap-0.5 text-rose-500 text-sm font-medium">
-                  <ArrowDownRight className="h-4 w-4" />
+                  <IconArrowDownRight className="h-4 w-4" />
                 </span>
               )}
             </div>
@@ -217,7 +215,7 @@ export function FinancialHealthSection({ range }: FinancialHealthSectionProps) {
         <Card className="md:col-span-4 border-dashed border-2 bg-muted/20">
           <CardContent className="flex flex-col items-center justify-center py-12 space-y-4">
             <div className="rounded-full bg-primary/10 p-4">
-              <TrendingUp className="h-8 w-8 text-primary" />
+              <IconTrendingUp className="h-8 w-8 text-primary" />
             </div>
             <div className="text-center space-y-2">
               <h3 className="text-lg font-semibold">Track Your Net Worth</h3>
@@ -244,7 +242,7 @@ export function FinancialHealthSection({ range }: FinancialHealthSectionProps) {
         )}
         subtitle={`${netWorthData.snapshots.length} snapshots tracked`}
         trend={getTrend()}
-        icon={<TrendingUp className="h-4 w-4" />}
+        icon={<IconTrendingUp className="h-4 w-4" />}
         iconBgColor="text-violet-500 bg-violet-500/10"
         sparklineData={sparklineData}
         className="md:col-span-2"
@@ -257,7 +255,7 @@ export function FinancialHealthSection({ range }: FinancialHealthSectionProps) {
           netWorthData.total_assets,
           netWorthData.currency,
         )}
-        icon={<Briefcase className="h-4 w-4" />}
+        icon={<IconBriefcase className="h-4 w-4" />}
         iconBgColor="text-emerald-500 bg-emerald-500/10"
       />
 
@@ -268,7 +266,7 @@ export function FinancialHealthSection({ range }: FinancialHealthSectionProps) {
           netWorthData.total_liabilities,
           netWorthData.currency,
         )}
-        icon={<CreditCard className="h-4 w-4" />}
+        icon={<IconCreditCard className="h-4 w-4" />}
         iconBgColor="text-rose-500 bg-rose-500/10"
       />
     </div>

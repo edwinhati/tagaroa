@@ -11,7 +11,7 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "@repo/ui/components/alert-dialog";
-import { CircleAlertIcon } from "lucide-react";
+import { IconAlertCircle } from "@tabler/icons-react";
 import * as React from "react";
 import { useState } from "react";
 
@@ -49,14 +49,14 @@ export function DataTableDeleteDialog({
       open={open}
       onOpenChange={(value) => !isSubmitting && setOpen(value)}
     >
-      <AlertDialogTrigger asChild>{trigger}</AlertDialogTrigger>
+      <AlertDialogTrigger render={trigger as React.ReactElement} />
       <AlertDialogContent>
         <div className="flex flex-col gap-2 max-sm:items-center sm:flex-row sm:gap-4">
           <div
             className="flex size-9 shrink-0 items-center justify-center rounded-full border"
             aria-hidden="true"
           >
-            <CircleAlertIcon className="opacity-80" size={16} />
+            <IconAlertCircle className="opacity-80" size={16} />
           </div>
           <AlertDialogHeader>
             <AlertDialogTitle>Delete {itemType}?</AlertDialogTitle>

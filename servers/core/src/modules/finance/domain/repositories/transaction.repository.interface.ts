@@ -54,4 +54,11 @@ export interface ITransactionRepository {
     userId: string,
     filters?: TransactionFilterParams,
   ): Promise<AggregationBucket[]>;
+
+  aggregateTrends(
+    userId: string,
+    startDate: Date,
+    endDate: Date,
+    granularity: "day" | "week" | "month" | "year",
+  ): Promise<{ period: string; income: number; expenses: number }[]>;
 }

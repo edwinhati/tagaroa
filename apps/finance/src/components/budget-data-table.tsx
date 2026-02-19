@@ -43,6 +43,33 @@ import {
   TooltipTrigger,
 } from "@repo/ui/components/tooltip";
 import { cn } from "@repo/ui/lib/utils";
+import {
+  IconAlertTriangle,
+  IconBolt,
+  IconCalendar,
+  IconCar,
+  IconCheck,
+  IconChevronDown,
+  IconChevronUp,
+  IconCreditCard,
+  IconDots,
+  IconHeart,
+  IconHome,
+  IconList,
+  IconMovie,
+  IconPencil,
+  IconPigMoney,
+  IconPlus,
+  IconReceipt,
+  IconSchool,
+  IconShield,
+  IconShirt,
+  IconSparkles,
+  IconToolsKitchen2,
+  IconTrendingUp,
+  IconWallet,
+  IconX,
+} from "@tabler/icons-react";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import {
   type ColumnDef,
@@ -58,33 +85,6 @@ import {
   type SortingState,
   useReactTable,
 } from "@tanstack/react-table";
-import {
-  AlertTriangle,
-  CalendarIcon,
-  Car,
-  CheckIcon,
-  ChevronDownIcon,
-  ChevronUpIcon,
-  CreditCard,
-  Film,
-  GraduationCap,
-  Heart,
-  Home,
-  List,
-  MoreHorizontal,
-  PencilIcon,
-  PiggyBank,
-  PlusIcon,
-  Receipt,
-  Shield,
-  Shirt,
-  Sparkles,
-  TrendingUp,
-  UtensilsCrossed,
-  Wallet,
-  XIcon,
-  Zap,
-} from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import type { DateRange } from "react-day-picker";
 import { NumericFormat } from "react-number-format";
@@ -99,10 +99,8 @@ const BudgetSelectHeaderCell = ({
   table: ReturnType<typeof useReactTable<BudgetItem>>;
 }) => (
   <Checkbox
-    checked={
-      table.getIsAllPageRowsSelected() ||
-      (table.getIsSomePageRowsSelected() && "indeterminate")
-    }
+    checked={table.getIsAllPageRowsSelected()}
+    indeterminate={table.getIsSomePageRowsSelected()}
     onCheckedChange={(value) => table.toggleAllPageRowsSelected(!!value)}
     aria-label="Select all"
   />
@@ -128,72 +126,72 @@ export const CATEGORY_CONFIG: Record<
   food: {
     bg: "bg-orange-100 dark:bg-orange-900/30",
     text: "text-orange-700 dark:text-orange-300",
-    icon: UtensilsCrossed,
+    icon: IconToolsKitchen2,
   },
   housing: {
     bg: "bg-blue-100 dark:bg-blue-900/30",
     text: "text-blue-700 dark:text-blue-300",
-    icon: Home,
+    icon: IconHome,
   },
   transportation: {
     bg: "bg-violet-100 dark:bg-violet-900/30",
     text: "text-violet-700 dark:text-violet-300",
-    icon: Car,
+    icon: IconCar,
   },
   utilities: {
     bg: "bg-yellow-100 dark:bg-yellow-900/30",
     text: "text-yellow-700 dark:text-yellow-300",
-    icon: Zap,
+    icon: IconBolt,
   },
   entertainment: {
     bg: "bg-pink-100 dark:bg-pink-900/30",
     text: "text-pink-700 dark:text-pink-300",
-    icon: Film,
+    icon: IconMovie,
   },
   healthcare: {
     bg: "bg-red-100 dark:bg-red-900/30",
     text: "text-red-700 dark:text-red-300",
-    icon: Heart,
+    icon: IconHeart,
   },
   hygiene: {
     bg: "bg-cyan-100 dark:bg-cyan-900/30",
     text: "text-cyan-700 dark:text-cyan-300",
-    icon: Sparkles,
+    icon: IconSparkles,
   },
   education: {
     bg: "bg-indigo-100 dark:bg-indigo-900/30",
     text: "text-indigo-700 dark:text-indigo-300",
-    icon: GraduationCap,
+    icon: IconSchool,
   },
   savings: {
     bg: "bg-emerald-100 dark:bg-emerald-900/30",
     text: "text-emerald-700 dark:text-emerald-300",
-    icon: PiggyBank,
+    icon: IconPigMoney,
   },
   insurance: {
     bg: "bg-teal-100 dark:bg-teal-900/30",
     text: "text-teal-700 dark:text-teal-300",
-    icon: Shield,
+    icon: IconShield,
   },
   installment: {
     bg: "bg-amber-100 dark:bg-amber-900/30",
     text: "text-amber-700 dark:text-amber-300",
-    icon: Receipt,
+    icon: IconReceipt,
   },
   laundry: {
     bg: "bg-sky-100 dark:bg-sky-900/30",
     text: "text-sky-700 dark:text-sky-300",
-    icon: Shirt,
+    icon: IconShirt,
   },
   tithes: {
     bg: "bg-purple-100 dark:bg-purple-900/30",
     text: "text-purple-700 dark:text-purple-300",
-    icon: Heart,
+    icon: IconHeart,
   },
   other: {
     bg: "bg-slate-100 dark:bg-slate-900/30",
     text: "text-slate-700 dark:text-slate-300",
-    icon: MoreHorizontal,
+    icon: IconDots,
   },
 };
 
@@ -204,7 +202,7 @@ const CategoryCell = ({ row }: { row: Row<BudgetItem> }) => {
     CATEGORY_CONFIG.other ?? {
       bg: "bg-slate-100 dark:bg-slate-900/30",
       text: "text-slate-700 dark:text-slate-300",
-      icon: MoreHorizontal,
+      icon: IconDots,
     };
   const Icon = config.icon;
 
@@ -250,7 +248,7 @@ const BudgetActionsCell = ({ row }: { row: Row<BudgetItem> }) => {
         endDate={endDate}
         trigger={
           <Button variant="ghost" size="sm" className="text-xs">
-            <List className="h-3 w-3 mr-1" />
+            <IconList className="h-3 w-3 mr-1" />
             View Transactions
           </Button>
         }
@@ -334,38 +332,40 @@ const ProgressCell = ({ row }: ProgressCellProps) => {
 
   return (
     <Tooltip>
-      <TooltipTrigger asChild>
-        <div
-          className="w-full space-y-1.5 min-w-[140px] cursor-default group"
-          role="group"
-          aria-label={`${percentage.toFixed(0)}% of budget used`}
-        >
-          <div className="flex justify-between text-xs items-center">
-            <span
-              className={cn(
-                "font-semibold tabular-nums motion-safe:transition-colors motion-safe:duration-200",
-                isOverBudget && "text-destructive",
-                isWarning && "text-amber-600 dark:text-amber-400",
-                isHealthy && "text-emerald-600 dark:text-emerald-400",
-              )}
-            >
-              {percentage.toFixed(0)}%
-            </span>
-            <span className="text-muted-foreground font-mono text-[11px] group-hover:text-foreground motion-safe:transition-colors">
-              {formatCurrency(spent)} / {formatCurrency(allocation)}
-            </span>
+      <TooltipTrigger
+        render={
+          <div
+            className="w-full space-y-1.5 min-w-[140px] cursor-default group"
+            role="group"
+            aria-label={`${percentage.toFixed(0)}% of budget used`}
+          >
+            <div className="flex justify-between text-xs items-center">
+              <span
+                className={cn(
+                  "font-semibold tabular-nums motion-safe:transition-colors motion-safe:duration-200",
+                  isOverBudget && "text-destructive",
+                  isWarning && "text-amber-600 dark:text-amber-400",
+                  isHealthy && "text-emerald-600 dark:text-emerald-400",
+                )}
+              >
+                {percentage.toFixed(0)}%
+              </span>
+              <span className="text-muted-foreground font-mono text-[11px] group-hover:text-foreground motion-safe:transition-colors">
+                {formatCurrency(spent)} / {formatCurrency(allocation)}
+              </span>
+            </div>
+            <div className="h-2.5 w-full bg-muted/60 rounded-full overflow-hidden ring-1 ring-border/30">
+              <div
+                className={progressColor}
+                style={{
+                  width: isAnimated ? `${Math.min(percentage, 100)}%` : "0%",
+                  transition: "width 700ms cubic-bezier(0.4, 0, 0.2, 1)",
+                }}
+              />
+            </div>
           </div>
-          <div className="h-2.5 w-full bg-muted/60 rounded-full overflow-hidden ring-1 ring-border/30">
-            <div
-              className={progressColor}
-              style={{
-                width: isAnimated ? `${Math.min(percentage, 100)}%` : "0%",
-                transition: "width 700ms cubic-bezier(0.4, 0, 0.2, 1)",
-              }}
-            />
-          </div>
-        </div>
-      </TooltipTrigger>
+        }
+      />
       <TooltipContent side="top" className="text-xs">
         <div className="space-y-1">
           <p className="font-medium capitalize">
@@ -646,13 +646,13 @@ function BudgetDataTableContent() {
         <BudgetSummaryCard
           title="Total Budget"
           value={formatCurrency(tableData.amount)}
-          icon={<Wallet className="h-5 w-5" />}
+          icon={<IconWallet className="h-5 w-5" />}
           iconColor="text-primary bg-primary/10"
         />
         <BudgetSummaryCard
           title="Allocated"
           value={formatCurrency(totalAllocated)}
-          icon={<CreditCard className="h-5 w-5" />}
+          icon={<IconCreditCard className="h-5 w-5" />}
           iconColor="text-blue-500 bg-blue-50"
         />
         <BudgetSummaryCard
@@ -660,9 +660,9 @@ function BudgetDataTableContent() {
           value={formatCurrency(remainingBudget)}
           icon={
             remainingBudget < 0 ? (
-              <AlertTriangle className="h-5 w-5" />
+              <IconAlertTriangle className="h-5 w-5" />
             ) : (
-              <TrendingUp className="h-5 w-5" />
+              <IconTrendingUp className="h-5 w-5" />
             )
           }
           iconColor={
@@ -684,14 +684,16 @@ function BudgetDataTableContent() {
             className="min-w-60"
           />
           <Popover>
-            <PopoverTrigger asChild>
-              <Button variant="outline">
-                <CalendarIcon className="h-4 w-4 mr-2" />
-                {range?.from &&
-                  range?.to &&
-                  `${range.from.toLocaleDateString()} - ${range.to.toLocaleDateString()}`}
-              </Button>
-            </PopoverTrigger>
+            <PopoverTrigger
+              render={
+                <Button variant="outline">
+                  <IconCalendar className="h-4 w-4 mr-2" />
+                  {range?.from &&
+                    range?.to &&
+                    `${range.from.toLocaleDateString()} - ${range.to.toLocaleDateString()}`}
+                </Button>
+              }
+            />
             <PopoverContent
               className="w-auto overflow-hidden p-0 ml-4"
               align="end"
@@ -762,14 +764,14 @@ function BudgetDataTableContent() {
                       >
                         {headerLabel}
                         {sortState === "asc" && (
-                          <ChevronUpIcon
+                          <IconChevronUp
                             className="shrink-0 opacity-60"
                             size={16}
                             aria-hidden="true"
                           />
                         )}
                         {sortState === "desc" && (
-                          <ChevronDownIcon
+                          <IconChevronDown
                             className="shrink-0 opacity-60"
                             size={16}
                             aria-hidden="true"
@@ -845,7 +847,7 @@ function BudgetDataTableContent() {
                             <BudgetFormDialog
                               trigger={
                                 <Button size="sm">
-                                  <PlusIcon
+                                  <IconPlus
                                     className="-ms-1 opacity-60"
                                     size={16}
                                     aria-hidden="true"
@@ -984,7 +986,7 @@ const EditableBudgetAmount = ({
             className="h-8 w-8"
             aria-label="Save"
           >
-            <CheckIcon className="h-4 w-4" />
+            <IconCheck className="h-4 w-4" />
           </Button>
           <Button
             variant="outline"
@@ -993,7 +995,7 @@ const EditableBudgetAmount = ({
             className="h-8 w-8"
             aria-label="Cancel"
           >
-            <XIcon className="h-4 w-4" />
+            <IconX className="h-4 w-4" />
           </Button>
         </div>
       </div>
@@ -1011,7 +1013,7 @@ const EditableBudgetAmount = ({
         className="h-5 w-5 opacity-0 group-hover:opacity-100 transition-opacity"
         disabled={!budgetId}
       >
-        <PencilIcon className="h-3.5 w-3.5" />
+        <IconPencil className="h-3.5 w-3.5" />
         <span className="sr-only">Edit budget amount</span>
       </Button>
     </div>
@@ -1086,7 +1088,7 @@ const EditableCell = ({
             className="h-8 w-8"
             aria-label="Save"
           >
-            <CheckIcon className="h-4 w-4" />
+            <IconCheck className="h-4 w-4" />
           </Button>
           <Button
             variant="outline"
@@ -1095,7 +1097,7 @@ const EditableCell = ({
             className="h-8 w-8"
             aria-label="Cancel"
           >
-            <XIcon className="h-4 w-4" />
+            <IconX className="h-4 w-4" />
           </Button>
         </div>
       </div>
@@ -1111,7 +1113,7 @@ const EditableCell = ({
         onClick={() => setIsEditing(true)}
         className="h-5 w-5 opacity-0 group-hover:opacity-100 transition-opacity"
       >
-        <PencilIcon className="h-3.5 w-3.5" />
+        <IconPencil className="h-3.5 w-3.5" />
         <span className="sr-only">Edit</span>
       </Button>
     </div>

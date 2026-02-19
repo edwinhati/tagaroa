@@ -8,7 +8,7 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from "@repo/ui/components/popover";
-import { FilterIcon } from "lucide-react";
+import { IconFilter } from "@tabler/icons-react";
 import * as React from "react";
 import { useId } from "react";
 
@@ -50,21 +50,23 @@ export function DataTableMultiSelectFilter({
 
   return (
     <Popover open={open} onOpenChange={onOpenChange}>
-      <PopoverTrigger asChild>
-        <Button variant="outline" className={buttonClassName}>
-          <FilterIcon
-            className="-ms-1 opacity-60"
-            size={16}
-            aria-hidden="true"
-          />
-          {triggerLabel}
-          {selectedValues.length > 0 && (
-            <span className="bg-background text-muted-foreground/70 -me-1 inline-flex h-5 max-h-full items-center rounded border px-1 font-[inherit] text-[0.625rem] font-medium">
-              {selectedValues.length}
-            </span>
-          )}
-        </Button>
-      </PopoverTrigger>
+      <PopoverTrigger
+        render={
+          <Button variant="outline" className={buttonClassName}>
+            <IconFilter
+              className="-ms-1 opacity-60"
+              size={16}
+              aria-hidden="true"
+            />
+            {triggerLabel}
+            {selectedValues.length > 0 && (
+              <span className="bg-background text-muted-foreground/70 -me-1 inline-flex h-5 max-h-full items-center rounded border px-1 font-[inherit] text-[0.625rem] font-medium">
+                {selectedValues.length}
+              </span>
+            )}
+          </Button>
+        }
+      />
       <PopoverContent className="w-auto min-w-36 p-3" align="start">
         <div className="space-y-3">
           <div className="text-muted-foreground text-xs font-medium">

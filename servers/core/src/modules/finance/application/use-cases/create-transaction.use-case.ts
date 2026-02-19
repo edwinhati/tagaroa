@@ -1,12 +1,8 @@
-import {
-  ForbiddenException,
-  Inject,
-  Injectable,
-  NotFoundException,
-} from "@nestjs/common";
-import { Account } from "../../domain/entities/account.entity";
-import { BudgetItem } from "../../domain/entities/budget-item.entity";
+import { Inject, Injectable } from "@nestjs/common";
 import { Transaction } from "../../domain/entities/transaction.entity";
+import { AccountNotFoundException } from "../../domain/exceptions/account.exceptions";
+import { BudgetItemNotFoundException } from "../../domain/exceptions/budget.exceptions";
+import { TransactionAccessDeniedException } from "../../domain/exceptions/transaction.exceptions";
 import {
   ACCOUNT_REPOSITORY,
   type IAccountRepository,
@@ -24,6 +20,7 @@ import {
   TRANSACTION_REPOSITORY,
 } from "../../domain/repositories/transaction.repository.interface";
 import { CreateTransactionDto } from "../dtos/create-transaction.dto";
+import { TransactionSideEffectsService } from "../services/transaction-side-effects.service";
 
 @Injectable()
 export class CreateTransactionUseCase {
@@ -36,6 +33,7 @@ export class CreateTransactionUseCase {
     private readonly budgetItemRepository: IBudgetItemRepository,
     @Inject(BUDGET_REPOSITORY)
     private readonly budgetRepository: IBudgetRepository,
+    private readonly sideEffectsService: TransactionSideEffectsService,
   ) {}
 
   async execute(
@@ -43,8 +41,11 @@ export class CreateTransactionUseCase {
     dto: CreateTransactionDto,
   ): Promise<Transaction> {
     const account = await this.accountRepository.findById(dto.accountId);
-    if (!account || account.userId !== userId) {
-      throw new NotFoundException("Account not found");
+    if (!account) {
+      throw new AccountNotFoundException(dto.accountId);
+    }
+    if (account.userId !== userId) {
+      throw new AccountNotFoundException(dto.accountId);
     }
 
     if (dto.budgetItemId) {
@@ -52,15 +53,13 @@ export class CreateTransactionUseCase {
         dto.budgetItemId,
       );
       if (!budgetItem) {
-        throw new NotFoundException("Budget item not found");
+        throw new BudgetItemNotFoundException(dto.budgetItemId);
       }
 
       // Verify budget ownership
       const budget = await this.budgetRepository.findById(budgetItem.budgetId);
       if (!budget || budget.userId !== userId) {
-        throw new ForbiddenException(
-          "Budget item does not belong to your budget",
-        );
+        throw new TransactionAccessDeniedException();
       }
     }
 
@@ -86,11 +85,13 @@ export class CreateTransactionUseCase {
 
     // Update budget item spent field
     if (createdTransaction.budgetItemId) {
-      await this.recalculateSpent(createdTransaction.budgetItemId);
+      await this.sideEffectsService.recalculateSpent(
+        createdTransaction.budgetItemId,
+      );
     }
 
     // Update account balance (add transaction)
-    await this.updateAccountBalance(
+    await this.sideEffectsService.updateAccountBalance(
       createdTransaction.accountId,
       createdTransaction.amount,
       createdTransaction.type,
@@ -98,63 +99,5 @@ export class CreateTransactionUseCase {
     );
 
     return createdTransaction;
-  }
-
-  private async recalculateSpent(budgetItemId: string): Promise<void> {
-    const transactions =
-      await this.transactionRepository.findByBudgetItemId(budgetItemId);
-    const spent = transactions.reduce((sum, t) => sum + t.amount, 0);
-
-    const budgetItem = await this.budgetItemRepository.findById(budgetItemId);
-    if (budgetItem) {
-      const updated = new BudgetItem(
-        budgetItem.id,
-        budgetItem.budgetId,
-        budgetItem.category,
-        budgetItem.allocation,
-        spent,
-        budgetItem.deletedAt,
-        budgetItem.createdAt,
-        new Date(),
-      );
-      await this.budgetItemRepository.update(updated);
-    }
-  }
-
-  private async updateAccountBalance(
-    accountId: string,
-    amount: number,
-    type: string,
-    isAdd: boolean,
-  ): Promise<void> {
-    const account = await this.accountRepository.findById(accountId);
-    if (!account) return;
-
-    let newBalance = account.balance;
-
-    if (isAdd) {
-      // Adding a transaction: INCOME increases, EXPENSE decreases
-      newBalance =
-        type === "INCOME" ? newBalance + amount : newBalance - amount;
-    } else {
-      // Removing a transaction: reverse the operation
-      newBalance =
-        type === "INCOME" ? newBalance - amount : newBalance + amount;
-    }
-
-    const updated = new Account(
-      account.id,
-      account.name,
-      account.type,
-      newBalance,
-      account.userId,
-      account.currency,
-      account.notes,
-      account.deletedAt,
-      account.createdAt,
-      new Date(),
-      account.version,
-    );
-    await this.accountRepository.update(updated);
   }
 }

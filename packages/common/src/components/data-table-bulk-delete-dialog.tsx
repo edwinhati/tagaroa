@@ -11,12 +11,13 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "@repo/ui/components/alert-dialog";
-import { Button } from "@repo/ui/components/button";
-import { CircleAlertIcon } from "lucide-react";
+import { buttonVariants } from "@repo/ui/components/button";
+import { cn } from "@repo/ui/lib/utils";
+import { IconAlertCircle } from "@tabler/icons-react";
 import * as React from "react";
-import { type ComponentProps, useState } from "react";
+import { useState } from "react";
 
-type ButtonComponentProps = ComponentProps<typeof Button>;
+type ButtonVariantProps = NonNullable<Parameters<typeof buttonVariants>[0]>;
 
 export type DataTableBulkDeleteDialogProps = Readonly<{
   selectedCount: number;
@@ -26,8 +27,8 @@ export type DataTableBulkDeleteDialogProps = Readonly<{
   title?: string;
   description?: string;
   disabled?: boolean;
-  buttonVariant?: ButtonComponentProps["variant"];
-  buttonSize?: ButtonComponentProps["size"];
+  buttonVariant?: ButtonVariantProps["variant"];
+  buttonSize?: ButtonVariantProps["size"];
   buttonClassName?: string;
 }>;
 
@@ -64,12 +65,14 @@ export function DataTableBulkDeleteDialog({
       open={open}
       onOpenChange={(value) => !isSubmitting && setOpen(value)}
     >
-      <AlertDialogTrigger asChild>
-        {selectedCount > 0 && (
-          <Button
-            variant={buttonVariant}
-            size={buttonSize}
-            className={buttonClassName}
+      <AlertDialogTrigger
+        render={
+          <button
+            type="button"
+            className={cn(
+              buttonVariants({ variant: buttonVariant, size: buttonSize }),
+              buttonClassName,
+            )}
             disabled={disabled || selectedCount === 0 || isSubmitting}
           >
             {triggerLabel}
@@ -78,16 +81,16 @@ export function DataTableBulkDeleteDialog({
                 {selectedCount}
               </span>
             )}
-          </Button>
-        )}
-      </AlertDialogTrigger>
+          </button>
+        }
+      />
       <AlertDialogContent>
         <div className="flex flex-col gap-2 max-sm:items-center sm:flex-row sm:gap-4">
           <div
             className="flex size-9 shrink-0 items-center justify-center rounded-full border"
             aria-hidden="true"
           >
-            <CircleAlertIcon className="opacity-80" size={16} />
+            <IconAlertCircle className="opacity-80" size={16} />
           </div>
           <AlertDialogHeader>
             <AlertDialogTitle>{title}</AlertDialogTitle>

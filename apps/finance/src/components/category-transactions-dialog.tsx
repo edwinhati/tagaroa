@@ -18,9 +18,9 @@ import {
   TableHeader,
   TableRow,
 } from "@repo/ui/components/table";
+import { IconArrowDownRight, IconArrowUpRight } from "@tabler/icons-react";
 import { useQuery } from "@tanstack/react-query";
 import { format } from "date-fns";
-import { ArrowDownRight, ArrowUpRight } from "lucide-react";
 import type { DateRange } from "react-day-picker";
 import { formatCurrency } from "@/utils/currency";
 
@@ -118,9 +118,9 @@ export function CategoryTransactionsDialog({
                         className="gap-1"
                       >
                         {transaction.type === "INCOME" ? (
-                          <ArrowUpRight className="h-3 w-3" />
+                          <IconArrowUpRight className="h-3 w-3" />
                         ) : (
-                          <ArrowDownRight className="h-3 w-3" />
+                          <IconArrowDownRight className="h-3 w-3" />
                         )}
                         {transaction.type}
                       </Badge>

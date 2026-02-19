@@ -18,8 +18,8 @@ import {
   TableHeader,
   TableRow,
 } from "@repo/ui/components/table";
+import { IconBuilding } from "@tabler/icons-react";
 import { useQuery } from "@tanstack/react-query";
-import { Building2 } from "lucide-react";
 import { formatCurrency } from "@/utils/currency";
 
 interface AccountDetailDialogProps {
@@ -57,7 +57,7 @@ export function AccountDetailDialog({
       <DialogContent className="max-w-4xl max-h-[80vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
-            <Building2 className="h-5 w-5" />
+            <IconBuilding className="h-5 w-5" />
             {title}
           </DialogTitle>
           <DialogDescription>

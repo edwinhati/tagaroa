@@ -40,11 +40,8 @@ export function ContentPanel({
   menu,
 }: ContentPanelProps) {
   return (
-    <ResizablePanelGroup
-      direction="horizontal"
-      className="h-full border rounded-md mb-2"
-    >
-      <ResizablePanel minSize={15} maxSize={50} defaultSize={15}>
+    <ResizablePanelGroup className="h-full border rounded-md mb-2">
+      <ResizablePanel minSize="15%" maxSize="50%" defaultSize="15%">
         <SidebarHeader>
           <span className="text-base font-semibold ml-2">{contentTitle}</span>
         </SidebarHeader>
@@ -72,9 +69,9 @@ export function ContentPanel({
       </ResizablePanel>
       <ResizableHandle />
       <ResizablePanel
-        minSize={50}
-        maxSize={85}
-        defaultSize={85}
+        minSize="50%"
+        maxSize="85%"
+        defaultSize="85%"
         className="p-4"
       >
         {children}

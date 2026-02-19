@@ -7,15 +7,15 @@ import {
 import { Card, CardContent, CardHeader } from "@repo/ui/components/card";
 import { Skeleton } from "@repo/ui/components/skeleton";
 import { cn } from "@repo/ui/lib/utils";
+import {
+  IconArrowDownRight,
+  IconArrowUpRight,
+  IconCurrencyDollar,
+  IconPigMoney,
+  IconReceipt,
+} from "@tabler/icons-react";
 import { useQuery } from "@tanstack/react-query";
 import { format, subMonths } from "date-fns";
-import {
-  ArrowDownRight,
-  ArrowUpRight,
-  CircleDollarSign,
-  PiggyBank,
-  Receipt,
-} from "lucide-react";
 import type { DateRange } from "react-day-picker";
 import { formatCurrency } from "@/utils/currency";
 import { MiniSparkline } from "./mini-sparkline";
@@ -49,17 +49,17 @@ const StatCard = ({
     <Card
       className={cn(
         "relative overflow-hidden",
-        "border-border/50",
-        "bg-card/80 backdrop-blur-sm",
+        "border-border/40",
+        "bg-card/60 backdrop-blur-md",
         "shadow-sm",
-        "transition-shadow duration-200 hover:shadow-md",
+        "shadow-sm",
         className,
       )}
     >
       <CardHeader className="flex flex-row items-start justify-between space-y-0 pb-2">
-        <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
+        <h3 className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
           {title}
-        </p>
+        </h3>
         {icon && (
           <div
             className={cn(
@@ -80,13 +80,13 @@ const StatCard = ({
           <p className="text-xs flex items-center gap-1.5">
             {trend === "up" && (
               <span className="flex items-center gap-0.5 text-emerald-600 font-bold">
-                <ArrowUpRight className="h-4 w-4" />
+                <IconArrowUpRight className="h-4 w-4" />
                 {change}
               </span>
             )}
             {trend === "down" && (
               <span className="flex items-center gap-0.5 text-rose-600 font-bold">
-                <ArrowDownRight className="h-4 w-4" />
+                <IconArrowDownRight className="h-4 w-4" />
                 {change}
               </span>
             )}
@@ -191,34 +191,43 @@ export function StatCardsSection({ range }: StatCardsSectionProps) {
     <div className="grid gap-4 grid-cols-1 md:grid-cols-3">
       <StatCard
         title="Total Income"
-        value={formatCurrency(summary?.income.amount ?? 0, "IDR")}
+        value={formatCurrency(
+          summary?.income.amount ?? 0,
+          summary?.income.currency ?? "IDR",
+        )}
         change={`${(summary?.income_comparison.change ?? 0) > 0 ? "+" : ""}${(
           summary?.income_comparison.change ?? 0
         ).toFixed(2)}`}
         trend={incomeTrend}
-        icon={<CircleDollarSign className="h-4 w-4" />}
+        icon={<IconCurrencyDollar className="h-4 w-4" />}
         iconBgColor="text-emerald-500 bg-emerald-500/10 rounded-xl p-2.5"
         sparklineData={incomeSparkline}
       />
       <StatCard
         title="Total Expenses"
-        value={formatCurrency(summary?.expenses.amount ?? 0, "IDR")}
+        value={formatCurrency(
+          summary?.expenses.amount ?? 0,
+          summary?.expenses.currency ?? "IDR",
+        )}
         change={`${(summary?.expense_comparison.change ?? 0) > 0 ? "+" : ""}${(
           summary?.expense_comparison.change ?? 0
         ).toFixed(2)}`}
         trend={expenseTrend}
-        icon={<Receipt className="h-4 w-4" />}
+        icon={<IconReceipt className="h-4 w-4" />}
         iconBgColor="text-rose-500 bg-rose-500/10 rounded-xl p-2.5"
         sparklineData={expenseSparkline}
       />
       <StatCard
         title="Net Savings"
-        value={formatCurrency(summary?.savings.amount ?? 0, "IDR")}
+        value={formatCurrency(
+          summary?.savings.amount ?? 0,
+          summary?.savings.currency ?? "IDR",
+        )}
         change={`${(summary?.savings_comparison.change ?? 0) > 0 ? "+" : ""}${(
           summary?.savings_comparison.change ?? 0
         ).toFixed(2)}`}
         trend={savingsTrend}
-        icon={<PiggyBank className="h-4 w-4" />}
+        icon={<IconPigMoney className="h-4 w-4" />}
         iconBgColor={cn(
           "rounded-xl p-2.5",
           savingsTrend === "up" && "text-emerald-500 bg-emerald-500/10",

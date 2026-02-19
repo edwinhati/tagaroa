@@ -7,8 +7,8 @@ import {
   HttpStatus,
   Param,
   ParseUUIDPipe,
+  Patch,
   Post,
-  Put,
   Query,
   UseGuards,
 } from "@nestjs/common";
@@ -97,7 +97,7 @@ export class TransactionController {
     return toTransactionResponse(transaction, account, budgetItem ?? undefined);
   }
 
-  @Put(":id")
+  @Patch(":id")
   async update(
     @Session() session: UserSession,
     @Param("id", ParseUUIDPipe) id: string,

@@ -24,7 +24,6 @@ export function DashboardContent() {
     setRange: s.setRange,
   }));
 
-  // Initialize range to last 3 months if not set
   useEffect(() => {
     if (!range) {
       setRange({
@@ -39,70 +38,69 @@ export function DashboardContent() {
   }, [month, year, range, setRange]);
 
   return (
-    <div className="space-y-8 pb-12">
-      {/* Header with Date Range Picker */}
-      <div className="flex items-center justify-between -mx-6 px-6 py-5 -mt-6 border-b border-border/50">
+    <div className="space-y-8 pb-8">
+      <div className="flex items-center justify-between">
+        <h1 className="text-2xl font-bold tracking-tight text-foreground">
+          Dashboard
+        </h1>
         <DateRangePicker date={range} onDateChange={setRange} />
       </div>
 
-      {/* Net Worth Section */}
+      {/* Net Worth */}
       <section className="space-y-4">
-        <div className="flex items-center gap-2">
-          <div className="h-5 w-1 bg-primary rounded-full" />
-          <h2 className="text-lg font-semibold text-foreground">Net Worth</h2>
-        </div>
+        <h2 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider border-l-2 border-primary pl-3">
+          Net Worth
+        </h2>
         <FinancialHealthSection range={range} />
       </section>
 
-      {/* Overview Section */}
+      {/* Overview */}
       <section className="space-y-4">
-        <div className="flex items-center gap-2">
-          <div className="h-5 w-1 bg-primary rounded-full" />
-          <h2 className="text-lg font-semibold text-foreground">Overview</h2>
-        </div>
+        <h2 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider border-l-2 border-primary pl-3">
+          Overview
+        </h2>
         <StatCardsSection range={range} />
       </section>
 
-      {/* Financial Trends Section */}
+      {/* Financial Trends */}
       <section className="space-y-4">
-        <div className="flex items-center gap-2">
-          <div className="h-5 w-1 bg-primary rounded-full" />
-          <h2 className="text-lg font-semibold text-foreground">
-            Financial Trends
-          </h2>
-        </div>
-        <TransactionTrendsChart range={range} />
-      </section>
-
-      {/* Insights Section */}
-      <section className="space-y-4">
-        <InsightsPanel range={range} />
-      </section>
-
-      {/* Breakdown Section */}
-      <section className="space-y-4">
-        <div className="flex items-center gap-2">
-          <div className="h-5 w-1 bg-primary rounded-full" />
-          <h2 className="text-lg font-semibold text-foreground">Breakdown</h2>
-        </div>
-        <div className="grid gap-5 md:grid-cols-2">
-          <AccountOverviewChart />
-          <ExpenseBreakdownChart range={range} />
+        <h2 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider border-l-2 border-primary pl-3">
+          Financial Trends
+        </h2>
+        <div className="grid grid-cols-1 md:grid-cols-12 gap-6">
+          <div className="md:col-span-12 lg:col-span-8 h-full">
+            <TransactionTrendsChart range={range} />
+          </div>
+          <div className="md:col-span-12 lg:col-span-4 h-full">
+            <InsightsPanel range={range} />
+          </div>
         </div>
       </section>
 
-      {/* Budget Analysis Section */}
+      {/* Breakdown */}
       <section className="space-y-4">
-        <div className="flex items-center gap-2">
-          <div className="h-5 w-1 bg-primary rounded-full" />
-          <h2 className="text-lg font-semibold text-foreground">
-            Budget Analysis
-          </h2>
+        <h2 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider border-l-2 border-primary pl-3">
+          Breakdown
+        </h2>
+        <div className="grid grid-cols-1 md:grid-cols-12 gap-6">
+          <div className="md:col-span-6 lg:col-span-4">
+            <AccountOverviewChart />
+          </div>
+          <div className="md:col-span-6 lg:col-span-4">
+            <ExpenseBreakdownChart range={range} />
+          </div>
+          <div className="md:col-span-12 lg:col-span-4">
+            <BudgetVsActualChart range={range} />
+          </div>
         </div>
-        <div className="grid gap-5 md:grid-cols-2">
-          <BudgetVsActualChart range={range} />
-          <MonthlyComparisonChart range={range} />
-        </div>
+      </section>
+
+      {/* Budget Analysis */}
+      <section className="space-y-4">
+        <h2 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider border-l-2 border-primary pl-3">
+          Budget Analysis
+        </h2>
+        <MonthlyComparisonChart range={range} />
       </section>
     </div>
   );

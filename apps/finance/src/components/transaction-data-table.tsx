@@ -6,6 +6,7 @@ import { DataTablePagination } from "@repo/common/components/data-table-paginati
 import { ServerSearchInput } from "@repo/common/components/data-table-search-input";
 import { Loading } from "@repo/common/components/loading";
 import { useBudgetPeriod } from "@repo/common/hooks/use-budget-period";
+import { useDebounce } from "@repo/common/hooks/use-debounce";
 import { useFilters } from "@repo/common/hooks/use-filters";
 import {
   transactionDeleteMutationOptions,
@@ -18,7 +19,6 @@ import type {
 } from "@repo/common/types/transaction";
 import { Badge } from "@repo/ui/components/badge";
 import { Button } from "@repo/ui/components/button";
-import { Calendar } from "@repo/ui/components/calendar";
 import { Checkbox } from "@repo/ui/components/checkbox";
 import {
   DropdownMenu,
@@ -36,11 +36,6 @@ import {
   EmptyHeader,
   EmptyTitle,
 } from "@repo/ui/components/empty";
-import {
-  Popover,
-  PopoverContent,
-  PopoverTrigger,
-} from "@repo/ui/components/popover";
 import { Skeleton } from "@repo/ui/components/skeleton";
 import {
   Table,
@@ -50,6 +45,13 @@ import {
   TableHeader,
   TableRow,
 } from "@repo/ui/components/table";
+import { cn } from "@repo/ui/lib/utils";
+import {
+  IconChevronDown,
+  IconChevronUp,
+  IconDots,
+  IconPlus,
+} from "@tabler/icons-react";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import {
   type ColumnDef,
@@ -61,15 +63,9 @@ import {
   useReactTable,
 } from "@tanstack/react-table";
 import { format } from "date-fns";
-import {
-  CalendarIcon,
-  ChevronDownIcon,
-  ChevronUpIcon,
-  EllipsisIcon,
-  PlusIcon,
-} from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import type { DateRange } from "react-day-picker";
+import { DateRangePicker } from "./date-range-picker";
 import { TransactionFormDialog } from "./transaction-form-dialog";
 
 // Types
@@ -183,18 +179,20 @@ type RowActionsProps = Readonly<{
 function RowActions({ row, deleteTransaction }: RowActionsProps) {
   return (
     <DropdownMenu>
-      <DropdownMenuTrigger asChild>
-        <div className="flex justify-end">
-          <Button
-            size="icon"
-            variant="ghost"
-            className="shadow-none"
-            aria-label="Edit item"
-          >
-            <EllipsisIcon size={16} aria-hidden="true" />
-          </Button>
-        </div>
-      </DropdownMenuTrigger>
+      <DropdownMenuTrigger
+        render={
+          <div className="flex justify-end">
+            <Button
+              size="icon"
+              variant="ghost"
+              className="shadow-none"
+              aria-label="Edit item"
+            >
+              <IconDots size={16} aria-hidden="true" />
+            </Button>
+          </div>
+        }
+      />
       <DropdownMenuContent align="end">
         <DropdownMenuGroup>
           <TransactionFormDialog
@@ -233,10 +231,8 @@ function buildColumns(
       id: "select",
       header: ({ table }) => (
         <Checkbox
-          checked={
-            table.getIsAllPageRowsSelected() ||
-            (table.getIsSomePageRowsSelected() && "indeterminate")
-          }
+          checked={table.getIsAllPageRowsSelected()}
+          indeterminate={table.getIsSomePageRowsSelected()}
           onCheckedChange={(value) => table.toggleAllPageRowsSelected(!!value)}
           aria-label="Select all"
         />
@@ -266,8 +262,20 @@ function buildColumns(
       header: "Type",
       accessorKey: "type",
       cell: ({ row }) => {
-        const typeValue = row.getValue("type")?.toString().replaceAll("_", "-");
-        return <Badge variant="outline">{typeValue}</Badge>;
+        const typeValue = row.getValue("type") as string;
+        const isIncome = typeValue === "INCOME";
+        return (
+          <Badge
+            variant="outline"
+            className={cn(
+              isIncome
+                ? "border-emerald-500/40 bg-emerald-50 text-emerald-700 dark:bg-emerald-950/30 dark:text-emerald-400"
+                : "border-rose-500/40 bg-rose-50 text-rose-700 dark:bg-rose-950/30 dark:text-rose-400",
+            )}
+          >
+            {typeValue.replaceAll("_", "-")}
+          </Badge>
+        );
       },
       size: 100,
     },
@@ -276,10 +284,23 @@ function buildColumns(
       accessorKey: "amount",
       cell: ({ row }) => {
         const amount = Number.parseFloat(row.getValue("amount"));
-        return new Intl.NumberFormat(
+        const isIncome = row.original.type === "INCOME";
+        const formatted = new Intl.NumberFormat(
           row.original.currency === "IDR" ? "id-ID" : "en-US",
           { style: "currency", currency: row.original.currency },
         ).format(amount);
+        return (
+          <span
+            className={cn(
+              "font-medium tabular-nums",
+              isIncome
+                ? "text-emerald-600 dark:text-emerald-400"
+                : "text-rose-600 dark:text-rose-400",
+            )}
+          >
+            {formatted}
+          </span>
+        );
       },
       size: 150,
     },
@@ -411,32 +432,7 @@ function TransactionToolbar({
           className="min-w-60"
           aria-label="Search transactions"
         />
-        <Popover>
-          <PopoverTrigger asChild>
-            <Button variant="outline">
-              <CalendarIcon />
-              {range?.from &&
-                range?.to &&
-                `${range.from.toLocaleDateString()} - ${range.to.toLocaleDateString()}`}
-            </Button>
-          </PopoverTrigger>
-          <PopoverContent
-            className="w-auto overflow-hidden p-0 ml-4"
-            align="end"
-          >
-            <Calendar
-              className="w-full"
-              mode="range"
-              defaultMonth={range?.from}
-              selected={range}
-              onSelect={onRangeChange}
-              fixedWeeks
-              showOutsideDays
-              numberOfMonths={2}
-              disabled={{ after: new Date() }}
-            />
-          </PopoverContent>
-        </Popover>
+        <DateRangePicker date={range} onDateChange={onRangeChange} />
         {Object.entries(filterOptions).map(([filterKey, options]) => (
           <DataTableMultiSelectFilter
             key={filterKey}
@@ -465,7 +461,7 @@ function TransactionToolbar({
         <TransactionFormDialog
           trigger={
             <Button size="sm">
-              <PlusIcon className="mr-2 h-4 w-4" />
+              <IconPlus className="mr-2 h-4 w-4" />
               Add Transaction
             </Button>
           }
@@ -502,6 +498,7 @@ function TransactionDataTableContent() {
     pageSize: 5,
   });
   const [searchQuery, setSearchQuery] = useState<string>("");
+  const debouncedSearchQuery = useDebounce(searchQuery, 300);
 
   const [stableData, setStableData] =
     useState<PaginatedTransactionsResult | null>(null);
@@ -532,7 +529,7 @@ function TransactionDataTableContent() {
       page: pagination.pageIndex + 1,
       limit: pagination.pageSize,
       filters: serverFilters,
-      search: searchQuery,
+      search: debouncedSearchQuery,
       startDate: range?.from,
       endDate: range?.to,
     }),
@@ -551,8 +548,16 @@ function TransactionDataTableContent() {
         aggregations: transactionsResponse.aggregations || {},
       });
       setIsInitialLoading(false);
+      // If current page returns no rows but total > 0, reset to first page
+      if (
+        transactionsResponse.transactions?.length === 0 &&
+        (transactionsResponse.pagination?.total ?? 0) > 0 &&
+        pagination.pageIndex > 0
+      ) {
+        setPagination((prev) => ({ ...prev, pageIndex: 0 }));
+      }
     }
-  }, [transactionsResponse, error]);
+  }, [transactionsResponse, error, pagination.pageIndex]);
 
   const tableData = useMemo(
     () => (stableData?.transactions ?? []) as TransactionWithRelations[],
@@ -638,6 +643,7 @@ function TransactionDataTableContent() {
 
   return (
     <div className="relative space-y-4">
+      <h2 className="sr-only">Transaction Management</h2>
       <TransactionToolbar
         searchQuery={searchQuery}
         onSearchChange={handleSearchChange}
@@ -689,14 +695,14 @@ function TransactionDataTableContent() {
                       >
                         {headerLabel}
                         {sortState === "asc" && (
-                          <ChevronUpIcon
+                          <IconChevronUp
                             className="shrink-0 opacity-60"
                             size={16}
                             aria-hidden="true"
                           />
                         )}
                         {sortState === "desc" && (
-                          <ChevronDownIcon
+                          <IconChevronDown
                             className="shrink-0 opacity-60"
                             size={16}
                             aria-hidden="true"
@@ -757,7 +763,7 @@ function TransactionDataTableContent() {
                             <TransactionFormDialog
                               trigger={
                                 <Button size="sm">
-                                  <PlusIcon
+                                  <IconPlus
                                     className="-ms-1 opacity-60"
                                     size={16}
                                     aria-hidden="true"

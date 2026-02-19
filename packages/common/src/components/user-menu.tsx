@@ -16,16 +16,8 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@repo/ui/components/dropdown-menu";
+import { IconLogout, IconUserOff } from "@tabler/icons-react";
 import type { SessionWithImpersonatedBy } from "better-auth/plugins/admin";
-import {
-  BoltIcon,
-  BookOpenIcon,
-  Layers2Icon,
-  LogOutIcon,
-  PinIcon,
-  UserPenIcon,
-  UserXIcon,
-} from "lucide-react";
 import * as React from "react";
 import { useState } from "react";
 import { toast } from "sonner";
@@ -72,55 +64,33 @@ export function UserMenu() {
 
   return (
     <DropdownMenu modal={false}>
-      <DropdownMenuTrigger asChild>
-        <Button variant="ghost" className="h-auto p-0 hover:bg-transparent">
-          <Avatar className="rounded-md">
-            <AvatarImage src={avatarSrc} alt="Profile image" />
-            <AvatarFallback className="uppercase rounded-md">
-              {session?.user.name.split(" ").map((n: string) => n.charAt(0))}
-            </AvatarFallback>
-          </Avatar>
-        </Button>
-      </DropdownMenuTrigger>
+      <DropdownMenuTrigger
+        render={
+          <Button variant="ghost" className="h-auto p-0 hover:bg-transparent">
+            <Avatar>
+              <AvatarImage src={avatarSrc} alt="Profile image" />
+              <AvatarFallback className="uppercase">
+                {session?.user.name.split(" ").map((n: string) => n.charAt(0))}
+              </AvatarFallback>
+            </Avatar>
+          </Button>
+        }
+      />
       <DropdownMenuContent className="max-w-64" align="end">
-        <DropdownMenuLabel className="flex min-w-0 flex-col">
-          <span className="text-foreground truncate text-sm font-medium">
-            {session?.user.name}
-          </span>
-          <span className="text-muted-foreground truncate text-xs font-normal">
-            {session?.user.email}
-          </span>
-          {isImpersonating ? (
-            <span className="text-amber-500 truncate text-xs font-medium">
-              Impersonating • return to admin when finished
+        <DropdownMenuGroup>
+          <DropdownMenuLabel className="flex min-w-0 flex-col">
+            <span className="text-foreground truncate text-sm font-medium">
+              {session?.user.name}
             </span>
-          ) : null}
-        </DropdownMenuLabel>
-        <DropdownMenuSeparator />
-        <DropdownMenuGroup>
-          <DropdownMenuItem>
-            <BoltIcon size={16} className="opacity-60" aria-hidden="true" />
-            <span>Option 1</span>
-          </DropdownMenuItem>
-          <DropdownMenuItem>
-            <Layers2Icon size={16} className="opacity-60" aria-hidden="true" />
-            <span>Option 2</span>
-          </DropdownMenuItem>
-          <DropdownMenuItem>
-            <BookOpenIcon size={16} className="opacity-60" aria-hidden="true" />
-            <span>Option 3</span>
-          </DropdownMenuItem>
-        </DropdownMenuGroup>
-        <DropdownMenuSeparator />
-        <DropdownMenuGroup>
-          <DropdownMenuItem>
-            <PinIcon size={16} className="opacity-60" aria-hidden="true" />
-            <span>Option 4</span>
-          </DropdownMenuItem>
-          <DropdownMenuItem>
-            <UserPenIcon size={16} className="opacity-60" aria-hidden="true" />
-            <span>Option 5</span>
-          </DropdownMenuItem>
+            <span className="text-muted-foreground truncate text-xs font-normal">
+              {session?.user.email}
+            </span>
+            {isImpersonating ? (
+              <span className="text-amber-500 truncate text-xs font-medium">
+                Impersonating • return to admin when finished
+              </span>
+            ) : null}
+          </DropdownMenuLabel>
         </DropdownMenuGroup>
         <DropdownMenuSeparator />
         {isImpersonating ? (
@@ -139,7 +109,7 @@ export function UserMenu() {
               }
             }}
           >
-            <UserXIcon size={16} className="opacity-60" aria-hidden="true" />
+            <IconUserOff size={16} className="opacity-60" aria-hidden="true" />
             <span>
               {isStoppingImpersonation ? "Stopping..." : "Stop impersonating"}
             </span>
@@ -180,7 +150,7 @@ export function UserMenu() {
             }
           }}
         >
-          <LogOutIcon size={16} className="opacity-60" aria-hidden="true" />
+          <IconLogout size={16} className="opacity-60" aria-hidden="true" />
           <span>{isLoggingOut ? "Logging out..." : "Logout"}</span>
         </DropdownMenuItem>
       </DropdownMenuContent>

@@ -2,7 +2,7 @@
 
 import { Button } from "@repo/ui/components/button";
 import { cn } from "@repo/ui/lib/utils";
-import { CheckIcon, CopyIcon } from "lucide-react";
+import { IconCheck, IconCopy } from "@tabler/icons-react";
 import * as React from "react";
 import { useState } from "react";
 import { toast } from "sonner";
@@ -41,7 +41,7 @@ export function CopyToClipboard({ text, label }: CopyToClipboardProps) {
           copied ? "opacity-0" : "opacity-100",
         )}
       >
-        <CopyIcon className="h-3 w-3" />
+        <IconCopy className="h-3 w-3" />
       </span>
       <span
         className={cn(
@@ -49,7 +49,7 @@ export function CopyToClipboard({ text, label }: CopyToClipboardProps) {
           copied ? "opacity-100" : "opacity-0",
         )}
       >
-        <CheckIcon className="h-3 w-3 text-green-500" />
+        <IconCheck className="h-3 w-3 text-green-500" />
       </span>
     </Button>
   );

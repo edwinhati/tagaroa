@@ -26,7 +26,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@repo/ui/components/select";
-import { PlusIcon } from "lucide-react";
+import { IconPlus } from "@tabler/icons-react";
 import { useState } from "react";
 import { Controller, useForm } from "react-hook-form";
 import { toast } from "sonner";
@@ -95,12 +95,14 @@ export function CreateUserDialog({ onUserCreated }: CreateUserDialogProps) {
 
   return (
     <Dialog open={open} onOpenChange={setOpen}>
-      <DialogTrigger asChild>
-        <Button size="sm">
-          <PlusIcon className="h-4 w-4" />
-          Add User
-        </Button>
-      </DialogTrigger>
+      <DialogTrigger
+        render={
+          <Button size="sm">
+            <IconPlus className="h-4 w-4" />
+            Add User
+          </Button>
+        }
+      />
       <DialogContent className="sm:max-w-3xl w-full">
         <DialogHeader>
           <DialogTitle>Create New User</DialogTitle>

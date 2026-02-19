@@ -14,13 +14,13 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@repo/ui/components/select";
-import type { Table } from "@tanstack/react-table";
 import {
-  ChevronFirstIcon,
-  ChevronLastIcon,
-  ChevronLeftIcon,
-  ChevronRightIcon,
-} from "lucide-react";
+  IconChevronLeft,
+  IconChevronRight,
+  IconChevronsLeft,
+  IconChevronsRight,
+} from "@tabler/icons-react";
+import type { Table } from "@tanstack/react-table";
 import * as React from "react";
 import { type ReactNode } from "react";
 
@@ -58,8 +58,9 @@ export function DataTablePagination<TData>({
   const hasNext = serverSidePagination?.hasNext ?? table.getCanNextPage();
   const hasPrev = serverSidePagination?.hasPrev ?? table.getCanPreviousPage();
 
+  const actualRows = table.getRowModel().rows.length;
   const start = rowCount === 0 ? 0 : (currentPage - 1) * pageSize + 1;
-  const end = rowCount === 0 ? 0 : Math.min(currentPage * pageSize, rowCount);
+  const end = rowCount === 0 || actualRows === 0 ? 0 : start + actualRows - 1;
 
   return (
     <div className="flex flex-wrap items-center justify-between gap-4">
@@ -104,7 +105,7 @@ export function DataTablePagination<TData>({
                 disabled={!hasPrev}
                 aria-label="Go to first page"
               >
-                <ChevronFirstIcon size={16} aria-hidden="true" />
+                <IconChevronsLeft size={16} aria-hidden="true" />
               </Button>
             </PaginationItem>
             <PaginationItem>
@@ -116,7 +117,7 @@ export function DataTablePagination<TData>({
                 disabled={!hasPrev}
                 aria-label="Go to previous page"
               >
-                <ChevronLeftIcon size={16} aria-hidden="true" />
+                <IconChevronLeft size={16} aria-hidden="true" />
               </Button>
             </PaginationItem>
             <PaginationItem>
@@ -128,7 +129,7 @@ export function DataTablePagination<TData>({
                 disabled={!hasNext}
                 aria-label="Go to next page"
               >
-                <ChevronRightIcon size={16} aria-hidden="true" />
+                <IconChevronRight size={16} aria-hidden="true" />
               </Button>
             </PaginationItem>
             <PaginationItem>
@@ -140,7 +141,7 @@ export function DataTablePagination<TData>({
                 disabled={!hasNext}
                 aria-label="Go to last page"
               >
-                <ChevronLastIcon size={16} aria-hidden="true" />
+                <IconChevronsRight size={16} aria-hidden="true" />
               </Button>
             </PaginationItem>
           </PaginationContent>

@@ -6,6 +6,7 @@ import {
   count,
   desc,
   eq,
+  exists,
   gte,
   ilike,
   inArray,
@@ -173,10 +174,28 @@ export class DrizzleTransactionRepository implements ITransactionRepository {
   ): Promise<PaginatedResult<Transaction>> {
     const where = this.buildWhereConditions(userId, filters);
 
+    // Only include transactions whose account still exists (is not soft-deleted).
+    // This ensures the count and the returned items are always consistent,
+    // preventing the pagination total from diverging when accounts are deleted.
+    const withValidAccount = and(
+      where,
+      exists(
+        this.db
+          .select({ one: sql`1` })
+          .from(accounts)
+          .where(
+            and(
+              eq(accounts.id, transactions.accountId),
+              isNull(accounts.deletedAt),
+            ),
+          ),
+      ),
+    );
+
     const query = this.db
       .select()
       .from(transactions)
-      .where(where)
+      .where(withValidAccount)
       .limit(limit)
       .offset(offset);
 
@@ -201,12 +220,13 @@ export class DrizzleTransactionRepository implements ITransactionRepository {
       query.orderBy(desc(transactions.date));
     }
 
-    const [totalRow] = await this.db
-      .select({ count: sql<number>`count(*)` })
-      .from(transactions)
-      .where(where);
-
-    const rows = await query;
+    const [[totalRow], rows] = await Promise.all([
+      this.db
+        .select({ count: sql<number>`count(*)` })
+        .from(transactions)
+        .where(withValidAccount),
+      query,
+    ]);
 
     return {
       items: rows.map(TransactionMapper.toDomain),
@@ -341,6 +361,55 @@ export class DrizzleTransactionRepository implements ITransactionRepository {
       max: Number(row.max) || 0,
       avg: Number(row.avg) || 0,
       sum: Number(row.sum) || 0,
+    }));
+  }
+
+  async aggregateTrends(
+    userId: string,
+    startDate: Date,
+    endDate: Date,
+    granularity: "day" | "week" | "month" | "year",
+  ): Promise<{ period: string; income: number; expenses: number }[]> {
+    const truncFn =
+      granularity === "week"
+        ? sql`to_char(date_trunc('week', ${transactions.date}::timestamp), 'IYYY-"W"IW')`
+        : granularity === "day"
+          ? sql`to_char(${transactions.date}::timestamp, 'YYYY-MM-DD')`
+          : granularity === "year"
+            ? sql`to_char(${transactions.date}::timestamp, 'YYYY')`
+            : sql`to_char(${transactions.date}::timestamp, 'YYYY-MM')`;
+
+    const startStr = startDate.toISOString().split("T")[0] as string;
+    const endStr = endDate.toISOString().split("T")[0] as string;
+
+    const rows = await this.db
+      .select({
+        period: truncFn.as("period"),
+        income:
+          sql<number>`coalesce(sum(case when ${transactions.type} = 'INCOME' then ${transactions.amount} else 0 end), 0)`.as(
+            "income",
+          ),
+        expenses:
+          sql<number>`coalesce(sum(case when ${transactions.type} = 'EXPENSE' then ${transactions.amount} else 0 end), 0)`.as(
+            "expenses",
+          ),
+      })
+      .from(transactions)
+      .where(
+        and(
+          eq(transactions.userId, userId),
+          isNull(transactions.deletedAt),
+          gte(transactions.date, startStr),
+          lte(transactions.date, endStr),
+        ),
+      )
+      .groupBy(truncFn)
+      .orderBy(asc(truncFn));
+
+    return rows.map((row) => ({
+      period: String(row.period),
+      income: Number(row.income),
+      expenses: Number(row.expenses),
     }));
   }
 }

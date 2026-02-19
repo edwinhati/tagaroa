@@ -30,8 +30,8 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@repo/ui/components/select";
+import { IconLoader2, IconPlus } from "@tabler/icons-react";
 import { useMutation } from "@tanstack/react-query";
-import { Loader2, PlusIcon } from "lucide-react";
 import { useState } from "react";
 import { Controller, useForm, useWatch } from "react-hook-form";
 import { NumericFormat } from "react-number-format";
@@ -42,11 +42,7 @@ type BudgetFormDialogProps = Readonly<{
   trigger?: React.ReactElement;
 }>;
 
-const currencies = [
-  { value: "IDR", label: "Indonesian Rupiah (IDR)" },
-  { value: "USD", label: "US Dollar (USD)" },
-  { value: "SGD", label: "Singapore Dollar (SGD)" },
-];
+import { currencies } from "@repo/common/lib/currencies";
 
 export function BudgetFormDialog({
   initialData,
@@ -118,18 +114,20 @@ export function BudgetFormDialog({
 
   return (
     <Dialog open={open} onOpenChange={handleOpenChange}>
-      <DialogTrigger asChild>
-        {trigger ?? (
-          <Button className="ml-auto" size="sm">
-            <PlusIcon
-              className="-ms-1 opacity-60"
-              size={16}
-              aria-hidden="true"
-            />
-            Create budget
-          </Button>
-        )}
-      </DialogTrigger>
+      <DialogTrigger
+        render={
+          trigger ?? (
+            <Button className="ml-auto" size="sm">
+              <IconPlus
+                className="-ms-1 opacity-60"
+                size={16}
+                aria-hidden="true"
+              />
+              Create budget
+            </Button>
+          )
+        }
+      />
       <DialogContent className="!max-w-2xl !w-full max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>
@@ -310,7 +308,7 @@ export function BudgetFormDialog({
             <Button type="submit" disabled={isPending}>
               {isPending ? (
                 <>
-                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  <IconLoader2 className="mr-2 h-4 w-4 animate-spin" />
                   {submitLabel}
                 </>
               ) : (

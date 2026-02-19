@@ -1,6 +1,7 @@
 "use client";
 
 import { zodResolver } from "@hookform/resolvers/zod";
+import { currencies } from "@repo/common/lib/currencies";
 import {
   accountMutationOptions,
   accountTypesQueryOptions,
@@ -33,18 +34,12 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@repo/ui/components/select";
+import { IconLoader2, IconPlus } from "@tabler/icons-react";
 import { useMutation, useQuery } from "@tanstack/react-query";
-import { Loader2, PlusIcon } from "lucide-react";
 import { useState } from "react";
 import { Controller, useForm, useWatch } from "react-hook-form";
 import { NumericFormat } from "react-number-format";
 import { toast } from "sonner";
-
-const currencies = [
-  { value: "IDR", label: "Indonesian Rupiah (IDR)" },
-  { value: "USD", label: "US Dollar (USD)" },
-  { value: "SGD", label: "Singapore Dollar (SGD)" },
-];
 
 type AccountFormDialogProps = Readonly<{
   initialData?: Account;
@@ -137,18 +132,20 @@ export function AccountFormDialog({
 
   return (
     <Dialog open={open} onOpenChange={handleOpenChange}>
-      <DialogTrigger asChild>
-        {trigger ?? (
-          <Button className="ml-auto" size="sm">
-            <PlusIcon
-              className="-ms-1 opacity-60"
-              size={16}
-              aria-hidden="true"
-            />
-            Add account
-          </Button>
-        )}
-      </DialogTrigger>
+      <DialogTrigger
+        render={
+          trigger ?? (
+            <Button className="ml-auto" size="sm">
+              <IconPlus
+                className="-ms-1 opacity-60"
+                size={16}
+                aria-hidden="true"
+              />
+              Add account
+            </Button>
+          )
+        }
+      />
       <DialogContent className="!max-w-2xl !w-full max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>
@@ -342,7 +339,7 @@ export function AccountFormDialog({
             </Button>
             <Button type="submit" disabled={isPending} className="flex-1">
               {isPending && (
-                <Loader2
+                <IconLoader2
                   className="mr-2 h-4 w-4 animate-spin"
                   aria-hidden="true"
                 />

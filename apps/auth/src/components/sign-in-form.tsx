@@ -24,9 +24,16 @@ import {
 } from "@repo/ui/components/input-group";
 import { Separator } from "@repo/ui/components/separator";
 import { cn } from "@repo/ui/lib/utils";
-import { CircleAlert, Eye, EyeOff, Loader2, Mail } from "lucide-react";
+import {
+  IconAlertCircle,
+  IconEye,
+  IconEyeOff,
+  IconLoader2,
+  IconMail,
+} from "@tabler/icons-react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
+import * as React from "react";
 import { useState, useSyncExternalStore } from "react";
 import { Controller, useForm } from "react-hook-form";
 import { toast } from "sonner";
@@ -140,7 +147,7 @@ export function SignInForm({
               className="p-3 text-sm text-destructive bg-destructive/10 rounded-md"
               role="alert"
             >
-              <CircleAlert
+              <IconAlertCircle
                 className="me-3 -mt-0.5 inline-flex opacity-60"
                 size={16}
                 aria-hidden="true"
@@ -260,9 +267,9 @@ export function SignInForm({
                             }
                           >
                             {showPassword ? (
-                              <EyeOff className="h-4 w-4 text-muted-foreground" />
+                              <IconEyeOff className="h-4 w-4 text-muted-foreground" />
                             ) : (
-                              <Eye className="h-4 w-4 text-muted-foreground" />
+                              <IconEye className="h-4 w-4 text-muted-foreground" />
                             )}
                           </Button>
                         </InputGroupAddon>
@@ -276,12 +283,12 @@ export function SignInForm({
                 <Button type="submit" className="w-full" disabled={loading}>
                   {loading ? (
                     <>
-                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                      <IconLoader2 className="mr-2 h-4 w-4 animate-spin" />
                       Signing in...
                     </>
                   ) : (
                     <>
-                      <Mail className="mr-2 h-4 w-4" />
+                      <IconMail className="mr-2 h-4 w-4" />
                       Sign in with Credentials
                     </>
                   )}

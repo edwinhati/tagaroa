@@ -3,7 +3,7 @@
 import { AnimatedGroup } from "@repo/ui/components/animated-group";
 import { Button } from "@repo/ui/components/button";
 import { TextEffect } from "@repo/ui/components/text-effect";
-import { Mail, SendHorizonal } from "lucide-react";
+import { IconMail, IconSend } from "@tabler/icons-react";
 import { FooterSection } from "@/components/footer-section";
 import { HeaderSection } from "@/components/header-section";
 
@@ -72,7 +72,7 @@ export function HeroSection() {
               >
                 <form action="" className="mx-auto max-w-sm">
                   <div className="bg-background has-[input:focus]:ring-muted relative grid grid-cols-[1fr_auto] items-center rounded-[calc(var(--radius)+0.5rem)] border pr-2 shadow shadow-zinc-950/5 has-[input:focus]:ring-2">
-                    <Mail className="pointer-events-none absolute inset-y-0 left-4 my-auto size-4" />
+                    <IconMail className="pointer-events-none absolute inset-y-0 left-4 my-auto size-4" />
 
                     <input
                       placeholder="Your mail address"
@@ -87,7 +87,7 @@ export function HeroSection() {
                         className="rounded-(--radius)"
                       >
                         <span className="hidden md:block">Join Waitlist</span>
-                        <SendHorizonal
+                        <IconSend
                           className="relative mx-auto size-5 md:hidden"
                           strokeWidth={2}
                         />
