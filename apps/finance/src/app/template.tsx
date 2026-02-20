@@ -37,7 +37,7 @@ export default function RootTemplate({
     <div className="[--header-height:calc(--spacing(14))]">
       <FilterProvider>
         <BudgetProvider>
-          <SidebarProvider defaultOpen={true}>
+          <SidebarProvider defaultOpen={false}>
             <AppSidebar appName="Finance" nav={nav} />
             <SidebarInset>
               <AppNavbar nav={navForNavbar} currentPath={pathname} />

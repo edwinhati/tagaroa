@@ -223,7 +223,7 @@ export function SignInForm({
                       <InputGroup>
                         <InputGroupInput
                           {...field}
-                          type="email"
+                          type="text"
                           autoComplete="email"
                           placeholder="Enter your email"
                         />

@@ -61,13 +61,12 @@ export function AppSidebar({ appName, nav, ...props }: AppSidebarProps) {
             <SidebarMenu>
               {nav.map((item) => (
                 <SidebarMenuItem key={item.name}>
-                  <SidebarMenuButton
-                    tooltip={item.name}
-                    render={<Link href={item.href} />}
-                  >
-                    <item.icon />
-                    <span>{item.name}</span>
-                  </SidebarMenuButton>
+                  <Link href={item.href}>
+                    <SidebarMenuButton tooltip={item.name}>
+                      <item.icon />
+                      <span>{item.name}</span>
+                    </SidebarMenuButton>
+                  </Link>
                 </SidebarMenuItem>
               ))}
             </SidebarMenu>

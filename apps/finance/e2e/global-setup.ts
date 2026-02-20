@@ -1,6 +1,6 @@
-import { chromium } from "@playwright/test";
 import fs from "node:fs";
 import path from "node:path";
+import { chromium } from "@playwright/test";
 
 // Load .env.test if it exists
 const envTestPath = path.join(__dirname, "../.env.test");

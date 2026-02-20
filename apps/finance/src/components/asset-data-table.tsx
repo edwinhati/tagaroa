@@ -701,10 +701,10 @@ type RowActionsProps = Readonly<{
 
 function RowActions({ row, mutateAsset, deleteAsset }: RowActionsProps) {
   return (
-    <DropdownMenu>
-      <DropdownMenuTrigger
-        render={
-          <div className="flex justify-end">
+    <div className="flex justify-end">
+      <DropdownMenu>
+        <DropdownMenuTrigger
+          render={
             <Button
               size="icon"
               variant="ghost"
@@ -713,56 +713,56 @@ function RowActions({ row, mutateAsset, deleteAsset }: RowActionsProps) {
             >
               <IconDots size={16} aria-hidden="true" />
             </Button>
-          </div>
-        }
-      />
-      <DropdownMenuContent align="end">
-        <DropdownMenuGroup>
-          <AssetFormDialog
-            initialData={row.original}
+          }
+        />
+        <DropdownMenuContent align="end">
+          <DropdownMenuGroup>
+            <AssetFormDialog
+              initialData={row.original}
+              trigger={
+                <DropdownMenuItem onSelect={(e) => e.preventDefault()}>
+                  <span>Edit</span>
+                  <DropdownMenuShortcut>⌘E</DropdownMenuShortcut>
+                </DropdownMenuItem>
+              }
+            />
+            <DropdownMenuItem
+              onSelect={(e) => {
+                e.preventDefault();
+                const a = row.original;
+                mutateAsset({
+                  name: `${a.name} (Copy)`,
+                  type: a.type,
+                  value: a.value,
+                  shares: a.shares,
+                  ticker: a.ticker,
+                  currency: a.currency,
+                  notes: a.notes,
+                } as Asset);
+              }}
+            >
+              <span>Duplicate</span>
+              <DropdownMenuShortcut>⌘D</DropdownMenuShortcut>
+            </DropdownMenuItem>
+          </DropdownMenuGroup>
+          <DropdownMenuSeparator />
+          <DataTableDeleteDialog
+            itemName={row.original.name}
+            itemType="Asset"
+            onConfirm={() => deleteAsset(row.original.id as string)}
             trigger={
-              <DropdownMenuItem onSelect={(e) => e.preventDefault()}>
-                <span>Edit</span>
-                <DropdownMenuShortcut>⌘E</DropdownMenuShortcut>
+              <DropdownMenuItem
+                onSelect={(e) => e.preventDefault()}
+                className="text-destructive focus:text-destructive"
+              >
+                <span>Delete</span>
+                <DropdownMenuShortcut>⌘⌫</DropdownMenuShortcut>
               </DropdownMenuItem>
             }
           />
-          <DropdownMenuItem
-            onSelect={(e) => {
-              e.preventDefault();
-              const a = row.original;
-              mutateAsset({
-                name: `${a.name} (Copy)`,
-                type: a.type,
-                value: a.value,
-                shares: a.shares,
-                ticker: a.ticker,
-                currency: a.currency,
-                notes: a.notes,
-              } as Asset);
-            }}
-          >
-            <span>Duplicate</span>
-            <DropdownMenuShortcut>⌘D</DropdownMenuShortcut>
-          </DropdownMenuItem>
-        </DropdownMenuGroup>
-        <DropdownMenuSeparator />
-        <DataTableDeleteDialog
-          itemName={row.original.name}
-          itemType="Asset"
-          onConfirm={() => deleteAsset(row.original.id as string)}
-          trigger={
-            <DropdownMenuItem
-              onSelect={(e) => e.preventDefault()}
-              className="text-destructive focus:text-destructive"
-            >
-              <span>Delete</span>
-              <DropdownMenuShortcut>⌘⌫</DropdownMenuShortcut>
-            </DropdownMenuItem>
-          }
-        />
-      </DropdownMenuContent>
-    </DropdownMenu>
+        </DropdownMenuContent>
+      </DropdownMenu>
+    </div>
   );
 }
 

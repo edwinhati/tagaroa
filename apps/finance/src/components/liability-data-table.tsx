@@ -783,10 +783,10 @@ function RowActions({
   };
 
   return (
-    <DropdownMenu>
-      <DropdownMenuTrigger
-        render={
-          <div className="flex justify-end">
+    <div className="flex justify-end">
+      <DropdownMenu>
+        <DropdownMenuTrigger
+          render={
             <Button
               size="icon"
               variant="ghost"
@@ -795,58 +795,58 @@ function RowActions({
             >
               <IconDots size={16} aria-hidden="true" />
             </Button>
-          </div>
-        }
-      />
-      <DropdownMenuContent align="end">
-        <DropdownMenuGroup>
-          <LiabilityFormDialog
-            initialData={row.original}
-            trigger={
-              <DropdownMenuItem onSelect={(e) => e.preventDefault()}>
-                <span>Edit</span>
-                <DropdownMenuShortcut>⌘E</DropdownMenuShortcut>
-              </DropdownMenuItem>
-            }
-          />
-          <DropdownMenuItem
-            onSelect={(e) => {
-              e.preventDefault();
-              handleDuplicate();
-            }}
-          >
-            <span>Duplicate</span>
-            <DropdownMenuShortcut>⌘D</DropdownMenuShortcut>
-          </DropdownMenuItem>
-          {!row.original.paidAt && (
+          }
+        />
+        <DropdownMenuContent align="end">
+          <DropdownMenuGroup>
+            <LiabilityFormDialog
+              initialData={row.original}
+              trigger={
+                <DropdownMenuItem onSelect={(e) => e.preventDefault()}>
+                  <span>Edit</span>
+                  <DropdownMenuShortcut>⌘E</DropdownMenuShortcut>
+                </DropdownMenuItem>
+              }
+            />
             <DropdownMenuItem
               onSelect={(e) => {
                 e.preventDefault();
-                handleMarkAsPaid();
+                handleDuplicate();
               }}
             >
-              <span>Mark as Paid</span>
-              <DropdownMenuShortcut>⌘P</DropdownMenuShortcut>
+              <span>Duplicate</span>
+              <DropdownMenuShortcut>⌘D</DropdownMenuShortcut>
             </DropdownMenuItem>
-          )}
-        </DropdownMenuGroup>
-        <DropdownMenuSeparator />
-        <DataTableDeleteDialog
-          itemName={row.original.name}
-          itemType="Liability"
-          onConfirm={() => deleteLiability(row.original.id as string)}
-          trigger={
-            <DropdownMenuItem
-              onSelect={(e) => e.preventDefault()}
-              className="text-destructive focus:text-destructive"
-            >
-              <span>Delete</span>
-              <DropdownMenuShortcut>⌘⌫</DropdownMenuShortcut>
-            </DropdownMenuItem>
-          }
-        />
-      </DropdownMenuContent>
-    </DropdownMenu>
+            {!row.original.paidAt && (
+              <DropdownMenuItem
+                onSelect={(e) => {
+                  e.preventDefault();
+                  handleMarkAsPaid();
+                }}
+              >
+                <span>Mark as Paid</span>
+                <DropdownMenuShortcut>⌘P</DropdownMenuShortcut>
+              </DropdownMenuItem>
+            )}
+          </DropdownMenuGroup>
+          <DropdownMenuSeparator />
+          <DataTableDeleteDialog
+            itemName={row.original.name}
+            itemType="Liability"
+            onConfirm={() => deleteLiability(row.original.id as string)}
+            trigger={
+              <DropdownMenuItem
+                onSelect={(e) => e.preventDefault()}
+                className="text-destructive focus:text-destructive"
+              >
+                <span>Delete</span>
+                <DropdownMenuShortcut>⌘⌫</DropdownMenuShortcut>
+              </DropdownMenuItem>
+            }
+          />
+        </DropdownMenuContent>
+      </DropdownMenu>
+    </div>
   );
 }
 
