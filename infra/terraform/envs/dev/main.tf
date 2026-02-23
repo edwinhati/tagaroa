@@ -2,11 +2,11 @@ terraform {
   required_providers {
     proxmox = {
       source  = "bpg/proxmox"
-      version = "~> 0.89.1"
+      version = "~> 0.96.0"
     }
     talos = {
       source  = "siderolabs/talos"
-      version = "~> 0.9.0"
+      version = "~> 0.10.1"
     }
   }
   required_version = ">= 1.0"
@@ -32,8 +32,9 @@ module "talos" {
   proxmox_storage   = var.proxmox_storage
 
   # Cluster Configuration
-  cluster_name  = var.cluster_name
-  talos_version = var.talos_version
+  cluster_name             = var.cluster_name
+  talos_version            = var.talos_version
+  talos_image_schematic_id = var.talos_image_schematic_id
 
   # Network Configuration
   network_bridge  = var.network_bridge
@@ -62,6 +63,12 @@ module "talos" {
   # Tailscale Configuration
   enable_tailscale   = var.enable_tailscale
   tailscale_auth_key = var.tailscale_auth_key
+
+  # Netbird Configuration
+  enable_netbird         = var.enable_netbird
+  netbird_setup_key      = var.netbird_setup_key
+  netbird_management_url = var.netbird_management_url
+  netbird_admin_url      = var.netbird_admin_url
 
   # MetalLB Configuration
   enable_metallb       = var.enable_metallb

@@ -2,7 +2,7 @@
 variable "talos_version" {
   description = "Talos Linux version"
   type        = string
-  default     = "v1.12.0"
+  default     = "v1.12.4"
 }
 
 variable "network_bridge" {

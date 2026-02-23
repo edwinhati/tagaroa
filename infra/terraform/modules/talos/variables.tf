@@ -52,12 +52,22 @@ variable "talos_version" {
   description = "Talos Linux version"
   type        = string
   default     = "v1.8.3"
+
+  validation {
+    condition     = can(regex("^v\\d+\\.\\d+\\.\\d+$", var.talos_version))
+    error_message = "talos_version must be in format 'vX.Y.Z' (e.g., v1.12.4)."
+  }
 }
 
 variable "talos_image_schematic_id" {
   description = "Talos Image Factory schematic ID for custom extensions"
   type        = string
-  default     = "077514df2c1b6436460bc60faabc976687b16193b8a1290fda4366c69024fec2"
+  default     = ""
+
+  validation {
+    condition     = var.talos_image_schematic_id == "" || can(regex("^[a-f0-9]{64}$", var.talos_image_schematic_id))
+    error_message = "talos_image_schematic_id must be a 64-character hex string or empty."
+  }
 }
 
 # Network Configuration
@@ -90,6 +100,11 @@ variable "control_plane_count" {
   description = "Number of control plane nodes"
   type        = number
   default     = 3
+
+  validation {
+    condition     = var.control_plane_count >= 1 && var.control_plane_count % 2 == 1
+    error_message = "control_plane_count must be an odd number >= 1 for etcd quorum."
+  }
 }
 
 variable "control_plane_cpu" {
@@ -102,6 +117,11 @@ variable "control_plane_memory" {
   description = "Memory in MB for control plane nodes"
   type        = number
   default     = 4096
+
+  validation {
+    condition     = var.control_plane_memory >= 2048
+    error_message = "control_plane_memory must be at least 2048 MB for Talos."
+  }
 }
 
 variable "control_plane_disk_size" {
@@ -127,6 +147,11 @@ variable "worker_count" {
   description = "Number of worker nodes"
   type        = number
   default     = 3
+
+  validation {
+    condition     = var.worker_count >= 1
+    error_message = "worker_count must be at least 1."
+  }
 }
 
 variable "worker_cpu" {
@@ -139,6 +164,11 @@ variable "worker_memory" {
   description = "Memory in MB for worker nodes"
   type        = number
   default     = 8192
+
+  validation {
+    condition     = var.worker_memory >= 2048
+    error_message = "worker_memory must be at least 2048 MB for Talos."
+  }
 }
 
 variable "worker_disk_size" {
@@ -165,6 +195,7 @@ variable "enable_worker_storage" {
   type        = bool
   default     = true
 }
+
 # Post-deployment configuration
 variable "enable_post_deployment_config" {
   description = "Enable post-deployment configuration (metrics-server, longhorn, etc.)"
@@ -184,6 +215,32 @@ variable "enable_tailscale" {
   description = "Enable Tailscale configuration in post-deployment"
   type        = bool
   default     = false
+}
+
+# Netbird Configuration
+variable "enable_netbird" {
+  description = "Enable Netbird VPN extension on all nodes"
+  type        = bool
+  default     = false
+}
+
+variable "netbird_setup_key" {
+  description = "Netbird peer setup key"
+  type        = string
+  default     = ""
+  sensitive   = true
+}
+
+variable "netbird_management_url" {
+  description = "Netbird management URL (leave empty for cloud-hosted Netbird)"
+  type        = string
+  default     = ""
+}
+
+variable "netbird_admin_url" {
+  description = "Netbird admin URL (leave empty for cloud-hosted Netbird)"
+  type        = string
+  default     = ""
 }
 
 # MetalLB Configuration

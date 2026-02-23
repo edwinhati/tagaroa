@@ -29,7 +29,7 @@ resource "proxmox_virtual_environment_vm" "worker" {
   # Boot disk with Talos image
   disk {
     datastore_id = var.proxmox_datastore
-    file_id      = proxmox_virtual_environment_download_file.talos_image[(count.index + var.control_plane_count) % length(var.proxmox_nodes)].id
+    file_id      = "${var.proxmox_storage}:iso/talos-${var.talos_version}-nocloud-amd64.img"
     file_format  = "raw"
     interface    = "virtio0"
     size         = var.worker_disk_size

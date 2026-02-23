@@ -43,18 +43,18 @@ import { toast } from "sonner";
 
 type AccountFormDialogProps = Readonly<{
   initialData?: Account;
-  trigger?: React.ReactElement;
-  defaultOpen?: boolean;
+  trigger?: React.ReactElement | null;
+  open?: boolean;
   onOpenChange?: (open: boolean) => void;
 }>;
 
 export function AccountFormDialog({
   initialData,
   trigger,
-  defaultOpen = false,
+  open: externalOpen,
   onOpenChange: externalOnOpenChange,
 }: AccountFormDialogProps) {
-  const [internalOpen, setInternalOpen] = useState(defaultOpen);
+  const [internalOpen, setInternalOpen] = useState(false);
 
   const form = useForm<Account>({
     resolver: zodResolver(accountSchema),
@@ -81,12 +81,15 @@ export function AccountFormDialog({
     name: "currency",
   });
 
+  const isControlled = externalOpen !== undefined;
+  const open = isControlled ? externalOpen : internalOpen;
+
   const setOpen = (newOpen: boolean) => {
-    setInternalOpen(newOpen);
+    if (!isControlled) {
+      setInternalOpen(newOpen);
+    }
     externalOnOpenChange?.(newOpen);
   };
-
-  const open = internalOpen;
 
   const handleOpenChange = (newOpen: boolean) => {
     if (!newOpen) {
@@ -132,20 +135,23 @@ export function AccountFormDialog({
 
   return (
     <Dialog open={open} onOpenChange={handleOpenChange}>
-      <DialogTrigger
-        render={
-          trigger ?? (
-            <Button className="ml-auto" size="sm">
-              <IconPlus
-                className="-ms-1 opacity-60"
-                size={16}
-                aria-hidden="true"
-              />
-              Add account
-            </Button>
-          )
-        }
-      />
+      {trigger !== null && (
+        <DialogTrigger
+          nativeButton={!trigger}
+          render={
+            trigger ?? (
+              <Button className="ml-auto" size="sm">
+                <IconPlus
+                  className="-ms-1 opacity-60"
+                  size={16}
+                  aria-hidden="true"
+                />
+                Add account
+              </Button>
+            )
+          }
+        />
+      )}
       <DialogContent className="!max-w-2xl !w-full max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>

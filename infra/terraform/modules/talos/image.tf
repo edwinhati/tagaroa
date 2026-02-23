@@ -1,4 +1,4 @@
-# Download Talos Linux nocloud image to all nodes using Image Factory with extensions
+# Download Talos Linux nocloud image to each Proxmox node
 resource "proxmox_virtual_environment_download_file" "talos_image" {
   count                   = length(var.proxmox_nodes)
   content_type            = "iso"
@@ -8,4 +8,6 @@ resource "proxmox_virtual_environment_download_file" "talos_image" {
   url                     = "https://factory.talos.dev/image/${var.talos_image_schematic_id}/${var.talos_version}/nocloud-amd64.raw.gz"
   decompression_algorithm = "gz"
   overwrite               = true
+  overwrite_unmanaged     = true
+  upload_timeout          = 3600
 }

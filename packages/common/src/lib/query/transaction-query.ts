@@ -128,7 +128,7 @@ const mutateTransaction = async (
       budget_item_id: transaction.budget_item_id,
     };
 
-    const data = await financeApi.put<TransactionResponse>(
+    const data = await financeApi.patch<TransactionResponse>(
       `/transactions/${transaction.id}`,
       updatePayload,
     );

@@ -54,6 +54,12 @@ variable "talos_version" {
   default     = "v1.12.0"
 }
 
+variable "talos_image_schematic_id" {
+  description = "Talos Image Factory schematic ID for custom extensions"
+  type        = string
+  default     = ""
+}
+
 # Network Configuration
 variable "network_bridge" {
   description = "Proxmox network bridge"
@@ -178,6 +184,32 @@ variable "enable_tailscale" {
   description = "Enable Tailscale configuration in post-deployment"
   type        = bool
   default     = false
+}
+
+# Netbird Configuration
+variable "enable_netbird" {
+  description = "Enable Netbird VPN extension on all nodes"
+  type        = bool
+  default     = false
+}
+
+variable "netbird_setup_key" {
+  description = "Netbird peer setup key"
+  type        = string
+  default     = ""
+  sensitive   = true
+}
+
+variable "netbird_management_url" {
+  description = "Netbird management URL (leave empty for cloud-hosted Netbird)"
+  type        = string
+  default     = ""
+}
+
+variable "netbird_admin_url" {
+  description = "Netbird admin URL (leave empty for cloud-hosted Netbird)"
+  type        = string
+  default     = ""
 }
 
 # MetalLB Configuration

@@ -63,6 +63,7 @@ import { toast } from "sonner";
 type TransactionFormDialogProps = Readonly<{
   initialData?: Partial<Transaction>;
   trigger?: React.ReactElement;
+  nativeButton?: boolean;
   onSuccess?: () => void;
   open?: boolean;
   onOpenChange?: (open: boolean) => void;
@@ -87,6 +88,7 @@ function getDefaultValues(initialData?: Partial<Transaction>): Transaction {
 export function TransactionFormDialog({
   initialData,
   trigger,
+  nativeButton,
   onSuccess,
   open: externalOpen,
   onOpenChange: externalOnOpenChange,
@@ -331,7 +333,7 @@ export function TransactionFormDialog({
   return (
     <Dialog open={open} onOpenChange={handleOpenChange} modal={false}>
       {trigger ? (
-        <DialogTrigger render={trigger} />
+        <DialogTrigger render={trigger} nativeButton={nativeButton} />
       ) : externalOpen === undefined ? (
         <DialogTrigger
           render={

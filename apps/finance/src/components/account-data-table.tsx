@@ -9,7 +9,6 @@ import { Loading } from "@repo/common/components/loading";
 import { exportToCSV } from "@repo/common/lib/csv-export";
 import {
   accountDeleteMutationOptions,
-  accountMutationOptions,
   accountQueryOptions,
   exportAccountsQueryOptions,
 } from "@repo/common/lib/query/account-query";
@@ -159,8 +158,6 @@ function AccountDataTableContent() {
   );
   const [isInitialLoading, setIsInitialLoading] = useState(true);
 
-  const { mutate } = useMutation(accountMutationOptions());
-
   const { mutate: deleteAccount } = useMutation(accountDeleteMutationOptions());
 
   const queryClient = useQueryClient();
@@ -210,16 +207,12 @@ function AccountDataTableContent() {
         id: "actions",
         header: ActionsHeaderCell,
         cell: ({ row }) => (
-          <RowActions
-            row={row}
-            mutateAccount={mutate}
-            deleteAccount={deleteAccount}
-          />
+          <RowActions row={row} deleteAccount={deleteAccount} />
         ),
         size: 60,
       },
     ],
-    [deleteAccount, mutate],
+    [deleteAccount],
   );
 
   // Update stable data only when new data arrives, not during loading
@@ -640,13 +633,20 @@ function AccountDataTableContent() {
 
 type RowActionsProps = Readonly<{
   row: Row<Account>;
-  mutateAccount: (account: Account) => void;
   deleteAccount: (id: string) => void;
 }>;
 
-function RowActions({ row, mutateAccount, deleteAccount }: RowActionsProps) {
+function RowActions({ row, deleteAccount }: RowActionsProps) {
+  const [showEditDialog, setShowEditDialog] = useState(false);
+
   return (
     <div className="flex justify-end">
+      <AccountFormDialog
+        initialData={row.original}
+        open={showEditDialog}
+        onOpenChange={setShowEditDialog}
+        trigger={null}
+      />
       <DropdownMenu>
         <DropdownMenuTrigger
           render={
@@ -662,30 +662,9 @@ function RowActions({ row, mutateAccount, deleteAccount }: RowActionsProps) {
         />
         <DropdownMenuContent align="end">
           <DropdownMenuGroup>
-            <AccountFormDialog
-              initialData={row.original}
-              trigger={
-                <DropdownMenuItem onSelect={(e) => e.preventDefault()}>
-                  <span>Edit</span>
-                  <DropdownMenuShortcut>⌘E</DropdownMenuShortcut>
-                </DropdownMenuItem>
-              }
-            />
-            <DropdownMenuItem
-              onSelect={(e) => {
-                e.preventDefault();
-                const a = row.original;
-                mutateAccount({
-                  name: `${a.name} (Copy)`,
-                  type: a.type,
-                  balance: a.balance,
-                  currency: a.currency,
-                  notes: a.notes,
-                } as Account);
-              }}
-            >
-              <span>Duplicate</span>
-              <DropdownMenuShortcut>⌘D</DropdownMenuShortcut>
+            <DropdownMenuItem onSelect={() => setShowEditDialog(true)}>
+              <span>Edit</span>
+              <DropdownMenuShortcut>⌘E</DropdownMenuShortcut>
             </DropdownMenuItem>
           </DropdownMenuGroup>
           <DropdownMenuSeparator />

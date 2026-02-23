@@ -19,6 +19,7 @@ export class UploadFileUseCase {
     private readonly fileRepository: IFileRepository,
     @Inject(STORAGE_SERVICE)
     private readonly storageService: IStorageService,
+    @Inject(ConfigService)
     private readonly configService: ConfigService<AppConfig, true>,
   ) {}
 

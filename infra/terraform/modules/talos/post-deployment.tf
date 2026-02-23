@@ -137,23 +137,25 @@ EOF
 
   depends_on = [
     talos_cluster_kubeconfig.cluster,
-    local_file.kubeconfig,
-    local_file.talosconfig
+    local_sensitive_file.kubeconfig,
+    local_sensitive_file.talosconfig
   ]
 }
 
 # Save kubeconfig to file for post-deployment scripts
-resource "local_file" "kubeconfig" {
-  content  = talos_cluster_kubeconfig.cluster.kubeconfig_raw
-  filename = "${path.root}/kubeconfig"
-  
+resource "local_sensitive_file" "kubeconfig" {
+  content         = talos_cluster_kubeconfig.cluster.kubeconfig_raw
+  filename        = "${path.root}/kubeconfig"
+  file_permission = "0600"
+
   depends_on = [talos_cluster_kubeconfig.cluster]
 }
 
 # Save talosconfig to file for post-deployment scripts
-resource "local_file" "talosconfig" {
-  content  = data.talos_client_configuration.talosconfig.talos_config
-  filename = "${path.root}/talosconfig"
-  
+resource "local_sensitive_file" "talosconfig" {
+  content         = data.talos_client_configuration.talosconfig.talos_config
+  filename        = "${path.root}/talosconfig"
+  file_permission = "0600"
+
   depends_on = [data.talos_client_configuration.talosconfig]
 }

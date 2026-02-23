@@ -177,8 +177,16 @@ type RowActionsProps = Readonly<{
 }>;
 
 function RowActions({ row, deleteTransaction }: RowActionsProps) {
+  const [showEditDialog, setShowEditDialog] = useState(false);
+
   return (
     <div className="flex justify-end">
+      <TransactionFormDialog
+        initialData={row.original}
+        nativeButton={false}
+        open={showEditDialog}
+        onOpenChange={setShowEditDialog}
+      />
       <DropdownMenu>
         <DropdownMenuTrigger
           render={
@@ -194,15 +202,10 @@ function RowActions({ row, deleteTransaction }: RowActionsProps) {
         />
         <DropdownMenuContent align="end">
           <DropdownMenuGroup>
-            <TransactionFormDialog
-              initialData={row.original}
-              trigger={
-                <DropdownMenuItem onSelect={(e) => e.preventDefault()}>
-                  <span>Edit</span>
-                  <DropdownMenuShortcut>⌘E</DropdownMenuShortcut>
-                </DropdownMenuItem>
-              }
-            />
+            <DropdownMenuItem onSelect={() => setShowEditDialog(true)}>
+              <span>Edit</span>
+              <DropdownMenuShortcut>⌘E</DropdownMenuShortcut>
+            </DropdownMenuItem>
           </DropdownMenuGroup>
           <DropdownMenuSeparator />
           <DropdownMenuItem

@@ -29,7 +29,7 @@ resource "proxmox_virtual_environment_vm" "control_plane" {
   # Boot disk with Talos nocloud image
   disk {
     datastore_id = var.proxmox_datastore
-    file_id      = proxmox_virtual_environment_download_file.talos_image[0].id
+    file_id      = "${var.proxmox_storage}:iso/talos-${var.talos_version}-nocloud-amd64.img"
     file_format  = "raw"
     interface    = "virtio0"
     size         = var.control_plane_disk_size
