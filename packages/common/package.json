@@ -27,8 +27,8 @@
     "@repo/typescript-config": "*",
     "@biomejs/biome": "2.4.4",
     "@types/node": "^25.3.0",
-    "@types/react": "^19.2.10",
-    "@types/react-dom": "^19",
+    "@types/react": "19.2.10",
+    "@types/react-dom": "19.2.3",
     "typescript": "^5"
   },
   "exports": {
