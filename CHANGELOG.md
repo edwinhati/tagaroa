@@ -1,3 +1,21 @@
+# [0.6.0](https://github.com/edwinhati/tagaroa/compare/v0.5.0...v0.6.0) (2026-02-23)
+
+
+### Features
+
+* add Netbird VPN support and refactor finance dialog management ([f08eb58](https://github.com/edwinhati/tagaroa/commit/f08eb58fdad036280bbf9761014122e4e6ef5862))
+* Add new UI components, finance E2E tests, and core finance services while updating dependencies and refactoring existing components. ([53f8c92](https://github.com/edwinhati/tagaroa/commit/53f8c9245cd815f2f8a21eb8f36b78cce1c64187))
+* **components:** restructure dropdown menus and update form inputs ([b1fcd97](https://github.com/edwinhati/tagaroa/commit/b1fcd97479193b6717289efc45c3d3f32c056a22))
+* **finance,common:** implement CSV export for data tables ([57e06a8](https://github.com/edwinhati/tagaroa/commit/57e06a85987a62a3e44098ad600e24d63ad27563))
+* **finance,common:** implement global filter state and update dependencies ([1e2d568](https://github.com/edwinhati/tagaroa/commit/1e2d568a9f1c02cbf2d0c9ddf5818260d1942e99))
+* **finance,common:** implement server-side search for transactions ([a4afa84](https://github.com/edwinhati/tagaroa/commit/a4afa84e4774dbb1923648d449c0d2165575661f))
+* introduce core server with comprehensive finance management features and integrate with client applications. ([d65fe34](https://github.com/edwinhati/tagaroa/commit/d65fe341714439928f15202f5c9066999b6c0873))
+* Rearchitect finance service with domain-driven design, new application services, and enhanced observability. ([8042201](https://github.com/edwinhati/tagaroa/commit/8042201ecd19a5a6b650d0b4c10f288ae25abb36))
+* Refactor environment variable handling, enhance storage module, and update finance dashboard and account management. ([fe7a88f](https://github.com/edwinhati/tagaroa/commit/fe7a88ffa35130dba4e4165069ce91ae4bbf0795))
+* Remove finance, auth, and storage server applications ([2d5e3e7](https://github.com/edwinhati/tagaroa/commit/2d5e3e7c26bcf252e66f8b5088cfe4fbeedf2ebe))
+* Remove the `docs` application and update related build, CI/CD, and project configurations. ([ce32dbd](https://github.com/edwinhati/tagaroa/commit/ce32dbdb8506262869c0fec51b7b2c09f0916a6d))
+* **storage,auth:** implement OIDC authentication and expand test coverage ([c928cd7](https://github.com/edwinhati/tagaroa/commit/c928cd7adccc5c780b9e5f41902c1b4ba843ec68))
+
 # [0.5.0](https://github.com/edwinhati/tagaroa/compare/v0.4.0...v0.5.0) (2026-02-01)
 
 
