@@ -1,23 +1,12 @@
 import { z } from "zod";
 
 export const envSchema = z.object({
-  DATABASE_URL: z.string().url(),
+  DATABASE_URL: z.url(),
   BETTER_AUTH_SECRET: z.string().min(32),
   PORT: z.coerce.number().default(8080),
   NODE_ENV: z
     .enum(["development", "production", "test"])
     .default("development"),
-  ALLOWED_ORIGINS: z
-    .string()
-    .optional()
-    .transform((s) =>
-      s
-        ? s
-            .split(",")
-            .map((o) => o.trim())
-            .filter(Boolean)
-        : [],
-    ),
   MAX_FILE_SIZE: z.coerce.number().default(10_485_760),
   S3_PROVIDER: z.enum(["minio", "aws", "r2"]).default("minio"),
   S3_BUCKET: z.string().default("uploads"),
@@ -26,7 +15,7 @@ export const envSchema = z.object({
   S3_ACCESS_KEY_ID: z.string().default(""),
   S3_SECRET_ACCESS_KEY: z.string().default(""),
   CLOUDFLARE_ACCOUNT_ID: z.string().optional(),
-  BASE_URL: z.string().url().default("http://localhost:8080"),
+  BASE_URL: z.url().default("http://localhost:8080"),
   GOOGLE_CLIENT_ID: z.string().optional(),
   GOOGLE_CLIENT_SECRET: z.string().optional(),
   TRUSTED_ORIGINS: z

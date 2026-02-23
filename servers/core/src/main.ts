@@ -6,13 +6,6 @@ import helmet from "helmet";
 import { AppModule } from "./app.module";
 import type { AppConfig } from "./shared/config/env.validation";
 
-const DEFAULT_ORIGINS = [
-  "http://localhost:3000",
-  "http://localhost:3001",
-  "http://localhost:3002",
-  "http://localhost:3004",
-];
-
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
   const configService = app.get(ConfigService<AppConfig, true>);
@@ -22,9 +15,9 @@ async function bootstrap() {
 
   app.use(helmet());
 
-  const allowedOrigins = configService.get("ALLOWED_ORIGINS", { infer: true });
+  const trustedOrigins = configService.get("TRUSTED_ORIGINS", { infer: true });
   app.enableCors({
-    origin: allowedOrigins.length > 0 ? allowedOrigins : DEFAULT_ORIGINS,
+    origin: trustedOrigins,
     credentials: true,
   });
 
