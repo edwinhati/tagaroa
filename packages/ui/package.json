@@ -11,9 +11,11 @@
   },
   "devDependencies": {
     "@repo/typescript-config": "*",
+    "@tailwindcss/postcss": "^4",
     "@types/node": "^25.0.10",
     "@types/react": "^19.2.10",
     "@types/react-dom": "^19",
+    "tailwindcss": "^4",
     "typescript": "^5"
   },
   "dependencies": {
