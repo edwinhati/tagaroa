@@ -1,0 +1,23 @@
+{
+  "$schema": "https://unpkg.com/@changesets/config@3.0.0/schema.json",
+  "changelog": "@changesets/cli/changelog",
+  "commit": false,
+  "fixed": [
+    [
+      "web",
+      "auth",
+      "admin",
+      "finance",
+      "core-service",
+      "@repo/ui",
+      "@repo/common",
+      "@repo/posthog-config",
+      "@repo/typescript-config"
+    ]
+  ],
+  "linked": [],
+  "access": "restricted",
+  "baseBranch": "main",
+  "updateInternalDependencies": "patch",
+  "ignore": []
+}

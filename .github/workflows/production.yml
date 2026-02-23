@@ -80,35 +80,54 @@ jobs:
     name: Create Release
     runs-on: ubuntu-latest
     needs: [build, test]
+    permissions:
+      contents: write
+      pull-requests: write
     outputs:
-      version: ${{ steps.semantic.outputs.new_release_version }}
-      released: ${{ steps.semantic.outputs.new_release_published }}
+      published: ${{ steps.changesets.outputs.published }}
+      version: ${{ steps.get_version.outputs.version }}
     steps:
-      - name: Checkout
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
         with:
           fetch-depth: 0
-          persist-credentials: false
+          token: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
+      - uses: oven-sh/setup-bun@v2
         with:
-          node-version: "lts/*"
+          bun-version: ${{ env.BUN_VERSION }}
 
-      - name: Install semantic-release
-        run: npm install -g semantic-release @semantic-release/changelog @semantic-release/git @semantic-release/github
+      - uses: actions/cache@v4
+        with:
+          path: |
+            ~/.bun/install/cache
+            node_modules
+          key: bun-${{ runner.os }}-${{ hashFiles('**/bun.lock') }}
+          restore-keys: bun-${{ runner.os }}-
 
-      - name: Run semantic-release
-        id: semantic
+      - run: bun install
+
+      - id: changesets
+        uses: changesets/action@v1
+        with:
+          version: bun run version
+          publish: bun run release
+          title: "chore: version packages"
+          commit: "chore: version packages"
+          createGithubReleases: true
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: npx semantic-release
+
+      - id: get_version
+        if: steps.changesets.outputs.published == 'true'
+        run: |
+          VERSION=$(node -p "require('./apps/finance/package.json').version")
+          echo "version=${VERSION}" >> $GITHUB_OUTPUT
 
   deploy:
     name: Deploy to Production
     runs-on: ubuntu-latest
     needs: [build, test, release]
-    if: needs.release.outputs.released == 'true'
+    if: needs.release.outputs.published == 'true'
     environment:
       name: production
     strategy:
@@ -126,6 +145,9 @@ jobs:
             runtime: bun
           - component: finance-app
             dockerfile: apps/finance/Dockerfile
+            runtime: bun
+          - component: core-service
+            dockerfile: servers/core/Dockerfile
             runtime: bun
     steps:
       - name: Checkout
