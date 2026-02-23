@@ -89,7 +89,7 @@ function DropdownMenuItem({
     event: React.MouseEvent<HTMLDivElement, MouseEvent> | Event,
   ) => void;
 }) {
-  const handleClick = (e: React.MouseEvent<HTMLDivElement, MouseEvent>) => {
+  const handleClick: MenuPrimitive.Item.Props["onClick"] = (e) => {
     onClick?.(e);
     if (!e.defaultPrevented) {
       onSelect?.(e);
