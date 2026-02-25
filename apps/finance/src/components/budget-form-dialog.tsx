@@ -42,6 +42,7 @@ type BudgetFormDialogProps = Readonly<{
   trigger?: React.ReactElement;
 }>;
 
+import { useBudgetPeriod } from "@repo/common/hooks/use-budget-period";
 import { currencies } from "@repo/common/lib/currencies";
 
 export function BudgetFormDialog({
@@ -49,6 +50,9 @@ export function BudgetFormDialog({
   trigger,
 }: BudgetFormDialogProps) {
   const [open, setOpen] = useState(false);
+
+  const periodMonth = useBudgetPeriod((s) => s.month);
+  const periodYear = useBudgetPeriod((s) => s.year);
 
   const form = useForm<BudgetInput>({
     resolver: zodResolver(budgetSchema),
@@ -61,8 +65,8 @@ export function BudgetFormDialog({
           currency: initialData.currency,
         }
       : {
-          month: new Date().getMonth(),
-          year: new Date().getFullYear(),
+          month: periodMonth,
+          year: periodYear,
           amount: 0,
           currency: "IDR",
         },
@@ -148,11 +152,18 @@ export function BudgetFormDialog({
                 <Field>
                   <FieldLabel>Month</FieldLabel>
                   <Select
+                    value={String(field.value)}
                     onValueChange={(value) => field.onChange(Number(value))}
-                    defaultValue={String(field.value)}
                   >
                     <SelectTrigger className="w-full">
-                      <SelectValue placeholder="Select month" />
+                      <SelectValue placeholder="Select month">
+                        {field.value
+                          ? new Date(2000, field.value - 1).toLocaleString(
+                              "default",
+                              { month: "long" },
+                            )
+                          : null}
+                      </SelectValue>
                     </SelectTrigger>
                     <SelectContent>
                       {Array.from({ length: 12 }, (_, i) => i + 1).map(
@@ -183,8 +194,8 @@ export function BudgetFormDialog({
                 <Field>
                   <FieldLabel>Year</FieldLabel>
                   <Select
+                    value={String(field.value)}
                     onValueChange={(value) => field.onChange(Number(value))}
-                    defaultValue={String(field.value)}
                   >
                     <SelectTrigger className="w-full">
                       <SelectValue placeholder="Select year" />

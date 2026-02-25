@@ -197,7 +197,7 @@ export function StatCardsSection({ range }: StatCardsSectionProps) {
         )}
         change={`${(summary?.income_comparison.change ?? 0) > 0 ? "+" : ""}${(
           summary?.income_comparison.change ?? 0
-        ).toFixed(2)}`}
+        ).toFixed(2)}%`}
         trend={incomeTrend}
         icon={<IconCurrencyDollar className="h-4 w-4" />}
         iconBgColor="text-emerald-500 bg-emerald-500/10 rounded-xl p-2.5"
@@ -211,7 +211,7 @@ export function StatCardsSection({ range }: StatCardsSectionProps) {
         )}
         change={`${(summary?.expense_comparison.change ?? 0) > 0 ? "+" : ""}${(
           summary?.expense_comparison.change ?? 0
-        ).toFixed(2)}`}
+        ).toFixed(2)}%`}
         trend={expenseTrend}
         icon={<IconReceipt className="h-4 w-4" />}
         iconBgColor="text-rose-500 bg-rose-500/10 rounded-xl p-2.5"
@@ -225,7 +225,7 @@ export function StatCardsSection({ range }: StatCardsSectionProps) {
         )}
         change={`${(summary?.savings_comparison.change ?? 0) > 0 ? "+" : ""}${(
           summary?.savings_comparison.change ?? 0
-        ).toFixed(2)}`}
+        ).toFixed(2)}%`}
         trend={savingsTrend}
         icon={<IconPigMoney className="h-4 w-4" />}
         iconBgColor={cn(

@@ -1,6 +1,5 @@
 "use client";
 
-import { useBudgetPeriod } from "@repo/common/hooks/use-budget-period";
 import { useFilters } from "@repo/common/hooks/use-filters";
 import { useEffect } from "react";
 import { AccountOverviewChart } from "@/components/account-overview-chart";
@@ -14,11 +13,6 @@ import { StatCardsSection } from "@/components/stat-cards-section";
 import { TransactionTrendsChart } from "@/components/transaction-trends-chart";
 
 export function DashboardContent() {
-  const { month, year } = useBudgetPeriod((s) => ({
-    month: s.month,
-    year: s.year,
-  }));
-
   const { range, setRange } = useFilters((s) => ({
     range: s.range,
     setRange: s.setRange,
@@ -26,16 +20,15 @@ export function DashboardContent() {
 
   useEffect(() => {
     if (!range) {
+      const today = new Date();
+      const m = today.getMonth() + 1;
+      const y = today.getFullYear();
       setRange({
-        from: new Date(
-          month === 1 ? year - 1 : year,
-          month === 1 ? 11 : month - 2,
-          25,
-        ),
-        to: new Date(year, month - 1, 25),
+        from: new Date(m === 1 ? y - 1 : y, m === 1 ? 11 : m - 2, 25),
+        to: new Date(y, m - 1, 25),
       });
     }
-  }, [month, year, range, setRange]);
+  }, [range, setRange]);
 
   return (
     <div className="space-y-8 pb-8">
