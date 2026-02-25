@@ -2,9 +2,12 @@ import { ClassSerializerInterceptor, ValidationPipe } from "@nestjs/common";
 import { ConfigService } from "@nestjs/config";
 import { NestFactory, Reflector } from "@nestjs/core";
 import { DocumentBuilder, SwaggerModule } from "@nestjs/swagger";
+import { apiReference } from "@scalar/nestjs-api-reference";
 import type { Request, Response } from "express";
 import helmet from "helmet";
 import { AppModule } from "./app.module";
+import { FinanceModule } from "./modules/finance/finance.module";
+import { StorageModule } from "./modules/storage/storage.module";
 import type { AppConfig } from "./shared/config/env.validation";
 
 async function bootstrap() {
@@ -55,6 +58,28 @@ async function bootstrap() {
     .addCookieAuth("session")
     .build();
   const document = SwaggerModule.createDocument(app, swaggerConfig);
+  if (isDevelopment) {
+    const financeDocument = SwaggerModule.createDocument(app, swaggerConfig, {
+      include: [FinanceModule],
+    });
+    const storageDocument = SwaggerModule.createDocument(app, swaggerConfig, {
+      include: [StorageModule],
+    });
+
+    app.use(
+      "/api/finance/reference",
+      apiReference({
+        content: financeDocument,
+      }),
+    );
+    app.use(
+      "/api/storage/reference",
+      apiReference({
+        content: storageDocument,
+      }),
+    );
+  }
+
   SwaggerModule.setup("docs", app, document);
 
   app.enableShutdownHooks();
