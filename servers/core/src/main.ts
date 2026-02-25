@@ -2,6 +2,7 @@ import { ClassSerializerInterceptor, ValidationPipe } from "@nestjs/common";
 import { ConfigService } from "@nestjs/config";
 import { NestFactory, Reflector } from "@nestjs/core";
 import { DocumentBuilder, SwaggerModule } from "@nestjs/swagger";
+import type { Request, Response } from "express";
 import helmet from "helmet";
 import { AppModule } from "./app.module";
 import type { AppConfig } from "./shared/config/env.validation";
@@ -9,11 +10,20 @@ import type { AppConfig } from "./shared/config/env.validation";
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
   const configService = app.get(ConfigService<AppConfig, true>);
+  const isDevelopment = process.env.NODE_ENV === "development";
 
   // Set global API prefix
   app.setGlobalPrefix("api");
 
-  app.use(helmet());
+  app.use(
+    helmet({
+      contentSecurityPolicy: isDevelopment ? false : undefined,
+    }),
+  );
+
+  app.use("/favicon.ico", (_req: Request, res: Response) => {
+    res.status(204).end();
+  });
 
   const trustedOrigins = configService.get("TRUSTED_ORIGINS", { infer: true });
   app.enableCors({

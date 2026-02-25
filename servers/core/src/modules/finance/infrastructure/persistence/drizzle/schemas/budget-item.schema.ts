@@ -20,9 +20,10 @@ export const budgetItems = financeSchema.table(
       .$onUpdate(() => new Date()),
   },
   (table) => [
+    // Normalized SQL matching PostgreSQL's stored form (PG adds ::numeric cast for numeric columns)
     check(
       "chk_budget_items_allocation_non_negative",
-      sql`${table.allocation} >= 0`,
+      sql`allocation >= (0)::numeric`,
     ),
   ],
 );

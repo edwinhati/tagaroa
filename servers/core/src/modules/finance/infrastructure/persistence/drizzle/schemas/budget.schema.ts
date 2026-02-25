@@ -28,14 +28,16 @@ export const budgets = financeSchema.table(
     version: integer("version").default(1),
   },
   (table) => [
+    // Column order matches PostgreSQL's stored index order (drizzle-kit PG17+ reads btree index columns directly)
     unique("budgets_user_month_year_unique").on(
-      table.userId,
       table.year,
+      table.userId,
       table.month,
     ),
-    check("chk_budgets_month", sql`${table.month} BETWEEN 1 AND 12`),
-    check("chk_budgets_year", sql`${table.year} BETWEEN 2000 AND 2100`),
-    check("chk_budgets_amount_non_negative", sql`${table.amount} >= 0`),
+    // Normalized SQL matching PostgreSQL's stored form (PG normalizes BETWEEN → >= AND <=, adds ::numeric casts)
+    check("chk_budgets_month", sql`(month >= 1) AND (month <= 12)`),
+    check("chk_budgets_year", sql`(year >= 2000) AND (year <= 2100)`),
+    check("chk_budgets_amount_non_negative", sql`amount >= (0)::numeric`),
     index("idx_budgets_user_id").on(table.userId),
   ],
 );
