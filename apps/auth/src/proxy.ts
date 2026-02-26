@@ -1,3 +1,4 @@
+import { auth } from "@repo/auth";
 import { resolveSafeRedirect } from "@repo/common/lib/redirect";
 import type { User } from "better-auth";
 import { getSessionCookie } from "better-auth/cookies";
@@ -20,34 +21,6 @@ const isRouteProtected = (pathname: string): boolean =>
  */
 const isPublicRoute = (pathname: string): boolean =>
   routes.public.has(pathname);
-
-/**
- * Fetch user profile from the API
- */
-async function fetchUser(sessionCookie: string): Promise<User | null> {
-  try {
-    const response = await fetch(
-      `${process.env.NEXT_PUBLIC_API_URL}/api/auth/get-session`,
-      {
-        headers: {
-          Cookie: `better-auth.session_token=${sessionCookie}`,
-        },
-      },
-    );
-
-    if (!response.ok) {
-      return null;
-    }
-
-    const data = await response.json();
-
-    // Extract user from the response structure, with null safety
-    return data?.user || null;
-  } catch (error) {
-    console.error("Error fetching user profile:", error);
-    return null;
-  }
-}
 
 /**
  * Handle redirects based on user verification status
@@ -145,17 +118,22 @@ export async function proxy(request: NextRequest): Promise<NextResponse> {
     return NextResponse.next();
   }
 
-  // Attempt to get user profile
-  const profile = await fetchUser(sessionCookie);
+  // Verify session locally via auth.api.getSession() — no HTTP call
+  let profile: User | null = null;
+  try {
+    const session = await auth.api.getSession({ headers: request.headers });
+    profile = session?.user ?? null;
+  } catch (error) {
+    console.error("Error verifying session:", error);
+  }
 
-  // Try token rotation if profile fetch fails
+  // If we don't have a profile, handle as unauthenticated
   if (!profile) {
     // If user is logging out, allow access to sign-in page
     if (isLogout && isPublicRoute(pathname)) {
       return NextResponse.next();
     }
 
-    // If we still don't have a profile, handle as unauthenticated
     // Redirect root path to sign-in
     if (pathname === "/") {
       return NextResponse.redirect(new URL("/sign-in", request.url));

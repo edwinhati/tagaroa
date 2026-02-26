@@ -1,0 +1,22 @@
+{
+  "name": "@repo/auth",
+  "version": "0.0.0",
+  "private": true,
+  "scripts": {
+    "check-types": "tsc --noEmit",
+    "lint": "biome check"
+  },
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "dependencies": {
+    "better-auth": "^1.4.19",
+    "drizzle-orm": "^0.45.1"
+  },
+  "devDependencies": {
+    "@repo/typescript-config": "*",
+    "@biomejs/biome": "2.4.4",
+    "@types/node": "^25.3.0",
+    "typescript": "^5"
+  }
+}

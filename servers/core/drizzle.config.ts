@@ -10,14 +10,15 @@ if (!databaseUrl) {
 export default defineConfig({
   out: "./drizzle",
   schema: [
-    "./src/modules/auth/infrastructure/persistence/drizzle/schema.ts",
-    "./src/modules/auth/infrastructure/persistence/drizzle/schemas/*.ts",
+    "./src/modules/auth/infrastructure/persistence/drizzle/index.ts",
     "./src/modules/finance/infrastructure/persistence/drizzle/schema.ts",
     "./src/modules/finance/infrastructure/persistence/drizzle/schemas/*.ts",
     "./src/modules/storage/infrastructure/persistence/drizzle/schema.ts",
     "./src/modules/storage/infrastructure/persistence/drizzle/schemas/*.ts",
+    "./src/modules/investment/infrastructure/persistence/drizzle/schema.ts",
+    "./src/modules/investment/infrastructure/persistence/drizzle/schemas/*.ts",
   ],
-  schemaFilter: ["auth", "finance", "storage"],
+  schemaFilter: ["auth", "finance", "storage", "investment"],
   dialect: "postgresql",
   dbCredentials: {
     url: databaseUrl,

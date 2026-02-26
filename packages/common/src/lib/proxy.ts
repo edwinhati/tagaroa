@@ -1,3 +1,4 @@
+import { auth } from "@repo/auth";
 import type { User } from "better-auth";
 import { getSessionCookie } from "better-auth/cookies";
 import type { UserWithRole } from "better-auth/plugins/admin";
@@ -15,98 +16,6 @@ type RoleBasedOptions = {
   redirectUrl?: string; // where to redirect unauthorized users
   requireAdmin?: boolean; // shorthand for admin-only access
 };
-
-// Simple in-memory cache for session data
-const sessionCache = new Map<
-  string,
-  { user: User | UserWithRole | null; timestamp: number }
->();
-const SESSION_CACHE_TTL = 30000; // 30 seconds
-
-function getCachedSession<T extends User = User>(
-  sessionCookie: string,
-): T | null | undefined {
-  const cached = sessionCache.get(sessionCookie);
-  if (cached && Date.now() - cached.timestamp < SESSION_CACHE_TTL) {
-    return cached.user as T | null;
-  }
-  return undefined; // undefined means cache miss
-}
-
-function setCachedSession(
-  sessionCookie: string,
-  user: User | UserWithRole | null,
-) {
-  sessionCache.set(sessionCookie, { user, timestamp: Date.now() });
-  // Cleanup old entries periodically
-  if (sessionCache.size > 100) {
-    const now = Date.now();
-    for (const [key, value] of sessionCache) {
-      if (now - value.timestamp > SESSION_CACHE_TTL) {
-        sessionCache.delete(key);
-      }
-    }
-  }
-}
-
-async function fetchUserSession<T extends User = User>(
-  sessionCookie: string,
-): Promise<T | null> {
-  // Check cache first
-  const cached = getCachedSession<T>(sessionCookie);
-  if (cached !== undefined) {
-    return cached;
-  }
-
-  try {
-    const response = await fetch(
-      `${process.env.NEXT_PUBLIC_API_URL}/api/auth/get-session`,
-      {
-        headers: {
-          Cookie: `better-auth.session_token=${sessionCookie}`,
-        },
-        // Reduced timeout - fail fast instead of blocking
-        signal: AbortSignal.timeout(3000),
-        cache: "no-store",
-      },
-    );
-
-    if (!response.ok) {
-      console.warn(
-        `Auth session fetch failed: ${response.status} ${response.statusText}`,
-      );
-      setCachedSession(sessionCookie, null);
-      return null;
-    }
-
-    const data = await response.json();
-    const user = (data.user as T) || null;
-
-    // Cache the result
-    setCachedSession(sessionCookie, user);
-
-    return user;
-  } catch (error) {
-    if (error instanceof Error && error.name === "TimeoutError") {
-      console.error("Auth session fetch timeout");
-    } else {
-      console.error("Error fetching user profile:", error);
-    }
-    // Cache failures briefly to prevent hammering a down service
-    setCachedSession(sessionCookie, null);
-    return null;
-  }
-}
-
-async function fetchUser(sessionCookie: string): Promise<User | null> {
-  return fetchUserSession<User>(sessionCookie);
-}
-
-async function fetchUserWithRole(
-  sessionCookie: string,
-): Promise<UserWithRole | null> {
-  return fetchUserSession<UserWithRole>(sessionCookie);
-}
 
 function redirectToAuth(
   req: NextRequest,
@@ -184,32 +93,7 @@ async function handleCommonProxyLogic(
     return { type: "redirect" as const, url: cleanUrl };
   }
 
-  const sessionCookie = getSessionCookie(request);
-
-  // Construct public URL for redirect (use x-forwarded-host or fallback to request URL)
-  const forwardedHost = request.headers.get("x-forwarded-host");
-  const forwardedProto = request.headers.get("x-forwarded-proto") || "http";
-  const queryString = searchParams.toString();
-  const queryPart = queryString ? `?${queryString}` : "";
-  const publicUrl = forwardedHost
-    ? `${forwardedProto}://${forwardedHost}${pathname}${queryPart}`
-    : request.nextUrl.href;
-
-  if (!sessionCookie) {
-    if (pathname === "/") {
-      return { type: "auth-redirect" as const, url: authAppUrl };
-    }
-    if (!pathname.startsWith("/_next")) {
-      return {
-        type: "auth-redirect" as const,
-        url: authAppUrl,
-        redirect: publicUrl,
-      };
-    }
-    return { type: "auth-redirect" as const, url: authAppUrl };
-  }
-
-  return { type: "continue" as const, sessionCookie };
+  return { type: "continue" as const };
 }
 
 /* ----------------------- Dedup helpers & core ------------------------ */
@@ -223,13 +107,10 @@ function redirectAndClear(
   return clearSessionCookie(res);
 }
 
-function isFromAuthAppRoot(
-  req: NextRequest,
-  authAppUrl: string,
-  sessionCookie?: string,
-) {
+function isFromAuthAppRoot(req: NextRequest, authAppUrl: string) {
   const { pathname } = req.nextUrl;
   const referer = req.headers.get("referer");
+  const sessionCookie = getSessionCookie(req);
   return (
     !!sessionCookie &&
     pathname === "/" &&
@@ -242,9 +123,6 @@ type ProxyCommonOpts<UserT extends User | UserWithRole> = {
   authAppUrl: string;
   verifyPath?: string;
   requireVerified?: boolean;
-
-  // supply how to fetch the user (plain or with role)
-  fetchUser: (sessionCookie: string) => Promise<UserT | null>;
 
   // role options (ignored if not provided)
   allowedRoles?: string[];
@@ -269,7 +147,6 @@ async function proxyCommon<UserT extends User | UserWithRole>(
     authAppUrl,
     verifyPath = "/verify-email",
     requireVerified,
-    fetchUser,
     allowedRoles,
     requireAdmin,
     redirectUrl,
@@ -288,12 +165,7 @@ async function proxyCommon<UserT extends User | UserWithRole>(
     return continuation.response;
   }
 
-  const userResult = await fetchUserOrRedirect(
-    request,
-    authAppUrl,
-    continuation.sessionCookie,
-    fetchUser,
-  );
+  const userResult = await fetchUserOrRedirect<UserT>(request, authAppUrl);
   if ("response" in userResult) {
     return userResult.response;
   }
@@ -330,7 +202,7 @@ type CommonResult = Awaited<ReturnType<typeof handleCommonProxyLogic>>;
 
 type ContinuationResult =
   | { kind: "response"; response: NextResponse }
-  | { kind: "continue"; sessionCookie: string };
+  | { kind: "continue" };
 
 function evaluateCommonResult(
   request: NextRequest,
@@ -346,19 +218,11 @@ function evaluateCommonResult(
         kind: "response",
         response: NextResponse.redirect(result.url),
       };
-    case "auth-redirect":
-      return {
-        kind: "response",
-        response: redirectToAuth(request, result.url, result.redirect),
-      };
     default:
-      if (
-        honorAuthRefererOnRoot &&
-        isFromAuthAppRoot(request, authAppUrl, result.sessionCookie)
-      ) {
+      if (honorAuthRefererOnRoot && isFromAuthAppRoot(request, authAppUrl)) {
         return { kind: "response", response: NextResponse.next() };
       }
-      return { kind: "continue", sessionCookie: result.sessionCookie };
+      return { kind: "continue" };
   }
 }
 
@@ -367,11 +231,10 @@ type FetchUserOutcome<UserT> = { user: UserT } | { response: NextResponse };
 async function fetchUserOrRedirect<UserT extends User | UserWithRole>(
   request: NextRequest,
   authAppUrl: string,
-  sessionCookie: string,
-  fetchUserFn: (cookie: string) => Promise<UserT | null>,
 ): Promise<FetchUserOutcome<UserT>> {
   try {
-    const user = await fetchUserFn(sessionCookie);
+    const session = await auth.api.getSession({ headers: request.headers });
+    const user = session?.user as UserT | null | undefined;
     if (!user) {
       return {
         response: redirectAndClear(
@@ -489,7 +352,6 @@ export function createAuthProxy(opts: Options) {
       authAppUrl: opts.authAppUrl,
       verifyPath,
       requireVerified: true,
-      fetchUser,
       // Additional safety to avoid loop on "/" after coming from auth
       honorAuthRefererOnRoot: true,
     });
@@ -506,7 +368,6 @@ export function createRoleBasedProxy(opts: RoleBasedOptions) {
       authAppUrl: opts.authAppUrl,
       verifyPath,
       requireVerified: true,
-      fetchUser: fetchUserWithRole,
       allowedRoles,
       requireAdmin: opts.requireAdmin,
       redirectUrl: opts.redirectUrl,
@@ -529,7 +390,6 @@ export function createBasicProxy(opts: Omit<RoleBasedOptions, "allowedRoles">) {
       authAppUrl: opts.authAppUrl,
       verifyPath,
       requireVerified: true,
-      fetchUser: fetchUserWithRole,
       honorAuthRefererOnRoot: true,
       // If user is admin, send to admin app; otherwise proceed
       onAuthorized: async (user) => {
@@ -548,31 +408,18 @@ export function createBasicProxy(opts: Omit<RoleBasedOptions, "allowedRoles">) {
 // Utility function for auth app to determine redirect based on user role
 export async function getRedirectPathForUser(
   requestedRedirect?: string | null,
+  headers?: Headers,
 ): Promise<string> {
+  const defaultUrl = process.env.NEXT_PUBLIC_DASHBOARD_APP_URL as string;
+
+  if (!headers) return defaultUrl;
+
   try {
-    // This would typically be called from the auth app after successful login
-    // We need to fetch the session to check the user's role
-    const response = await fetch(
-      `${process.env.NEXT_PUBLIC_API_URL}/api/auth/get-session`,
-      {
-        credentials: "include",
-        signal: AbortSignal.timeout(5000),
-      },
-    );
+    const session = await auth.api.getSession({ headers });
+    const user = session?.user as UserWithRole | null | undefined;
 
-    if (!response.ok) {
-      console.warn("Failed to fetch user session for redirect determination");
-      return process.env.NEXT_PUBLIC_DASHBOARD_APP_URL as string;
-    }
+    if (!user) return defaultUrl;
 
-    const data = await response.json();
-    const user = data.user as UserWithRole;
-
-    if (!user) {
-      return process.env.NEXT_PUBLIC_DASHBOARD_APP_URL as string;
-    }
-
-    // Check if user is admin
     const userIsAdmin = isAdmin(user);
 
     // If there's a requested redirect and it's valid, use it
@@ -603,11 +450,10 @@ export async function getRedirectPathForUser(
     if (userIsAdmin) {
       return process.env.NEXT_PUBLIC_ADMIN_APP_URL as string;
     } else {
-      return process.env.NEXT_PUBLIC_DASHBOARD_APP_URL as string;
+      return defaultUrl;
     }
   } catch (error) {
     console.error("Error determining redirect path:", error);
-    // Fallback to dashboard
-    return process.env.NEXT_PUBLIC_DASHBOARD_APP_URL as string;
+    return defaultUrl;
   }
 }

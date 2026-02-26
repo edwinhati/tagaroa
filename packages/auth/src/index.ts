@@ -1,3 +1,5 @@
+export type { auth as Auth } from "./auth";
+export { auth } from "./auth";
 export {
   accounts,
   accountsRelations,
@@ -7,4 +9,4 @@ export {
   users,
   usersRelations,
   verifications,
-} from "@repo/auth";
+} from "./db";

@@ -12,14 +12,15 @@
   },
   "dependencies": {
     "@hookform/resolvers": "^5.2.2",
+    "@repo/auth": "*",
     "@repo/common": "*",
     "@repo/posthog-config": "*",
     "@repo/ui": "*",
     "@tabler/icons-react": "^3.37.1",
     "@tanstack/react-table": "^8.21.3",
-    "better-auth": "^1.4.18",
+    "better-auth": "^1.4.19",
     "next": "16.1.6",
-    "posthog-js": "^1.352.0",
+    "posthog-js": "^1.354.4",
     "react": "19.2.4",
     "react-dom": "19.2.4",
     "react-hook-form": "^7.71.2",
@@ -30,11 +31,11 @@
     "@next/bundle-analyzer": "^16.1.6",
     "@repo/typescript-config": "*",
     "@biomejs/biome": "2.4.4",
-    "@tailwindcss/postcss": "^4.2.0",
+    "@tailwindcss/postcss": "^4.2.1",
     "@types/node": "^25.3.0",
     "@types/react": "19.2.10",
     "@types/react-dom": "19.2.3",
-    "tailwindcss": "^4.2.0",
+    "tailwindcss": "^4.2.1",
     "typescript": "^5"
   }
 }
