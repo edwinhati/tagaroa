@@ -1,6 +1,4 @@
-import { auth } from "@repo/auth";
 import { resolveSafeRedirect } from "@repo/common/lib/redirect";
-import type { User } from "better-auth";
 import { getSessionCookie } from "better-auth/cookies";
 import { type NextRequest, NextResponse } from "next/server";
 
@@ -118,42 +116,62 @@ export async function proxy(request: NextRequest): Promise<NextResponse> {
     return NextResponse.next();
   }
 
-  // Verify session locally via auth.api.getSession() — no HTTP call
-  let profile: User | null = null;
+  // Verify session via NestJS backend — no direct DB access from the frontend
+  let emailVerified = false;
   try {
-    const session = await auth.api.getSession({ headers: request.headers });
-    profile = session?.user ?? null;
-  } catch (error) {
-    console.error("Error verifying session:", error);
-  }
-
-  // If we don't have a profile, handle as unauthenticated
-  if (!profile) {
-    // If user is logging out, allow access to sign-in page
-    if (isLogout && isPublicRoute(pathname)) {
+    const apiUrl = process.env.NEXT_PUBLIC_API_URL;
+    const res = await fetch(`${apiUrl}/api/auth/get-session`, {
+      headers: {
+        cookie: request.headers.get("cookie") ?? "",
+      },
+    });
+    if (res.ok) {
+      const data = await res.json();
+      emailVerified = data?.user?.emailVerified ?? false;
+      if (!data?.user) {
+        // No valid session returned — treat as unauthenticated
+        if (isLogout && isPublicRoute(pathname)) {
+          return NextResponse.next();
+        }
+        if (pathname === "/") {
+          return NextResponse.redirect(new URL("/sign-in", request.url));
+        }
+        if (isRouteProtected(pathname)) {
+          return NextResponse.redirect(
+            new URL(
+              `/sign-in?redirect=${encodeURIComponent(safeRedirect)}`,
+              request.url,
+            ),
+          );
+        }
+        return NextResponse.next();
+      }
+    } else {
+      // Non-OK response — treat as unauthenticated
+      if (pathname === "/") {
+        return NextResponse.redirect(new URL("/sign-in", request.url));
+      }
+      if (isRouteProtected(pathname)) {
+        return NextResponse.redirect(
+          new URL(
+            `/sign-in?redirect=${encodeURIComponent(safeRedirect)}`,
+            request.url,
+          ),
+        );
+      }
       return NextResponse.next();
     }
-
-    // Redirect root path to sign-in
-    if (pathname === "/") {
+  } catch (error) {
+    console.error("Error verifying session with backend:", error);
+    // On error, fail open for public routes, fail closed for protected routes
+    if (isRouteProtected(pathname)) {
       return NextResponse.redirect(new URL("/sign-in", request.url));
     }
-
-    // Redirect protected routes to sign-in with redirect parameter
-    if (isRouteProtected(pathname)) {
-      return NextResponse.redirect(
-        new URL(
-          `/sign-in?redirect=${encodeURIComponent(safeRedirect)}`,
-          request.url,
-        ),
-      );
-    }
-
     return NextResponse.next();
   }
 
   // Handle based on verification status
-  return handleVerificationRedirects(request, pathname, profile.emailVerified);
+  return handleVerificationRedirects(request, pathname, emailVerified);
 }
 
 // proxy Config

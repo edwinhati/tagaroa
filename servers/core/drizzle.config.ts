@@ -10,7 +10,8 @@ if (!databaseUrl) {
 export default defineConfig({
   out: "./drizzle",
   schema: [
-    "./src/modules/auth/infrastructure/persistence/drizzle/index.ts",
+    "../../packages/auth/src/db/schema.ts",
+    "../../packages/auth/src/db/schemas/*.ts",
     "./src/modules/finance/infrastructure/persistence/drizzle/schema.ts",
     "./src/modules/finance/infrastructure/persistence/drizzle/schemas/*.ts",
     "./src/modules/storage/infrastructure/persistence/drizzle/schema.ts",

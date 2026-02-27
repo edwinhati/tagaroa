@@ -1,9 +1,9 @@
-import { IsDateString } from "class-validator";
+import { z } from "zod";
+import { createZodDto } from "../../../../../shared/pipes/zod-validation.pipe";
 
-export class GetInsightsDto {
-  @IsDateString()
-  start_date!: string;
+export const GetInsightsSchema = z.object({
+  start_date: z.string(),
+  end_date: z.string(),
+});
 
-  @IsDateString()
-  end_date!: string;
-}
+export class GetInsightsDto extends createZodDto(GetInsightsSchema) {}

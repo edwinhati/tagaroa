@@ -10,7 +10,7 @@ import { cn } from "@repo/ui/lib/utils";
 import {
   IconArrowDownRight,
   IconArrowUpRight,
-  IconCurrencyDollar,
+  IconMoneybag,
   IconPigMoney,
   IconReceipt,
 } from "@tabler/icons-react";
@@ -199,7 +199,7 @@ export function StatCardsSection({ range }: StatCardsSectionProps) {
           summary?.income_comparison.change ?? 0
         ).toFixed(2)}%`}
         trend={incomeTrend}
-        icon={<IconCurrencyDollar className="h-4 w-4" />}
+        icon={<IconMoneybag className="h-4 w-4" />}
         iconBgColor="text-emerald-500 bg-emerald-500/10 rounded-xl p-2.5"
         sparklineData={incomeSparkline}
       />

@@ -1,21 +1,12 @@
-import { IsEnum, IsInt, IsNumber, Max, Min } from "class-validator";
+import { z } from "zod";
+import { createZodDto } from "../../../../shared/pipes/zod-validation.pipe";
 import { Currency } from "../../domain/value-objects/currency";
 
-export class CreateBudgetDto {
-  @IsInt()
-  @Min(1)
-  @Max(12)
-  month!: number;
+export const CreateBudgetSchema = z.object({
+  month: z.number().int().min(1).max(12),
+  year: z.number().int().min(2000).max(2100),
+  amount: z.number().min(0),
+  currency: z.nativeEnum(Currency),
+});
 
-  @IsInt()
-  @Min(2000)
-  @Max(2100)
-  year!: number;
-
-  @IsNumber()
-  @Min(0)
-  amount!: number;
-
-  @IsEnum(Currency)
-  currency!: Currency;
-}
+export class CreateBudgetDto extends createZodDto(CreateBudgetSchema) {}

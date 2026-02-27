@@ -1,58 +1,31 @@
-import { Exclude, Expose } from "class-transformer";
 import type { Account } from "../../domain/entities/account.entity";
 
-@Exclude()
-export class AccountResponseDto {
-  @Expose()
-  id!: string;
-
-  @Expose()
-  name!: string;
-
-  @Expose()
-  type!: string;
-
-  @Expose()
-  balance!: number;
-
-  @Expose({ name: "user_id" })
-  userId!: string;
-
-  @Expose()
-  currency!: string;
-
-  @Expose()
-  notes!: string | null;
-
-  @Expose({ name: "deleted_at" })
-  deletedAt!: Date | null;
-
-  @Expose({ name: "created_at" })
-  createdAt!: Date;
-
-  @Expose({ name: "updated_at" })
-  updatedAt!: Date;
-
-  @Expose()
-  version!: number;
-
-  constructor(partial: Partial<AccountResponseDto>) {
-    Object.assign(this, partial);
-  }
-}
+export type AccountResponseDto = {
+  id: string;
+  name: string;
+  type: string;
+  balance: number;
+  user_id: string;
+  currency: string;
+  notes: string | null;
+  deleted_at: Date | null;
+  created_at: Date;
+  updated_at: Date;
+  version: number;
+};
 
 export function toAccountResponse(account: Account): AccountResponseDto {
-  return new AccountResponseDto({
+  return {
     id: account.id,
     name: account.name,
     type: account.type,
     balance: account.balance,
-    userId: account.userId,
+    user_id: account.userId,
     currency: account.currency,
     notes: account.notes,
-    deletedAt: account.deletedAt,
-    createdAt: account.createdAt,
-    updatedAt: account.updatedAt,
+    deleted_at: account.deletedAt,
+    created_at: account.createdAt,
+    updated_at: account.updatedAt,
     version: account.version,
-  });
+  };
 }

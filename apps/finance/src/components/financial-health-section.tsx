@@ -103,12 +103,8 @@ const HealthCard = ({
 
 const LoadingSkeleton = () => (
   <div className="grid gap-6 md:grid-cols-4">
-    {[...Array(4)].map((_, i) => (
-      <Card
-        // biome-ignore lint/suspicious/noArrayIndexKey: Static array for skeleton loading
-        key={i}
-        className="border-border/50"
-      >
+    {["sk-1", "sk-2", "sk-3", "sk-4"].map((key) => (
+      <Card key={key} className="border-border/50">
         <CardHeader className="pb-2">
           <Skeleton className="h-4 w-24" />
         </CardHeader>

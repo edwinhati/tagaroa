@@ -1,15 +1,10 @@
-import { IsDateString, IsOptional, IsString } from "class-validator";
+import { z } from "zod";
+import { createZodDto } from "../../../../../shared/pipes/zod-validation.pipe";
 
-export class GetSummaryDto {
-  @IsOptional()
-  @IsDateString()
-  start_date?: string;
+export const GetSummarySchema = z.object({
+  start_date: z.string().optional(),
+  end_date: z.string().optional(),
+  currency: z.string().optional(),
+});
 
-  @IsOptional()
-  @IsDateString()
-  end_date?: string;
-
-  @IsOptional()
-  @IsString()
-  currency?: string;
-}
+export class GetSummaryDto extends createZodDto(GetSummarySchema) {}

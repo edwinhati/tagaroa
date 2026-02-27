@@ -1,3 +1,9 @@
 {
-  "extends": "../../packages/typescript-config/nestjs.json"
+  "extends": "../../packages/typescript-config/nestjs.json",
+  "compilerOptions": {
+    "experimentalDecorators": true,
+    "emitDecoratorMetadata": true,
+    "useDefineForClassFields": false,
+    "outDir": "./dist"
+  }
 }

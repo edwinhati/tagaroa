@@ -18,7 +18,7 @@ import {
   TableHeader,
   TableRow,
 } from "@repo/ui/components/table";
-import { IconBuilding } from "@tabler/icons-react";
+import { IconBuildingBank } from "@tabler/icons-react";
 import { useQuery } from "@tanstack/react-query";
 import { formatCurrency } from "@/utils/currency";
 
@@ -57,7 +57,7 @@ export function AccountDetailDialog({
       <DialogContent className="max-w-4xl max-h-[80vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
-            <IconBuilding className="h-5 w-5" />
+            <IconBuildingBank className="h-5 w-5" />
             {title}
           </DialogTitle>
           <DialogDescription>
@@ -68,12 +68,8 @@ export function AccountDetailDialog({
 
         {isLoading ? (
           <div className="space-y-2">
-            {[...Array(5)].map((_, i) => (
-              <Skeleton
-                // biome-ignore lint/suspicious/noArrayIndexKey: Static array for skeleton loading
-                key={i}
-                className="h-16 w-full"
-              />
+            {["sk-1", "sk-2", "sk-3", "sk-4", "sk-5"].map((key) => (
+              <Skeleton key={key} className="h-16 w-full" />
             ))}
           </div>
         ) : accounts.length === 0 ? (

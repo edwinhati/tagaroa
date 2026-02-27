@@ -1,6 +1,6 @@
 "use client";
 
-type Service = "auth" | "finance" | "storage";
+type Service = "auth" | "finance" | "storage" | "investment";
 
 function getApiUrl(service: Service, path: string): string {
   const baseUrl = process.env.NEXT_PUBLIC_API_URL ?? "";
@@ -8,6 +8,7 @@ function getApiUrl(service: Service, path: string): string {
     auth: "auth",
     finance: "finance",
     storage: "storage",
+    investment: "investment",
   };
 
   return `${baseUrl}/api/${servicePrefix[service]}${path}`;
@@ -64,6 +65,19 @@ export const financeApi = {
     apiRequest<T>("finance", path, { method: "PATCH", json, ...init }),
   delete: <T>(path: string, init: ApiRequestInit = {}) =>
     apiRequest<T>("finance", path, { method: "DELETE", ...init }),
+};
+
+export const investmentApi = {
+  get: <T>(path: string, init: ApiRequestInit = {}) =>
+    apiRequest<T>("investment", path, { method: "GET", ...init }),
+  post: <T>(path: string, json?: unknown, init: ApiRequestInit = {}) =>
+    apiRequest<T>("investment", path, { method: "POST", json, ...init }),
+  put: <T>(path: string, json?: unknown, init: ApiRequestInit = {}) =>
+    apiRequest<T>("investment", path, { method: "PUT", json, ...init }),
+  patch: <T>(path: string, json?: unknown, init: ApiRequestInit = {}) =>
+    apiRequest<T>("investment", path, { method: "PATCH", json, ...init }),
+  delete: <T>(path: string, init: ApiRequestInit = {}) =>
+    apiRequest<T>("investment", path, { method: "DELETE", ...init }),
 };
 
 export const storageApi = {

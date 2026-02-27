@@ -16,7 +16,7 @@ import {
   IconArrowDownRight,
   IconArrowUpRight,
   IconBulb,
-  IconMinus,
+  IconEqual,
   IconSparkles,
   IconTrendingDown,
   IconTrendingUp,
@@ -71,7 +71,7 @@ const SavingsRateGauge = ({
       ? IconArrowUpRight
       : trend === "down"
         ? IconArrowDownRight
-        : IconMinus;
+        : IconEqual;
 
   const trendColor =
     trend === "up"
@@ -255,12 +255,8 @@ const RecommendationsList = ({
 
   return (
     <div className="space-y-2">
-      {recommendations.slice(0, 3).map((rec, i) => (
-        <div
-          // biome-ignore lint/suspicious/noArrayIndexKey: simple string list
-          key={i}
-          className="flex items-start gap-2.5"
-        >
+      {recommendations.slice(0, 3).map((rec) => (
+        <div key={rec} className="flex items-start gap-2.5">
           <div className="mt-0.5 shrink-0 h-5 w-5 rounded-full bg-amber-500/10 flex items-center justify-center">
             <IconBulb className="h-3 w-3 text-amber-500" />
           </div>

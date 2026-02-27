@@ -47,12 +47,12 @@ import {
 } from "@repo/ui/components/table";
 import { cn } from "@repo/ui/lib/utils";
 import {
-  IconChartLine,
   IconChevronDown,
   IconChevronUp,
   IconDots,
   IconLayoutGrid,
   IconPlus,
+  IconReportMoney,
   IconTrendingUp,
   IconWallet,
   IconX,
@@ -411,7 +411,7 @@ function AssetDataTableContent() {
             {
               label: "Investable Assets",
               icon: (
-                <IconChartLine className="h-5 w-5 text-green-600 dark:text-green-400" />
+                <IconReportMoney className="h-5 w-5 text-green-600 dark:text-green-400" />
               ),
               iconBg: "rounded-full bg-green-100 p-2 dark:bg-green-900",
               content: (

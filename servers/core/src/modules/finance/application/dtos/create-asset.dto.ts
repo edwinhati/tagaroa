@@ -1,37 +1,16 @@
-import {
-  IsEnum,
-  IsNotEmpty,
-  IsNumber,
-  IsOptional,
-  IsString,
-} from "class-validator";
+import { z } from "zod";
+import { createZodDto } from "../../../../shared/pipes/zod-validation.pipe";
 import { AssetType } from "../../domain/value-objects/asset-type";
 import { Currency } from "../../domain/value-objects/currency";
 
-export class CreateAssetDto {
-  @IsString()
-  @IsNotEmpty()
-  name!: string;
+export const CreateAssetSchema = z.object({
+  name: z.string().min(1),
+  type: z.nativeEnum(AssetType),
+  value: z.number().optional(),
+  shares: z.number().nullable().optional(),
+  ticker: z.string().nullable().optional(),
+  currency: z.nativeEnum(Currency),
+  notes: z.string().nullable().optional(),
+});
 
-  @IsEnum(AssetType)
-  type!: AssetType;
-
-  @IsNumber()
-  @IsOptional()
-  value?: number = 0;
-
-  @IsNumber()
-  @IsOptional()
-  shares?: number | null;
-
-  @IsString()
-  @IsOptional()
-  ticker?: string | null;
-
-  @IsEnum(Currency)
-  currency!: Currency;
-
-  @IsString()
-  @IsOptional()
-  notes?: string | null;
-}
+export class CreateAssetDto extends createZodDto(CreateAssetSchema) {}

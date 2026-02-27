@@ -1,8 +1,23 @@
-import { auth } from "@repo/auth";
 import type { User } from "better-auth";
 import { getSessionCookie } from "better-auth/cookies";
 import type { UserWithRole } from "better-auth/plugins/admin";
 import { type NextRequest, NextResponse } from "next/server";
+
+async function fetchSession(
+  cookie: string,
+): Promise<{ user: Record<string, unknown> } | null> {
+  const apiUrl = process.env.NEXT_PUBLIC_API_URL;
+  if (!apiUrl) return null;
+  try {
+    const res = await fetch(`${apiUrl}/api/auth/get-session`, {
+      headers: { cookie },
+    });
+    if (!res.ok) return null;
+    return res.json() as Promise<{ user: Record<string, unknown> }>;
+  } catch {
+    return null;
+  }
+}
 
 type Options = {
   authAppUrl: string;
@@ -73,7 +88,7 @@ function clearSessionCookie(response: NextResponse) {
 // Shared proxy pre-checks
 async function handleCommonProxyLogic(
   request: NextRequest,
-  authAppUrl: string,
+  _authAppUrl: string,
 ) {
   const { pathname, searchParams } = request.nextUrl;
 
@@ -233,7 +248,7 @@ async function fetchUserOrRedirect<UserT extends User | UserWithRole>(
   authAppUrl: string,
 ): Promise<FetchUserOutcome<UserT>> {
   try {
-    const session = await auth.api.getSession({ headers: request.headers });
+    const session = await fetchSession(request.headers.get("cookie") ?? "");
     const user = session?.user as UserT | null | undefined;
     if (!user) {
       return {
@@ -415,7 +430,7 @@ export async function getRedirectPathForUser(
   if (!headers) return defaultUrl;
 
   try {
-    const session = await auth.api.getSession({ headers });
+    const session = await fetchSession(headers.get("cookie") ?? "");
     const user = session?.user as UserWithRole | null | undefined;
 
     if (!user) return defaultUrl;

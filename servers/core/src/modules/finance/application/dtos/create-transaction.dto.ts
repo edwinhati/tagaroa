@@ -1,49 +1,30 @@
-import { Expose, Transform } from "class-transformer";
-import {
-  IsArray,
-  IsDateString,
-  IsEnum,
-  IsNumber,
-  IsOptional,
-  IsString,
-  IsUUID,
-  Min,
-} from "class-validator";
+import { z } from "zod";
+import { createZodDto } from "../../../../shared/pipes/zod-validation.pipe";
 import { Currency } from "../../domain/value-objects/currency";
 import { TransactionType } from "../../domain/value-objects/transaction-type";
 
-export class CreateTransactionDto {
-  @IsNumber()
-  @Min(0.01)
-  amount!: number;
+// Frontend sends account_id / budget_item_id (snake_case) — transform to camelCase
+export const CreateTransactionSchema = z
+  .object({
+    amount: z.number().min(0.01),
+    date: z.string(),
+    currency: z.nativeEnum(Currency),
+    type: z.nativeEnum(TransactionType),
+    notes: z.string().optional(),
+    files: z.array(z.string()).optional(),
+    account_id: z.string().uuid(),
+    budget_item_id: z
+      .string()
+      .uuid()
+      .nullish()
+      .transform((v) => v ?? undefined),
+  })
+  .transform(({ account_id, budget_item_id, ...rest }) => ({
+    ...rest,
+    accountId: account_id,
+    budgetItemId: budget_item_id,
+  }));
 
-  @IsDateString()
-  date!: string;
-
-  @IsEnum(Currency)
-  currency!: Currency;
-
-  @IsEnum(TransactionType)
-  type!: TransactionType;
-
-  @IsString()
-  @IsOptional()
-  notes?: string;
-
-  @IsArray()
-  @IsString({ each: true })
-  @IsOptional()
-  files?: string[];
-
-  @IsUUID()
-  @Expose({ name: "account_id" })
-  accountId!: string;
-
-  @IsUUID()
-  @IsOptional()
-  @Transform(({ value }) =>
-    value === null || value === "" ? undefined : value,
-  )
-  @Expose({ name: "budget_item_id" })
-  budgetItemId?: string;
-}
+export class CreateTransactionDto extends createZodDto(
+  CreateTransactionSchema,
+) {}

@@ -1,8 +1,8 @@
-import { IsNumber, IsOptional, Min } from "class-validator";
+import { z } from "zod";
+import { createZodDto } from "../../../../shared/pipes/zod-validation.pipe";
 
-export class UpdateBudgetDto {
-  @IsNumber()
-  @Min(0)
-  @IsOptional()
-  amount?: number;
-}
+export const UpdateBudgetSchema = z.object({
+  amount: z.number().min(0).optional(),
+});
+
+export class UpdateBudgetDto extends createZodDto(UpdateBudgetSchema) {}

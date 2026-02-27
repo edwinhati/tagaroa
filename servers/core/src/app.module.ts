@@ -7,6 +7,7 @@ import { ConfigModule } from "@nestjs/config";
 import { APP_FILTER, APP_INTERCEPTOR } from "@nestjs/core";
 import { AuthModule } from "./modules/auth/auth.module";
 import { FinanceModule } from "./modules/finance/finance.module";
+import { InvestmentModule } from "./modules/investment/investment.module";
 import { StorageModule } from "./modules/storage/storage.module";
 import { envSchema } from "./shared/config/env.validation";
 import { DatabaseModule } from "./shared/database/database.module";
@@ -24,6 +25,7 @@ import { RequestIdMiddleware } from "./shared/middleware/request-id.middleware";
     DatabaseModule,
     AuthModule,
     FinanceModule,
+    InvestmentModule,
     StorageModule,
   ],
   providers: [

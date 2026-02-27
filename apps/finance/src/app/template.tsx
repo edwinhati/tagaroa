@@ -6,22 +6,22 @@ import { BudgetProvider } from "@repo/common/providers/budget-provider";
 import { FilterProvider } from "@repo/common/providers/filter-provider";
 import { SidebarInset, SidebarProvider } from "@repo/ui/components/sidebar";
 import {
-  IconArrowsLeftRight,
-  IconBuilding,
   IconBuildingBank,
+  IconCreditCard,
   IconHome,
-  IconScale,
+  IconStack2,
+  IconTransfer,
   IconWallet,
 } from "@tabler/icons-react";
 import { usePathname } from "next/navigation";
 
 const nav = [
   { name: "Dashboard", icon: IconHome, href: "/" },
-  { name: "Accounts", icon: IconBuilding, href: "/accounts" },
+  { name: "Accounts", icon: IconBuildingBank, href: "/accounts" },
   { name: "Budgets", icon: IconWallet, href: "/budgets" },
-  { name: "Transactions", icon: IconArrowsLeftRight, href: "/transactions" },
-  { name: "Assets", icon: IconBuildingBank, href: "/assets" },
-  { name: "Liabilities", icon: IconScale, href: "/liabilities" },
+  { name: "Transactions", icon: IconTransfer, href: "/transactions" },
+  { name: "Assets", icon: IconStack2, href: "/assets" },
+  { name: "Liabilities", icon: IconCreditCard, href: "/liabilities" },
 ];
 
 const navForNavbar = nav.map(({ name, href }) => ({ name, href }));

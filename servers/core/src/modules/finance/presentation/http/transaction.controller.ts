@@ -10,20 +10,15 @@ import {
   Patch,
   Post,
   Query,
-  UseGuards,
 } from "@nestjs/common";
 import { Session, type UserSession } from "@thallesp/nestjs-better-auth";
-import { SessionGuard } from "../../../../shared/guards/session.guard";
 import {
   buildJsonApiResponse,
   buildPaginationInfo,
 } from "../../../../shared/types/pagination";
 import { CreateTransactionDto } from "../../application/dtos/create-transaction.dto";
 import { GetTransactionsDto } from "../../application/dtos/get-transactions.dto";
-import {
-  TransactionResponseDto,
-  toTransactionResponse,
-} from "../../application/dtos/transaction-response.dto";
+import { toTransactionResponse } from "../../application/dtos/transaction-response.dto";
 import { UpdateTransactionDto } from "../../application/dtos/update-transaction.dto";
 import { CreateTransactionUseCase } from "../../application/use-cases/create-transaction.use-case";
 import { DeleteTransactionUseCase } from "../../application/use-cases/delete-transaction.use-case";
@@ -32,7 +27,6 @@ import { GetTransactionTypesUseCase } from "../../application/use-cases/get-tran
 import { GetTransactionsUseCase } from "../../application/use-cases/get-transactions.use-case";
 import { UpdateTransactionUseCase } from "../../application/use-cases/update-transaction.use-case";
 
-@UseGuards(SessionGuard)
 @Controller("finance/transactions")
 export class TransactionController {
   constructor(
@@ -54,7 +48,7 @@ export class TransactionController {
       session.user.id,
       dto,
     );
-    return new TransactionResponseDto(transaction);
+    return toTransactionResponse(transaction);
   }
 
   @Get()
@@ -108,7 +102,7 @@ export class TransactionController {
       id,
       dto,
     );
-    return new TransactionResponseDto(transaction);
+    return toTransactionResponse(transaction);
   }
 
   @Delete(":id")

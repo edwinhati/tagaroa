@@ -28,14 +28,14 @@ import type { IconProps } from "@tabler/icons-react";
 import {
   IconAlertTriangle,
   IconCircleCheck,
-  IconClock,
   IconKey,
+  IconMasksTheater,
   IconShield,
   IconShieldCancel,
   IconTrash,
   IconUser,
   IconUserCheck,
-  IconUserCircle,
+  IconUserScan,
 } from "@tabler/icons-react";
 import type {
   SessionWithImpersonatedBy,
@@ -324,7 +324,7 @@ export function UserDetailSheet(props: Readonly<UserDetailSheetProps>) {
             <div className="flex items-center justify-between">
               {session.impersonatedBy ? (
                 <Badge variant="outline" className="gap-1">
-                  <IconClock className="h-3 w-3" />
+                  <IconMasksTheater className="h-3 w-3" />
                   Impersonated by {session.impersonatedBy}
                 </Badge>
               ) : (
@@ -664,7 +664,7 @@ export function UserDetailSheet(props: Readonly<UserDetailSheetProps>) {
                     onClick={handleImpersonateUser}
                     disabled={impersonateDisabled || !localUser}
                   >
-                    <IconUserCircle className="h-4 w-4" />
+                    <IconUserScan className="h-4 w-4" />
                     {isImpersonatingUser ? "Starting..." : "Impersonate user"}
                   </Button>
                   {isViewingCurrentUser && (

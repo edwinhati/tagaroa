@@ -1,126 +1,62 @@
-import { Exclude, Expose, Type } from "class-transformer";
-import { Currency } from "../../domain/value-objects/currency";
-import { TransactionType } from "../../domain/value-objects/transaction-type";
-
-@Exclude()
-export class TransactionAccountDto {
-  @Expose()
-  id!: string;
-
-  @Expose()
-  name!: string;
-
-  @Expose()
-  type!: string;
-
-  @Expose()
-  balance!: number;
-
-  @Expose()
-  currency!: string;
-
-  constructor(partial: Partial<TransactionAccountDto>) {
-    Object.assign(this, partial);
-  }
-}
-
-@Exclude()
-export class TransactionBudgetItemDto {
-  @Expose()
-  id!: string;
-
-  @Expose()
-  allocation!: number;
-
-  @Expose()
-  category!: string;
-
-  constructor(partial: Partial<TransactionBudgetItemDto>) {
-    Object.assign(this, partial);
-  }
-}
-
-@Exclude()
-export class TransactionResponseDto {
-  @Expose()
-  id!: string;
-
-  @Expose()
-  amount!: number;
-
-  @Expose()
-  date!: Date;
-
-  @Expose()
-  notes!: string | null;
-
-  @Expose()
-  currency!: Currency;
-
-  @Expose()
-  type!: TransactionType;
-
-  @Expose()
-  files!: string[] | null;
-
-  @Expose({ name: "user_id" })
-  userId!: string;
-
-  @Expose({ name: "account_id" })
-  accountId!: string;
-
-  @Expose({ name: "budget_item_id" })
-  budgetItemId!: string | null;
-
-  @Expose()
-  @Type(() => TransactionAccountDto)
-  account?: TransactionAccountDto;
-
-  @Expose({ name: "budget_item" })
-  @Type(() => TransactionBudgetItemDto)
-  budgetItem?: TransactionBudgetItemDto;
-
-  @Expose({ name: "created_at" })
-  createdAt!: Date;
-
-  @Expose({ name: "updated_at" })
-  updatedAt!: Date;
-
-  @Expose({ name: "deleted_at" })
-  deletedAt!: Date | null;
-
-  @Expose()
-  version!: number;
-
-  constructor(partial: Partial<TransactionResponseDto>) {
-    Object.assign(this, partial);
-  }
-}
-
 import type { Account } from "../../domain/entities/account.entity";
 import type { BudgetItem } from "../../domain/entities/budget-item.entity";
 import type { Transaction } from "../../domain/entities/transaction.entity";
+import type { Currency } from "../../domain/value-objects/currency";
+import type { TransactionType } from "../../domain/value-objects/transaction-type";
+
+export type TransactionAccountDto = {
+  id: string;
+  name: string;
+  type: string;
+  balance: number;
+  currency: string;
+};
+
+export type TransactionBudgetItemDto = {
+  id: string;
+  allocation: number;
+  category: string;
+};
+
+export type TransactionResponseDto = {
+  id: string;
+  amount: number;
+  date: Date;
+  notes: string | null;
+  currency: Currency;
+  type: TransactionType;
+  files: string[] | null;
+  user_id: string;
+  account_id: string;
+  budget_item_id: string | null;
+  account?: TransactionAccountDto;
+  budget_item?: TransactionBudgetItemDto;
+  created_at: Date;
+  updated_at: Date;
+  deleted_at: Date | null;
+  version: number;
+};
 
 export function toTransactionAccountDto(
   account: Account,
 ): TransactionAccountDto {
-  return new TransactionAccountDto({
+  return {
     id: account.id,
     name: account.name,
     type: account.type,
     balance: account.balance,
     currency: account.currency,
-  });
+  };
 }
 
 export function toTransactionBudgetItemDto(
   item: BudgetItem,
 ): TransactionBudgetItemDto {
-  return new TransactionBudgetItemDto({
+  return {
     id: item.id,
     allocation: item.allocation,
     category: item.category,
-  });
+  };
 }
 
 export function toTransactionResponse(
@@ -128,7 +64,7 @@ export function toTransactionResponse(
   account?: Account,
   budgetItem?: BudgetItem,
 ): TransactionResponseDto {
-  return new TransactionResponseDto({
+  return {
     id: transaction.id,
     amount: transaction.amount,
     date: transaction.date,
@@ -136,14 +72,16 @@ export function toTransactionResponse(
     currency: transaction.currency,
     type: transaction.type,
     files: transaction.files,
-    userId: transaction.userId,
-    accountId: transaction.accountId,
-    budgetItemId: transaction.budgetItemId,
+    user_id: transaction.userId,
+    account_id: transaction.accountId,
+    budget_item_id: transaction.budgetItemId,
     account: account ? toTransactionAccountDto(account) : undefined,
-    budgetItem: budgetItem ? toTransactionBudgetItemDto(budgetItem) : undefined,
-    createdAt: transaction.createdAt,
-    updatedAt: transaction.updatedAt,
-    deletedAt: transaction.deletedAt,
+    budget_item: budgetItem
+      ? toTransactionBudgetItemDto(budgetItem)
+      : undefined,
+    created_at: transaction.createdAt,
+    updated_at: transaction.updatedAt,
+    deleted_at: transaction.deletedAt,
     version: transaction.version,
-  });
+  };
 }

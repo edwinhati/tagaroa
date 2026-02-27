@@ -13,6 +13,7 @@ import { db } from "./drizzle";
 const MAX_SESSIONS_PER_USER = 3;
 
 export const auth = betterAuth({
+  baseURL: process.env.BASE_URL,
   database: drizzleAdapter(db, {
     provider: "pg",
     usePlural: true,

@@ -8,14 +8,12 @@ import {
   Patch,
   Post,
   Query,
-  UseGuards,
 } from "@nestjs/common";
 import {
   AllowAnonymous,
   Session,
   type UserSession,
 } from "@thallesp/nestjs-better-auth";
-import { SessionGuard } from "../../../../shared/guards/session.guard";
 import {
   buildJsonApiResponse,
   buildPaginationInfo,
@@ -34,7 +32,6 @@ import { GetAccountsUseCase } from "../../application/use-cases/get-accounts.use
 import { UpdateAccountUseCase } from "../../application/use-cases/update-account.use-case";
 import { AccountType } from "../../domain/value-objects/account-type";
 
-@UseGuards(SessionGuard)
 @Controller("finance/accounts")
 export class AccountController {
   constructor(

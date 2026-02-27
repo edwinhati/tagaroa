@@ -1,35 +1,15 @@
-import {
-  IsDateString,
-  IsEnum,
-  IsNumber,
-  IsOptional,
-  IsString,
-} from "class-validator";
+import { z } from "zod";
+import { createZodDto } from "../../../../shared/pipes/zod-validation.pipe";
 import { Currency } from "../../domain/value-objects/currency";
 import { LiabilityType } from "../../domain/value-objects/liability-type";
 
-export class UpdateLiabilityDto {
-  @IsString()
-  @IsOptional()
-  name?: string;
+export const UpdateLiabilitySchema = z.object({
+  name: z.string().optional(),
+  type: z.nativeEnum(LiabilityType).optional(),
+  amount: z.number().optional(),
+  currency: z.nativeEnum(Currency).optional(),
+  paidAt: z.string().datetime({ offset: true }).nullable().optional(),
+  notes: z.string().nullable().optional(),
+});
 
-  @IsEnum(LiabilityType)
-  @IsOptional()
-  type?: LiabilityType;
-
-  @IsNumber()
-  @IsOptional()
-  amount?: number;
-
-  @IsEnum(Currency)
-  @IsOptional()
-  currency?: Currency;
-
-  @IsDateString()
-  @IsOptional()
-  paidAt?: string | null;
-
-  @IsString()
-  @IsOptional()
-  notes?: string | null;
-}
+export class UpdateLiabilityDto extends createZodDto(UpdateLiabilitySchema) {}

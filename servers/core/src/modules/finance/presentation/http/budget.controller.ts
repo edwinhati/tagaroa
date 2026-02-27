@@ -10,14 +10,12 @@ import {
   Patch,
   Post,
   Query,
-  UseGuards,
 } from "@nestjs/common";
 import {
   AllowAnonymous,
   Session,
   type UserSession,
 } from "@thallesp/nestjs-better-auth";
-import { SessionGuard } from "../../../../shared/guards/session.guard";
 import {
   buildJsonApiResponse,
   buildPaginationInfo,
@@ -38,7 +36,6 @@ import { UpdateBudgetUseCase } from "../../application/use-cases/update-budget.u
 import { UpdateBudgetItemUseCase } from "../../application/use-cases/update-budget-item.use-case";
 import { getDefaultCategories } from "../../domain/value-objects/budget-category";
 
-@UseGuards(SessionGuard)
 @Controller("finance/budgets")
 export class BudgetController {
   constructor(

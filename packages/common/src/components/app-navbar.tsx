@@ -40,8 +40,8 @@ function buildCrumbs(nav: NavItem[], currentPath: string): Crumb[] {
   let accumulated = "";
 
   for (let i = 0; i < segments.length; i++) {
-    // biome-ignore lint/style/noNonNullAssertion: segments is string[] from split().filter(Boolean)
-    const segment = segments[i]!;
+    const segment = segments[i];
+    if (!segment) continue;
     accumulated += `/${segment}`;
     const isLast = i === segments.length - 1;
     const match = nav.find((item) => item.href === accumulated);

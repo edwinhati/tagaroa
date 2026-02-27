@@ -1,30 +1,14 @@
-import { Expose } from "class-transformer";
-import {
-  IsEnum,
-  IsNotEmpty,
-  IsNumber,
-  IsOptional,
-  IsString,
-} from "class-validator";
+import { z } from "zod";
+import { createZodDto } from "../../../../shared/pipes/zod-validation.pipe";
 import { AccountType } from "../../domain/value-objects/account-type";
 import { Currency } from "../../domain/value-objects/currency";
 
-export class CreateAccountDto {
-  @IsString()
-  @IsNotEmpty()
-  name!: string;
+export const CreateAccountSchema = z.object({
+  name: z.string().min(1),
+  type: z.nativeEnum(AccountType),
+  balance: z.number().optional(),
+  currency: z.nativeEnum(Currency),
+  notes: z.string().nullable().optional(),
+});
 
-  @IsEnum(AccountType)
-  type!: AccountType;
-
-  @IsNumber()
-  @IsOptional()
-  balance?: number = 0;
-
-  @IsEnum(Currency)
-  currency!: Currency;
-
-  @IsString()
-  @IsOptional()
-  notes?: string | null;
-}
+export class CreateAccountDto extends createZodDto(CreateAccountSchema) {}

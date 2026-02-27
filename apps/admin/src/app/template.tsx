@@ -3,11 +3,11 @@
 import { AppNavbar } from "@repo/common/components/app-navbar";
 import { AppSidebar } from "@repo/common/components/app-sidebar";
 import { SidebarInset, SidebarProvider } from "@repo/ui/components/sidebar";
-import { IconDoorEnter } from "@tabler/icons-react";
+import { IconShieldLock } from "@tabler/icons-react";
 import { usePathname } from "next/navigation";
 
 const nav = [
-  { name: "Authentication", icon: IconDoorEnter, href: "/auth/users" },
+  { name: "Authentication", icon: IconShieldLock, href: "/auth/users" },
 ];
 
 export default function RootTemplate({

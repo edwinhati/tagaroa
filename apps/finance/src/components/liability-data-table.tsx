@@ -54,10 +54,10 @@ import {
   IconChevronDown,
   IconChevronUp,
   IconCircleCheck,
-  IconCurrencyDollar,
   IconDots,
   IconEye,
   IconEyeOff,
+  IconListDetails,
   IconPlus,
   IconWallet,
   IconX,
@@ -475,7 +475,7 @@ function LiabilityDataTableContent() {
           <Card className="py-4">
             <CardContent className="flex items-center gap-4 py-0">
               <div className="rounded-full bg-purple-100 p-2 dark:bg-purple-900">
-                <IconCurrencyDollar className="h-5 w-5 text-purple-600 dark:text-purple-400" />
+                <IconListDetails className="h-5 w-5 text-purple-600 dark:text-purple-400" />
               </div>
               <div>
                 <p className="text-sm text-muted-foreground">Items</p>

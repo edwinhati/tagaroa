@@ -1,15 +1,12 @@
-import { IsDateString, IsIn, IsOptional } from "class-validator";
+import { z } from "zod";
+import { createZodDto } from "../../../../../shared/pipes/zod-validation.pipe";
 
-export class GetTransactionTrendsDto {
-  @IsOptional()
-  @IsDateString()
-  start_date?: string;
+export const GetTransactionTrendsSchema = z.object({
+  start_date: z.string().optional(),
+  end_date: z.string().optional(),
+  granularity: z.enum(["day", "week", "month", "year"]).optional(),
+});
 
-  @IsOptional()
-  @IsDateString()
-  end_date?: string;
-
-  @IsOptional()
-  @IsIn(["day", "week", "month", "year"])
-  granularity?: string = "month";
-}
+export class GetTransactionTrendsDto extends createZodDto(
+  GetTransactionTrendsSchema,
+) {}

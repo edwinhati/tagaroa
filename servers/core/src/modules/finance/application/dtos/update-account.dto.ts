@@ -1,16 +1,10 @@
-import { IsNotEmpty, IsNumber, IsOptional, IsString } from "class-validator";
+import { z } from "zod";
+import { createZodDto } from "../../../../shared/pipes/zod-validation.pipe";
 
-export class UpdateAccountDto {
-  @IsString()
-  @IsNotEmpty()
-  @IsOptional()
-  name?: string;
+export const UpdateAccountSchema = z.object({
+  name: z.string().min(1).optional(),
+  balance: z.number().optional(),
+  notes: z.string().nullable().optional(),
+});
 
-  @IsNumber()
-  @IsOptional()
-  balance?: number;
-
-  @IsString()
-  @IsOptional()
-  notes?: string | null;
-}
+export class UpdateAccountDto extends createZodDto(UpdateAccountSchema) {}

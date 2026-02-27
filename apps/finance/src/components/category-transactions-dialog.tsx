@@ -68,12 +68,8 @@ export function CategoryTransactionsDialog({
 
         {isLoading ? (
           <div className="space-y-2">
-            {[...Array(5)].map((_, i) => (
-              <Skeleton
-                // biome-ignore lint/suspicious/noArrayIndexKey: Static array for skeleton loading
-                key={i}
-                className="h-12 w-full"
-              />
+            {["sk-1", "sk-2", "sk-3", "sk-4", "sk-5"].map((key) => (
+              <Skeleton key={key} className="h-12 w-full" />
             ))}
           </div>
         ) : transactions.length === 0 ? (

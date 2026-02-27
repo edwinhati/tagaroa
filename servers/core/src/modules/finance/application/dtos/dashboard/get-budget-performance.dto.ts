@@ -1,16 +1,11 @@
-import { Type } from "class-transformer";
-import { IsInt, Max, Min } from "class-validator";
+import { z } from "zod";
+import { createZodDto } from "../../../../../shared/pipes/zod-validation.pipe";
 
-export class GetBudgetPerformanceDto {
-  @Type(() => Number)
-  @IsInt()
-  @Min(1)
-  @Max(12)
-  month!: number;
+export const GetBudgetPerformanceSchema = z.object({
+  month: z.coerce.number().int().min(1).max(12),
+  year: z.coerce.number().int().min(2000).max(2100),
+});
 
-  @Type(() => Number)
-  @IsInt()
-  @Min(2000)
-  @Max(2100)
-  year!: number;
-}
+export class GetBudgetPerformanceDto extends createZodDto(
+  GetBudgetPerformanceSchema,
+) {}
