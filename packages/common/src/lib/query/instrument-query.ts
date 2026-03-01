@@ -3,6 +3,7 @@
 import { investmentApi } from "@repo/common/lib/http";
 import type {
   Instrument,
+  InstrumentLookupResult,
   InstrumentResponse,
   InstrumentsApiResponse,
   Ohlcv,
@@ -140,6 +141,17 @@ export const ohlcvQueryOptions = (params: {
     enabled: !!params.instrumentId,
   });
 
+export const lookupInstrumentsQueryOptions = (q: string) =>
+  queryOptions({
+    queryKey: ["instruments", "lookup", q],
+    queryFn: () =>
+      investmentApi.get<InstrumentLookupResult[]>(
+        `/instruments/lookup?q=${encodeURIComponent(q)}`,
+      ),
+    enabled: q.trim().length > 0,
+    staleTime: 30_000,
+  });
+
 export const registerInstrumentMutationOptions = () =>
   mutationOptions({
     mutationFn: registerInstrument,
@@ -148,4 +160,31 @@ export const registerInstrumentMutationOptions = () =>
 export const syncOhlcvMutationOptions = () =>
   mutationOptions({
     mutationFn: syncOhlcv,
+  });
+
+export const refreshInstrumentMetadataMutationOptions = () =>
+  mutationOptions({
+    mutationFn: (instrumentId: string) =>
+      investmentApi.patch<{
+        ok: boolean;
+        metadata: Record<string, unknown> | null;
+      }>(`/instruments/${instrumentId}/metadata`, {}),
+  });
+
+export const deleteInstrumentMutationOptions = () =>
+  mutationOptions({
+    mutationFn: (instrumentId: string) =>
+      investmentApi.delete<void>(`/instruments/${instrumentId}`),
+  });
+
+export const latestPricesQueryOptions = (instrumentIds: string[]) =>
+  queryOptions({
+    queryKey: ["ohlcv", "prices", instrumentIds.slice().sort().join(",")],
+    queryFn: () =>
+      investmentApi.get<Record<string, number | null>>(
+        `/ohlcv/prices?ids=${instrumentIds.join(",")}`,
+      ),
+    enabled: instrumentIds.length > 0,
+    staleTime: 15_000,
+    refetchInterval: 30_000,
   });

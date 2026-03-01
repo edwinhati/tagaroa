@@ -1,5 +1,6 @@
 "use client";
 
+import { currencies } from "@repo/common/lib/currencies";
 import {
   createPortfolioMutationOptions,
   deletePortfolioMutationOptions,
@@ -35,6 +36,7 @@ import {
 import { useMutation, useQuery } from "@tanstack/react-query";
 import Link from "next/link";
 import { useState } from "react";
+import { NumericFormat } from "react-number-format";
 import { toast } from "sonner";
 
 const MODE_CONFIG = {
@@ -99,7 +101,7 @@ function CreatePortfolioDialog() {
               name,
               mode,
               initialCapital: Number(initialCapital),
-              currency: currency.toUpperCase(),
+              currency,
             });
           }}
         >
@@ -121,7 +123,7 @@ function CreatePortfolioDialog() {
               value={mode}
               onValueChange={(v) => setMode(v as Portfolio["mode"])}
             >
-              <SelectTrigger id="p-mode">
+              <SelectTrigger id="p-mode" className="w-full">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
@@ -150,28 +152,37 @@ function CreatePortfolioDialog() {
           <div className="grid grid-cols-2 gap-3">
             <div className="flex flex-col gap-1.5">
               <Label htmlFor="p-capital">Initial Capital</Label>
-              <Input
+              <NumericFormat
                 id="p-capital"
-                type="number"
-                min="1"
-                step="any"
+                customInput={Input}
+                thousandSeparator=","
+                decimalSeparator="."
+                decimalScale={2}
+                allowNegative={false}
                 value={initialCapital}
-                onChange={(e) => setInitialCapital(e.target.value)}
+                onValueChange={(vals) => setInitialCapital(vals.value)}
+                placeholder="10,000.00"
                 className="font-mono tabular-nums"
                 required
               />
             </div>
             <div className="flex flex-col gap-1.5">
               <Label htmlFor="p-currency">Currency</Label>
-              <Input
-                id="p-currency"
+              <Select
                 value={currency}
-                onChange={(e) => setCurrency(e.target.value.toUpperCase())}
-                maxLength={10}
-                placeholder="USD"
-                className="font-mono uppercase"
-                required
-              />
+                onValueChange={(v) => setCurrency(v ?? "")}
+              >
+                <SelectTrigger id="p-currency" className="w-full">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {currencies.map((c) => (
+                    <SelectItem key={c.value} value={c.value}>
+                      {c.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
           </div>
 

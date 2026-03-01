@@ -7,9 +7,14 @@ import {
   Post,
   Query,
 } from "@nestjs/common";
-import { Session, type UserSession } from "@thallesp/nestjs-better-auth";
+import {
+  AllowAnonymous,
+  Session,
+  type UserSession,
+} from "@thallesp/nestjs-better-auth";
 import { toOhlcvResponse } from "../../../application/dtos/market-data/ohlcv-response.dto";
 import { SyncOhlcvDto } from "../../../application/dtos/market-data/sync-ohlcv.dto";
+import { GetLatestPricesUseCase } from "../../../application/use-cases/market-data/get-latest-prices.use-case";
 import { GetOhlcvUseCase } from "../../../application/use-cases/market-data/get-ohlcv.use-case";
 import { SyncOhlcvUseCase } from "../../../application/use-cases/market-data/sync-ohlcv.use-case";
 import type { Timeframe } from "../../../domain/value-objects/timeframe.value-object";
@@ -19,7 +24,20 @@ export class OhlcvController {
   constructor(
     private readonly getOhlcvUseCase: GetOhlcvUseCase,
     private readonly syncOhlcvUseCase: SyncOhlcvUseCase,
+    private readonly getLatestPricesUseCase: GetLatestPricesUseCase,
   ) {}
+
+  @Get("prices")
+  @AllowAnonymous()
+  async latestPrices(@Query("ids") ids?: string) {
+    const instrumentIds = ids
+      ? ids
+          .split(",")
+          .map((s) => s.trim())
+          .filter(Boolean)
+      : [];
+    return this.getLatestPricesUseCase.execute(instrumentIds);
+  }
 
   @Get(":instrumentId")
   async getOhlcv(

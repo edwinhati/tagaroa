@@ -1,5 +1,5 @@
 import { Inject, Injectable } from "@nestjs/common";
-import { and, asc, desc, eq, gte, lte, sql } from "drizzle-orm";
+import { and, asc, desc, eq, gte, lte, type SQL, sql } from "drizzle-orm";
 import type { BunSQLDatabase } from "drizzle-orm/bun-sql";
 import { DRIZZLE } from "../../../../../../shared/database/database.constants";
 import type { Ohlcv } from "../../../../domain/market-data/entities/ohlcv.entity";
@@ -62,20 +62,34 @@ export class DrizzleOhlcvRepository implements IOhlcvRepository {
 
   async findLatest(
     instrumentId: string,
-    timeframe: Timeframe,
+    timeframe?: Timeframe,
   ): Promise<Ohlcv | null> {
+    const conditions: SQL[] = [eq(ohlcv.instrumentId, instrumentId)];
+    if (timeframe) conditions.push(eq(ohlcv.timeframe, timeframe));
+
     const [row] = await this.db
       .select()
       .from(ohlcv)
-      .where(
-        and(
-          eq(ohlcv.instrumentId, instrumentId),
-          eq(ohlcv.timeframe, timeframe),
-        ),
-      )
+      .where(and(...conditions))
       .orderBy(desc(ohlcv.timestamp))
       .limit(1);
 
     return row ? OhlcvMapper.toDomain(row) : null;
+  }
+
+  async findLatestBatch(instrumentIds: string[]): Promise<Map<string, number>> {
+    if (instrumentIds.length === 0) return new Map();
+
+    const results = await Promise.all(
+      instrumentIds.map((id) => this.findLatest(id)),
+    );
+
+    const priceMap = new Map<string, number>();
+    for (let i = 0; i < instrumentIds.length; i++) {
+      const candle = results[i];
+      const id = instrumentIds[i];
+      if (candle && id) priceMap.set(id, candle.close);
+    }
+    return priceMap;
   }
 }

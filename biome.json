@@ -7,7 +7,7 @@
   },
   "files": {
     "ignoreUnknown": false,
-    "includes": ["**", "!**/.source", "!**/playwright-report/**"]
+    "includes": ["**", "!**/.source", "!**/playwright-report"]
   },
   "formatter": {
     "enabled": true,
@@ -17,28 +17,7 @@
   "linter": {
     "enabled": true,
     "rules": {
-      "recommended": true,
-      "suspicious": {
-        "noUnknownAtRules": "off",
-        "noDocumentCookie": "off"
-      },
-      "complexity": {
-        "noBannedTypes": "off"
-      },
-      "security": {
-        "noDangerouslySetInnerHtml": "off"
-      },
-      "a11y": {
-        "useSemanticElements": "off",
-        "useKeyWithClickEvents": "off"
-      },
-      "correctness": {
-        "useExhaustiveDependencies": "warn",
-        "noUnusedImports": "off"
-      },
-      "style": {
-        "useImportType": "off"
-      }
+      "recommended": true
     },
     "domains": {
       "next": "recommended",

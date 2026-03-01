@@ -34,6 +34,17 @@ export type PaginatedInstrumentsResult = {
   pagination?: PaginationInfo;
 };
 
+// ─── Instrument Lookup (search external providers) ───────────────────────────
+
+export type InstrumentLookupResult = {
+  ticker: string;
+  name: string;
+  assetClass: "STOCK" | "CRYPTO" | "FOREX" | "ETF" | "COMMODITY";
+  exchange: string | null;
+  currency: string;
+  source: "yahoo" | "coingecko";
+};
+
 // ─── Portfolio ────────────────────────────────────────────────────────────────
 
 export const portfolioSchema = z.object({

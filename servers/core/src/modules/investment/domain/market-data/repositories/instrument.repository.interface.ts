@@ -19,4 +19,5 @@ export interface IInstrumentRepository {
   ): Promise<PaginatedResult<Instrument>>;
   create(instrument: Instrument): Promise<Instrument>;
   update(instrument: Instrument): Promise<Instrument>;
+  delete(id: string): Promise<void>;
 }

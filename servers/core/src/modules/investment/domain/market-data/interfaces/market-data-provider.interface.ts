@@ -15,4 +15,7 @@ export interface OhlcvRequest {
 export interface IMarketDataProvider {
   supports(assetClass: AssetClass): boolean;
   fetchOhlcv(request: OhlcvRequest): Promise<Ohlcv[]>;
+  /** Fetch current market prices for a batch of tickers. Optional — providers that
+   *  don't implement this will fall back to the latest OHLCV candle from the DB. */
+  fetchLatestPrices?(tickers: string[]): Promise<Map<string, number>>;
 }

@@ -28,6 +28,39 @@ export class YahooFinanceProvider implements IMarketDataProvider {
     return assetClass === AssetClass.STOCK || assetClass === AssetClass.ETF;
   }
 
+  async fetchLatestPrices(tickers: string[]): Promise<Map<string, number>> {
+    if (tickers.length === 0) return new Map();
+
+    const symbols = tickers.join(",");
+    const url = `https://query1.finance.yahoo.com/v7/finance/quote?symbols=${symbols}&fields=regularMarketPrice`;
+
+    try {
+      await yahooRateLimiter.acquire();
+      const response = await fetch(url, {
+        headers: { "User-Agent": "Mozilla/5.0" },
+      });
+      if (!response.ok) {
+        this.logger.warn(`Yahoo Finance quote returned ${response.status}`);
+        return new Map();
+      }
+      const json = (await response.json()) as {
+        quoteResponse?: {
+          result?: { symbol: string; regularMarketPrice?: number }[];
+        };
+      };
+      const result = new Map<string, number>();
+      for (const quote of json?.quoteResponse?.result ?? []) {
+        if (quote.symbol && quote.regularMarketPrice != null) {
+          result.set(quote.symbol, quote.regularMarketPrice);
+        }
+      }
+      return result;
+    } catch (err) {
+      this.logger.error("Yahoo Finance fetchLatestPrices failed", err);
+      return new Map();
+    }
+  }
+
   async fetchOhlcv(request: OhlcvRequest): Promise<Ohlcv[]> {
     const interval = TIMEFRAME_INTERVAL[request.timeframe] ?? "1d";
     const period1 = Math.floor(request.startDate.getTime() / 1000);

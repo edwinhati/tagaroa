@@ -14,5 +14,9 @@ export interface OhlcvQueryParams {
 export interface IOhlcvRepository {
   findMany(params: OhlcvQueryParams): Promise<Ohlcv[]>;
   upsertMany(candles: Ohlcv[]): Promise<void>;
-  findLatest(instrumentId: string, timeframe: Timeframe): Promise<Ohlcv | null>;
+  findLatest(
+    instrumentId: string,
+    timeframe?: Timeframe,
+  ): Promise<Ohlcv | null>;
+  findLatestBatch(instrumentIds: string[]): Promise<Map<string, number>>;
 }

@@ -89,4 +89,8 @@ export class DrizzleInstrumentRepository implements IInstrumentRepository {
     if (!row) throw new Error("Failed to update instrument");
     return InstrumentMapper.toDomain(row);
   }
+
+  async delete(id: string): Promise<void> {
+    await this.db.delete(instruments).where(eq(instruments.id, id));
+  }
 }

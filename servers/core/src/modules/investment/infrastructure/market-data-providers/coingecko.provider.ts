@@ -29,6 +29,36 @@ export class CoinGeckoProvider implements IMarketDataProvider {
     return assetClass === AssetClass.CRYPTO;
   }
 
+  async fetchLatestPrices(tickers: string[]): Promise<Map<string, number>> {
+    if (tickers.length === 0) return new Map();
+
+    const coinIds = tickers.map((t) =>
+      t.toLowerCase().replace("/usdt", "").replace("/usd", ""),
+    );
+    const url = `${this.baseUrl}/simple/price?ids=${coinIds.join(",")}&vs_currencies=usd`;
+
+    try {
+      await coinGeckoRateLimiter.acquire();
+      const response = await fetch(url);
+      if (!response.ok) {
+        this.logger.warn(`CoinGecko simple/price returned ${response.status}`);
+        return new Map();
+      }
+      const data = (await response.json()) as Record<string, { usd?: number }>;
+      const result = new Map<string, number>();
+      for (let i = 0; i < tickers.length; i++) {
+        const ticker = tickers[i];
+        const coinId = coinIds[i];
+        const price = coinId ? data[coinId]?.usd : undefined;
+        if (ticker && price != null) result.set(ticker, price);
+      }
+      return result;
+    } catch (err) {
+      this.logger.error("CoinGecko fetchLatestPrices failed", err);
+      return new Map();
+    }
+  }
+
   async fetchOhlcv(request: OhlcvRequest): Promise<Ohlcv[]> {
     const days = TIMEFRAME_DAYS[request.timeframe] ?? 30;
     const coinId = request.ticker

@@ -1,9 +1,13 @@
 import { Module } from "@nestjs/common";
 import { ScheduleModule } from "@nestjs/schedule";
 import { GetCorrelationMatrixUseCase } from "./application/use-cases/analytics/get-correlation-matrix.use-case";
+import { DeleteInstrumentUseCase } from "./application/use-cases/market-data/delete-instrument.use-case";
+import { GetInstrumentMetadataUseCase } from "./application/use-cases/market-data/get-instrument-metadata.use-case";
+import { GetLatestPricesUseCase } from "./application/use-cases/market-data/get-latest-prices.use-case";
 import { GetOhlcvUseCase } from "./application/use-cases/market-data/get-ohlcv.use-case";
 import { ListInstrumentsUseCase } from "./application/use-cases/market-data/list-instruments.use-case";
 import { RegisterInstrumentUseCase } from "./application/use-cases/market-data/register-instrument.use-case";
+import { SearchInstrumentsUseCase } from "./application/use-cases/market-data/search-instruments.use-case";
 import { SyncOhlcvUseCase } from "./application/use-cases/market-data/sync-ohlcv.use-case";
 import { ComputeNavUseCase } from "./application/use-cases/performance/compute-nav.use-case";
 import { GetPerformanceMetricsUseCase } from "./application/use-cases/performance/get-performance-metrics.use-case";
@@ -108,8 +112,12 @@ import { TradeController } from "./presentation/http/controllers/trade.controlle
       inject: [CoinGeckoProvider, YahooFinanceProvider, EcbRatesProvider],
     },
     // Use cases
+    GetInstrumentMetadataUseCase,
+    GetLatestPricesUseCase,
+    DeleteInstrumentUseCase,
     RegisterInstrumentUseCase,
     ListInstrumentsUseCase,
+    SearchInstrumentsUseCase,
     GetOhlcvUseCase,
     SyncOhlcvUseCase,
     CreatePortfolioUseCase,
