@@ -11,10 +11,9 @@ import { TransactionSideEffectsService } from "../services/transaction-side-effe
 
 @Injectable()
 export class DeleteTransactionUseCase {
-  @Inject(TRANSACTION_REPOSITORY)
-  private readonly transactionRepository!: ITransactionRepository;
-
   constructor(
+    @Inject(TRANSACTION_REPOSITORY)
+    private readonly transactionRepository: ITransactionRepository,
     private readonly sideEffectsService: TransactionSideEffectsService,
   ) {}
 

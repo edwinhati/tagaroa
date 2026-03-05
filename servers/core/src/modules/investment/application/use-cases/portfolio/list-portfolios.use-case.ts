@@ -11,8 +11,10 @@ import {
 
 @Injectable()
 export class ListPortfoliosUseCase {
-  @Inject(PORTFOLIO_REPOSITORY)
-  private readonly portfolioRepository!: IPortfolioRepository;
+  constructor(
+    @Inject(PORTFOLIO_REPOSITORY)
+    private readonly portfolioRepository: IPortfolioRepository,
+  ) {}
 
   async execute(
     userId: string,

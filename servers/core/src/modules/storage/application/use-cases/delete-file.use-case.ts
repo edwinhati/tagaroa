@@ -12,10 +12,12 @@ import {
 
 @Injectable()
 export class DeleteFileUseCase {
-  @Inject(FILE_REPOSITORY)
-  private readonly fileRepository!: IFileRepository;
-  @Inject(STORAGE_SERVICE)
-  private readonly storageService!: IStorageService;
+  constructor(
+    @Inject(FILE_REPOSITORY)
+    private readonly fileRepository: IFileRepository,
+    @Inject(STORAGE_SERVICE)
+    private readonly storageService: IStorageService,
+  ) {}
 
   async execute(fileId: string, userId: string): Promise<void> {
     // 1. Fetch file metadata

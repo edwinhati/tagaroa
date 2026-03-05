@@ -9,8 +9,10 @@ import { ACCOUNT_REPOSITORY } from "../../domain/repositories/account.repository
 
 @Injectable()
 export class GetAccountUseCase {
-  @Inject(ACCOUNT_REPOSITORY)
-  private readonly accountRepository!: IAccountRepository;
+  constructor(
+    @Inject(ACCOUNT_REPOSITORY)
+    private readonly accountRepository: IAccountRepository,
+  ) {}
 
   async execute(id: string, userId: string): Promise<Account> {
     const account = await this.accountRepository.findById(id);

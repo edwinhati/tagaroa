@@ -15,10 +15,12 @@ import {
 
 @Injectable()
 export class GetPositionsUseCase {
-  @Inject(PORTFOLIO_REPOSITORY)
-  private readonly portfolioRepository!: IPortfolioRepository;
-  @Inject(POSITION_REPOSITORY)
-  private readonly positionRepository!: IPositionRepository;
+  constructor(
+    @Inject(PORTFOLIO_REPOSITORY)
+    private readonly portfolioRepository: IPortfolioRepository,
+    @Inject(POSITION_REPOSITORY)
+    private readonly positionRepository: IPositionRepository,
+  ) {}
 
   async execute(
     portfolioId: string,

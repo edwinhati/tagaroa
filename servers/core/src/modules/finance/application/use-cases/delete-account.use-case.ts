@@ -8,8 +8,10 @@ import { ACCOUNT_REPOSITORY } from "../../domain/repositories/account.repository
 
 @Injectable()
 export class DeleteAccountUseCase {
-  @Inject(ACCOUNT_REPOSITORY)
-  private readonly accountRepository!: IAccountRepository;
+  constructor(
+    @Inject(ACCOUNT_REPOSITORY)
+    private readonly accountRepository: IAccountRepository,
+  ) {}
 
   async execute(id: string, userId: string): Promise<void> {
     const account = await this.accountRepository.findById(id);

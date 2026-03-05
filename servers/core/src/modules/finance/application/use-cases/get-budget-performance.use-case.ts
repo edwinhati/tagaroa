@@ -20,12 +20,14 @@ import type { GetBudgetPerformanceDto } from "../dtos/dashboard/get-budget-perfo
 
 @Injectable()
 export class GetBudgetPerformanceUseCase {
-  @Inject(BUDGET_REPOSITORY)
-  private readonly budgetRepository!: IBudgetRepository;
-  @Inject(BUDGET_ITEM_REPOSITORY)
-  private readonly budgetItemRepository!: IBudgetItemRepository;
-  @Inject(TRANSACTION_REPOSITORY)
-  private readonly transactionRepository!: ITransactionRepository;
+  constructor(
+    @Inject(BUDGET_REPOSITORY)
+    private readonly budgetRepository: IBudgetRepository,
+    @Inject(BUDGET_ITEM_REPOSITORY)
+    private readonly budgetItemRepository: IBudgetItemRepository,
+    @Inject(TRANSACTION_REPOSITORY)
+    private readonly transactionRepository: ITransactionRepository,
+  ) {}
 
   async execute(
     userId: string,

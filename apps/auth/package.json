@@ -19,10 +19,10 @@
     "@repo/common": "*",
     "@repo/posthog-config": "*",
     "@repo/ui": "*",
-    "@tabler/icons-react": "^3.37.1",
-    "better-auth": "^1.4.19",
+    "@tabler/icons-react": "^3.38.0",
+    "better-auth": "^1.5.3",
     "next": "16.1.6",
-    "posthog-js": "^1.356.1",
+    "posthog-js": "^1.358.1",
     "react": "19.2.4",
     "react-dom": "19.2.4",
     "react-hook-form": "^7.71.2",
@@ -30,7 +30,7 @@
     "zod": "^4.3.6"
   },
   "devDependencies": {
-    "@biomejs/biome": "2.4.4",
+    "@biomejs/biome": "2.4.6",
     "@next/bundle-analyzer": "16.1.6",
     "@playwright/test": "^1.58.2",
     "@repo/typescript-config": "*",

@@ -14,10 +14,12 @@ import { FileStatus } from "../../domain/value-objects/file-status";
 
 @Injectable()
 export class DownloadFileUseCase {
-  @Inject(FILE_REPOSITORY)
-  private readonly fileRepository!: IFileRepository;
-  @Inject(STORAGE_SERVICE)
-  private readonly storageService!: IStorageService;
+  constructor(
+    @Inject(FILE_REPOSITORY)
+    private readonly fileRepository: IFileRepository,
+    @Inject(STORAGE_SERVICE)
+    private readonly storageService: IStorageService,
+  ) {}
 
   async execute(
     fileId: string,

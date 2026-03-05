@@ -11,8 +11,10 @@ import { netWorthSnapshots } from "../schemas/net-worth-snapshot.schema";
 export class DrizzleNetWorthSnapshotRepository
   implements INetWorthSnapshotRepository
 {
-  @Inject(DRIZZLE)
-  private readonly db!: BunSQLDatabase;
+  constructor(
+    @Inject(DRIZZLE)
+    private readonly db: BunSQLDatabase,
+  ) {}
 
   async findByUserId(userId: string): Promise<NetWorthSnapshot[]> {
     const rows = await this.db

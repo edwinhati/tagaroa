@@ -56,14 +56,16 @@ export interface NavResult {
 
 @Injectable()
 export class ComputeNavUseCase {
-  @Inject(PORTFOLIO_REPOSITORY)
-  private readonly portfolioRepository!: IPortfolioRepository;
-  @Inject(POSITION_REPOSITORY)
-  private readonly positionRepository!: IPositionRepository;
-  @Inject(OHLCV_REPOSITORY)
-  private readonly ohlcvRepository!: IOhlcvRepository;
-  @Inject(INSTRUMENT_REPOSITORY)
-  private readonly instrumentRepository!: IInstrumentRepository;
+  constructor(
+    @Inject(PORTFOLIO_REPOSITORY)
+    private readonly portfolioRepository: IPortfolioRepository,
+    @Inject(POSITION_REPOSITORY)
+    private readonly positionRepository: IPositionRepository,
+    @Inject(OHLCV_REPOSITORY)
+    private readonly ohlcvRepository: IOhlcvRepository,
+    @Inject(INSTRUMENT_REPOSITORY)
+    private readonly instrumentRepository: IInstrumentRepository,
+  ) {}
 
   async execute(portfolioId: string, userId: string): Promise<NavResult> {
     const portfolio = await this.portfolioRepository.findById(portfolioId);

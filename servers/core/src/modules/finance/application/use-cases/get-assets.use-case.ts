@@ -9,8 +9,10 @@ import { ASSET_REPOSITORY } from "../../domain/repositories/asset.repository.int
 
 @Injectable()
 export class GetAssetsUseCase {
-  @Inject(ASSET_REPOSITORY)
-  private readonly assetRepository!: IAssetRepository;
+  constructor(
+    @Inject(ASSET_REPOSITORY)
+    private readonly assetRepository: IAssetRepository,
+  ) {}
 
   async execute(
     userId: string,

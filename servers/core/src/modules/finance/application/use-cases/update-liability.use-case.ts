@@ -10,8 +10,10 @@ import type { UpdateLiabilityDto } from "../dtos/update-liability.dto";
 
 @Injectable()
 export class UpdateLiabilityUseCase {
-  @Inject(LIABILITY_REPOSITORY)
-  private readonly liabilityRepository!: ILiabilityRepository;
+  constructor(
+    @Inject(LIABILITY_REPOSITORY)
+    private readonly liabilityRepository: ILiabilityRepository,
+  ) {}
 
   async execute(
     id: string,

@@ -6,8 +6,10 @@ import type { CreateAccountDto } from "../dtos/create-account.dto";
 
 @Injectable()
 export class CreateAccountUseCase {
-  @Inject(ACCOUNT_REPOSITORY)
-  private readonly accountRepository!: IAccountRepository;
+  constructor(
+    @Inject(ACCOUNT_REPOSITORY)
+    private readonly accountRepository: IAccountRepository,
+  ) {}
 
   async execute(dto: CreateAccountDto, userId: string): Promise<Account> {
     const now = new Date();

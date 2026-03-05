@@ -13,8 +13,10 @@ import {
   UploadedFile,
   UseInterceptors,
 } from "@nestjs/common";
+import { ConfigService } from "@nestjs/config";
 import { FileInterceptor } from "@nestjs/platform-express";
 import { Session, type UserSession } from "@thallesp/nestjs-better-auth";
+import type { FileResponseDto } from "../../application/dtos/file-response.dto";
 import { DeleteFileUseCase } from "../../application/use-cases/delete-file.use-case";
 import { DownloadFileUseCase } from "../../application/use-cases/download-file.use-case";
 import { GetFileUseCase } from "../../application/use-cases/get-file.use-case";
@@ -29,7 +31,47 @@ export class StorageController {
     private readonly downloadFileUseCase: DownloadFileUseCase,
     private readonly getPresignedUrlUseCase: GetPresignedUrlUseCase,
     private readonly deleteFileUseCase: DeleteFileUseCase,
+    private readonly configService: ConfigService,
   ) {}
+
+  private getDownloadUrl(fileId: string): string {
+    const baseUrl = this.configService.get<string>(
+      "BASE_URL",
+      "http://localhost",
+    );
+    const port = this.configService.get<number>("PORT", 8081);
+
+    // Check if BASE_URL already includes a port (e.g., http://localhost:8080)
+    const hasPort = /:\d+$/.test(baseUrl);
+    return hasPort
+      ? `${baseUrl}/api/storage/${fileId}/download`
+      : `${baseUrl}:${port}/api/storage/${fileId}/download`;
+  }
+
+  private toFileResponse(result: {
+    id: string;
+    key: string;
+    size: number;
+    contentType: string;
+    originalName: string;
+    status: string;
+    createdAt: Date;
+    updatedAt: Date;
+    deletedAt: Date | null;
+  }): FileResponseDto {
+    return {
+      id: result.id,
+      url: this.getDownloadUrl(result.id),
+      key: result.key,
+      size: result.size,
+      content_type: result.contentType,
+      original_name: result.originalName,
+      status: result.status,
+      created_at: result.createdAt.toISOString(),
+      updated_at: result.updatedAt.toISOString(),
+      deleted_at: result.deletedAt?.toISOString() || null,
+    };
+  }
 
   @Post("upload")
   @UseInterceptors(FileInterceptor("file"))
@@ -48,28 +90,7 @@ export class StorageController {
       file.mimetype,
     );
 
-    // Construct the download URL
-    const baseUrl = process.env.BASE_URL || "http://localhost";
-    const port = process.env.PORT || 8081;
-
-    // Check if BASE_URL already includes a port (e.g., http://localhost:8080)
-    const hasPort = /:\d+$/.test(baseUrl);
-    const downloadUrl = hasPort
-      ? `${baseUrl}/api/storage/${result.id}/download`
-      : `${baseUrl}:${port}/api/storage/${result.id}/download`;
-
-    return {
-      id: result.id,
-      url: downloadUrl, // Use secure download endpoint with full URL
-      key: result.key,
-      size: result.size,
-      content_type: result.contentType,
-      original_name: result.originalName,
-      status: result.status,
-      created_at: result.createdAt.toISOString(),
-      updated_at: result.updatedAt.toISOString(),
-      deleted_at: result.deletedAt?.toISOString() || null,
-    };
+    return this.toFileResponse(result);
   }
 
   @Get(":id")
@@ -79,28 +100,7 @@ export class StorageController {
   ) {
     const file = await this.getFileUseCase.execute(id, session.user.id);
 
-    // Construct the download URL
-    const baseUrl = process.env.BASE_URL || "http://localhost";
-    const port = process.env.PORT || 8081;
-
-    // Check if BASE_URL already includes a port (e.g., http://localhost:8080)
-    const hasPort = /:\d+$/.test(baseUrl);
-    const downloadUrl = hasPort
-      ? `${baseUrl}/api/storage/${file.id}/download`
-      : `${baseUrl}:${port}/api/storage/${file.id}/download`;
-
-    return {
-      id: file.id,
-      url: downloadUrl, // Use secure download endpoint with full URL
-      key: file.key,
-      size: file.size,
-      content_type: file.contentType,
-      original_name: file.originalName,
-      status: file.status,
-      created_at: file.createdAt.toISOString(),
-      updated_at: file.updatedAt.toISOString(),
-      deleted_at: file.deletedAt?.toISOString() || null,
-    };
+    return this.toFileResponse(file);
   }
 
   @Get(":id/download")

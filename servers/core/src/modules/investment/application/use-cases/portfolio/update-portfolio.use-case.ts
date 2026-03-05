@@ -12,8 +12,10 @@ import type { UpdatePortfolioDto } from "../../dtos/portfolio/update-portfolio.d
 
 @Injectable()
 export class UpdatePortfolioUseCase {
-  @Inject(PORTFOLIO_REPOSITORY)
-  private readonly portfolioRepository!: IPortfolioRepository;
+  constructor(
+    @Inject(PORTFOLIO_REPOSITORY)
+    private readonly portfolioRepository: IPortfolioRepository,
+  ) {}
 
   async execute(
     id: string,

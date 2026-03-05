@@ -11,8 +11,10 @@ import { budgets } from "../schemas/budget.schema";
 
 @Injectable()
 export class DrizzleBudgetRepository implements IBudgetRepository {
-  @Inject(DRIZZLE)
-  private readonly db!: BunSQLDatabase;
+  constructor(
+    @Inject(DRIZZLE)
+    private readonly db: BunSQLDatabase,
+  ) {}
 
   async findById(id: string): Promise<Budget | null> {
     const [row] = await this.db

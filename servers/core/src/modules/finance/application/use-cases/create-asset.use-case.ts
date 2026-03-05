@@ -6,8 +6,10 @@ import type { CreateAssetDto } from "../dtos/create-asset.dto";
 
 @Injectable()
 export class CreateAssetUseCase {
-  @Inject(ASSET_REPOSITORY)
-  private readonly assetRepository!: IAssetRepository;
+  constructor(
+    @Inject(ASSET_REPOSITORY)
+    private readonly assetRepository: IAssetRepository,
+  ) {}
 
   async execute(dto: CreateAssetDto, userId: string): Promise<Asset> {
     const now = new Date();

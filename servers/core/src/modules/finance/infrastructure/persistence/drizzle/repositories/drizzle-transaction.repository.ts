@@ -36,8 +36,10 @@ import { transactions } from "../schemas/transaction.schema";
 
 @Injectable()
 export class DrizzleTransactionRepository implements ITransactionRepository {
-  @Inject(DRIZZLE)
-  private readonly db!: BunSQLDatabase;
+  constructor(
+    @Inject(DRIZZLE)
+    private readonly db: BunSQLDatabase,
+  ) {}
 
   private buildWhereConditions(
     userId: string,

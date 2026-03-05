@@ -31,8 +31,10 @@ import { accounts } from "../schemas/account.schema";
 
 @Injectable()
 export class DrizzleAccountRepository implements IAccountRepository {
-  @Inject(DRIZZLE)
-  private readonly db!: BunSQLDatabase;
+  constructor(
+    @Inject(DRIZZLE)
+    private readonly db: BunSQLDatabase,
+  ) {}
 
   private buildWhereConditions(
     userId: string,

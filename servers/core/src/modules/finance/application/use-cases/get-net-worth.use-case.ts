@@ -19,12 +19,14 @@ import type {
 
 @Injectable()
 export class GetNetWorthUseCase {
-  @Inject(ASSET_REPOSITORY)
-  private readonly assetRepository!: IAssetRepository;
-  @Inject(LIABILITY_REPOSITORY)
-  private readonly liabilityRepository!: ILiabilityRepository;
-  @Inject(NET_WORTH_SNAPSHOT_REPOSITORY)
-  private readonly snapshotRepository!: INetWorthSnapshotRepository;
+  constructor(
+    @Inject(ASSET_REPOSITORY)
+    private readonly assetRepository: IAssetRepository,
+    @Inject(LIABILITY_REPOSITORY)
+    private readonly liabilityRepository: ILiabilityRepository,
+    @Inject(NET_WORTH_SNAPSHOT_REPOSITORY)
+    private readonly snapshotRepository: INetWorthSnapshotRepository,
+  ) {}
 
   async execute(
     userId: string,

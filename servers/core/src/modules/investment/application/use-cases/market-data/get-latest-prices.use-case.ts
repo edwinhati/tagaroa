@@ -16,12 +16,14 @@ import {
 export class GetLatestPricesUseCase {
   private readonly logger = new Logger(GetLatestPricesUseCase.name);
 
-  @Inject(INSTRUMENT_REPOSITORY)
-  private readonly instrumentRepository!: IInstrumentRepository;
-  @Inject(OHLCV_REPOSITORY)
-  private readonly ohlcvRepository!: IOhlcvRepository;
-  @Inject(MARKET_DATA_PROVIDER)
-  private readonly providers!: IMarketDataProvider[];
+  constructor(
+    @Inject(INSTRUMENT_REPOSITORY)
+    private readonly instrumentRepository: IInstrumentRepository,
+    @Inject(OHLCV_REPOSITORY)
+    private readonly ohlcvRepository: IOhlcvRepository,
+    @Inject(MARKET_DATA_PROVIDER)
+    private readonly providers: IMarketDataProvider[],
+  ) {}
 
   async execute(
     instrumentIds: string[],

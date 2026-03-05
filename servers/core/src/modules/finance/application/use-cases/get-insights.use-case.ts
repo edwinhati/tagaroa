@@ -13,8 +13,10 @@ import { calculateChange, getPreviousPeriod } from "../utils/period-helpers";
 
 @Injectable()
 export class GetInsightsUseCase {
-  @Inject(TRANSACTION_REPOSITORY)
-  private readonly transactionRepository!: ITransactionRepository;
+  constructor(
+    @Inject(TRANSACTION_REPOSITORY)
+    private readonly transactionRepository: ITransactionRepository,
+  ) {}
 
   async execute(
     userId: string,

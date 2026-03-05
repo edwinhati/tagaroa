@@ -24,12 +24,14 @@ import type { ClosePositionDto } from "../../dtos/portfolio/close-position.dto";
 
 @Injectable()
 export class ClosePositionUseCase {
-  @Inject(PORTFOLIO_REPOSITORY)
-  private readonly portfolioRepository!: IPortfolioRepository;
-  @Inject(POSITION_REPOSITORY)
-  private readonly positionRepository!: IPositionRepository;
-  @Inject(TRADE_REPOSITORY)
-  private readonly tradeRepository!: ITradeRepository;
+  constructor(
+    @Inject(PORTFOLIO_REPOSITORY)
+    private readonly portfolioRepository: IPortfolioRepository,
+    @Inject(POSITION_REPOSITORY)
+    private readonly positionRepository: IPositionRepository,
+    @Inject(TRADE_REPOSITORY)
+    private readonly tradeRepository: ITradeRepository,
+  ) {}
 
   async execute(
     portfolioId: string,

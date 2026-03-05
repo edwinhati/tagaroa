@@ -9,8 +9,10 @@ import { FILE_REPOSITORY } from "../../domain/repositories/file.repository.inter
 
 @Injectable()
 export class GetFileUseCase {
-  @Inject(FILE_REPOSITORY)
-  private readonly fileRepository!: IFileRepository;
+  constructor(
+    @Inject(FILE_REPOSITORY)
+    private readonly fileRepository: IFileRepository,
+  ) {}
 
   async execute(fileId: string, userId: string): Promise<File> {
     // 1. Fetch file metadata

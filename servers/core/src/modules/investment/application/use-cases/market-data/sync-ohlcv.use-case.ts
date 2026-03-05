@@ -22,12 +22,14 @@ import type { SyncOhlcvDto } from "../../dtos/market-data/sync-ohlcv.dto";
 export class SyncOhlcvUseCase {
   private readonly logger = new Logger(SyncOhlcvUseCase.name);
 
-  @Inject(INSTRUMENT_REPOSITORY)
-  private readonly instrumentRepository!: IInstrumentRepository;
-  @Inject(OHLCV_REPOSITORY)
-  private readonly ohlcvRepository!: IOhlcvRepository;
-  @Inject(MARKET_DATA_PROVIDER)
-  private readonly providers!: IMarketDataProvider[];
+  constructor(
+    @Inject(INSTRUMENT_REPOSITORY)
+    private readonly instrumentRepository: IInstrumentRepository,
+    @Inject(OHLCV_REPOSITORY)
+    private readonly ohlcvRepository: IOhlcvRepository,
+    @Inject(MARKET_DATA_PROVIDER)
+    private readonly providers: IMarketDataProvider[],
+  ) {}
 
   async execute(dto: SyncOhlcvDto): Promise<{ synced: number }> {
     const instrument = await this.instrumentRepository.findById(

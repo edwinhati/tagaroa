@@ -16,14 +16,14 @@ import { MimeType } from "../../domain/value-objects/mime-type";
 
 @Injectable()
 export class UploadFileUseCase {
-  @Inject(FILE_REPOSITORY)
-  private readonly fileRepository!: IFileRepository;
-
-  @Inject(STORAGE_SERVICE)
-  private readonly storageService!: IStorageService;
-
-  @Inject(ConfigService)
-  private readonly configService!: ConfigService<AppConfig, true>;
+  constructor(
+    @Inject(FILE_REPOSITORY)
+    private readonly fileRepository: IFileRepository,
+    @Inject(STORAGE_SERVICE)
+    private readonly storageService: IStorageService,
+    @Inject(ConfigService)
+    private readonly configService: ConfigService<AppConfig, true>,
+  ) {}
 
   async execute(
     userId: string,

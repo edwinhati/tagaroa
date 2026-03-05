@@ -25,14 +25,16 @@ export type TransactionWithRelations = {
 
 @Injectable()
 export class GetTransactionsUseCase {
-  @Inject(TRANSACTION_REPOSITORY)
-  private readonly transactionRepository!: ITransactionRepository;
-  @Inject(ACCOUNT_REPOSITORY)
-  private readonly accountRepository!: IAccountRepository;
-  @Inject(BUDGET_ITEM_REPOSITORY)
-  private readonly budgetItemRepository!: IBudgetItemRepository;
-
   private readonly logger = new Logger(GetTransactionsUseCase.name);
+
+  constructor(
+    @Inject(TRANSACTION_REPOSITORY)
+    private readonly transactionRepository: ITransactionRepository,
+    @Inject(ACCOUNT_REPOSITORY)
+    private readonly accountRepository: IAccountRepository,
+    @Inject(BUDGET_ITEM_REPOSITORY)
+    private readonly budgetItemRepository: IBudgetItemRepository,
+  ) {}
 
   async execute(
     userId: string,

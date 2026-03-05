@@ -6,5 +6,6 @@
     "useDefineForClassFields": false,
     "strictPropertyInitialization": false,
     "outDir": "./dist"
-  }
+  },
+  "exclude": ["node_modules", "dist", "**/*.spec.ts", "**/*.test.ts"]
 }

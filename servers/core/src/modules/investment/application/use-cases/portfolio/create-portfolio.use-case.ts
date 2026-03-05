@@ -9,8 +9,10 @@ import type { CreatePortfolioDto } from "../../dtos/portfolio/create-portfolio.d
 
 @Injectable()
 export class CreatePortfolioUseCase {
-  @Inject(PORTFOLIO_REPOSITORY)
-  private readonly portfolioRepository!: IPortfolioRepository;
+  constructor(
+    @Inject(PORTFOLIO_REPOSITORY)
+    private readonly portfolioRepository: IPortfolioRepository,
+  ) {}
 
   async execute(dto: CreatePortfolioDto, userId: string): Promise<Portfolio> {
     const now = new Date();

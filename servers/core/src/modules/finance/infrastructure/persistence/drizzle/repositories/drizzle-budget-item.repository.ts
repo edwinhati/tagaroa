@@ -9,8 +9,10 @@ import { budgetItems } from "../schemas/budget-item.schema";
 
 @Injectable()
 export class DrizzleBudgetItemRepository implements IBudgetItemRepository {
-  @Inject(DRIZZLE)
-  private readonly db!: BunSQLDatabase;
+  constructor(
+    @Inject(DRIZZLE)
+    private readonly db: BunSQLDatabase,
+  ) {}
 
   async findById(id: string): Promise<BudgetItem | null> {
     const [row] = await this.db

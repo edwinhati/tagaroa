@@ -31,8 +31,10 @@ import { liabilities } from "../schemas/liability.schema";
 
 @Injectable()
 export class DrizzleLiabilityRepository implements ILiabilityRepository {
-  @Inject(DRIZZLE)
-  private readonly db!: BunSQLDatabase;
+  constructor(
+    @Inject(DRIZZLE)
+    private readonly db: BunSQLDatabase,
+  ) {}
 
   private buildWhereConditions(
     userId: string,

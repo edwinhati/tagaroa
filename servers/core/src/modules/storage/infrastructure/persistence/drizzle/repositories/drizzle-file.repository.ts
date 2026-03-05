@@ -10,8 +10,10 @@ import { files } from "../schemas/file.schema";
 
 @Injectable()
 export class DrizzleFileRepository implements IFileRepository {
-  @Inject(DRIZZLE)
-  private readonly db!: BunSQLDatabase;
+  constructor(
+    @Inject(DRIZZLE)
+    private readonly db: BunSQLDatabase,
+  ) {}
 
   async findById(id: string): Promise<File | null> {
     const [row] = await this.db

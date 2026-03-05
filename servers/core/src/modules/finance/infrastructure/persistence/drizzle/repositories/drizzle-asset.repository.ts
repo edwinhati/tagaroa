@@ -31,8 +31,10 @@ import { assets } from "../schemas/asset.schema";
 
 @Injectable()
 export class DrizzleAssetRepository implements IAssetRepository {
-  @Inject(DRIZZLE)
-  private readonly db!: BunSQLDatabase;
+  constructor(
+    @Inject(DRIZZLE)
+    private readonly db: BunSQLDatabase,
+  ) {}
 
   private buildWhereConditions(
     userId: string,

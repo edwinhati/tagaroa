@@ -15,10 +15,12 @@ import {
 
 @Injectable()
 export class ListCashFlowsUseCase {
-  @Inject(PORTFOLIO_REPOSITORY)
-  private readonly portfolioRepository!: IPortfolioRepository;
-  @Inject(CASH_FLOW_REPOSITORY)
-  private readonly cashFlowRepository!: ICashFlowRepository;
+  constructor(
+    @Inject(PORTFOLIO_REPOSITORY)
+    private readonly portfolioRepository: IPortfolioRepository,
+    @Inject(CASH_FLOW_REPOSITORY)
+    private readonly cashFlowRepository: ICashFlowRepository,
+  ) {}
 
   async execute(
     portfolioId: string,

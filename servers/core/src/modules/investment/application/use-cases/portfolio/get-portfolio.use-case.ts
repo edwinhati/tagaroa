@@ -11,8 +11,10 @@ import {
 
 @Injectable()
 export class GetPortfolioUseCase {
-  @Inject(PORTFOLIO_REPOSITORY)
-  private readonly portfolioRepository!: IPortfolioRepository;
+  constructor(
+    @Inject(PORTFOLIO_REPOSITORY)
+    private readonly portfolioRepository: IPortfolioRepository,
+  ) {}
 
   async execute(id: string, userId: string): Promise<Portfolio> {
     const portfolio = await this.portfolioRepository.findById(id);

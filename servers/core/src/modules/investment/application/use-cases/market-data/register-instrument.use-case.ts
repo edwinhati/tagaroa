@@ -12,10 +12,9 @@ import { GetInstrumentMetadataUseCase } from "./get-instrument-metadata.use-case
 export class RegisterInstrumentUseCase {
   constructor(
     private readonly getMetadataUseCase: GetInstrumentMetadataUseCase,
+    @Inject(INSTRUMENT_REPOSITORY)
+    private readonly instrumentRepository: IInstrumentRepository,
   ) {}
-
-  @Inject(INSTRUMENT_REPOSITORY)
-  private readonly instrumentRepository!: IInstrumentRepository;
 
   async execute(dto: RegisterInstrumentDto): Promise<Instrument> {
     const existing = await this.instrumentRepository.findByTicker(dto.ticker);

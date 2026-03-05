@@ -12,8 +12,10 @@ import type { GetExpenseBreakdownDto } from "../dtos/dashboard/get-expense-break
 
 @Injectable()
 export class GetExpenseBreakdownUseCase {
-  @Inject(TRANSACTION_REPOSITORY)
-  private readonly transactionRepository!: ITransactionRepository;
+  constructor(
+    @Inject(TRANSACTION_REPOSITORY)
+    private readonly transactionRepository: ITransactionRepository,
+  ) {}
 
   async execute(
     userId: string,

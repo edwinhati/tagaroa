@@ -12,8 +12,10 @@ import {
 
 @Injectable()
 export class ListInstrumentsUseCase {
-  @Inject(INSTRUMENT_REPOSITORY)
-  private readonly instrumentRepository!: IInstrumentRepository;
+  constructor(
+    @Inject(INSTRUMENT_REPOSITORY)
+    private readonly instrumentRepository: IInstrumentRepository,
+  ) {}
 
   async execute(
     pagination: PaginationParams,

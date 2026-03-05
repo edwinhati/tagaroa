@@ -184,12 +184,14 @@ function toPercentOrNull(value: number | null): number | null {
 
 @Injectable()
 export class GetPerformanceMetricsUseCase {
-  @Inject(PORTFOLIO_REPOSITORY)
-  private readonly portfolioRepository!: IPortfolioRepository;
-  @Inject(PORTFOLIO_SNAPSHOT_REPOSITORY)
-  private readonly snapshotRepository!: IPortfolioSnapshotRepository;
-  @Inject(CASH_FLOW_REPOSITORY)
-  private readonly cashFlowRepository!: ICashFlowRepository;
+  constructor(
+    @Inject(PORTFOLIO_REPOSITORY)
+    private readonly portfolioRepository: IPortfolioRepository,
+    @Inject(PORTFOLIO_SNAPSHOT_REPOSITORY)
+    private readonly snapshotRepository: IPortfolioSnapshotRepository,
+    @Inject(CASH_FLOW_REPOSITORY)
+    private readonly cashFlowRepository: ICashFlowRepository,
+  ) {}
 
   async execute(
     portfolioId: string,
