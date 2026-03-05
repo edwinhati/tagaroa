@@ -65,7 +65,7 @@ function computeMetrics(navs: number[]): Omit<RollingMetrics, "windowDays"> {
     if (dd > maxDrawdownPct) maxDrawdownPct = dd;
   }
 
-  const lastNav = navs[navs.length - 1] ?? 0;
+  const lastNav = navs.at(-1) ?? 0;
   const totalReturn =
     firstNav > 0 ? ((lastNav - firstNav) / firstNav) * 100 : null;
 

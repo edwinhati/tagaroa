@@ -28,6 +28,11 @@ export class UpdateLiabilityUseCase {
       throw new LiabilityAccessDeniedException();
     }
 
+    let updatedPaidAt = existing.paidAt;
+    if (dto.paidAt !== undefined) {
+      updatedPaidAt = dto.paidAt ? new Date(dto.paidAt) : null;
+    }
+
     const updated = new Liability(
       existing.id,
       existing.userId,
@@ -35,12 +40,8 @@ export class UpdateLiabilityUseCase {
       dto.type ?? existing.type,
       dto.amount ?? existing.amount,
       dto.currency ?? existing.currency,
-      dto.paidAt !== undefined
-        ? dto.paidAt
-          ? new Date(dto.paidAt)
-          : null
-        : existing.paidAt,
-      dto.notes !== undefined ? dto.notes : existing.notes,
+      updatedPaidAt,
+      dto.notes === undefined ? existing.notes : dto.notes,
       existing.deletedAt,
       existing.createdAt,
       new Date(),

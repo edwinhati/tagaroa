@@ -46,7 +46,7 @@ export class ClosePositionUseCase {
     }
 
     const position = await this.positionRepository.findById(positionId);
-    if (!position || position.portfolioId !== portfolioId) {
+    if (position?.portfolioId !== portfolioId) {
       throw new PositionNotFoundException(positionId);
     }
     if (!position.isOpen()) {

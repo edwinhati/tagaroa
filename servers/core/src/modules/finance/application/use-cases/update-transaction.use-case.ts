@@ -54,46 +54,20 @@ export class UpdateTransactionUseCase {
       throw new TransactionAccessDeniedException();
     }
 
-    if (dto.accountId && dto.accountId !== existing.accountId) {
-      const account = await this.accountRepository.findById(dto.accountId);
-      if (!account || account.userId !== userId) {
-        throw new AccountNotFoundException(dto.accountId);
-      }
-    }
-
-    if (
-      dto.budgetItemId !== undefined &&
-      dto.budgetItemId !== existing.budgetItemId
-    ) {
-      if (dto.budgetItemId) {
-        const budgetItem = await this.budgetItemRepository.findById(
-          dto.budgetItemId,
-        );
-        if (!budgetItem) {
-          throw new BudgetItemNotFoundException(dto.budgetItemId);
-        }
-
-        // Verify budget ownership
-        const budget = await this.budgetRepository.findById(
-          budgetItem.budgetId,
-        );
-        if (!budget || budget.userId !== userId) {
-          throw new TransactionAccessDeniedException();
-        }
-      }
-    }
+    await this.validateAccountChange(userId, dto, existing.accountId);
+    await this.validateBudgetItemChange(userId, dto, existing.budgetItemId);
 
     const updated = new Transaction(
       existing.id,
       dto.amount ?? existing.amount,
       dto.date ? new Date(dto.date) : existing.date,
-      dto.notes !== undefined ? dto.notes : existing.notes,
+      dto.notes ?? existing.notes,
       dto.currency ?? existing.currency,
       dto.type ?? existing.type,
-      dto.files !== undefined ? dto.files : existing.files,
+      dto.files ?? existing.files,
       existing.userId,
       dto.accountId ?? existing.accountId,
-      dto.budgetItemId !== undefined ? dto.budgetItemId : existing.budgetItemId,
+      dto.budgetItemId ?? existing.budgetItemId,
       existing.deletedAt,
       existing.createdAt,
       new Date(),
@@ -102,55 +76,89 @@ export class UpdateTransactionUseCase {
 
     const updatedTransaction = await this.transactionRepository.update(updated);
 
-    // Update spent for affected budget items
-    // If budgetItemId changed, update both old and new
-    if (existing.budgetItemId !== updatedTransaction.budgetItemId) {
+    await this.applyBudgetSideEffects(existing, updatedTransaction, dto);
+    await this.applyAccountSideEffects(existing, updatedTransaction, dto);
+
+    return updatedTransaction;
+  }
+
+  private async validateAccountChange(
+    userId: string,
+    dto: UpdateTransactionDto,
+    existingAccountId: string,
+  ): Promise<void> {
+    if (!dto.accountId || dto.accountId === existingAccountId) return;
+
+    const account = await this.accountRepository.findById(dto.accountId);
+    if (account?.userId !== userId) {
+      throw new AccountNotFoundException(dto.accountId);
+    }
+  }
+
+  private async validateBudgetItemChange(
+    userId: string,
+    dto: UpdateTransactionDto,
+    existingBudgetItemId: string | null | undefined,
+  ): Promise<void> {
+    if (
+      dto.budgetItemId === undefined ||
+      dto.budgetItemId === existingBudgetItemId
+    )
+      return;
+    if (!dto.budgetItemId) return;
+
+    const budgetItem = await this.budgetItemRepository.findById(
+      dto.budgetItemId,
+    );
+    if (!budgetItem) {
+      throw new BudgetItemNotFoundException(dto.budgetItemId);
+    }
+
+    const budget = await this.budgetRepository.findById(budgetItem.budgetId);
+    if (budget?.userId !== userId) {
+      throw new TransactionAccessDeniedException();
+    }
+  }
+
+  private async applyBudgetSideEffects(
+    existing: Transaction,
+    updated: Transaction,
+    dto: UpdateTransactionDto,
+  ): Promise<void> {
+    if (existing.budgetItemId !== updated.budgetItemId) {
       if (existing.budgetItemId) {
         await this.sideEffectsService.recalculateSpent(existing.budgetItemId);
       }
-      if (updatedTransaction.budgetItemId) {
-        await this.sideEffectsService.recalculateSpent(
-          updatedTransaction.budgetItemId,
-        );
+      if (updated.budgetItemId) {
+        await this.sideEffectsService.recalculateSpent(updated.budgetItemId);
       }
-    } else if (updatedTransaction.budgetItemId && dto.amount !== undefined) {
-      // If budgetItemId didn't change but amount did, update spent
-      await this.sideEffectsService.recalculateSpent(
-        updatedTransaction.budgetItemId,
-      );
+    } else if (updated.budgetItemId && dto.amount !== undefined) {
+      await this.sideEffectsService.recalculateSpent(updated.budgetItemId);
     }
+  }
 
-    // Update account balances for affected accounts
-    if (existing.accountId !== updatedTransaction.accountId) {
-      // Account changed: reverse from old account, add to new account
+  private async applyAccountSideEffects(
+    existing: Transaction,
+    updated: Transaction,
+    dto: UpdateTransactionDto,
+  ): Promise<void> {
+    if (
+      existing.accountId !== updated.accountId ||
+      dto.amount !== undefined ||
+      dto.type !== undefined
+    ) {
       await this.sideEffectsService.updateAccountBalance(
         existing.accountId,
         existing.amount,
         existing.type,
-        false, // isAdd = false (remove from old account)
+        false,
       );
       await this.sideEffectsService.updateAccountBalance(
-        updatedTransaction.accountId,
-        updatedTransaction.amount,
-        updatedTransaction.type,
-        true, // isAdd = true (add to new account)
-      );
-    } else if (dto.amount !== undefined || dto.type !== undefined) {
-      // Amount or type changed: reverse old transaction, add new transaction
-      await this.sideEffectsService.updateAccountBalance(
-        existing.accountId,
-        existing.amount,
-        existing.type,
-        false, // isAdd = false (reverse old)
-      );
-      await this.sideEffectsService.updateAccountBalance(
-        updatedTransaction.accountId,
-        updatedTransaction.amount,
-        updatedTransaction.type,
-        true, // isAdd = true (add new)
+        updated.accountId,
+        updated.amount,
+        updated.type,
+        true,
       );
     }
-
-    return updatedTransaction;
   }
 }

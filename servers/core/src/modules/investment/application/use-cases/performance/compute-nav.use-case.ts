@@ -103,29 +103,24 @@ export class ComputeNavUseCase {
         "1d",
       );
       const isFallback = latestOhlcv === null;
-      const price = latestOhlcv
-        ? Number(latestOhlcv.close)
-        : Number(position.averageCost);
-      const priceDate = latestOhlcv ? latestOhlcv.timestamp : null;
+      const price = isFallback
+        ? Number(position.averageCost)
+        : Number(latestOhlcv.close);
+      const priceDate = latestOhlcv?.timestamp ?? null;
       const isStale =
-        priceDate !== null && instrument
-          ? isPriceStale(priceDate, instrument.assetClass)
-          : false;
+        priceDate !== null &&
+        instrument != null &&
+        isPriceStale(priceDate, instrument.assetClass);
 
-      if (!isFallback) {
-        allFallback = false;
-      }
+      allFallback = allFallback && isFallback;
 
-      const costContribution =
-        position.side === "LONG"
-          ? Number(position.quantity) * Number(position.averageCost)
-          : -(Number(position.quantity) * Number(position.averageCost));
+      const sideFactor = position.side === "LONG" ? 1 : -1;
+      const qty = Number(position.quantity);
+
+      const costContribution = sideFactor * qty * Number(position.averageCost);
       deployedCapital += costContribution;
 
-      const positionValue =
-        position.side === "LONG"
-          ? Number(position.quantity) * price
-          : -(Number(position.quantity) * price);
+      const positionValue = sideFactor * qty * price;
       marketValue += positionValue;
 
       breakdown.push({

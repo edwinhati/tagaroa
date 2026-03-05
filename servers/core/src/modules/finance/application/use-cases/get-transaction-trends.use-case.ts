@@ -24,11 +24,7 @@ export class GetTransactionTrendsUseCase {
       ? new Date(dto.start_date)
       : new Date(endDate.getFullYear(), endDate.getMonth() - 3, 1);
 
-    const granularity = (dto.granularity || "month") as
-      | "day"
-      | "week"
-      | "month"
-      | "year";
+    const granularity = dto.granularity || "month";
 
     const rows = await this.transactionRepository.aggregateTrends(
       userId,

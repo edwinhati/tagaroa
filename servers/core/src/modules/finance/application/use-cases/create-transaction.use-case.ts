@@ -41,10 +41,7 @@ export class CreateTransactionUseCase {
     dto: CreateTransactionDto,
   ): Promise<Transaction> {
     const account = await this.accountRepository.findById(dto.accountId);
-    if (!account) {
-      throw new AccountNotFoundException(dto.accountId);
-    }
-    if (account.userId !== userId) {
+    if (account?.userId !== userId) {
       throw new AccountNotFoundException(dto.accountId);
     }
 
@@ -58,7 +55,7 @@ export class CreateTransactionUseCase {
 
       // Verify budget ownership
       const budget = await this.budgetRepository.findById(budgetItem.budgetId);
-      if (!budget || budget.userId !== userId) {
+      if (budget?.userId !== userId) {
         throw new TransactionAccessDeniedException();
       }
     }

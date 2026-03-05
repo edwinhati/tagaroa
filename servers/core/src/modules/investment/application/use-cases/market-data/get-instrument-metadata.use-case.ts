@@ -30,7 +30,7 @@ export class GetInstrumentMetadataUseCase {
 
     if (!freshMetadata) return null;
 
-    const merged = { ...(instrument.metadata ?? {}), ...freshMetadata };
+    const merged = { ...instrument.metadata, ...freshMetadata };
     const updated = new Instrument(
       instrument.id,
       instrument.ticker,
@@ -133,8 +133,8 @@ export class GetInstrumentMetadataUseCase {
     try {
       const coinId = ticker
         .toLowerCase()
-        .replace("/usdt", "")
-        .replace("/usd", "");
+        .replaceAll("/usdt", "")
+        .replaceAll("/usd", "");
       const url = `https://api.coingecko.com/api/v3/coins/${encodeURIComponent(coinId)}?localization=false&tickers=false&market_data=true&community_data=false&developer_data=false`;
       const response = await fetch(url, {
         signal: AbortSignal.timeout(8000),
@@ -168,8 +168,8 @@ export class GetInstrumentMetadataUseCase {
       return {
         description: rawDesc
           ? rawDesc
-              .replace(/<[^>]*>/g, "")
-              .replace(/\s+/g, " ")
+              .replaceAll(/<[^>]*>/g, "")
+              .replaceAll(/\s+/g, " ")
               .trim()
           : null,
         marketCap: marketData.market_cap?.usd ?? null,

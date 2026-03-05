@@ -35,7 +35,7 @@ export class UpdateAccountUseCase {
       dto.balance ?? existing.balance,
       existing.userId,
       existing.currency,
-      dto.notes !== undefined ? dto.notes : existing.notes,
+      dto.notes === undefined ? existing.notes : dto.notes,
       existing.deletedAt,
       existing.createdAt,
       new Date(),

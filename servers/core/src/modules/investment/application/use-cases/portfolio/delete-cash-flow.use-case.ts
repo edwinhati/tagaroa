@@ -41,7 +41,7 @@ export class DeleteCashFlowUseCase {
     }
 
     const cashFlow = await this.cashFlowRepository.findById(cashFlowId);
-    if (!cashFlow || cashFlow.portfolioId !== portfolioId) {
+    if (cashFlow?.portfolioId !== portfolioId) {
       throw new CashFlowNotFoundException(cashFlowId);
     }
 

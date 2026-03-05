@@ -99,10 +99,10 @@ export class GetPositionsWithPnlUseCase {
 
       const thresholdDays = STALENESS_DAYS[assetClass as AssetClass] ?? 3;
       const isStale =
-        priceDate !== null
-          ? (Date.now() - priceDate.getTime()) / (1000 * 60 * 60 * 24) >
-            thresholdDays
-          : false;
+        priceDate === null
+          ? false
+          : (Date.now() - priceDate.getTime()) / (1000 * 60 * 60 * 24) >
+            thresholdDays;
 
       const qty = Number(position.quantity);
       const avgCost = Number(position.averageCost);

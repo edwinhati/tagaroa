@@ -75,7 +75,7 @@ export class AddPositionUseCase {
 
     let position: Position;
 
-    if (existing && dto.side === existing.side) {
+    if (dto.side === existing?.side) {
       // Consolidate: compute weighted average cost
       const totalQty = existing.quantity + dto.quantity;
       const newAvgCost =

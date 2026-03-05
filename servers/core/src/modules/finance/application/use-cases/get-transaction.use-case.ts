@@ -33,7 +33,7 @@ export class GetTransactionUseCase {
   async execute(userId: string, id: string): Promise<TransactionWithRelations> {
     const transaction = await this.transactionRepository.findById(id);
 
-    if (!transaction || transaction.userId !== userId) {
+    if (transaction?.userId !== userId) {
       throw new NotFoundException("Transaction not found");
     }
 
