@@ -1,7 +1,6 @@
 "use client";
 
 import { financeApi } from "@repo/common/lib/http";
-import type { AggregationItem } from "@repo/common/types";
 import type {
   LiabilitiesApiResponse,
   Liability,

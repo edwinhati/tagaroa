@@ -16,10 +16,10 @@ import {
   buildJsonApiResponse,
   buildPaginationInfo,
 } from "../../../../shared/types/pagination";
-import { CreateTransactionDto } from "../../application/dtos/create-transaction.dto";
-import { GetTransactionsDto } from "../../application/dtos/get-transactions.dto";
+import type { CreateTransactionDto } from "../../application/dtos/create-transaction.dto";
+import type { GetTransactionsDto } from "../../application/dtos/get-transactions.dto";
 import { toTransactionResponse } from "../../application/dtos/transaction-response.dto";
-import { UpdateTransactionDto } from "../../application/dtos/update-transaction.dto";
+import type { UpdateTransactionDto } from "../../application/dtos/update-transaction.dto";
 import { CreateTransactionUseCase } from "../../application/use-cases/create-transaction.use-case";
 import { DeleteTransactionUseCase } from "../../application/use-cases/delete-transaction.use-case";
 import { GetTransactionUseCase } from "../../application/use-cases/get-transaction.use-case";

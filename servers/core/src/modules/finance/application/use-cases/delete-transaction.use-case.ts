@@ -4,14 +4,6 @@ import {
   TransactionNotFoundException,
 } from "../../domain/exceptions/transaction.exceptions";
 import {
-  ACCOUNT_REPOSITORY,
-  type IAccountRepository,
-} from "../../domain/repositories/account.repository.interface";
-import {
-  BUDGET_ITEM_REPOSITORY,
-  type IBudgetItemRepository,
-} from "../../domain/repositories/budget-item.repository.interface";
-import {
   type ITransactionRepository,
   TRANSACTION_REPOSITORY,
 } from "../../domain/repositories/transaction.repository.interface";
@@ -19,9 +11,10 @@ import { TransactionSideEffectsService } from "../services/transaction-side-effe
 
 @Injectable()
 export class DeleteTransactionUseCase {
+  @Inject(TRANSACTION_REPOSITORY)
+  private readonly transactionRepository!: ITransactionRepository;
+
   constructor(
-    @Inject(TRANSACTION_REPOSITORY)
-    private readonly transactionRepository: ITransactionRepository,
     private readonly sideEffectsService: TransactionSideEffectsService,
   ) {}
 

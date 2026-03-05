@@ -21,7 +21,7 @@ import type {
   AggregationBucket,
   PaginatedResult,
 } from "../../../../../../shared/types/pagination";
-import { Account } from "../../../../domain/entities/account.entity";
+import type { Account } from "../../../../domain/entities/account.entity";
 import type {
   AccountFilterParams,
   IAccountRepository,
@@ -31,7 +31,8 @@ import { accounts } from "../schemas/account.schema";
 
 @Injectable()
 export class DrizzleAccountRepository implements IAccountRepository {
-  constructor(@Inject(DRIZZLE) private readonly db: BunSQLDatabase) {}
+  @Inject(DRIZZLE)
+  private readonly db!: BunSQLDatabase;
 
   private buildWhereConditions(
     userId: string,

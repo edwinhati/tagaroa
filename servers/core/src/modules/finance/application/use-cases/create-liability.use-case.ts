@@ -6,10 +6,8 @@ import type { CreateLiabilityDto } from "../dtos/create-liability.dto";
 
 @Injectable()
 export class CreateLiabilityUseCase {
-  constructor(
-    @Inject(LIABILITY_REPOSITORY)
-    private readonly liabilityRepository: ILiabilityRepository,
-  ) {}
+  @Inject(LIABILITY_REPOSITORY)
+  private readonly liabilityRepository!: ILiabilityRepository;
 
   async execute(dto: CreateLiabilityDto, userId: string): Promise<Liability> {
     const now = new Date();

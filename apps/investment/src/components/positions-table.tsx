@@ -5,7 +5,7 @@ import {
   portfoliosQueryOptions,
   positionsQueryOptions,
 } from "@repo/common/lib/query/portfolio-query";
-import type { Instrument, Position } from "@repo/common/types/investment";
+import type { Position } from "@repo/common/types/investment";
 import { Skeleton } from "@repo/ui/components/skeleton";
 import {
   Table,

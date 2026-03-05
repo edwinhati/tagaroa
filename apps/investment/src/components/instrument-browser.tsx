@@ -1332,9 +1332,11 @@ export function InstrumentBrowser() {
             <div className="flex-1 overflow-y-auto">
               {isLoading ? (
                 <div className="space-y-px p-2">
-                  {Array.from({ length: 8 }).map((_, i) => (
-                    // biome-ignore lint/suspicious/noArrayIndexKey: skeleton
-                    <Skeleton key={i} className="h-11 w-full rounded-md" />
+                  {Array.from({ length: 8 }).map(() => (
+                    <Skeleton
+                      key={crypto.randomUUID()}
+                      className="h-11 w-full rounded-md"
+                    />
                   ))}
                 </div>
               ) : instruments.length === 0 ? (

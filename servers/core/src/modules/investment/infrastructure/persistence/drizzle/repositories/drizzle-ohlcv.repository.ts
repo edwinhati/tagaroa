@@ -13,7 +13,8 @@ import { ohlcv } from "../schemas/ohlcv.schema";
 
 @Injectable()
 export class DrizzleOhlcvRepository implements IOhlcvRepository {
-  constructor(@Inject(DRIZZLE) private readonly db: BunSQLDatabase) {}
+  @Inject(DRIZZLE)
+  private readonly db!: BunSQLDatabase;
 
   async findMany(params: OhlcvQueryParams): Promise<Ohlcv[]> {
     const conditions = [

@@ -4,7 +4,6 @@ import { Input } from "@repo/ui/components/input";
 import { cn } from "@repo/ui/lib/utils";
 import { IconFilter, IconSearch, IconX } from "@tabler/icons-react";
 import type { Table } from "@tanstack/react-table";
-import * as React from "react";
 import { useCallback, useId, useMemo, useRef } from "react";
 
 // Client-side (table-based) search props

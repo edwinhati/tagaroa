@@ -1,10 +1,7 @@
 import { relations } from "drizzle-orm";
 import { accounts } from "./schemas/account.schema";
-import { assets } from "./schemas/asset.schema";
 import { budgets } from "./schemas/budget.schema";
 import { budgetItems } from "./schemas/budget-item.schema";
-import { liabilities } from "./schemas/liability.schema";
-import { netWorthSnapshots } from "./schemas/net-worth-snapshot.schema";
 import { transactions } from "./schemas/transaction.schema";
 
 export { financeSchema } from "./schema";

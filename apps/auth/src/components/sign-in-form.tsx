@@ -33,7 +33,7 @@ import {
 } from "@tabler/icons-react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
-import * as React from "react";
+import type * as React from "react";
 import { useState, useSyncExternalStore } from "react";
 import { Controller, useForm } from "react-hook-form";
 import { toast } from "sonner";

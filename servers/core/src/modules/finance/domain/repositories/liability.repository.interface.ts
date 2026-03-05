@@ -2,7 +2,7 @@ import type {
   AggregationBucket,
   PaginatedResult,
 } from "../../../../shared/types/pagination";
-import { Liability } from "../entities/liability.entity";
+import type { Liability } from "../entities/liability.entity";
 
 export const LIABILITY_REPOSITORY = Symbol("LIABILITY_REPOSITORY");
 

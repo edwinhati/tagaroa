@@ -1,5 +1,3 @@
-import * as React from "react";
-
 type LogoProps = Readonly<{
   size?: number | string;
 }>;

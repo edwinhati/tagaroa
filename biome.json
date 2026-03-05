@@ -17,7 +17,11 @@
   "linter": {
     "enabled": true,
     "rules": {
-      "recommended": true
+      "recommended": true,
+      "correctness": {
+        "noUnusedVariables": "error",
+        "noUnusedImports": "error"
+      }
     },
     "domains": {
       "next": "recommended",
@@ -55,6 +59,9 @@
         "rules": {
           "correctness": {
             "useHookAtTopLevel": "off"
+          },
+          "style": {
+            "useImportType": "off"
           }
         }
       }

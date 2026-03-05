@@ -1,7 +1,7 @@
 import { Inject, Injectable, NotFoundException } from "@nestjs/common";
-import { Account } from "../../domain/entities/account.entity";
-import { BudgetItem } from "../../domain/entities/budget-item.entity";
-import { Transaction } from "../../domain/entities/transaction.entity";
+import type { Account } from "../../domain/entities/account.entity";
+import type { BudgetItem } from "../../domain/entities/budget-item.entity";
+import type { Transaction } from "../../domain/entities/transaction.entity";
 import {
   ACCOUNT_REPOSITORY,
   type IAccountRepository,
@@ -23,14 +23,12 @@ export type TransactionWithRelations = {
 
 @Injectable()
 export class GetTransactionUseCase {
-  constructor(
-    @Inject(TRANSACTION_REPOSITORY)
-    private readonly transactionRepository: ITransactionRepository,
-    @Inject(ACCOUNT_REPOSITORY)
-    private readonly accountRepository: IAccountRepository,
-    @Inject(BUDGET_ITEM_REPOSITORY)
-    private readonly budgetItemRepository: IBudgetItemRepository,
-  ) {}
+  @Inject(TRANSACTION_REPOSITORY)
+  private readonly transactionRepository!: ITransactionRepository;
+  @Inject(ACCOUNT_REPOSITORY)
+  private readonly accountRepository!: IAccountRepository;
+  @Inject(BUDGET_ITEM_REPOSITORY)
+  private readonly budgetItemRepository!: IBudgetItemRepository;
 
   async execute(userId: string, id: string): Promise<TransactionWithRelations> {
     const transaction = await this.transactionRepository.findById(id);

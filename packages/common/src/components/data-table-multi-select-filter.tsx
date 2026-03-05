@@ -9,7 +9,6 @@ import {
   PopoverTrigger,
 } from "@repo/ui/components/popover";
 import { IconFilter } from "@tabler/icons-react";
-import * as React from "react";
 import { useId } from "react";
 
 export type DataTableMultiSelectOption = Readonly<{

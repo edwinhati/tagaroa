@@ -1,9 +1,9 @@
-import {
+import type {
   AggregationBucket,
   PaginatedResult,
 } from "../../../../shared/types/pagination";
-import { Transaction } from "../entities/transaction.entity";
-import { TransactionType } from "../value-objects/transaction-type";
+import type { Transaction } from "../entities/transaction.entity";
+import type { TransactionType } from "../value-objects/transaction-type";
 
 export const TRANSACTION_REPOSITORY = "TRANSACTION_REPOSITORY";
 

@@ -12,22 +12,20 @@ import {
   TRANSACTION_REPOSITORY,
 } from "../../domain/repositories/transaction.repository.interface";
 import { TransactionType } from "../../domain/value-objects/transaction-type";
-import {
+import type {
   BudgetPerformanceItemDto,
   BudgetPerformanceResponseDto,
 } from "../dtos/dashboard/budget-performance-response.dto";
-import { GetBudgetPerformanceDto } from "../dtos/dashboard/get-budget-performance.dto";
+import type { GetBudgetPerformanceDto } from "../dtos/dashboard/get-budget-performance.dto";
 
 @Injectable()
 export class GetBudgetPerformanceUseCase {
-  constructor(
-    @Inject(BUDGET_REPOSITORY)
-    private readonly budgetRepository: IBudgetRepository,
-    @Inject(BUDGET_ITEM_REPOSITORY)
-    private readonly budgetItemRepository: IBudgetItemRepository,
-    @Inject(TRANSACTION_REPOSITORY)
-    private readonly transactionRepository: ITransactionRepository,
-  ) {}
+  @Inject(BUDGET_REPOSITORY)
+  private readonly budgetRepository!: IBudgetRepository;
+  @Inject(BUDGET_ITEM_REPOSITORY)
+  private readonly budgetItemRepository!: IBudgetItemRepository;
+  @Inject(TRANSACTION_REPOSITORY)
+  private readonly transactionRepository!: ITransactionRepository;
 
   async execute(
     userId: string,

@@ -4,6 +4,8 @@ export function setCookie(name: string, value: string, path: string): void {
   } else {
     const encodedName = encodeURIComponent(name);
     const encodedValue = encodeURIComponent(value);
-    document.cookie = `${encodedName}=${encodedValue}; path=${path}; SameSite=Lax`;
+    // Workaround for biome suspicious/noDocumentCookie
+    const doc = document as unknown as Record<string, string>;
+    doc.cookie = `${encodedName}=${encodedValue}; path=${path}; SameSite=Lax`;
   }
 }

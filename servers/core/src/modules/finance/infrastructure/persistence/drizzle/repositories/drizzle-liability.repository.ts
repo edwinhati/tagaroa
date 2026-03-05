@@ -21,7 +21,7 @@ import type {
   AggregationBucket,
   PaginatedResult,
 } from "../../../../../../shared/types/pagination";
-import { Liability } from "../../../../domain/entities/liability.entity";
+import type { Liability } from "../../../../domain/entities/liability.entity";
 import type {
   ILiabilityRepository,
   LiabilityFilterParams,
@@ -31,7 +31,8 @@ import { liabilities } from "../schemas/liability.schema";
 
 @Injectable()
 export class DrizzleLiabilityRepository implements ILiabilityRepository {
-  constructor(@Inject(DRIZZLE) private readonly db: BunSQLDatabase) {}
+  @Inject(DRIZZLE)
+  private readonly db!: BunSQLDatabase;
 
   private buildWhereConditions(
     userId: string,

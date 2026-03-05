@@ -2,7 +2,6 @@
 
 import { portfoliosQueryOptions } from "@repo/common/lib/query/portfolio-query";
 import type { Portfolio } from "@repo/common/types/investment";
-import { Badge } from "@repo/ui/components/badge";
 import {
   Card,
   CardContent,

@@ -2,7 +2,7 @@ import type {
   AggregationBucket,
   PaginatedResult,
 } from "../../../../shared/types/pagination";
-import { Asset } from "../entities/asset.entity";
+import type { Asset } from "../entities/asset.entity";
 
 export const ASSET_REPOSITORY = Symbol("ASSET_REPOSITORY");
 

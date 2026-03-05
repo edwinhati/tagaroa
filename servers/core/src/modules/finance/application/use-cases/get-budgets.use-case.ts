@@ -17,12 +17,10 @@ export type BudgetWithItems = {
 
 @Injectable()
 export class GetBudgetsUseCase {
-  constructor(
-    @Inject(BUDGET_REPOSITORY)
-    private readonly budgetRepository: IBudgetRepository,
-    @Inject(BUDGET_ITEM_REPOSITORY)
-    private readonly budgetItemRepository: IBudgetItemRepository,
-  ) {}
+  @Inject(BUDGET_REPOSITORY)
+  private readonly budgetRepository!: IBudgetRepository;
+  @Inject(BUDGET_ITEM_REPOSITORY)
+  private readonly budgetItemRepository!: IBudgetItemRepository;
 
   async execute(
     userId: string,

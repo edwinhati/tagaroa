@@ -3,18 +3,16 @@ import {
   type ITransactionRepository,
   TRANSACTION_REPOSITORY,
 } from "../../domain/repositories/transaction.repository.interface";
-import { GetTransactionTrendsDto } from "../dtos/dashboard/get-transaction-trends.dto";
-import {
+import type { GetTransactionTrendsDto } from "../dtos/dashboard/get-transaction-trends.dto";
+import type {
   TransactionTrendItemDto,
   TransactionTrendsResponseDto,
 } from "../dtos/dashboard/transaction-trends-response.dto";
 
 @Injectable()
 export class GetTransactionTrendsUseCase {
-  constructor(
-    @Inject(TRANSACTION_REPOSITORY)
-    private readonly transactionRepository: ITransactionRepository,
-  ) {}
+  @Inject(TRANSACTION_REPOSITORY)
+  private readonly transactionRepository!: ITransactionRepository;
 
   async execute(
     userId: string,

@@ -2,14 +2,15 @@ import { Inject, Injectable } from "@nestjs/common";
 import { and, eq, inArray, isNull } from "drizzle-orm";
 import type { BunSQLDatabase } from "drizzle-orm/bun-sql";
 import { DRIZZLE } from "../../../../../../shared/database/database.constants";
-import { BudgetItem } from "../../../../domain/entities/budget-item.entity";
+import type { BudgetItem } from "../../../../domain/entities/budget-item.entity";
 import type { IBudgetItemRepository } from "../../../../domain/repositories/budget-item.repository.interface";
 import { BudgetItemMapper } from "../mappers/budget-item.mapper";
 import { budgetItems } from "../schemas/budget-item.schema";
 
 @Injectable()
 export class DrizzleBudgetItemRepository implements IBudgetItemRepository {
-  constructor(@Inject(DRIZZLE) private readonly db: BunSQLDatabase) {}
+  @Inject(DRIZZLE)
+  private readonly db!: BunSQLDatabase;
 
   async findById(id: string): Promise<BudgetItem | null> {
     const [row] = await this.db

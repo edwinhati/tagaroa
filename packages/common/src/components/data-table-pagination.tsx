@@ -21,8 +21,7 @@ import {
   IconChevronsRight,
 } from "@tabler/icons-react";
 import type { Table } from "@tanstack/react-table";
-import * as React from "react";
-import { type ReactNode } from "react";
+import type { ReactNode } from "react";
 
 export type DataTablePaginationProps<TData> = Readonly<{
   table: Table<TData>;

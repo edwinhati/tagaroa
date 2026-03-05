@@ -1,5 +1,5 @@
 import type { PaginatedResult } from "../../../../shared/types/pagination";
-import { Budget } from "../entities/budget.entity";
+import type { Budget } from "../entities/budget.entity";
 
 export const BUDGET_REPOSITORY = Symbol("BUDGET_REPOSITORY");
 

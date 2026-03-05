@@ -4,8 +4,8 @@ import {
   TRANSACTION_REPOSITORY,
 } from "../../domain/repositories/transaction.repository.interface";
 import { TransactionType } from "../../domain/value-objects/transaction-type";
-import { GetInsightsDto } from "../dtos/dashboard/get-insights.dto";
-import {
+import type { GetInsightsDto } from "../dtos/dashboard/get-insights.dto";
+import type {
   InsightItemDto,
   InsightsResponseDto,
 } from "../dtos/dashboard/insights-response.dto";
@@ -13,10 +13,8 @@ import { calculateChange, getPreviousPeriod } from "../utils/period-helpers";
 
 @Injectable()
 export class GetInsightsUseCase {
-  constructor(
-    @Inject(TRANSACTION_REPOSITORY)
-    private readonly transactionRepository: ITransactionRepository,
-  ) {}
+  @Inject(TRANSACTION_REPOSITORY)
+  private readonly transactionRepository!: ITransactionRepository;
 
   async execute(
     userId: string,

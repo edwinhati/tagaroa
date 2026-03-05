@@ -15,9 +15,9 @@ import {
   buildPaginationInfo,
   parsePaginationParams,
 } from "../../../../../shared/types/pagination";
-import { CreatePortfolioDto } from "../../../application/dtos/portfolio/create-portfolio.dto";
+import type { CreatePortfolioDto } from "../../../application/dtos/portfolio/create-portfolio.dto";
 import { toPortfolioResponse } from "../../../application/dtos/portfolio/portfolio-response.dto";
-import { UpdatePortfolioDto } from "../../../application/dtos/portfolio/update-portfolio.dto";
+import type { UpdatePortfolioDto } from "../../../application/dtos/portfolio/update-portfolio.dto";
 import { CreatePortfolioUseCase } from "../../../application/use-cases/portfolio/create-portfolio.use-case";
 import { DeletePortfolioUseCase } from "../../../application/use-cases/portfolio/delete-portfolio.use-case";
 import { GetPortfolioUseCase } from "../../../application/use-cases/portfolio/get-portfolio.use-case";

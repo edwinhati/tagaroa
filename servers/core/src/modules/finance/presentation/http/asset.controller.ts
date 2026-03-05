@@ -23,8 +23,8 @@ import {
   type AssetResponseDto,
   toAssetResponse,
 } from "../../application/dtos/asset-response.dto";
-import { CreateAssetDto } from "../../application/dtos/create-asset.dto";
-import { UpdateAssetDto } from "../../application/dtos/update-asset.dto";
+import type { CreateAssetDto } from "../../application/dtos/create-asset.dto";
+import type { UpdateAssetDto } from "../../application/dtos/update-asset.dto";
 import { CreateAssetUseCase } from "../../application/use-cases/create-asset.use-case";
 import { DeleteAssetUseCase } from "../../application/use-cases/delete-asset.use-case";
 import { GetAssetUseCase } from "../../application/use-cases/get-asset.use-case";

@@ -2,7 +2,7 @@ import { Inject, Injectable } from "@nestjs/common";
 import { and, eq, isNull } from "drizzle-orm";
 import type { BunSQLDatabase } from "drizzle-orm/bun-sql";
 import { DRIZZLE } from "../../../../../../shared/database/database.constants";
-import { File } from "../../../../domain/entities/file.entity";
+import type { File } from "../../../../domain/entities/file.entity";
 import { FileNotFoundException } from "../../../../domain/exceptions/storage.exceptions";
 import type { IFileRepository } from "../../../../domain/repositories/file.repository.interface";
 import { FileMapper } from "../mappers/file.mapper";
@@ -10,7 +10,8 @@ import { files } from "../schemas/file.schema";
 
 @Injectable()
 export class DrizzleFileRepository implements IFileRepository {
-  constructor(@Inject(DRIZZLE) private readonly db: BunSQLDatabase) {}
+  @Inject(DRIZZLE)
+  private readonly db!: BunSQLDatabase;
 
   async findById(id: string): Promise<File | null> {
     const [row] = await this.db

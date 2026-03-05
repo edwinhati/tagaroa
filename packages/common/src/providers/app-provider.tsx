@@ -5,7 +5,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { ThemeProvider } from "next-themes";
 import posthog from "posthog-js";
 import { PostHogProvider } from "posthog-js/react";
-import * as React from "react";
+import type * as React from "react";
 import { useEffect, useState } from "react";
 
 type AppProviderProps = Readonly<{ children: React.ReactNode }>;

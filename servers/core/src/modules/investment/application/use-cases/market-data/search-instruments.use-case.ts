@@ -99,10 +99,13 @@ export class SearchInstrumentsUseCase {
           YAHOO_QUOTE_TYPE_MAP[q.quoteType?.toUpperCase() ?? ""] ?? null;
         if (!assetClass) return [];
 
+        const symbol = q.symbol;
+        if (!symbol) return [];
+
         return [
           {
-            ticker: q.symbol.toUpperCase(),
-            name: q.longname ?? q.shortname ?? q.symbol,
+            ticker: symbol.toUpperCase(),
+            name: q.longname ?? q.shortname ?? symbol ?? "",
             assetClass,
             exchange: q.exchDisp ?? null,
             currency: q.currency ?? "USD",

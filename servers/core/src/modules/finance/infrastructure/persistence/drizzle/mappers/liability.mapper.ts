@@ -1,6 +1,6 @@
 import type { InferSelectModel } from "drizzle-orm";
 import { Liability } from "../../../../domain/entities/liability.entity";
-import { Currency } from "../../../../domain/value-objects/currency";
+import type { Currency } from "../../../../domain/value-objects/currency";
 import type { liabilities } from "../schemas/liability.schema";
 
 type LiabilityRow = InferSelectModel<typeof liabilities>;

@@ -10,10 +10,8 @@ import type { UpdateAssetDto } from "../dtos/update-asset.dto";
 
 @Injectable()
 export class UpdateAssetUseCase {
-  constructor(
-    @Inject(ASSET_REPOSITORY)
-    private readonly assetRepository: IAssetRepository,
-  ) {}
+  @Inject(ASSET_REPOSITORY)
+  private readonly assetRepository!: IAssetRepository;
 
   async execute(
     id: string,

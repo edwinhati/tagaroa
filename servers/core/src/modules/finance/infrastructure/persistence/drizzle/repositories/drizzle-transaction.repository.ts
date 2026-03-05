@@ -20,11 +20,11 @@ import {
 } from "drizzle-orm";
 import type { BunSQLDatabase } from "drizzle-orm/bun-sql";
 import { DRIZZLE } from "../../../../../../shared/database/database.constants";
-import {
+import type {
   AggregationBucket,
   PaginatedResult,
 } from "../../../../../../shared/types/pagination";
-import { Transaction } from "../../../../domain/entities/transaction.entity";
+import type { Transaction } from "../../../../domain/entities/transaction.entity";
 import type {
   ITransactionRepository,
   TransactionFilterParams,
@@ -36,7 +36,8 @@ import { transactions } from "../schemas/transaction.schema";
 
 @Injectable()
 export class DrizzleTransactionRepository implements ITransactionRepository {
-  constructor(@Inject(DRIZZLE) private readonly db: BunSQLDatabase) {}
+  @Inject(DRIZZLE)
+  private readonly db!: BunSQLDatabase;
 
   private buildWhereConditions(
     userId: string,

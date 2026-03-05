@@ -3,7 +3,6 @@
 import { Button } from "@repo/ui/components/button";
 import { cn } from "@repo/ui/lib/utils";
 import { IconCheck, IconCopy } from "@tabler/icons-react";
-import * as React from "react";
 import { useState } from "react";
 import { toast } from "sonner";
 

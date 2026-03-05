@@ -29,19 +29,20 @@ export class PortfolioSnapshotScheduler {
   private readonly logger = new Logger(PortfolioSnapshotScheduler.name);
 
   constructor(
-    @Inject(PORTFOLIO_REPOSITORY)
-    private readonly portfolioRepository: IPortfolioRepository,
-    @Inject(POSITION_REPOSITORY)
-    private readonly positionRepository: IPositionRepository,
-    @Inject(INSTRUMENT_REPOSITORY)
-    private readonly instrumentRepository: IInstrumentRepository,
-    @Inject(OHLCV_REPOSITORY)
-    private readonly ohlcvRepository: IOhlcvRepository,
-    @Inject(MARKET_DATA_PROVIDER)
-    private readonly providers: IMarketDataProvider[],
     private readonly computeNavUseCase: ComputeNavUseCase,
     private readonly snapshotPortfolioUseCase: SnapshotPortfolioUseCase,
   ) {}
+
+  @Inject(PORTFOLIO_REPOSITORY)
+  private readonly portfolioRepository!: IPortfolioRepository;
+  @Inject(POSITION_REPOSITORY)
+  private readonly positionRepository!: IPositionRepository;
+  @Inject(INSTRUMENT_REPOSITORY)
+  private readonly instrumentRepository!: IInstrumentRepository;
+  @Inject(OHLCV_REPOSITORY)
+  private readonly ohlcvRepository!: IOhlcvRepository;
+  @Inject(MARKET_DATA_PROVIDER)
+  private readonly providers!: IMarketDataProvider[];
 
   @Cron("0 22 * * *")
   async handleDailySnapshot(): Promise<void> {

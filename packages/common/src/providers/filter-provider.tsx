@@ -2,8 +2,6 @@
 
 import { createFilterStore } from "@repo/common/stores/filter-store";
 import type { FilterState } from "@repo/common/types";
-
-import * as React from "react";
 import { createContext, type ReactNode, useRef } from "react";
 
 export type FilterStoreApi = ReturnType<typeof createFilterStore>;

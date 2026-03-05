@@ -51,16 +51,14 @@ export interface PositionWithPnl {
 
 @Injectable()
 export class GetPositionsWithPnlUseCase {
-  constructor(
-    @Inject(PORTFOLIO_REPOSITORY)
-    private readonly portfolioRepository: IPortfolioRepository,
-    @Inject(POSITION_REPOSITORY)
-    private readonly positionRepository: IPositionRepository,
-    @Inject(OHLCV_REPOSITORY)
-    private readonly ohlcvRepository: IOhlcvRepository,
-    @Inject(INSTRUMENT_REPOSITORY)
-    private readonly instrumentRepository: IInstrumentRepository,
-  ) {}
+  @Inject(PORTFOLIO_REPOSITORY)
+  private readonly portfolioRepository!: IPortfolioRepository;
+  @Inject(POSITION_REPOSITORY)
+  private readonly positionRepository!: IPositionRepository;
+  @Inject(OHLCV_REPOSITORY)
+  private readonly ohlcvRepository!: IOhlcvRepository;
+  @Inject(INSTRUMENT_REPOSITORY)
+  private readonly instrumentRepository!: IInstrumentRepository;
 
   async execute(
     portfolioId: string,

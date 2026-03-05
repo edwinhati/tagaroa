@@ -11,10 +11,11 @@ import { GetInstrumentMetadataUseCase } from "./get-instrument-metadata.use-case
 @Injectable()
 export class RegisterInstrumentUseCase {
   constructor(
-    @Inject(INSTRUMENT_REPOSITORY)
-    private readonly instrumentRepository: IInstrumentRepository,
     private readonly getMetadataUseCase: GetInstrumentMetadataUseCase,
   ) {}
+
+  @Inject(INSTRUMENT_REPOSITORY)
+  private readonly instrumentRepository!: IInstrumentRepository;
 
   async execute(dto: RegisterInstrumentDto): Promise<Instrument> {
     const existing = await this.instrumentRepository.findByTicker(dto.ticker);

@@ -8,10 +8,8 @@ import { LIABILITY_REPOSITORY } from "../../domain/repositories/liability.reposi
 
 @Injectable()
 export class DeleteLiabilityUseCase {
-  constructor(
-    @Inject(LIABILITY_REPOSITORY)
-    private readonly liabilityRepository: ILiabilityRepository,
-  ) {}
+  @Inject(LIABILITY_REPOSITORY)
+  private readonly liabilityRepository!: ILiabilityRepository;
 
   async execute(id: string, userId: string): Promise<void> {
     const liability = await this.liabilityRepository.findById(id);

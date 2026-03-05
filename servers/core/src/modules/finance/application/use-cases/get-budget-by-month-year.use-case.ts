@@ -13,13 +13,10 @@ export type BudgetWithItems = {
 
 @Injectable()
 export class GetBudgetByMonthYearUseCase {
-  constructor(
-    @Inject(BUDGET_REPOSITORY)
-    private readonly budgetRepository: IBudgetRepository,
-    @Inject(BUDGET_ITEM_REPOSITORY)
-    private readonly budgetItemRepository: IBudgetItemRepository,
-  ) {}
-
+  @Inject(BUDGET_REPOSITORY)
+  private readonly budgetRepository!: IBudgetRepository;
+  @Inject(BUDGET_ITEM_REPOSITORY)
+  private readonly budgetItemRepository!: IBudgetItemRepository;
   async execute(
     userId: string,
     month: number,

@@ -1,8 +1,8 @@
 import { Inject, Injectable } from "@nestjs/common";
-import { and, asc, between, desc, eq, isNull } from "drizzle-orm";
+import { and, asc, between, desc, eq } from "drizzle-orm";
 import type { BunSQLDatabase } from "drizzle-orm/bun-sql";
 import { DRIZZLE } from "../../../../../../shared/database/database.constants";
-import { NetWorthSnapshot } from "../../../../domain/entities/net-worth-snapshot.entity";
+import type { NetWorthSnapshot } from "../../../../domain/entities/net-worth-snapshot.entity";
 import type { INetWorthSnapshotRepository } from "../../../../domain/repositories/net-worth-snapshot.repository.interface";
 import { NetWorthSnapshotMapper } from "../mappers/net-worth-snapshot.mapper";
 import { netWorthSnapshots } from "../schemas/net-worth-snapshot.schema";
@@ -11,7 +11,8 @@ import { netWorthSnapshots } from "../schemas/net-worth-snapshot.schema";
 export class DrizzleNetWorthSnapshotRepository
   implements INetWorthSnapshotRepository
 {
-  constructor(@Inject(DRIZZLE) private readonly db: BunSQLDatabase) {}
+  @Inject(DRIZZLE)
+  private readonly db!: BunSQLDatabase;
 
   async findByUserId(userId: string): Promise<NetWorthSnapshot[]> {
     const rows = await this.db

@@ -1,7 +1,7 @@
 import type { InferSelectModel } from "drizzle-orm";
 import { Transaction } from "../../../../domain/entities/transaction.entity";
-import { Currency } from "../../../../domain/value-objects/currency";
-import { TransactionType } from "../../../../domain/value-objects/transaction-type";
+import type { Currency } from "../../../../domain/value-objects/currency";
+import type { TransactionType } from "../../../../domain/value-objects/transaction-type";
 import type { transactions } from "../schemas/transaction.schema";
 
 type TransactionRow = InferSelectModel<typeof transactions>;

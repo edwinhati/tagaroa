@@ -9,8 +9,10 @@ import {
   FILE_REPOSITORY,
   type IFileRepository,
 } from "../../domain/repositories/file.repository.interface";
-import type { IStorageService } from "../../domain/services/storage.service.interface";
-import { STORAGE_SERVICE } from "../../domain/services/storage.service.interface";
+import {
+  type IStorageService,
+  STORAGE_SERVICE,
+} from "../../domain/services/storage.service.interface";
 import { FileStatus } from "../../domain/value-objects/file-status";
 import { UploadFileUseCase } from "./upload-file.use-case";
 

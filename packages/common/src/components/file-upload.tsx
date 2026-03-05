@@ -5,7 +5,6 @@ import { formatBytes, useFileUpload } from "@repo/common/hooks/use-file-upload";
 import { Button } from "@repo/ui/components/button";
 import {
   IconAlertCircle,
-  IconCloudUpload,
   IconFile,
   IconFileText,
   IconFileZip,
@@ -17,7 +16,7 @@ import {
   IconUpload,
   IconX,
 } from "@tabler/icons-react";
-import * as React from "react";
+import type * as React from "react";
 import { useMemo } from "react";
 export type { FileWithPreview };
 

@@ -6,7 +6,7 @@ import {
   IconChevronRight,
   IconDots,
 } from "@tabler/icons-react";
-import * as React from "react";
+import type * as React from "react";
 
 function Pagination({ className, ...props }: React.ComponentProps<"nav">) {
   return (

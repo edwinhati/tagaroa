@@ -9,7 +9,8 @@ import { positions } from "../schemas/position.schema";
 
 @Injectable()
 export class DrizzlePositionRepository implements IPositionRepository {
-  constructor(@Inject(DRIZZLE) private readonly db: BunSQLDatabase) {}
+  @Inject(DRIZZLE)
+  private readonly db!: BunSQLDatabase;
 
   async findById(id: string): Promise<Position | null> {
     const [row] = await this.db

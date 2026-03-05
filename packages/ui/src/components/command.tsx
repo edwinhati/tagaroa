@@ -12,7 +12,7 @@ import { InputGroup, InputGroupAddon } from "@repo/ui/components/input-group";
 import { cn } from "@repo/ui/lib/utils";
 import { IconCheck, IconSearch } from "@tabler/icons-react";
 import { Command as CommandPrimitive } from "cmdk";
-import * as React from "react";
+import type * as React from "react";
 
 function Command({
   className,

@@ -9,7 +9,8 @@ import { cashFlows } from "../schemas/cash-flow.schema";
 
 @Injectable()
 export class DrizzleCashFlowRepository implements ICashFlowRepository {
-  constructor(@Inject(DRIZZLE) private readonly db: BunSQLDatabase) {}
+  @Inject(DRIZZLE)
+  private readonly db!: BunSQLDatabase;
 
   async findById(id: string): Promise<CashFlow | null> {
     const [row] = await this.db

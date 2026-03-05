@@ -23,8 +23,8 @@ import {
   type AccountResponseDto,
   toAccountResponse,
 } from "../../application/dtos/account-response.dto";
-import { CreateAccountDto } from "../../application/dtos/create-account.dto";
-import { UpdateAccountDto } from "../../application/dtos/update-account.dto";
+import type { CreateAccountDto } from "../../application/dtos/create-account.dto";
+import type { UpdateAccountDto } from "../../application/dtos/update-account.dto";
 import { CreateAccountUseCase } from "../../application/use-cases/create-account.use-case";
 import { DeleteAccountUseCase } from "../../application/use-cases/delete-account.use-case";
 import { GetAccountUseCase } from "../../application/use-cases/get-account.use-case";

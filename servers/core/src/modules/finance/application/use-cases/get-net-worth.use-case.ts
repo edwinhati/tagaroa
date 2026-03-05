@@ -11,22 +11,20 @@ import {
   type INetWorthSnapshotRepository,
   NET_WORTH_SNAPSHOT_REPOSITORY,
 } from "../../domain/repositories/net-worth-snapshot.repository.interface";
-import { GetNetWorthDto } from "../dtos/dashboard/get-net-worth.dto";
-import {
+import type { GetNetWorthDto } from "../dtos/dashboard/get-net-worth.dto";
+import type {
   NetWorthResponseDto,
   NetWorthSnapshotDto,
 } from "../dtos/dashboard/net-worth-response.dto";
 
 @Injectable()
 export class GetNetWorthUseCase {
-  constructor(
-    @Inject(ASSET_REPOSITORY)
-    private readonly assetRepository: IAssetRepository,
-    @Inject(LIABILITY_REPOSITORY)
-    private readonly liabilityRepository: ILiabilityRepository,
-    @Inject(NET_WORTH_SNAPSHOT_REPOSITORY)
-    private readonly snapshotRepository: INetWorthSnapshotRepository,
-  ) {}
+  @Inject(ASSET_REPOSITORY)
+  private readonly assetRepository!: IAssetRepository;
+  @Inject(LIABILITY_REPOSITORY)
+  private readonly liabilityRepository!: ILiabilityRepository;
+  @Inject(NET_WORTH_SNAPSHOT_REPOSITORY)
+  private readonly snapshotRepository!: INetWorthSnapshotRepository;
 
   async execute(
     userId: string,

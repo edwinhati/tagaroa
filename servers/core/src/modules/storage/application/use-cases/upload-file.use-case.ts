@@ -8,20 +8,22 @@ import {
 } from "../../domain/exceptions/storage.exceptions";
 import type { IFileRepository } from "../../domain/repositories/file.repository.interface";
 import { FILE_REPOSITORY } from "../../domain/repositories/file.repository.interface";
-import type { IStorageService } from "../../domain/services/storage.service.interface";
-import { STORAGE_SERVICE } from "../../domain/services/storage.service.interface";
+import {
+  type IStorageService,
+  STORAGE_SERVICE,
+} from "../../domain/services/storage.service.interface";
 import { MimeType } from "../../domain/value-objects/mime-type";
 
 @Injectable()
 export class UploadFileUseCase {
-  constructor(
-    @Inject(FILE_REPOSITORY)
-    private readonly fileRepository: IFileRepository,
-    @Inject(STORAGE_SERVICE)
-    private readonly storageService: IStorageService,
-    @Inject(ConfigService)
-    private readonly configService: ConfigService<AppConfig, true>,
-  ) {}
+  @Inject(FILE_REPOSITORY)
+  private readonly fileRepository!: IFileRepository;
+
+  @Inject(STORAGE_SERVICE)
+  private readonly storageService!: IStorageService;
+
+  @Inject(ConfigService)
+  private readonly configService!: ConfigService<AppConfig, true>;
 
   async execute(
     userId: string,

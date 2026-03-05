@@ -16,12 +16,10 @@ import type { RecordCashFlowDto } from "../../dtos/portfolio/record-cash-flow.dt
 
 @Injectable()
 export class RecordCashFlowUseCase {
-  constructor(
-    @Inject(PORTFOLIO_REPOSITORY)
-    private readonly portfolioRepository: IPortfolioRepository,
-    @Inject(CASH_FLOW_REPOSITORY)
-    private readonly cashFlowRepository: ICashFlowRepository,
-  ) {}
+  @Inject(PORTFOLIO_REPOSITORY)
+  private readonly portfolioRepository!: IPortfolioRepository;
+  @Inject(CASH_FLOW_REPOSITORY)
+  private readonly cashFlowRepository!: ICashFlowRepository;
 
   async execute(
     portfolioId: string,

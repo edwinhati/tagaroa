@@ -10,10 +10,8 @@ import {
 
 @Injectable()
 export class DeletePortfolioUseCase {
-  constructor(
-    @Inject(PORTFOLIO_REPOSITORY)
-    private readonly portfolioRepository: IPortfolioRepository,
-  ) {}
+  @Inject(PORTFOLIO_REPOSITORY)
+  private readonly portfolioRepository!: IPortfolioRepository;
 
   async execute(id: string, userId: string): Promise<void> {
     const portfolio = await this.portfolioRepository.findById(id);

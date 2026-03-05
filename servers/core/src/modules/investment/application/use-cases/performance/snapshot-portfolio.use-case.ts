@@ -19,14 +19,12 @@ import {
 
 @Injectable()
 export class SnapshotPortfolioUseCase {
-  constructor(
-    @Inject(PORTFOLIO_REPOSITORY)
-    private readonly portfolioRepository: IPortfolioRepository,
-    @Inject(POSITION_REPOSITORY)
-    private readonly positionRepository: IPositionRepository,
-    @Inject(PORTFOLIO_SNAPSHOT_REPOSITORY)
-    private readonly snapshotRepository: IPortfolioSnapshotRepository,
-  ) {}
+  @Inject(PORTFOLIO_REPOSITORY)
+  private readonly portfolioRepository!: IPortfolioRepository;
+  @Inject(POSITION_REPOSITORY)
+  private readonly positionRepository!: IPositionRepository;
+  @Inject(PORTFOLIO_SNAPSHOT_REPOSITORY)
+  private readonly snapshotRepository!: IPortfolioSnapshotRepository;
 
   async execute(
     portfolioId: string,

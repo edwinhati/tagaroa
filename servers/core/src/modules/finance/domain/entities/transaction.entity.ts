@@ -1,5 +1,5 @@
-import { Currency } from "../value-objects/currency";
-import { TransactionType } from "../value-objects/transaction-type";
+import type { Currency } from "../value-objects/currency";
+import type { TransactionType } from "../value-objects/transaction-type";
 
 export class Transaction {
   constructor(

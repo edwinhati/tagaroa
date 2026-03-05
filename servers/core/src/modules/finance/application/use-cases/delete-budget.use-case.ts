@@ -12,12 +12,10 @@ import {
 
 @Injectable()
 export class DeleteBudgetUseCase {
-  constructor(
-    @Inject(BUDGET_REPOSITORY)
-    private readonly budgetRepository: IBudgetRepository,
-    @Inject(BUDGET_ITEM_REPOSITORY)
-    private readonly budgetItemRepository: IBudgetItemRepository,
-  ) {}
+  @Inject(BUDGET_REPOSITORY)
+  private readonly budgetRepository!: IBudgetRepository;
+  @Inject(BUDGET_ITEM_REPOSITORY)
+  private readonly budgetItemRepository!: IBudgetItemRepository;
 
   async execute(id: string, userId: string): Promise<void> {
     const budget = await this.budgetRepository.findById(id);

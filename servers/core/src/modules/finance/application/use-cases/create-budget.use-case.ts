@@ -15,11 +15,10 @@ import type { CreateBudgetDto } from "../dtos/create-budget.dto";
 
 @Injectable()
 export class CreateBudgetUseCase {
-  constructor(
-    @Inject(DRIZZLE) private readonly db: BunSQLDatabase,
-    @Inject(BUDGET_REPOSITORY)
-    private readonly budgetRepository: IBudgetRepository,
-  ) {}
+  @Inject(DRIZZLE)
+  private readonly db!: BunSQLDatabase;
+  @Inject(BUDGET_REPOSITORY)
+  private readonly budgetRepository!: IBudgetRepository;
 
   async execute(
     dto: CreateBudgetDto,

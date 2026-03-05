@@ -12,10 +12,8 @@ import { ACCOUNT_REPOSITORY } from "../../domain/repositories/account.repository
 
 @Injectable()
 export class GetAccountsUseCase {
-  constructor(
-    @Inject(ACCOUNT_REPOSITORY)
-    private readonly accountRepository: IAccountRepository,
-  ) {}
+  @Inject(ACCOUNT_REPOSITORY)
+  private readonly accountRepository!: IAccountRepository;
 
   async execute(
     userId: string,

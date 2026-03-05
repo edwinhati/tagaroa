@@ -9,7 +9,8 @@ import { trades } from "../schemas/trade.schema";
 
 @Injectable()
 export class DrizzleTradeRepository implements ITradeRepository {
-  constructor(@Inject(DRIZZLE) private readonly db: BunSQLDatabase) {}
+  @Inject(DRIZZLE)
+  private readonly db!: BunSQLDatabase;
 
   async findById(id: string): Promise<Trade | null> {
     const [row] = await this.db

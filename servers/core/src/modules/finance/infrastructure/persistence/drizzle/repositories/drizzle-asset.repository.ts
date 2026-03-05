@@ -21,7 +21,7 @@ import type {
   AggregationBucket,
   PaginatedResult,
 } from "../../../../../../shared/types/pagination";
-import { Asset } from "../../../../domain/entities/asset.entity";
+import type { Asset } from "../../../../domain/entities/asset.entity";
 import type {
   AssetFilterParams,
   IAssetRepository,
@@ -31,7 +31,8 @@ import { assets } from "../schemas/asset.schema";
 
 @Injectable()
 export class DrizzleAssetRepository implements IAssetRepository {
-  constructor(@Inject(DRIZZLE) private readonly db: BunSQLDatabase) {}
+  @Inject(DRIZZLE)
+  private readonly db!: BunSQLDatabase;
 
   private buildWhereConditions(
     userId: string,

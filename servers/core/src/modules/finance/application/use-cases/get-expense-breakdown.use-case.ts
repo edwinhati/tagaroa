@@ -4,18 +4,16 @@ import {
   TRANSACTION_REPOSITORY,
 } from "../../domain/repositories/transaction.repository.interface";
 import { TransactionType } from "../../domain/value-objects/transaction-type";
-import {
+import type {
   ExpenseBreakdownItemDto,
   ExpenseBreakdownResponseDto,
 } from "../dtos/dashboard/expense-breakdown-response.dto";
-import { GetExpenseBreakdownDto } from "../dtos/dashboard/get-expense-breakdown.dto";
+import type { GetExpenseBreakdownDto } from "../dtos/dashboard/get-expense-breakdown.dto";
 
 @Injectable()
 export class GetExpenseBreakdownUseCase {
-  constructor(
-    @Inject(TRANSACTION_REPOSITORY)
-    private readonly transactionRepository: ITransactionRepository,
-  ) {}
+  @Inject(TRANSACTION_REPOSITORY)
+  private readonly transactionRepository!: ITransactionRepository;
 
   async execute(
     userId: string,

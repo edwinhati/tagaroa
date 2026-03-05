@@ -18,7 +18,6 @@ import {
 } from "@repo/ui/components/dropdown-menu";
 import { IconLogout, IconUserOff } from "@tabler/icons-react";
 import type { SessionWithImpersonatedBy } from "better-auth/plugins/admin";
-import * as React from "react";
 import { useState } from "react";
 import { toast } from "sonner";
 

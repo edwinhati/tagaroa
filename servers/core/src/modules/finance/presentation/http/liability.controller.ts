@@ -19,12 +19,12 @@ import {
   buildPaginationInfo,
   parsePaginationParams,
 } from "../../../../shared/types/pagination";
-import { CreateLiabilityDto } from "../../application/dtos/create-liability.dto";
+import type { CreateLiabilityDto } from "../../application/dtos/create-liability.dto";
 import {
   type LiabilityResponseDto,
   toLiabilityResponse,
 } from "../../application/dtos/liability-response.dto";
-import { UpdateLiabilityDto } from "../../application/dtos/update-liability.dto";
+import type { UpdateLiabilityDto } from "../../application/dtos/update-liability.dto";
 import { CreateLiabilityUseCase } from "../../application/use-cases/create-liability.use-case";
 import { DeleteLiabilityUseCase } from "../../application/use-cases/delete-liability.use-case";
 import { GetLiabilitiesUseCase } from "../../application/use-cases/get-liabilities.use-case";

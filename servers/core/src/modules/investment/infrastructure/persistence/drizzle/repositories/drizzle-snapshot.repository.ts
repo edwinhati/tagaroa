@@ -8,7 +8,8 @@ import { portfolioSnapshots } from "../schemas/portfolio-snapshot.schema";
 
 @Injectable()
 export class DrizzleSnapshotRepository implements IPortfolioSnapshotRepository {
-  constructor(@Inject(DRIZZLE) private readonly db: BunSQLDatabase) {}
+  @Inject(DRIZZLE)
+  private readonly db!: BunSQLDatabase;
 
   private rowToDomain(
     row: typeof portfolioSnapshots.$inferSelect,

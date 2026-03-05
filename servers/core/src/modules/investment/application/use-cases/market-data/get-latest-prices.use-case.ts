@@ -16,14 +16,12 @@ import {
 export class GetLatestPricesUseCase {
   private readonly logger = new Logger(GetLatestPricesUseCase.name);
 
-  constructor(
-    @Inject(INSTRUMENT_REPOSITORY)
-    private readonly instrumentRepository: IInstrumentRepository,
-    @Inject(OHLCV_REPOSITORY)
-    private readonly ohlcvRepository: IOhlcvRepository,
-    @Inject(MARKET_DATA_PROVIDER)
-    private readonly providers: IMarketDataProvider[],
-  ) {}
+  @Inject(INSTRUMENT_REPOSITORY)
+  private readonly instrumentRepository!: IInstrumentRepository;
+  @Inject(OHLCV_REPOSITORY)
+  private readonly ohlcvRepository!: IOhlcvRepository;
+  @Inject(MARKET_DATA_PROVIDER)
+  private readonly providers!: IMarketDataProvider[];
 
   async execute(
     instrumentIds: string[],
@@ -63,9 +61,9 @@ export class GetLatestPricesUseCase {
       Array.from(providerBuckets.entries()).map(async ([provider, entries]) => {
         const tickers = entries.map((e) => e.ticker);
         try {
-          const prices = await provider.fetchLatestPrices(tickers);
+          const prices = await provider.fetchLatestPrices?.(tickers);
           for (const { id, ticker } of entries) {
-            const price = prices.get(ticker);
+            const price = prices?.get(ticker);
             if (price != null) result.set(id, price);
           }
         } catch (err) {

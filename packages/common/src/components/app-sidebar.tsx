@@ -16,8 +16,7 @@ import {
   useSidebar,
 } from "@repo/ui/components/sidebar";
 import Link from "next/link";
-import * as React from "react";
-import { type ComponentProps, type ComponentType } from "react";
+import type { ComponentProps, ComponentType } from "react";
 
 type AppSidebarProps = Readonly<
   ComponentProps<typeof Sidebar> & {

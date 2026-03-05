@@ -94,14 +94,12 @@ function computeCVaR(returns: number[], varValue: number): number | null {
 
 @Injectable()
 export class GetPerformanceMetricsUseCase {
-  constructor(
-    @Inject(PORTFOLIO_REPOSITORY)
-    private readonly portfolioRepository: IPortfolioRepository,
-    @Inject(PORTFOLIO_SNAPSHOT_REPOSITORY)
-    private readonly snapshotRepository: IPortfolioSnapshotRepository,
-    @Inject(CASH_FLOW_REPOSITORY)
-    private readonly cashFlowRepository: ICashFlowRepository,
-  ) {}
+  @Inject(PORTFOLIO_REPOSITORY)
+  private readonly portfolioRepository!: IPortfolioRepository;
+  @Inject(PORTFOLIO_SNAPSHOT_REPOSITORY)
+  private readonly snapshotRepository!: IPortfolioSnapshotRepository;
+  @Inject(CASH_FLOW_REPOSITORY)
+  private readonly cashFlowRepository!: ICashFlowRepository;
 
   async execute(
     portfolioId: string,

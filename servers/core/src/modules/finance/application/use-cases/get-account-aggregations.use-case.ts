@@ -3,17 +3,15 @@ import {
   ACCOUNT_REPOSITORY,
   type IAccountRepository,
 } from "../../domain/repositories/account.repository.interface";
-import {
+import type {
   AccountAggregationDto,
   AccountAggregationsResponseDto,
 } from "../dtos/dashboard/account-aggregations-response.dto";
 
 @Injectable()
 export class GetAccountAggregationsUseCase {
-  constructor(
-    @Inject(ACCOUNT_REPOSITORY)
-    private readonly accountRepository: IAccountRepository,
-  ) {}
+  @Inject(ACCOUNT_REPOSITORY)
+  private readonly accountRepository!: IAccountRepository;
 
   async execute(userId: string): Promise<AccountAggregationsResponseDto> {
     // Fetch aggregations by type and currency

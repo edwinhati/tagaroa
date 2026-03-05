@@ -2,7 +2,7 @@
 
 import { Logo } from "@repo/common/components/logo";
 import { authClient } from "@repo/common/lib/auth-client";
-import { Button, buttonVariants } from "@repo/ui/components/button";
+import { buttonVariants } from "@repo/ui/components/button";
 import { cn } from "@repo/ui/lib/utils";
 import { IconMenu2, IconX } from "@tabler/icons-react";
 import Link from "next/link";

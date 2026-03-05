@@ -1,4 +1,4 @@
-import { Currency } from "../value-objects/currency";
+import type { Currency } from "../value-objects/currency";
 
 export class NetWorthSnapshot {
   constructor(

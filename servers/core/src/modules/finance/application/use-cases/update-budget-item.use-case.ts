@@ -14,12 +14,10 @@ import type { UpdateBudgetItemDto } from "../dtos/update-budget-item.dto";
 
 @Injectable()
 export class UpdateBudgetItemUseCase {
-  constructor(
-    @Inject(BUDGET_REPOSITORY)
-    private readonly budgetRepository: IBudgetRepository,
-    @Inject(BUDGET_ITEM_REPOSITORY)
-    private readonly budgetItemRepository: IBudgetItemRepository,
-  ) {}
+  @Inject(BUDGET_REPOSITORY)
+  private readonly budgetRepository!: IBudgetRepository;
+  @Inject(BUDGET_ITEM_REPOSITORY)
+  private readonly budgetItemRepository!: IBudgetItemRepository;
 
   async execute(
     itemId: string,

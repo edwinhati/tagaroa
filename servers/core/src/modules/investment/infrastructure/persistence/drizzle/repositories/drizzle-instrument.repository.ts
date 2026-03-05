@@ -1,9 +1,9 @@
 import { Inject, Injectable } from "@nestjs/common";
-import { and, count, eq, ilike, isNull, or, type SQL } from "drizzle-orm";
+import { and, count, eq, ilike, or, type SQL } from "drizzle-orm";
 import type { BunSQLDatabase } from "drizzle-orm/bun-sql";
 import { DRIZZLE } from "../../../../../../shared/database/database.constants";
 import type { PaginatedResult } from "../../../../../../shared/types/pagination";
-import { Instrument } from "../../../../domain/market-data/entities/instrument.entity";
+import type { Instrument } from "../../../../domain/market-data/entities/instrument.entity";
 import type {
   IInstrumentRepository,
   InstrumentFilterParams,
@@ -13,7 +13,8 @@ import { instruments } from "../schemas/instrument.schema";
 
 @Injectable()
 export class DrizzleInstrumentRepository implements IInstrumentRepository {
-  constructor(@Inject(DRIZZLE) private readonly db: BunSQLDatabase) {}
+  @Inject(DRIZZLE)
+  private readonly db!: BunSQLDatabase;
 
   async findById(id: string): Promise<Instrument | null> {
     const [row] = await this.db

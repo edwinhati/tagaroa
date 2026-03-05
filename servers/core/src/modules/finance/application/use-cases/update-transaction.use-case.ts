@@ -22,22 +22,23 @@ import {
   type ITransactionRepository,
   TRANSACTION_REPOSITORY,
 } from "../../domain/repositories/transaction.repository.interface";
-import { UpdateTransactionDto } from "../dtos/update-transaction.dto";
+import type { UpdateTransactionDto } from "../dtos/update-transaction.dto";
 import { TransactionSideEffectsService } from "../services/transaction-side-effects.service";
 
 @Injectable()
 export class UpdateTransactionUseCase {
   constructor(
-    @Inject(TRANSACTION_REPOSITORY)
-    private readonly transactionRepository: ITransactionRepository,
-    @Inject(ACCOUNT_REPOSITORY)
-    private readonly accountRepository: IAccountRepository,
-    @Inject(BUDGET_ITEM_REPOSITORY)
-    private readonly budgetItemRepository: IBudgetItemRepository,
-    @Inject(BUDGET_REPOSITORY)
-    private readonly budgetRepository: IBudgetRepository,
     private readonly sideEffectsService: TransactionSideEffectsService,
   ) {}
+
+  @Inject(TRANSACTION_REPOSITORY)
+  private readonly transactionRepository!: ITransactionRepository;
+  @Inject(ACCOUNT_REPOSITORY)
+  private readonly accountRepository!: IAccountRepository;
+  @Inject(BUDGET_ITEM_REPOSITORY)
+  private readonly budgetItemRepository!: IBudgetItemRepository;
+  @Inject(BUDGET_REPOSITORY)
+  private readonly budgetRepository!: IBudgetRepository;
 
   async execute(
     userId: string,

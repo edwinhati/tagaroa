@@ -15,7 +15,6 @@ import {
   ChartTooltip,
 } from "@repo/ui/components/chart";
 import { Skeleton } from "@repo/ui/components/skeleton";
-import { cn } from "@repo/ui/lib/utils";
 import { IconChartPie } from "@tabler/icons-react";
 import { useQuery } from "@tanstack/react-query";
 import React, { useMemo, useState } from "react";

@@ -33,18 +33,16 @@ import type { AddPositionDto } from "../../dtos/portfolio/add-position.dto";
 
 @Injectable()
 export class AddPositionUseCase {
-  constructor(
-    @Inject(PORTFOLIO_REPOSITORY)
-    private readonly portfolioRepository: IPortfolioRepository,
-    @Inject(INSTRUMENT_REPOSITORY)
-    private readonly instrumentRepository: IInstrumentRepository,
-    @Inject(POSITION_REPOSITORY)
-    private readonly positionRepository: IPositionRepository,
-    @Inject(TRADE_REPOSITORY)
-    private readonly tradeRepository: ITradeRepository,
-    @Inject(CASH_FLOW_REPOSITORY)
-    private readonly cashFlowRepository: ICashFlowRepository,
-  ) {}
+  @Inject(PORTFOLIO_REPOSITORY)
+  private readonly portfolioRepository!: IPortfolioRepository;
+  @Inject(INSTRUMENT_REPOSITORY)
+  private readonly instrumentRepository!: IInstrumentRepository;
+  @Inject(POSITION_REPOSITORY)
+  private readonly positionRepository!: IPositionRepository;
+  @Inject(TRADE_REPOSITORY)
+  private readonly tradeRepository!: ITradeRepository;
+  @Inject(CASH_FLOW_REPOSITORY)
+  private readonly cashFlowRepository!: ICashFlowRepository;
 
   async execute(
     portfolioId: string,

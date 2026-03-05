@@ -7,13 +7,9 @@ import {
   Post,
   Query,
 } from "@nestjs/common";
-import {
-  AllowAnonymous,
-  Session,
-  type UserSession,
-} from "@thallesp/nestjs-better-auth";
+import { AllowAnonymous } from "@thallesp/nestjs-better-auth";
 import { toOhlcvResponse } from "../../../application/dtos/market-data/ohlcv-response.dto";
-import { SyncOhlcvDto } from "../../../application/dtos/market-data/sync-ohlcv.dto";
+import type { SyncOhlcvDto } from "../../../application/dtos/market-data/sync-ohlcv.dto";
 import { GetLatestPricesUseCase } from "../../../application/use-cases/market-data/get-latest-prices.use-case";
 import { GetOhlcvUseCase } from "../../../application/use-cases/market-data/get-ohlcv.use-case";
 import { SyncOhlcvUseCase } from "../../../application/use-cases/market-data/sync-ohlcv.use-case";

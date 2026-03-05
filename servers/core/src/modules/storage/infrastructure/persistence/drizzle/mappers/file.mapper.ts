@@ -1,5 +1,5 @@
 import { File } from "../../../../domain/entities/file.entity";
-import { FileStatus } from "../../../../domain/value-objects/file-status";
+import type { FileStatus } from "../../../../domain/value-objects/file-status";
 import type { files } from "../schemas/file.schema";
 
 type FileRow = typeof files.$inferSelect;

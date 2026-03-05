@@ -1,6 +1,6 @@
 import type { InferSelectModel } from "drizzle-orm";
 import { Asset } from "../../../../domain/entities/asset.entity";
-import { Currency } from "../../../../domain/value-objects/currency";
+import type { Currency } from "../../../../domain/value-objects/currency";
 import type { assets } from "../schemas/asset.schema";
 
 type AssetRow = InferSelectModel<typeof assets>;

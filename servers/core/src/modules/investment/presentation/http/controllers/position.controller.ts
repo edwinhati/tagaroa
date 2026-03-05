@@ -9,8 +9,8 @@ import {
   Query,
 } from "@nestjs/common";
 import { Session, type UserSession } from "@thallesp/nestjs-better-auth";
-import { AddPositionDto } from "../../../application/dtos/portfolio/add-position.dto";
-import { ClosePositionDto } from "../../../application/dtos/portfolio/close-position.dto";
+import type { AddPositionDto } from "../../../application/dtos/portfolio/add-position.dto";
+import type { ClosePositionDto } from "../../../application/dtos/portfolio/close-position.dto";
 import { toPositionResponse } from "../../../application/dtos/portfolio/position-response.dto";
 import { AddPositionUseCase } from "../../../application/use-cases/portfolio/add-position.use-case";
 import { ClosePositionUseCase } from "../../../application/use-cases/portfolio/close-position.use-case";

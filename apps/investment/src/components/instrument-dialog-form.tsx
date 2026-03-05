@@ -256,9 +256,11 @@ export function InstrumentDialogForm({
 
           {showSkeleton && (
             <div className="space-y-px p-2">
-              {Array.from({ length: 5 }).map((_, i) => (
-                // biome-ignore lint/suspicious/noArrayIndexKey: skeleton
-                <Skeleton key={i} className="h-12 w-full rounded-md" />
+              {Array.from({ length: 5 }).map(() => (
+                <Skeleton
+                  key={crypto.randomUUID()}
+                  className="h-12 w-full rounded-md"
+                />
               ))}
             </div>
           )}

@@ -1,10 +1,10 @@
 import {
-  ArgumentMetadata,
+  type ArgumentMetadata,
   BadRequestException,
   Injectable,
-  PipeTransform,
+  type PipeTransform,
 } from "@nestjs/common";
-import { type ZodSchema, type z } from "zod";
+import type { ZodSchema, z } from "zod";
 
 type ZodDtoStatic<T extends ZodSchema> = {
   new (): z.output<T>;

@@ -4,14 +4,13 @@ import {
   Delete,
   Get,
   Param,
-  ParseIntPipe,
   ParseUUIDPipe,
   Post,
   Query,
 } from "@nestjs/common";
 import { Session, type UserSession } from "@thallesp/nestjs-better-auth";
 import { toCashFlowResponse } from "../../../application/dtos/portfolio/cash-flow-response.dto";
-import { RecordCashFlowDto } from "../../../application/dtos/portfolio/record-cash-flow.dto";
+import type { RecordCashFlowDto } from "../../../application/dtos/portfolio/record-cash-flow.dto";
 import { DeleteCashFlowUseCase } from "../../../application/use-cases/portfolio/delete-cash-flow.use-case";
 import { ListCashFlowsUseCase } from "../../../application/use-cases/portfolio/list-cash-flows.use-case";
 import { RecordCashFlowUseCase } from "../../../application/use-cases/portfolio/record-cash-flow.use-case";

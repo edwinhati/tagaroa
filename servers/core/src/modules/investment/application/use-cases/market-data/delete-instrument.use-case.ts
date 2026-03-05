@@ -7,10 +7,8 @@ import {
 
 @Injectable()
 export class DeleteInstrumentUseCase {
-  constructor(
-    @Inject(INSTRUMENT_REPOSITORY)
-    private readonly instrumentRepository: IInstrumentRepository,
-  ) {}
+  @Inject(INSTRUMENT_REPOSITORY)
+  private readonly instrumentRepository!: IInstrumentRepository;
 
   async execute(id: string): Promise<void> {
     const existing = await this.instrumentRepository.findById(id);

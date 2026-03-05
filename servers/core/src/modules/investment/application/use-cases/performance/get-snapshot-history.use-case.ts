@@ -21,12 +21,10 @@ export interface SnapshotHistoryItem {
 
 @Injectable()
 export class GetSnapshotHistoryUseCase {
-  constructor(
-    @Inject(PORTFOLIO_REPOSITORY)
-    private readonly portfolioRepository: IPortfolioRepository,
-    @Inject(PORTFOLIO_SNAPSHOT_REPOSITORY)
-    private readonly snapshotRepository: IPortfolioSnapshotRepository,
-  ) {}
+  @Inject(PORTFOLIO_REPOSITORY)
+  private readonly portfolioRepository!: IPortfolioRepository;
+  @Inject(PORTFOLIO_SNAPSHOT_REPOSITORY)
+  private readonly snapshotRepository!: IPortfolioSnapshotRepository;
 
   async execute(
     portfolioId: string,

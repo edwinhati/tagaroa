@@ -12,7 +12,7 @@ import {
   AlertDialogTrigger,
 } from "@repo/ui/components/alert-dialog";
 import { IconAlertCircle } from "@tabler/icons-react";
-import * as React from "react";
+import type * as React from "react";
 import { useState } from "react";
 
 export type DataTableDeleteDialogProps = Readonly<{

@@ -14,7 +14,6 @@ import {
 import { buttonVariants } from "@repo/ui/components/button";
 import { cn } from "@repo/ui/lib/utils";
 import { IconAlertCircle } from "@tabler/icons-react";
-import * as React from "react";
 import { useState } from "react";
 
 type ButtonVariantProps = NonNullable<Parameters<typeof buttonVariants>[0]>;

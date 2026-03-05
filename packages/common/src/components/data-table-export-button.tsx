@@ -2,7 +2,7 @@
 
 import { Button } from "@repo/ui/components/button";
 import { IconDownload, IconLoader2 } from "@tabler/icons-react";
-import React, { type ComponentProps, useState } from "react";
+import { type ComponentProps, useState } from "react";
 
 type ButtonComponentProps = ComponentProps<typeof Button>;
 

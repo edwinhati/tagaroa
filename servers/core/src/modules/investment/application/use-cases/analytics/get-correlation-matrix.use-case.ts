@@ -56,16 +56,14 @@ function pearsonCorrelation(a: number[], b: number[]): number {
 
 @Injectable()
 export class GetCorrelationMatrixUseCase {
-  constructor(
-    @Inject(PORTFOLIO_REPOSITORY)
-    private readonly portfolioRepository: IPortfolioRepository,
-    @Inject(POSITION_REPOSITORY)
-    private readonly positionRepository: IPositionRepository,
-    @Inject(OHLCV_REPOSITORY)
-    private readonly ohlcvRepository: IOhlcvRepository,
-    @Inject(INSTRUMENT_REPOSITORY)
-    private readonly instrumentRepository: IInstrumentRepository,
-  ) {}
+  @Inject(PORTFOLIO_REPOSITORY)
+  private readonly portfolioRepository!: IPortfolioRepository;
+  @Inject(POSITION_REPOSITORY)
+  private readonly positionRepository!: IPositionRepository;
+  @Inject(OHLCV_REPOSITORY)
+  private readonly ohlcvRepository!: IOhlcvRepository;
+  @Inject(INSTRUMENT_REPOSITORY)
+  private readonly instrumentRepository!: IInstrumentRepository;
 
   async execute(
     portfolioId: string,

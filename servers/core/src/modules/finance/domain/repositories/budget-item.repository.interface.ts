@@ -1,4 +1,4 @@
-import { BudgetItem } from "../entities/budget-item.entity";
+import type { BudgetItem } from "../entities/budget-item.entity";
 
 export const BUDGET_ITEM_REPOSITORY = Symbol("BUDGET_ITEM_REPOSITORY");
 

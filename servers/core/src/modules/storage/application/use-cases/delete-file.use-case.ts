@@ -5,17 +5,17 @@ import {
 } from "../../domain/exceptions/storage.exceptions";
 import type { IFileRepository } from "../../domain/repositories/file.repository.interface";
 import { FILE_REPOSITORY } from "../../domain/repositories/file.repository.interface";
-import type { IStorageService } from "../../domain/services/storage.service.interface";
-import { STORAGE_SERVICE } from "../../domain/services/storage.service.interface";
+import {
+  type IStorageService,
+  STORAGE_SERVICE,
+} from "../../domain/services/storage.service.interface";
 
 @Injectable()
 export class DeleteFileUseCase {
-  constructor(
-    @Inject(FILE_REPOSITORY)
-    private readonly fileRepository: IFileRepository,
-    @Inject(STORAGE_SERVICE)
-    private readonly storageService: IStorageService,
-  ) {}
+  @Inject(FILE_REPOSITORY)
+  private readonly fileRepository!: IFileRepository;
+  @Inject(STORAGE_SERVICE)
+  private readonly storageService!: IStorageService;
 
   async execute(fileId: string, userId: string): Promise<void> {
     // 1. Fetch file metadata

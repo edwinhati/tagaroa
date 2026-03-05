@@ -1,6 +1,6 @@
 import type { InferSelectModel } from "drizzle-orm";
 import { NetWorthSnapshot } from "../../../../domain/entities/net-worth-snapshot.entity";
-import { Currency } from "../../../../domain/value-objects/currency";
+import type { Currency } from "../../../../domain/value-objects/currency";
 import type { netWorthSnapshots } from "../schemas/net-worth-snapshot.schema";
 
 type NetWorthSnapshotRow = InferSelectModel<typeof netWorthSnapshots>;

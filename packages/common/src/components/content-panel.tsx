@@ -17,8 +17,7 @@ import {
   SidebarSeparator,
 } from "@repo/ui/components/sidebar";
 import Link from "next/link";
-import * as React from "react";
-import { type ComponentType, type ReactNode } from "react";
+import type { ComponentType, ReactNode } from "react";
 
 type ContentPanelMenuItem = {
   name: string;

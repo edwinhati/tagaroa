@@ -1,4 +1,4 @@
-import { File } from "../entities/file.entity";
+import type { File } from "../entities/file.entity";
 
 export const FILE_REPOSITORY = "FILE_REPOSITORY";
 

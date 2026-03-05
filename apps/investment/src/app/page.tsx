@@ -1,6 +1,5 @@
 import type { Metadata } from "next";
 import { DashboardContent } from "@/components/dashboard-content";
-import { TradingViewChart } from "@/components/trading-view-chart";
 
 export const metadata: Metadata = {
   title: "Dashboard | Tagaroa Investment",

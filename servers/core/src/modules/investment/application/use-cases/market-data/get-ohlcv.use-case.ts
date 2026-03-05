@@ -21,12 +21,10 @@ export interface GetOhlcvParams {
 
 @Injectable()
 export class GetOhlcvUseCase {
-  constructor(
-    @Inject(INSTRUMENT_REPOSITORY)
-    private readonly instrumentRepository: IInstrumentRepository,
-    @Inject(OHLCV_REPOSITORY)
-    private readonly ohlcvRepository: IOhlcvRepository,
-  ) {}
+  @Inject(INSTRUMENT_REPOSITORY)
+  private readonly instrumentRepository!: IInstrumentRepository;
+  @Inject(OHLCV_REPOSITORY)
+  private readonly ohlcvRepository!: IOhlcvRepository;
 
   async execute(params: GetOhlcvParams): Promise<Ohlcv[]> {
     const instrument = await this.instrumentRepository.findById(

@@ -1,4 +1,4 @@
-import { NetWorthSnapshot } from "../entities/net-worth-snapshot.entity";
+import type { NetWorthSnapshot } from "../entities/net-worth-snapshot.entity";
 
 export const NET_WORTH_SNAPSHOT_REPOSITORY = Symbol(
   "NET_WORTH_SNAPSHOT_REPOSITORY",

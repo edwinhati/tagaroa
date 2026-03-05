@@ -16,7 +16,7 @@ import {
   parsePaginationParams,
 } from "../../../../../shared/types/pagination";
 import { toInstrumentResponse } from "../../../application/dtos/market-data/instrument-response.dto";
-import { RegisterInstrumentDto } from "../../../application/dtos/market-data/register-instrument.dto";
+import type { RegisterInstrumentDto } from "../../../application/dtos/market-data/register-instrument.dto";
 import { DeleteInstrumentUseCase } from "../../../application/use-cases/market-data/delete-instrument.use-case";
 import { GetInstrumentMetadataUseCase } from "../../../application/use-cases/market-data/get-instrument-metadata.use-case";
 import { ListInstrumentsUseCase } from "../../../application/use-cases/market-data/list-instruments.use-case";

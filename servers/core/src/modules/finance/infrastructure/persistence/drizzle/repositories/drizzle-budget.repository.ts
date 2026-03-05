@@ -4,14 +4,15 @@ import type { BunSQLDatabase } from "drizzle-orm/bun-sql";
 import { DRIZZLE } from "../../../../../../shared/database/database.constants";
 import { ConcurrentModificationException } from "../../../../../../shared/exceptions/domain.exception";
 import type { PaginatedResult } from "../../../../../../shared/types/pagination";
-import { Budget } from "../../../../domain/entities/budget.entity";
+import type { Budget } from "../../../../domain/entities/budget.entity";
 import type { IBudgetRepository } from "../../../../domain/repositories/budget.repository.interface";
 import { BudgetMapper } from "../mappers/budget.mapper";
 import { budgets } from "../schemas/budget.schema";
 
 @Injectable()
 export class DrizzleBudgetRepository implements IBudgetRepository {
-  constructor(@Inject(DRIZZLE) private readonly db: BunSQLDatabase) {}
+  @Inject(DRIZZLE)
+  private readonly db!: BunSQLDatabase;
 
   async findById(id: string): Promise<Budget | null> {
     const [row] = await this.db

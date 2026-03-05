@@ -9,10 +9,8 @@ import { ASSET_REPOSITORY } from "../../domain/repositories/asset.repository.int
 
 @Injectable()
 export class GetAssetUseCase {
-  constructor(
-    @Inject(ASSET_REPOSITORY)
-    private readonly assetRepository: IAssetRepository,
-  ) {}
+  @Inject(ASSET_REPOSITORY)
+  private readonly assetRepository!: IAssetRepository;
 
   async execute(id: string, userId: string): Promise<Asset> {
     const asset = await this.assetRepository.findById(id);

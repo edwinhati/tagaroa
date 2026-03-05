@@ -1,5 +1,5 @@
 import { Inject, Injectable } from "@nestjs/common";
-import { File } from "../../domain/entities/file.entity";
+import type { File } from "../../domain/entities/file.entity";
 import {
   FileNotFoundException,
   UnauthorizedFileAccessException,
@@ -9,10 +9,8 @@ import { FILE_REPOSITORY } from "../../domain/repositories/file.repository.inter
 
 @Injectable()
 export class GetFileUseCase {
-  constructor(
-    @Inject(FILE_REPOSITORY)
-    private readonly fileRepository: IFileRepository,
-  ) {}
+  @Inject(FILE_REPOSITORY)
+  private readonly fileRepository!: IFileRepository;
 
   async execute(fileId: string, userId: string): Promise<File> {
     // 1. Fetch file metadata

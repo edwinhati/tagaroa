@@ -9,10 +9,8 @@ import { LIABILITY_REPOSITORY } from "../../domain/repositories/liability.reposi
 
 @Injectable()
 export class GetLiabilityUseCase {
-  constructor(
-    @Inject(LIABILITY_REPOSITORY)
-    private readonly liabilityRepository: ILiabilityRepository,
-  ) {}
+  @Inject(LIABILITY_REPOSITORY)
+  private readonly liabilityRepository!: ILiabilityRepository;
 
   async execute(id: string, userId: string): Promise<Liability> {
     const liability = await this.liabilityRepository.findById(id);

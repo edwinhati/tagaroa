@@ -1,8 +1,8 @@
 import { Inject, Injectable, Logger } from "@nestjs/common";
-import { PaginatedResult } from "../../../../shared/types/pagination";
-import { Account } from "../../domain/entities/account.entity";
-import { BudgetItem } from "../../domain/entities/budget-item.entity";
-import { Transaction } from "../../domain/entities/transaction.entity";
+import type { PaginatedResult } from "../../../../shared/types/pagination";
+import type { Account } from "../../domain/entities/account.entity";
+import type { BudgetItem } from "../../domain/entities/budget-item.entity";
+import type { Transaction } from "../../domain/entities/transaction.entity";
 import {
   ACCOUNT_REPOSITORY,
   type IAccountRepository,
@@ -15,7 +15,7 @@ import {
   type ITransactionRepository,
   TRANSACTION_REPOSITORY,
 } from "../../domain/repositories/transaction.repository.interface";
-import { GetTransactionsDto } from "../dtos/get-transactions.dto";
+import type { GetTransactionsDto } from "../dtos/get-transactions.dto";
 
 export type TransactionWithRelations = {
   transaction: Transaction;
@@ -25,16 +25,14 @@ export type TransactionWithRelations = {
 
 @Injectable()
 export class GetTransactionsUseCase {
-  private readonly logger = new Logger(GetTransactionsUseCase.name);
+  @Inject(TRANSACTION_REPOSITORY)
+  private readonly transactionRepository!: ITransactionRepository;
+  @Inject(ACCOUNT_REPOSITORY)
+  private readonly accountRepository!: IAccountRepository;
+  @Inject(BUDGET_ITEM_REPOSITORY)
+  private readonly budgetItemRepository!: IBudgetItemRepository;
 
-  constructor(
-    @Inject(TRANSACTION_REPOSITORY)
-    private readonly transactionRepository: ITransactionRepository,
-    @Inject(ACCOUNT_REPOSITORY)
-    private readonly accountRepository: IAccountRepository,
-    @Inject(BUDGET_ITEM_REPOSITORY)
-    private readonly budgetItemRepository: IBudgetItemRepository,
-  ) {}
+  private readonly logger = new Logger(GetTransactionsUseCase.name);
 
   async execute(
     userId: string,

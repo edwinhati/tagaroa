@@ -8,7 +8,7 @@ import {
   CardHeader,
   CardTitle,
 } from "@repo/ui/components/card";
-import { ChartConfig, ChartContainer } from "@repo/ui/components/chart";
+import { type ChartConfig, ChartContainer } from "@repo/ui/components/chart";
 import { Skeleton } from "@repo/ui/components/skeleton";
 import { cn } from "@repo/ui/lib/utils";
 import {

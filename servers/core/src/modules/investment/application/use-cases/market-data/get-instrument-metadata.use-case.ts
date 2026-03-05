@@ -10,10 +10,8 @@ import { AssetClass } from "../../../domain/value-objects/asset-class.value-obje
 export class GetInstrumentMetadataUseCase {
   private readonly logger = new Logger(GetInstrumentMetadataUseCase.name);
 
-  constructor(
-    @Inject(INSTRUMENT_REPOSITORY)
-    private readonly instrumentRepository: IInstrumentRepository,
-  ) {}
+  @Inject(INSTRUMENT_REPOSITORY)
+  private readonly instrumentRepository!: IInstrumentRepository;
 
   async execute(instrumentId: string): Promise<Record<string, unknown> | null> {
     const instrument = await this.instrumentRepository.findById(instrumentId);
