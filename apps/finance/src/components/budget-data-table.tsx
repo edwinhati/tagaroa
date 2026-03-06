@@ -334,9 +334,8 @@ const ProgressCell = ({ row }: ProgressCellProps) => {
     <Tooltip>
       <TooltipTrigger
         render={
-          <div
+          <fieldset
             className="w-full space-y-1.5 min-w-[140px] cursor-default group"
-            role="group"
             aria-label={`${percentage.toFixed(0)}% of budget used`}
           >
             <div className="flex justify-between text-xs items-center">
@@ -363,7 +362,7 @@ const ProgressCell = ({ row }: ProgressCellProps) => {
                 }}
               />
             </div>
-          </div>
+          </fieldset>
         }
       />
       <TooltipContent side="top" className="text-xs">
@@ -754,7 +753,7 @@ function BudgetDataTableContent() {
                     const toggleSorting =
                       header.column.getToggleSortingHandler();
                     headerContent = (
-                      <button
+                      <Button
                         type="button"
                         className={cn(
                           "flex h-full items-center justify-between gap-2 select-none",
@@ -777,7 +776,7 @@ function BudgetDataTableContent() {
                             aria-hidden="true"
                           />
                         )}
-                      </button>
+                      </Button>
                     );
                   }
 

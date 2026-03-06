@@ -590,7 +590,7 @@ function LiabilityDataTableContent() {
                     const toggleSorting =
                       header.column.getToggleSortingHandler();
                     headerContent = (
-                      <button
+                      <Button
                         type="button"
                         className={cn(
                           "flex h-full items-center justify-between gap-2 select-none",
@@ -614,7 +614,7 @@ function LiabilityDataTableContent() {
                             aria-hidden="true"
                           />
                         )}
-                      </button>
+                      </Button>
                     );
                   }
 

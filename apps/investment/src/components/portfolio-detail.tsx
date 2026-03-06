@@ -193,8 +193,10 @@ function AddPositionDialog({ portfolioId }: { portfolioId: string }) {
                   <ul className="max-h-40 overflow-y-auto py-1">
                     {instruments.map((inst) => (
                       <li key={inst.id}>
-                        <button
+                        <Button
                           type="button"
+                          variant="ghost"
+                          size="sm"
                           className="flex w-full items-center gap-3 px-3 py-2 text-left text-sm hover:bg-muted cursor-pointer"
                           onClick={() => {
                             setInstrumentId(inst.id ?? "");
@@ -210,7 +212,7 @@ function AddPositionDialog({ portfolioId }: { portfolioId: string }) {
                           <span className="ml-auto shrink-0 rounded border px-1.5 py-0.5 text-xs text-muted-foreground">
                             {inst.assetClass}
                           </span>
-                        </button>
+                        </Button>
                       </li>
                     ))}
                   </ul>
@@ -226,8 +228,10 @@ function AddPositionDialog({ portfolioId }: { portfolioId: string }) {
                 <span className="text-sm text-muted-foreground">
                   {selectedInstrument.name}
                 </span>
-                <button
+                <Button
                   type="button"
+                  variant="ghost"
+                  size="icon"
                   className="ml-auto text-muted-foreground hover:text-foreground cursor-pointer"
                   onClick={() => {
                     setInstrumentId("");
@@ -235,7 +239,7 @@ function AddPositionDialog({ portfolioId }: { portfolioId: string }) {
                   }}
                 >
                   <IconX className="h-3.5 w-3.5" />
-                </button>
+                </Button>
               </div>
             )}
           </div>
@@ -245,9 +249,10 @@ function AddPositionDialog({ portfolioId }: { portfolioId: string }) {
             <Label>Side</Label>
             <div className="grid grid-cols-2 gap-2">
               {(["LONG", "SHORT"] as const).map((s) => (
-                <button
+                <Button
                   key={s}
                   type="button"
+                  variant="ghost"
                   onClick={() => setSide(s)}
                   className={cn(
                     "flex items-center justify-center gap-2 rounded-lg border py-2.5 text-sm font-medium transition-colors cursor-pointer",
@@ -264,7 +269,7 @@ function AddPositionDialog({ portfolioId }: { portfolioId: string }) {
                     <IconArrowDownRight className="h-4 w-4" />
                   )}
                   {s}
-                </button>
+                </Button>
               ))}
             </div>
           </div>
@@ -811,8 +816,10 @@ function ClosePositionDialog({
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger
         render={
-          <button
+          <Button
             type="button"
+            variant="ghost"
+            size="sm"
             className="invisible rounded-md border px-2 py-1 text-xs text-muted-foreground transition-colors hover:border-rose-500/30 hover:bg-rose-500/10 hover:text-rose-600 group-hover:visible cursor-pointer"
           />
         }
@@ -1072,9 +1079,10 @@ function RecordCashFlowDialog({ portfolioId }: { portfolioId: string }) {
             <div className="grid grid-cols-2 gap-2">
               {(["DEPOSIT", "WITHDRAWAL", "DIVIDEND", "FEE"] as const).map(
                 (t) => (
-                  <button
+                  <Button
                     key={t}
                     type="button"
+                    variant="ghost"
                     onClick={() => setType(t)}
                     className={cn(
                       "rounded-lg border py-2 text-xs font-medium transition-colors cursor-pointer",
@@ -1084,7 +1092,7 @@ function RecordCashFlowDialog({ portfolioId }: { portfolioId: string }) {
                     )}
                   >
                     {CF_TYPE_CONFIG[t].label}
-                  </button>
+                  </Button>
                 ),
               )}
             </div>
@@ -1360,14 +1368,16 @@ function CashFlowsSection({ portfolioId }: { portfolioId: string }) {
                       {cf.description ?? "—"}
                     </TableCell>
                     <TableCell className="text-right">
-                      <button
+                      <Button
                         type="button"
+                        variant="ghost"
+                        size="icon"
                         onClick={() => cf.id && deleteFlow(cf.id)}
                         disabled={deleting && deletingId === cf.id}
                         className="invisible rounded-md border p-1 text-muted-foreground transition-colors hover:border-rose-500/30 hover:bg-rose-500/10 hover:text-rose-600 group-hover:visible cursor-pointer disabled:opacity-50"
                       >
                         <IconTrash className="h-3.5 w-3.5" />
-                      </button>
+                      </Button>
                     </TableCell>
                   </TableRow>
                 );

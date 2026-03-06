@@ -409,7 +409,7 @@ function BudgetHistoryDataTableContent() {
                     const toggleSorting =
                       header.column.getToggleSortingHandler();
                     headerContent = (
-                      <button
+                      <Button
                         type="button"
                         className={cn(
                           "flex h-full items-center justify-between gap-2 select-none",
@@ -432,7 +432,7 @@ function BudgetHistoryDataTableContent() {
                             aria-hidden="true"
                           />
                         )}
-                      </button>
+                      </Button>
                     );
                   }
 

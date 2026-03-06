@@ -2,7 +2,7 @@
 
 import { Logo } from "@repo/common/components/logo";
 import { authClient } from "@repo/common/lib/auth-client";
-import { buttonVariants } from "@repo/ui/components/button";
+import { Button, buttonVariants } from "@repo/ui/components/button";
 import { cn } from "@repo/ui/lib/utils";
 import { IconMenu2, IconX } from "@tabler/icons-react";
 import Link from "next/link";
@@ -49,7 +49,7 @@ export const HeaderSection = () => {
               <span className="text-3xl font-semibold leading-tight tracking-tight">
                 Tagaroa
               </span>
-              <button
+              <Button
                 type="button"
                 onClick={() => setMenuState(!menuState)}
                 aria-label={menuState ? "Close Menu" : "Open Menu"}
@@ -57,7 +57,7 @@ export const HeaderSection = () => {
               >
                 <IconMenu2 className="in-data-[state=active]:rotate-180 in-data-[state=active]:scale-0 in-data-[state=active]:opacity-0 m-auto size-6 duration-200" />
                 <IconX className="in-data-[state=active]:rotate-0 in-data-[state=active]:scale-100 in-data-[state=active]:opacity-100 absolute inset-0 m-auto size-6 -rotate-180 scale-0 opacity-0 duration-200" />
-              </button>
+              </Button>
             </div>
 
             <div className="absolute inset-0 m-auto hidden size-fit lg:block">

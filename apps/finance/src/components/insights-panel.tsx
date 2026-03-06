@@ -182,13 +182,12 @@ const ProgressItem = ({
           </span>
         </div>
       </div>
-      <div
-        role="meter"
-        aria-valuenow={percentage}
-        aria-valuemin={0}
-        aria-valuemax={100}
+      <meter
+        value={percentage}
+        min={0}
+        max={100}
         aria-label={`${category}: ${percentage.toFixed(1)}% of ${type === "expense" ? "expenses" : "income"}`}
-        className="h-1.5 w-full rounded-full bg-muted overflow-hidden"
+        className="h-1.5 w-full rounded-full bg-muted overflow-hidden block appearance-none [&::-webkit-meter-bar]:bg-muted [&::-webkit-meter-inner-element]:rounded-full [&::-webkit-meter-optimum-value]:bg-emerald-500 [&::-webkit-meter-suboptimum-value]:bg-amber-500 [&::-webkit-meter-even-less-good-value]:bg-rose-500"
       >
         <div
           className={cn(
@@ -197,7 +196,7 @@ const ProgressItem = ({
           )}
           style={{ width: `${Math.min(percentage, 100)}%` }}
         />
-      </div>
+      </meter>
     </div>
   );
 };

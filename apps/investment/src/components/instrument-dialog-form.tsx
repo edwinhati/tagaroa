@@ -225,13 +225,15 @@ export function InstrumentDialogForm({
               <IconLoader2 className="absolute right-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground animate-spin" />
             )}
             {!isFetching && query.length > 0 && (
-              <button
+              <Button
                 type="button"
+                variant="ghost"
+                size="icon"
                 onClick={() => setQuery("")}
                 className="absolute right-2.5 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground cursor-pointer"
               >
                 <IconX className="h-3 w-3" />
-              </button>
+              </Button>
             )}
             <Input
               ref={inputRef}

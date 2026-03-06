@@ -11,8 +11,7 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "@repo/ui/components/alert-dialog";
-import { buttonVariants } from "@repo/ui/components/button";
-import { cn } from "@repo/ui/lib/utils";
+import { Button, type buttonVariants } from "@repo/ui/components/button";
 import { IconAlertCircle } from "@tabler/icons-react";
 import { useState } from "react";
 
@@ -66,12 +65,11 @@ export function DataTableBulkDeleteDialog({
     >
       <AlertDialogTrigger
         render={
-          <button
+          <Button
             type="button"
-            className={cn(
-              buttonVariants({ variant: buttonVariant, size: buttonSize }),
-              buttonClassName,
-            )}
+            variant={buttonVariant}
+            size={buttonSize}
+            className={buttonClassName}
             disabled={disabled || selectedCount === 0 || isSubmitting}
           >
             {triggerLabel}
@@ -80,7 +78,7 @@ export function DataTableBulkDeleteDialog({
                 {selectedCount}
               </span>
             )}
-          </button>
+          </Button>
         }
       />
       <AlertDialogContent>

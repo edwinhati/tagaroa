@@ -166,29 +166,15 @@ export function FileUpload({
   return (
     <div className="flex flex-col gap-2">
       {/* Drop area */}
-      <div
-        role="button"
-        tabIndex={0}
-        aria-label="File upload area - click to select files or drag and drop"
+      <section
+        aria-label="File upload drop area - drag and drop files here to upload"
         onDragEnter={handleDragEnter}
         onDragLeave={handleDragLeave}
         onDragOver={handleDragOver}
         onDrop={handleDrop}
-        onClick={(e) => {
-          // Only open file dialog if clicking on drop area itself, not on buttons
-          if (e.target === e.currentTarget && files.length === 0) {
-            openFileDialog();
-          }
-        }}
-        onKeyDown={(e) => {
-          if ((e.key === "Enter" || e.key === " ") && files.length === 0) {
-            e.preventDefault();
-            openFileDialog();
-          }
-        }}
         data-dragging={isDragging || undefined}
         data-files={files.length > 0 || undefined}
-        className="relative flex min-h-52 flex-col items-center overflow-hidden rounded-xl border border-dashed border-input p-4 transition-colors not-data-[files]:justify-center has-[input:focus]:border-ring has-[input:focus]:ring-[3px] focus:ring-ring/50 data-[dragging=true]:bg-accent/50 focus:outline-none focus:border-ring focus:ring-[3px] focus:ring-ring/50"
+        className="relative flex min-h-52 flex-col items-center overflow-hidden rounded-xl border border-dashed border-input p-4 transition-colors not-data-[files]:justify-center data-[dragging=true]:bg-accent/50 focus-within:border-ring focus-within:ring-[3px] focus-within:ring-ring/50"
       >
         <input
           {...(() => {
@@ -279,7 +265,13 @@ export function FileUpload({
             </div>
           </div>
         ) : (
-          <div className="flex flex-col items-center justify-center px-4 py-3 text-center">
+          <Button
+            type="button"
+            variant="ghost"
+            className="flex flex-1 w-full flex-col items-center justify-center px-4 py-3 text-center outline-none cursor-pointer focus-visible:bg-accent/50"
+            onClick={openFileDialog}
+            disabled={disabled}
+          >
             <div
               className="mb-2 flex size-11 shrink-0 items-center justify-center rounded-full border bg-background"
               aria-hidden="true"
@@ -290,22 +282,16 @@ export function FileUpload({
             <p className="text-xs text-muted-foreground">
               Max {maxFiles} files ∙ Up to {maxSizeMB}MB
             </p>
-            <Button
-              type="button"
-              variant="outline"
-              className="mt-4"
-              onClick={(e) => {
-                e.stopPropagation();
-                openFileDialog();
-              }}
-              disabled={disabled}
-            >
-              <IconUpload className="-ms-1 opacity-60" aria-hidden="true" />
+            <div className="mt-4 flex h-9 items-center justify-center rounded-md border border-input bg-background px-4 py-2 text-sm font-medium hover:bg-accent focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring transition-colors">
+              <IconUpload
+                className="-ms-1 me-2 opacity-60"
+                aria-hidden="true"
+              />
               Select files
-            </Button>
-          </div>
+            </div>
+          </Button>
         )}
-      </div>
+      </section>
 
       {errors.length > 0 && (
         <div

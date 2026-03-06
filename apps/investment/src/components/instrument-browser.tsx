@@ -277,9 +277,8 @@ function WatchlistRow({
   return (
     <ContextMenu>
       <ContextMenuTrigger>
-        <div
-          role="button"
-          tabIndex={0}
+        <Button
+          type="button"
           onClick={onClick}
           onKeyDown={(e) => e.key === "Enter" && onClick()}
           className={cn(
@@ -363,7 +362,7 @@ function WatchlistRow({
               selected && "text-primary rotate-90",
             )}
           />
-        </div>
+        </Button>
       </ContextMenuTrigger>
 
       <ContextMenuContent>
@@ -671,10 +670,12 @@ function AssetInfoPanel({ instrument }: { instrument: Instrument }) {
       {/* Header row with refresh */}
       <div className="flex items-center justify-between border-b border-border/40 px-4 py-2.5">
         <span className="text-xs font-semibold">Details</span>
-        <button
+        <Button
           type="button"
           onClick={() => instrument.id && refreshMeta(instrument.id)}
           disabled={isRefreshing}
+          variant="ghost"
+          size="sm"
           className="flex cursor-pointer items-center gap-1 text-[11px] text-muted-foreground transition-colors hover:text-foreground disabled:opacity-40"
           title="Refresh metadata from provider"
         >
@@ -682,7 +683,7 @@ function AssetInfoPanel({ instrument }: { instrument: Instrument }) {
             className={cn("h-3 w-3", isRefreshing && "animate-spin")}
           />
           Refresh
-        </button>
+        </Button>
       </div>
 
       {/* Key Statistics */}
@@ -728,13 +729,15 @@ function AssetInfoPanel({ instrument }: { instrument: Instrument }) {
               >
                 {description}
               </p>
-              <button
+              <Button
                 type="button"
                 onClick={() => setDescExpanded((v) => !v)}
+                variant="ghost"
+                size="sm"
                 className="mt-1 cursor-pointer text-[11px] text-primary hover:underline"
               >
                 {descExpanded ? "Show less" : "View more"}
-              </button>
+              </Button>
             </div>
           )}
           <div className="grid grid-cols-2 gap-x-4 gap-y-3">
@@ -922,10 +925,12 @@ function OhlcvChart({
           <div className="flex items-center gap-1">
             <div className="flex items-center gap-0.5 rounded-md bg-muted/50 p-0.5">
               {TIME_RANGES.map((r) => (
-                <button
+                <Button
                   key={r.value}
                   type="button"
                   onClick={() => setTimeRange(r.value)}
+                  variant="ghost"
+                  size="sm"
                   className={cn(
                     "px-2 py-0.5 text-[11px] font-medium rounded transition-colors cursor-pointer",
                     timeRange === r.value
@@ -934,7 +939,7 @@ function OhlcvChart({
                   )}
                 >
                   {r.value}
-                </button>
+                </Button>
               ))}
             </div>
             <Button
@@ -1137,10 +1142,12 @@ function ChartPanel({ instrument }: { instrument: Instrument | null }) {
           {/* Tab switcher */}
           <div className="flex items-center rounded-lg border bg-muted/40 p-0.5">
             {tabs.map((tab) => (
-              <button
+              <Button
                 key={tab.id}
                 type="button"
                 onClick={() => setActiveTab(tab.id)}
+                variant="ghost"
+                size="sm"
                 className={cn(
                   "flex items-center gap-1.5 rounded-md px-2.5 py-1 text-xs font-medium transition-all cursor-pointer",
                   activeTab === tab.id
@@ -1150,7 +1157,7 @@ function ChartPanel({ instrument }: { instrument: Instrument | null }) {
               >
                 {tab.icon}
                 {tab.label}
-              </button>
+              </Button>
             ))}
           </div>
         </div>
@@ -1288,22 +1295,25 @@ export function InstrumentBrowser() {
                   className="h-8 pl-8 pr-8 text-xs"
                 />
                 {search && (
-                  <button
+                  <Button
                     type="button"
+                    variant="ghost"
+                    size="icon"
                     onClick={() => handleSearchChange("")}
                     className="absolute right-2.5 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground cursor-pointer"
                   >
                     <IconX className="h-3 w-3" />
-                  </button>
+                  </Button>
                 )}
               </div>
-
               {/* Asset class filter chips */}
               <div className="flex flex-wrap gap-1">
                 {ASSET_CLASSES.map(({ value, label }) => (
-                  <button
+                  <Button
                     key={value}
                     type="button"
+                    variant="ghost"
+                    size="sm"
                     onClick={() => handleClassChange(value)}
                     className={cn(
                       "rounded-full border px-2 py-0.5 text-[11px] font-medium transition-colors cursor-pointer",
@@ -1313,9 +1323,9 @@ export function InstrumentBrowser() {
                     )}
                   >
                     {label}
-                  </button>
+                  </Button>
                 ))}
-              </div>
+              </div>{" "}
             </div>
 
             {/* Instrument count */}
@@ -1374,10 +1384,12 @@ export function InstrumentBrowser() {
             {/* Pagination */}
             {totalPages > 1 && (
               <div className="flex-shrink-0 flex items-center justify-between border-t px-3 py-2">
-                <button
+                <Button
                   type="button"
                   disabled={page === 1}
                   onClick={() => setPage((p) => p - 1)}
+                  variant="ghost"
+                  size="icon"
                   className={cn(
                     "flex h-7 w-7 items-center justify-center rounded-md border transition-colors cursor-pointer",
                     page === 1
@@ -1386,14 +1398,16 @@ export function InstrumentBrowser() {
                   )}
                 >
                   <IconChevronLeft className="h-3.5 w-3.5" />
-                </button>
+                </Button>
                 <span className="text-xs text-muted-foreground">
                   {page} / {totalPages}
                 </span>
-                <button
+                <Button
                   type="button"
                   disabled={page >= totalPages}
                   onClick={() => setPage((p) => p + 1)}
+                  variant="ghost"
+                  size="icon"
                   className={cn(
                     "flex h-7 w-7 items-center justify-center rounded-md border transition-colors cursor-pointer",
                     page >= totalPages
@@ -1402,7 +1416,7 @@ export function InstrumentBrowser() {
                   )}
                 >
                   <IconChevronRight className="h-3.5 w-3.5" />
-                </button>
+                </Button>
               </div>
             )}
           </div>

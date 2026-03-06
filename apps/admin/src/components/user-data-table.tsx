@@ -611,7 +611,7 @@ export function UserDataTable() {
                     const toggleSorting =
                       header.column.getToggleSortingHandler();
                     headerContent = (
-                      <button
+                      <Button
                         type="button"
                         className={cn(
                           "flex h-full select-none items-center justify-between gap-2",
@@ -634,7 +634,7 @@ export function UserDataTable() {
                             aria-hidden="true"
                           />
                         )}
-                      </button>
+                      </Button>
                     );
                   }
 

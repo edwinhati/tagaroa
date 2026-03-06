@@ -219,14 +219,16 @@ function PortfolioCard({
             />
             <span className="font-semibold truncate">{portfolio.name}</span>
           </div>
-          <button
+          <Button
             type="button"
+            variant="ghost"
+            size="icon"
             onClick={() => portfolio.id && onDelete(portfolio.id)}
             className="invisible shrink-0 rounded-md p-1 text-muted-foreground transition-colors hover:bg-destructive/10 hover:text-destructive group-hover:visible cursor-pointer"
             aria-label="Delete portfolio"
           >
             <IconTrash className="h-3.5 w-3.5" />
-          </button>
+          </Button>
         </div>
 
         {/* Mode badge */}

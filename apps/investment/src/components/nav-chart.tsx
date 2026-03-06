@@ -2,6 +2,7 @@
 
 import { snapshotHistoryQueryOptions } from "@repo/common/lib/query/portfolio-query";
 import type { SnapshotHistoryItem } from "@repo/common/types/investment";
+import { Button } from "@repo/ui/components/button";
 import { useQuery } from "@tanstack/react-query";
 import { useState } from "react";
 import {
@@ -84,18 +85,15 @@ export function NavChart({ portfolioId }: NavChartProps) {
     <div className="space-y-3">
       <div className="flex gap-1">
         {DATE_RANGES.map((range) => (
-          <button
+          <Button
             key={range.label}
             type="button"
             onClick={() => setSelectedRange(range.days)}
-            className={`rounded px-2 py-1 text-xs font-medium transition-colors ${
-              selectedRange === range.days
-                ? "bg-primary text-primary-foreground"
-                : "text-muted-foreground hover:text-foreground"
-            }`}
+            variant="outline"
+            size="sm"
           >
             {range.label}
-          </button>
+          </Button>
         ))}
       </div>
       <ResponsiveContainer width="100%" height={220}>

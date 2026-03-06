@@ -33,6 +33,7 @@ import {
   EmptyContent,
   EmptyDescription,
   EmptyHeader,
+  EmptyMedia,
   EmptyTitle,
 } from "@repo/ui/components/empty";
 import { Skeleton } from "@repo/ui/components/skeleton";
@@ -50,6 +51,7 @@ import {
   IconChevronUp,
   IconDots,
   IconPlus,
+  IconWallet,
 } from "@tabler/icons-react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
@@ -481,8 +483,7 @@ function AccountDataTableContent() {
                     const toggleSorting =
                       header.column.getToggleSortingHandler();
                     headerContent = (
-                      <button
-                        type="button"
+                      <Button
                         className={cn(
                           "flex h-full items-center justify-between gap-2 select-none",
                           "cursor-pointer",
@@ -504,7 +505,7 @@ function AccountDataTableContent() {
                             aria-hidden="true"
                           />
                         )}
-                      </button>
+                      </Button>
                     );
                   }
 
@@ -568,6 +569,9 @@ function AccountDataTableContent() {
                       {renderEmptyState ? (
                         <Empty>
                           <EmptyHeader>
+                            <EmptyMedia variant="icon">
+                              <IconWallet aria-hidden="true" />
+                            </EmptyMedia>
                             <EmptyTitle>No Accounts Yet</EmptyTitle>
                             <EmptyDescription>
                               You haven&apos;t added any accounts yet. Get

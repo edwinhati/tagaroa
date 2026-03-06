@@ -20,7 +20,7 @@
     "db:studio": "drizzle-kit studio"
   },
   "dependencies": {
-    "@better-auth/drizzle-adapter": "^1.5.3",
+    "@better-auth/drizzle-adapter": "^1.5.4",
     "@nestjs/common": "^11.1.16",
     "@nestjs/config": "^4.0.3",
     "@nestjs/core": "^11.1.16",
@@ -31,7 +31,7 @@
     "@repo/auth": "*",
     "@scalar/nestjs-api-reference": "^1.1.0",
     "@thallesp/nestjs-better-auth": "^2.4.0",
-    "better-auth": "^1.5.3",
+    "better-auth": "^1.5.4",
     "class-transformer": "^0.5.1",
     "class-validator": "^0.15.1",
     "dotenv": "^17.3.1",

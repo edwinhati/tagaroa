@@ -690,7 +690,7 @@ function TransactionDataTableContent() {
                     const toggleSorting =
                       header.column.getToggleSortingHandler();
                     headerContent = (
-                      <button
+                      <Button
                         type="button"
                         className="flex h-full items-center justify-between gap-2 select-none cursor-pointer"
                         onClick={toggleSorting}
@@ -710,7 +710,7 @@ function TransactionDataTableContent() {
                             aria-hidden="true"
                           />
                         )}
-                      </button>
+                      </Button>
                     );
                   }
                   return (

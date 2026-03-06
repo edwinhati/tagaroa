@@ -1,5 +1,6 @@
 "use client";
 
+import { Button } from "@repo/ui/components/button";
 import posthog from "posthog-js";
 import { useEffect } from "react";
 
@@ -23,13 +24,9 @@ export default function GlobalError({
           <p className="text-sm text-gray-500">
             {error.message || "A critical error occurred"}
           </p>
-          <button
-            type="button"
-            onClick={reset}
-            className="rounded-md border px-4 py-2 text-sm hover:bg-gray-50"
-          >
+          <Button type="button" onClick={reset} variant="outline">
             Try again
-          </button>
+          </Button>
         </div>
       </body>
     </html>
