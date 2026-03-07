@@ -24,6 +24,8 @@ import {
 } from "../../domain/repositories/transaction.repository.interface";
 import type { UpdateTransactionDto } from "../dtos/update-transaction.dto";
 import { TransactionSideEffectsService } from "../services/transaction-side-effects.service";
+import { normalizeBudgetItemId } from "../utils/transaction-budget-item.util";
+import { normalizeTransactionDate } from "../utils/transaction-date.util";
 
 @Injectable()
 export class UpdateTransactionUseCase {
@@ -44,6 +46,7 @@ export class UpdateTransactionUseCase {
     id: string,
     dto: UpdateTransactionDto,
   ): Promise<Transaction> {
+    const budgetItemId = normalizeBudgetItemId(dto.budgetItemId);
     const existing = await this.transactionRepository.findById(id);
 
     if (!existing) {
@@ -54,19 +57,23 @@ export class UpdateTransactionUseCase {
     }
 
     await this.validateAccountChange(userId, dto, existing.accountId);
-    await this.validateBudgetItemChange(userId, dto, existing.budgetItemId);
+    await this.validateBudgetItemChange(
+      userId,
+      budgetItemId,
+      existing.budgetItemId,
+    );
 
     const updated = new Transaction(
       existing.id,
       dto.amount ?? existing.amount,
-      dto.date ? new Date(dto.date) : existing.date,
+      dto.date ? normalizeTransactionDate(dto.date) : existing.date,
       dto.notes ?? existing.notes,
       dto.currency ?? existing.currency,
       dto.type ?? existing.type,
       dto.files ?? existing.files,
       existing.userId,
       dto.accountId ?? existing.accountId,
-      dto.budgetItemId ?? existing.budgetItemId,
+      budgetItemId ?? existing.budgetItemId,
       existing.deletedAt,
       existing.createdAt,
       new Date(),
@@ -96,21 +103,16 @@ export class UpdateTransactionUseCase {
 
   private async validateBudgetItemChange(
     userId: string,
-    dto: UpdateTransactionDto,
+    budgetItemId: string | undefined,
     existingBudgetItemId: string | null | undefined,
   ): Promise<void> {
-    if (
-      dto.budgetItemId === undefined ||
-      dto.budgetItemId === existingBudgetItemId
-    )
+    if (budgetItemId === undefined || budgetItemId === existingBudgetItemId)
       return;
-    if (!dto.budgetItemId) return;
+    if (!budgetItemId) return;
 
-    const budgetItem = await this.budgetItemRepository.findById(
-      dto.budgetItemId,
-    );
+    const budgetItem = await this.budgetItemRepository.findById(budgetItemId);
     if (!budgetItem) {
-      throw new BudgetItemNotFoundException(dto.budgetItemId);
+      throw new BudgetItemNotFoundException(budgetItemId);
     }
 
     const budget = await this.budgetRepository.findById(budgetItem.budgetId);

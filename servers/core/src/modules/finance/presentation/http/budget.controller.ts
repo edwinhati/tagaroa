@@ -25,9 +25,9 @@ import {
   toBudgetItemResponse,
   toBudgetResponse,
 } from "../../application/dtos/budget-response.dto";
-import type { CreateBudgetDto } from "../../application/dtos/create-budget.dto";
-import type { UpdateBudgetDto } from "../../application/dtos/update-budget.dto";
-import type { UpdateBudgetItemDto } from "../../application/dtos/update-budget-item.dto";
+import { CreateBudgetDto } from "../../application/dtos/create-budget.dto";
+import { UpdateBudgetDto } from "../../application/dtos/update-budget.dto";
+import { UpdateBudgetItemDto } from "../../application/dtos/update-budget-item.dto";
 import { CreateBudgetUseCase } from "../../application/use-cases/create-budget.use-case";
 import { DeleteBudgetUseCase } from "../../application/use-cases/delete-budget.use-case";
 import { GetBudgetByMonthYearUseCase } from "../../application/use-cases/get-budget-by-month-year.use-case";

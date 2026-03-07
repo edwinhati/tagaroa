@@ -692,7 +692,8 @@ function TransactionDataTableContent() {
                     headerContent = (
                       <Button
                         type="button"
-                        className="flex h-full items-center justify-between gap-2 select-none cursor-pointer"
+                        variant="ghost"
+                        className="flex h-8 select-none items-center justify-between gap-2 px-0 hover:bg-transparent focus-visible:ring-0 cursor-pointer"
                         onClick={toggleSorting}
                       >
                         {headerLabel}

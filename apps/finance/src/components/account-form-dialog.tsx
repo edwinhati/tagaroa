@@ -196,10 +196,7 @@ export function AccountFormDialog({
               render={({ field, fieldState }) => (
                 <Field>
                   <FieldLabel>Account Type</FieldLabel>
-                  <Select
-                    onValueChange={field.onChange}
-                    defaultValue={field.value}
-                  >
+                  <Select onValueChange={field.onChange} value={field.value}>
                     <SelectTrigger disabled={!!initialData} className="w-full">
                       <SelectValue placeholder="Select account type" />
                     </SelectTrigger>
@@ -228,10 +225,7 @@ export function AccountFormDialog({
               render={({ field, fieldState }) => (
                 <Field>
                   <FieldLabel>Currency</FieldLabel>
-                  <Select
-                    onValueChange={field.onChange}
-                    defaultValue={field.value}
-                  >
+                  <Select onValueChange={field.onChange} value={field.value}>
                     <SelectTrigger className="w-full">
                       <SelectValue placeholder="Select currency" />
                     </SelectTrigger>

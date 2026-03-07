@@ -21,6 +21,8 @@ import {
 } from "../../domain/repositories/transaction.repository.interface";
 import type { CreateTransactionDto } from "../dtos/create-transaction.dto";
 import { TransactionSideEffectsService } from "../services/transaction-side-effects.service";
+import { normalizeBudgetItemId } from "../utils/transaction-budget-item.util";
+import { normalizeTransactionDate } from "../utils/transaction-date.util";
 
 @Injectable()
 export class CreateTransactionUseCase {
@@ -40,17 +42,17 @@ export class CreateTransactionUseCase {
     userId: string,
     dto: CreateTransactionDto,
   ): Promise<Transaction> {
+    const budgetItemId = normalizeBudgetItemId(dto.budgetItemId);
+
     const account = await this.accountRepository.findById(dto.accountId);
     if (account?.userId !== userId) {
       throw new AccountNotFoundException(dto.accountId);
     }
 
-    if (dto.budgetItemId) {
-      const budgetItem = await this.budgetItemRepository.findById(
-        dto.budgetItemId,
-      );
+    if (budgetItemId) {
+      const budgetItem = await this.budgetItemRepository.findById(budgetItemId);
       if (!budgetItem) {
-        throw new BudgetItemNotFoundException(dto.budgetItemId);
+        throw new BudgetItemNotFoundException(budgetItemId);
       }
 
       // Verify budget ownership
@@ -63,14 +65,14 @@ export class CreateTransactionUseCase {
     const transaction = new Transaction(
       crypto.randomUUID(),
       dto.amount,
-      new Date(dto.date),
+      normalizeTransactionDate(dto.date),
       dto.notes ?? null,
       dto.currency,
       dto.type,
       dto.files ?? null,
       userId,
       dto.accountId,
-      dto.budgetItemId ?? null,
+      budgetItemId ?? null,
       null,
       new Date(),
       new Date(),

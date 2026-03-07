@@ -411,8 +411,9 @@ function BudgetHistoryDataTableContent() {
                     headerContent = (
                       <Button
                         type="button"
+                        variant="ghost"
                         className={cn(
-                          "flex h-full items-center justify-between gap-2 select-none",
+                          "flex h-8 select-none items-center justify-between gap-2 px-0 hover:bg-transparent focus-visible:ring-0",
                           "cursor-pointer",
                         )}
                         onClick={toggleSorting}
