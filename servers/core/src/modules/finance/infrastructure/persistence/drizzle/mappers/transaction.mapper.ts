@@ -1,5 +1,8 @@
 import type { InferSelectModel } from "drizzle-orm";
-import { Transaction } from "../../../../domain/entities/transaction.entity";
+import {
+  type InstallmentData,
+  Transaction,
+} from "../../../../domain/entities/transaction.entity";
 import type { Currency } from "../../../../domain/value-objects/currency";
 import type { TransactionType } from "../../../../domain/value-objects/transaction-type";
 import type { transactions } from "../schemas/transaction.schema";
@@ -22,6 +25,7 @@ export function mapTransactionToDomain(row: TransactionRow): Transaction {
     row.createdAt ?? new Date(),
     row.updatedAt ?? new Date(),
     row.version ?? 1,
+    row.installment as InstallmentData | null,
   );
 }
 
@@ -42,6 +46,7 @@ export function mapTransactionToPersistence(
     budgetItemId: entity.budgetItemId,
     deletedAt: entity.deletedAt,
     version: entity.version,
+    installment: entity.installment,
   };
 }
 

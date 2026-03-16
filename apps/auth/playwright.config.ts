@@ -1,5 +1,9 @@
 import { defineConfig, devices } from "@playwright/test";
 
+/**
+ * Playwright configuration for Auth app E2E tests
+ * @see https://playwright.dev/docs/test-configuration
+ */
 export default defineConfig({
   testDir: "./e2e",
   testMatch: "**/*.e2e.ts",
@@ -8,12 +12,19 @@ export default defineConfig({
   forbidOnly: !!process.env.CI,
   retries: process.env.CI ? 2 : 0,
   workers: process.env.CI ? 1 : undefined,
-  reporter: [["html", { open: "never" }], ["list"]],
+  reporter: [
+    ["html", { open: "never" }],
+    ["list"],
+    process.env.CI ? ["github"] : ["line"],
+  ],
 
   use: {
     baseURL: "http://localhost:3001",
     trace: "on-first-retry",
     screenshot: "only-on-failure",
+    video: "on-first-retry",
+    actionTimeout: 10000,
+    navigationTimeout: 15000,
   },
 
   projects: [

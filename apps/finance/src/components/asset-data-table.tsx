@@ -18,7 +18,6 @@ import {
 import type { Asset, PaginatedAssetsResult } from "@repo/common/types/asset";
 import { Badge } from "@repo/ui/components/badge";
 import { Button } from "@repo/ui/components/button";
-import { Card, CardContent } from "@repo/ui/components/card";
 import { Checkbox } from "@repo/ui/components/checkbox";
 import {
   DropdownMenu,
@@ -50,11 +49,7 @@ import {
   IconChevronDown,
   IconChevronUp,
   IconDots,
-  IconLayoutGrid,
   IconPlus,
-  IconReportMoney,
-  IconTrendingUp,
-  IconWallet,
   IconX,
 } from "@tabler/icons-react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
@@ -70,7 +65,6 @@ import {
 } from "@tanstack/react-table";
 import { useEffect, useMemo, useState } from "react";
 import { AssetFormDialog } from "@/components/asset-form-dialog";
-import { getStaggerDelay } from "@/lib/animations";
 
 const SelectHeaderCell = ({
   table,
@@ -276,29 +270,6 @@ function AssetDataTableContent() {
 
   const hasTotalData = (paginationInfo?.total ?? 0) > 0;
 
-  const summaryStats = useMemo(() => {
-    const assets = stableData?.assets ?? [];
-    const byCurrency: Record<string, number> = {};
-    const byType: Record<string, number> = {};
-    let investableCount = 0;
-
-    for (const a of assets) {
-      byCurrency[a.currency] = (byCurrency[a.currency] ?? 0) + a.value;
-      byType[a.type] = (byType[a.type] ?? 0) + 1;
-      if (
-        a.type === "STOCK" ||
-        a.type === "CRYPTO" ||
-        a.type === "INVESTMENT" ||
-        a.type === "BOND" ||
-        a.type === "MUTUAL_FUND"
-      ) {
-        investableCount++;
-      }
-    }
-
-    return { byCurrency, byType, investableCount, total: assets.length };
-  }, [stableData?.assets]);
-
   const table = useReactTable({
     data: tableData,
     columns,
@@ -371,87 +342,8 @@ function AssetDataTableContent() {
     return <AssetTableSkeleton />;
   }
 
-  const formatCurrency = (amount: number, currency: string) =>
-    new Intl.NumberFormat(currency === "IDR" ? "id-ID" : "en-US", {
-      style: "currency",
-      currency,
-    }).format(amount);
-
   return (
     <div className="relative space-y-4">
-      {hasTotalData && (
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
-          {[
-            {
-              label: "Total Value",
-              icon: (
-                <IconTrendingUp className="h-5 w-5 text-blue-600 dark:text-blue-400" />
-              ),
-              iconBg: "rounded-full bg-blue-100 p-2 dark:bg-blue-900",
-              content: Object.entries(summaryStats.byCurrency).map(
-                ([cur, val]) => (
-                  <span key={cur} className="block text-sm">
-                    {formatCurrency(val, cur)}
-                  </span>
-                ),
-              ),
-            },
-            {
-              label: "Asset Types",
-              icon: (
-                <IconLayoutGrid className="h-5 w-5 text-purple-600 dark:text-purple-400" />
-              ),
-              iconBg: "rounded-full bg-purple-100 p-2 dark:bg-purple-900",
-              content: (
-                <span className="text-lg font-semibold">
-                  {Object.keys(summaryStats.byType).length}
-                </span>
-              ),
-            },
-            {
-              label: "Investable Assets",
-              icon: (
-                <IconReportMoney className="h-5 w-5 text-green-600 dark:text-green-400" />
-              ),
-              iconBg: "rounded-full bg-green-100 p-2 dark:bg-green-900",
-              content: (
-                <span className="text-lg font-semibold">
-                  {summaryStats.investableCount}
-                </span>
-              ),
-            },
-            {
-              label: "Total Count",
-              icon: (
-                <IconWallet className="h-5 w-5 text-orange-600 dark:text-orange-400" />
-              ),
-              iconBg: "rounded-full bg-orange-100 p-2 dark:bg-orange-900",
-              content: (
-                <span className="text-lg font-semibold">
-                  {summaryStats.total} assets
-                </span>
-              ),
-            },
-          ].map((stat, index) => (
-            <Card
-              key={stat.label}
-              className="py-4"
-              style={{ animationDelay: `${getStaggerDelay(index)}ms` }}
-            >
-              <CardContent className="flex items-center gap-4 py-0">
-                <div className={stat.iconBg} aria-hidden="true">
-                  {stat.icon}
-                </div>
-                <div>
-                  <p className="text-sm text-muted-foreground">{stat.label}</p>
-                  <p className="text-lg font-semibold">{stat.content}</p>
-                </div>
-              </CardContent>
-            </Card>
-          ))}
-        </div>
-      )}
-
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div className="flex items-center gap-3">
           <ServerSearchInput

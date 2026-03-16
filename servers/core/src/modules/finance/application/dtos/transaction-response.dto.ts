@@ -1,6 +1,9 @@
 import type { Account } from "../../domain/entities/account.entity";
 import type { BudgetItem } from "../../domain/entities/budget-item.entity";
-import type { Transaction } from "../../domain/entities/transaction.entity";
+import type {
+  InstallmentData,
+  Transaction,
+} from "../../domain/entities/transaction.entity";
 import type { Currency } from "../../domain/value-objects/currency";
 import type { TransactionType } from "../../domain/value-objects/transaction-type";
 
@@ -35,6 +38,7 @@ export type TransactionResponseDto = {
   updated_at: Date;
   deleted_at: Date | null;
   version: number;
+  installment?: InstallmentData;
 };
 
 export function toTransactionAccountDto(
@@ -83,5 +87,6 @@ export function toTransactionResponse(
     updated_at: transaction.updatedAt,
     deleted_at: transaction.deletedAt,
     version: transaction.version,
+    installment: transaction.installment ?? undefined,
   };
 }

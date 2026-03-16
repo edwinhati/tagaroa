@@ -9,6 +9,7 @@ import {
   ACCOUNT_REPOSITORY,
   type IAccountRepository,
 } from "../../domain/repositories/account.repository.interface";
+import { AccountCategory } from "../../domain/value-objects/account-category";
 import { AccountType } from "../../domain/value-objects/account-type";
 import { Currency } from "../../domain/value-objects/currency";
 import { GetAccountUseCase } from "./get-account.use-case";
@@ -18,9 +19,11 @@ const buildAccount = (id: string, userId: string): Account =>
     id,
     "Checking Account",
     AccountType.BANK,
+    AccountCategory.ASSET,
     1000,
     userId,
     Currency.USD,
+    null,
     null,
     null,
     new Date(),

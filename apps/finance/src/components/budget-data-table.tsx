@@ -13,7 +13,6 @@ import {
 import type { Budget, BudgetItem } from "@repo/common/types/budget";
 import { Button } from "@repo/ui/components/button";
 import { Calendar } from "@repo/ui/components/calendar";
-import { Card, CardContent } from "@repo/ui/components/card";
 import { Checkbox } from "@repo/ui/components/checkbox";
 import {
   Empty,
@@ -37,21 +36,14 @@ import {
   TableHeader,
   TableRow,
 } from "@repo/ui/components/table";
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipTrigger,
-} from "@repo/ui/components/tooltip";
 import { cn } from "@repo/ui/lib/utils";
 import {
-  IconAlertTriangle,
   IconBolt,
   IconCalendar,
   IconCar,
   IconCheck,
   IconChevronDown,
   IconChevronUp,
-  IconCreditCard,
   IconDots,
   IconHeart,
   IconHome,
@@ -66,8 +58,6 @@ import {
   IconShirt,
   IconSparkles,
   IconToolsKitchen2,
-  IconTrendingUp,
-  IconWallet,
   IconX,
 } from "@tabler/icons-react";
 import { useMutation, useQuery } from "@tanstack/react-query";
@@ -85,11 +75,11 @@ import {
   type SortingState,
   useReactTable,
 } from "@tanstack/react-table";
+import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useRef, useState } from "react";
 import type { DateRange } from "react-day-picker";
 import { NumericFormat } from "react-number-format";
 import { toast } from "sonner";
-import { TransactionsByCategoryDialog } from "@/components/transactions-by-category-dialog";
 import { BudgetFormDialog } from "./budget-form-dialog";
 
 // Cell renderer components - defined outside to avoid recreation on each render
@@ -222,163 +212,82 @@ const CategoryCell = ({ row }: { row: Row<BudgetItem> }) => {
   );
 };
 
+const SpentCell = ({ row }: { row: Row<BudgetItem> }) => {
+  const allocation = Number.parseFloat(row.getValue("allocation")) || 0;
+  const spent = row.original.spent || 0;
+  const percentage = allocation > 0 ? (spent / allocation) * 100 : 0;
+  const isOver = percentage > 100;
+  const isWarning = !isOver && percentage > 80;
+
+  return (
+    <div className="flex items-center gap-1.5">
+      <span className="font-mono">{formatCurrency(spent)}</span>
+      <span
+        className={cn(
+          "font-mono text-xs",
+          isOver && "text-destructive font-medium",
+          isWarning && "text-amber-600 dark:text-amber-400",
+          !isOver && !isWarning && "text-muted-foreground",
+        )}
+      >
+        ({percentage.toFixed(0)}%)
+      </span>
+    </div>
+  );
+};
+
+const RemainingCell = ({ row }: { row: Row<BudgetItem> }) => {
+  const allocation = Number.parseFloat(row.getValue("allocation")) || 0;
+  const spent = row.original.spent || 0;
+  const remaining = allocation - spent;
+  const isOver = remaining < 0;
+
+  return (
+    <span className={cn("font-mono", isOver && "text-destructive font-medium")}>
+      {formatCurrency(remaining)}
+    </span>
+  );
+};
+
 const BudgetActionsHeaderCell = () => <span className="sr-only">Actions</span>;
 
 const BudgetActionsCell = ({ row }: { row: Row<BudgetItem> }) => {
+  const router = useRouter();
   const { month, year } = useBudgetPeriod((s) => ({
     month: s.month,
     year: s.year,
   }));
 
-  const startDate = new Date(
-    month === 1 ? year - 1 : year,
-    month === 1 ? 11 : month - 2,
-    25,
-  );
-  const endDate = new Date(year, month - 1, 25);
-  const category = row.original.category;
   const budgetItemId = row.original.id as string;
+
+  const handleViewTransactions = () => {
+    const startDate = new Date(
+      month === 1 ? year - 1 : year,
+      month === 1 ? 11 : month - 2,
+      25,
+    );
+    const endDate = new Date(year, month - 1, 25);
+
+    const params = new URLSearchParams({
+      budget_item_id: budgetItemId,
+      from: startDate.toISOString(),
+      to: endDate.toISOString(),
+    });
+    router.push(`/transactions?${params.toString()}`);
+  };
 
   return (
     <div className="flex justify-end gap-2">
-      <TransactionsByCategoryDialog
-        category={category}
-        budgetItemId={budgetItemId}
-        startDate={startDate}
-        endDate={endDate}
-        trigger={
-          <Button variant="ghost" size="sm" className="text-xs">
-            <IconList className="h-3 w-3 mr-1" />
-            View Transactions
-          </Button>
-        }
-      />
-    </div>
-  );
-};
-
-interface BudgetSummaryCardProps {
-  title: string;
-  value: string;
-  icon: React.ReactNode;
-  iconColor: string;
-}
-
-const BudgetSummaryCard = ({
-  title,
-  value,
-  icon,
-  iconColor,
-}: BudgetSummaryCardProps) => (
-  <Card
-    className={cn(
-      "relative group",
-      "motion-safe:transition-all motion-safe:duration-300 motion-safe:ease-out",
-      "hover:shadow-lg hover:shadow-primary/5",
-      "motion-safe:hover:-translate-y-0.5",
-      "border-border/50 hover:border-primary/20",
-      "bg-card/80 backdrop-blur-sm",
-    )}
-  >
-    <CardContent className="flex items-center gap-4 p-5">
-      <div
-        className={cn(
-          "flex items-center justify-center rounded-xl p-3",
-          "motion-safe:transition-transform motion-safe:duration-200 motion-safe:group-hover:scale-105",
-          "ring-1 ring-current/10",
-          iconColor,
-        )}
+      <Button
+        variant="ghost"
+        size="sm"
+        className="text-xs"
+        onClick={handleViewTransactions}
       >
-        {icon}
-      </div>
-      <div className="flex-1 min-w-0">
-        <p className="text-sm font-medium text-muted-foreground group-hover:text-foreground motion-safe:transition-colors motion-safe:duration-200">
-          {title}
-        </p>
-        <p className="text-2xl font-bold font-mono tracking-tight truncate group-hover:text-primary motion-safe:transition-colors motion-safe:duration-200">
-          {value}
-        </p>
-      </div>
-    </CardContent>
-  </Card>
-);
-
-interface ProgressCellProps {
-  row: Row<BudgetItem>;
-}
-
-const ProgressCell = ({ row }: ProgressCellProps) => {
-  const [isAnimated, setIsAnimated] = useState(false);
-  const allocation = Number.parseFloat(row.getValue("allocation")) || 0;
-  const spent = row.original.spent || 0;
-  const percentage = allocation > 0 ? (spent / allocation) * 100 : 0;
-  const isOverBudget = spent > allocation;
-  const isWarning = !isOverBudget && percentage > 80;
-  const isHealthy = !isOverBudget && percentage <= 80;
-  const remaining = allocation - spent;
-
-  // Animate on mount
-  useEffect(() => {
-    const timer = setTimeout(() => setIsAnimated(true), 50);
-    return () => clearTimeout(timer);
-  }, []);
-
-  const progressColor = cn(
-    "h-full rounded-full",
-    isOverBudget && "bg-gradient-to-r from-destructive/80 to-destructive",
-    isWarning && "bg-gradient-to-r from-amber-400 to-amber-500",
-    isHealthy && "bg-gradient-to-r from-emerald-400 to-emerald-500",
-  );
-
-  return (
-    <Tooltip>
-      <TooltipTrigger
-        render={
-          <fieldset
-            className="w-full space-y-1.5 min-w-[140px] cursor-default group"
-            aria-label={`${percentage.toFixed(0)}% of budget used`}
-          >
-            <div className="flex justify-between text-xs items-center">
-              <span
-                className={cn(
-                  "font-semibold tabular-nums motion-safe:transition-colors motion-safe:duration-200",
-                  isOverBudget && "text-destructive",
-                  isWarning && "text-amber-600 dark:text-amber-400",
-                  isHealthy && "text-emerald-600 dark:text-emerald-400",
-                )}
-              >
-                {percentage.toFixed(0)}%
-              </span>
-              <span className="text-muted-foreground font-mono text-[11px] group-hover:text-foreground motion-safe:transition-colors">
-                {formatCurrency(spent)} / {formatCurrency(allocation)}
-              </span>
-            </div>
-            <div className="h-2.5 w-full bg-muted/60 rounded-full overflow-hidden ring-1 ring-border/30">
-              <div
-                className={progressColor}
-                style={{
-                  width: isAnimated ? `${Math.min(percentage, 100)}%` : "0%",
-                  transition: "width 700ms cubic-bezier(0.4, 0, 0.2, 1)",
-                }}
-              />
-            </div>
-          </fieldset>
-        }
-      />
-      <TooltipContent side="top" className="text-xs">
-        <div className="space-y-1">
-          <p className="font-medium capitalize">
-            {row.original.category.replaceAll("_", " ")}
-          </p>
-          <p>Spent: {formatCurrency(spent)}</p>
-          <p>Budget: {formatCurrency(allocation)}</p>
-          <p className={cn(isOverBudget && "text-destructive font-medium")}>
-            {isOverBudget ? "Over by" : "Remaining"}:{" "}
-            {formatCurrency(Math.abs(remaining))}
-          </p>
-        </div>
-      </TooltipContent>
-    </Tooltip>
+        <IconList className="h-3 w-3 mr-1" />
+        View Transactions
+      </Button>
+    </div>
   );
 };
 
@@ -489,6 +398,8 @@ function BudgetDataTableContent() {
     [stableData, month, year],
   );
 
+  const showLoadingState = isInitialLoading;
+
   // Calculate total allocated and remaining budget
   const totalAllocated = useMemo(() => {
     return (tableData.items ?? []).reduce(
@@ -500,8 +411,6 @@ function BudgetDataTableContent() {
   const remainingBudget = useMemo(() => {
     return tableData.amount - totalAllocated;
   }, [tableData.amount, totalAllocated]);
-
-  const showLoadingState = isInitialLoading;
 
   // Check if there's truly no data (no accounts at all for the user)
   const hasTotalData = (budgetResponse?.items?.length ?? 0) > 0;
@@ -538,7 +447,7 @@ function BudgetDataTableContent() {
         header: "Category",
         accessorKey: "category",
         cell: CategoryCell,
-        size: 100,
+        size: 140,
         enableSorting: false,
       },
       {
@@ -559,14 +468,21 @@ function BudgetDataTableContent() {
             }}
           />
         ),
-        size: 140,
+        size: 160,
         enableSorting: false,
       },
       {
-        header: "Progress",
-        id: "progress",
-        cell: ({ row }) => <ProgressCell row={row} />,
-        size: 180,
+        header: "Spent",
+        id: "spent",
+        cell: SpentCell,
+        size: 160,
+        enableSorting: false,
+      },
+      {
+        header: "Remaining",
+        id: "remaining",
+        cell: RemainingCell,
+        size: 120,
         enableSorting: false,
       },
       {
@@ -640,38 +556,6 @@ function BudgetDataTableContent() {
 
   return (
     <div className="relative space-y-4">
-      {/* Budget Summary Cards */}
-      <div className="grid gap-4 md:grid-cols-3">
-        <BudgetSummaryCard
-          title="Total Budget"
-          value={formatCurrency(tableData.amount)}
-          icon={<IconWallet className="h-5 w-5" />}
-          iconColor="text-primary bg-primary/10"
-        />
-        <BudgetSummaryCard
-          title="Allocated"
-          value={formatCurrency(totalAllocated)}
-          icon={<IconCreditCard className="h-5 w-5" />}
-          iconColor="text-blue-500 bg-blue-50"
-        />
-        <BudgetSummaryCard
-          title="Remaining"
-          value={formatCurrency(remainingBudget)}
-          icon={
-            remainingBudget < 0 ? (
-              <IconAlertTriangle className="h-5 w-5" />
-            ) : (
-              <IconTrendingUp className="h-5 w-5" />
-            )
-          }
-          iconColor={
-            remainingBudget < 0
-              ? "text-destructive bg-destructive/10"
-              : "text-green-500 bg-green-50"
-          }
-        />
-      </div>
-
       {/* Filters */}
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div className="flex items-center gap-3">
@@ -717,6 +601,7 @@ function BudgetDataTableContent() {
             currency={tableData.currency}
             month={tableData.month}
             year={tableData.year}
+            remaining={remainingBudget}
             onUpdate={() => refetch()}
           />
         </div>
@@ -805,19 +690,9 @@ function BudgetDataTableContent() {
                   <TableRow
                     key={row.id}
                     data-state={row.getIsSelected() ? "selected" : undefined}
-                    className={cn(
-                      "group/row",
-                      "motion-safe:transition-colors motion-safe:duration-150",
-                      "hover:bg-muted/60",
-                      "focus-within:bg-muted/40 focus-within:ring-1 focus-within:ring-primary/20 focus-within:ring-inset",
-                      row.getIsSelected() && "bg-primary/5 hover:bg-primary/10",
-                    )}
                   >
                     {row.getVisibleCells().map((cell) => (
-                      <TableCell
-                        key={cell.id}
-                        className="last:py-0 motion-safe:transition-colors motion-safe:duration-150"
-                      >
+                      <TableCell key={cell.id} className="last:py-0">
                         {flexRender(
                           cell.column.columnDef.cell,
                           cell.getContext(),
@@ -891,6 +766,7 @@ const EditableBudgetAmount = ({
   currency,
   month,
   year,
+  remaining,
   onUpdate,
 }: {
   budgetId?: string;
@@ -898,6 +774,7 @@ const EditableBudgetAmount = ({
   currency: string;
   month: number;
   year: number;
+  remaining: number;
   onUpdate: () => void;
 }) => {
   const [isEditing, setIsEditing] = useState(false);
@@ -1003,19 +880,39 @@ const EditableBudgetAmount = ({
   }
 
   return (
-    <div className="flex items-center gap-2 text-sm group">
-      <span className="text-muted-foreground">Budget:</span>
-      <span className="font-mono font-medium">{formatCurrency(amount)}</span>
-      <Button
-        variant="ghost"
-        size="icon"
-        onClick={() => setIsEditing(true)}
-        className="h-5 w-5 opacity-0 group-hover:opacity-100 transition-opacity"
-        disabled={!budgetId}
+    <div className="flex items-center gap-2 text-sm">
+      <div className="group flex items-center gap-2 rounded-md border border-border/60 bg-muted/30 px-3 py-1.5">
+        <span className="text-xs text-muted-foreground">Budget</span>
+        <span className="font-mono font-medium">{formatCurrency(amount)}</span>
+        <Button
+          variant="ghost"
+          size="icon"
+          onClick={() => setIsEditing(true)}
+          className="h-5 w-5 opacity-0 group-hover:opacity-100 transition-opacity"
+          disabled={!budgetId}
+        >
+          <IconPencil className="h-3.5 w-3.5" />
+          <span className="sr-only">Edit budget amount</span>
+        </Button>
+      </div>
+      <div
+        className={cn(
+          "flex items-center gap-2 rounded-md border px-3 py-1.5",
+          remaining < 0
+            ? "border-destructive/30 bg-destructive/5"
+            : "border-border/60 bg-muted/30",
+        )}
       >
-        <IconPencil className="h-3.5 w-3.5" />
-        <span className="sr-only">Edit budget amount</span>
-      </Button>
+        <span className="text-xs text-muted-foreground">Remaining</span>
+        <span
+          className={cn(
+            "font-mono font-medium",
+            remaining < 0 && "text-destructive",
+          )}
+        >
+          {formatCurrency(remaining)}
+        </span>
+      </div>
     </div>
   );
 };
@@ -1135,8 +1032,7 @@ function BudgetTableSkeletonRows() {
       {Array.from({ length: 6 }, (_, i) => i).map((i) => (
         <TableRow
           key={`budget-skeleton-row-${i}`}
-          className="pointer-events-none animate-in fade-in-50 duration-300"
-          style={{ animationDelay: `${i * 50}ms` }}
+          className="pointer-events-none"
         >
           {/* Checkbox */}
           <TableCell>
@@ -1153,15 +1049,16 @@ function BudgetTableSkeletonRows() {
           <TableCell>
             <Skeleton className="h-5 w-24" />
           </TableCell>
-          {/* Progress */}
+          {/* Spent + Usage */}
           <TableCell>
-            <div className="space-y-1.5">
-              <div className="flex justify-between">
-                <Skeleton className="h-3 w-8" />
-                <Skeleton className="h-3 w-24" />
-              </div>
-              <Skeleton className="h-2.5 w-full rounded-full" />
+            <div className="flex items-center gap-1.5">
+              <Skeleton className="h-5 w-24" />
+              <Skeleton className="h-4 w-10" />
             </div>
+          </TableCell>
+          {/* Remaining */}
+          <TableCell>
+            <Skeleton className="h-5 w-24" />
           </TableCell>
           {/* Actions */}
           <TableCell>

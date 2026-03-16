@@ -6,7 +6,11 @@ import {
   accountMutationOptions,
   accountTypesQueryOptions,
 } from "@repo/common/lib/query/account-query";
-import { type Account, accountSchema } from "@repo/common/types/account";
+import {
+  type Account,
+  type AccountFormData,
+  accountSchema,
+} from "@repo/common/types/account";
 import { Button } from "@repo/ui/components/button";
 import {
   Dialog,
@@ -36,7 +40,7 @@ import {
 } from "@repo/ui/components/select";
 import { IconLoader2, IconPlus } from "@tabler/icons-react";
 import { useMutation, useQuery } from "@tanstack/react-query";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Controller, useForm, useWatch } from "react-hook-form";
 import { NumericFormat } from "react-number-format";
 import { toast } from "sonner";
@@ -46,17 +50,21 @@ type AccountFormDialogProps = Readonly<{
   trigger?: React.ReactElement | null;
   open?: boolean;
   onOpenChange?: (open: boolean) => void;
+  defaultType?: string;
 }>;
+
+const LIABILITY_TYPES = new Set(["CREDIT-CARD", "PAY-LATER"]);
 
 export function AccountFormDialog({
   initialData,
   trigger,
   open: externalOpen,
   onOpenChange: externalOnOpenChange,
+  defaultType = "BANK",
 }: AccountFormDialogProps) {
   const [internalOpen, setInternalOpen] = useState(false);
 
-  const form = useForm<Account>({
+  const form = useForm<AccountFormData>({
     resolver: zodResolver(accountSchema),
     defaultValues: initialData
       ? {
@@ -66,13 +74,23 @@ export function AccountFormDialog({
           balance: initialData.balance,
           currency: initialData.currency,
           notes: initialData.notes ?? "",
+          creditLimit: (initialData.metadata as { creditLimit?: number })
+            ?.creditLimit,
+          billingCycleDay: (
+            initialData.metadata as { billingCycleDay?: number }
+          )?.billingCycleDay,
+          accountNumber: (initialData.metadata as { accountNumber?: string })
+            ?.accountNumber,
         }
       : {
           name: "",
-          type: "BANK",
+          type: defaultType,
           balance: 0,
           currency: "IDR",
           notes: "",
+          creditLimit: undefined,
+          billingCycleDay: undefined,
+          accountNumber: undefined,
         },
   });
 
@@ -80,6 +98,41 @@ export function AccountFormDialog({
     control: form.control,
     name: "currency",
   });
+
+  const selectedType = useWatch({
+    control: form.control,
+    name: "type",
+  });
+
+  // Determine if this is a liability account based on type
+  const isLiability = LIABILITY_TYPES.has(selectedType);
+
+  // Update default type when prop changes
+  useEffect(() => {
+    if (!initialData && defaultType) {
+      form.setValue("type", defaultType);
+    }
+  }, [defaultType, form, initialData]);
+
+  // Reset form when initialData changes (for edit mode)
+  useEffect(() => {
+    if (initialData) {
+      form.reset({
+        id: initialData.id,
+        name: initialData.name,
+        type: initialData.type,
+        balance: initialData.balance,
+        currency: initialData.currency,
+        notes: initialData.notes ?? "",
+        creditLimit: (initialData.metadata as { creditLimit?: number })
+          ?.creditLimit,
+        billingCycleDay: (initialData.metadata as { billingCycleDay?: number })
+          ?.billingCycleDay,
+        accountNumber: (initialData.metadata as { accountNumber?: string })
+          ?.accountNumber,
+      });
+    }
+  }, [initialData, form]);
 
   const isControlled = externalOpen !== undefined;
   const open = isControlled ? externalOpen : internalOpen;
@@ -112,15 +165,39 @@ export function AccountFormDialog({
     },
   });
 
-  const onSubmit = async () => {
-    mutate({
+  const onSubmit = async (formData: AccountFormData) => {
+    // Build metadata based on account kind
+    const metadata: Record<string, unknown> = {};
+
+    if (isLiability) {
+      // Credit account metadata
+      if (formData.creditLimit !== undefined && formData.creditLimit > 0) {
+        metadata.creditLimit = formData.creditLimit;
+      }
+      if (
+        formData.billingCycleDay !== undefined &&
+        formData.billingCycleDay > 0
+      ) {
+        metadata.billingCycleDay = formData.billingCycleDay;
+      }
+    } else {
+      // Asset account metadata
+      if (formData.accountNumber) {
+        metadata.accountNumber = formData.accountNumber;
+      }
+    }
+
+    const accountData = {
       id: initialData?.id,
-      name: form.getValues("name"),
-      type: form.getValues("type"),
-      balance: form.getValues("balance"),
-      currency: form.getValues("currency"),
-      notes: form.getValues("notes"),
-    });
+      name: formData.name,
+      type: formData.type,
+      balance: formData.balance,
+      currency: formData.currency,
+      notes: formData.notes,
+      metadata: Object.keys(metadata).length > 0 ? metadata : undefined,
+    };
+
+    mutate(accountData);
   };
 
   const { data: accountTypes } = useQuery(accountTypesQueryOptions());
@@ -133,11 +210,33 @@ export function AccountFormDialog({
     submitLabel = "Saving...";
   }
 
+  const getCurrencyPrefix = (currency: string) => {
+    switch (currency) {
+      case "USD":
+        return "$ ";
+      case "SGD":
+        return "S$ ";
+      default:
+        return "Rp ";
+    }
+  };
+
+  const getCurrencyPlaceholder = (currency: string) => {
+    switch (currency) {
+      case "USD":
+        return "$ 0.00";
+      case "SGD":
+        return "S$ 0.00";
+      default:
+        return "Rp 0,00";
+    }
+  };
+
   return (
     <Dialog open={open} onOpenChange={handleOpenChange}>
       {trigger !== null && (
         <DialogTrigger
-          nativeButton={!trigger}
+          nativeButton={true}
           render={
             trigger ?? (
               <Button className="ml-auto" size="sm">
@@ -250,60 +349,144 @@ export function AccountFormDialog({
             <Controller
               control={form.control}
               name="balance"
-              render={({ field, fieldState }) => {
-                const getCurrencyPrefix = (currency: string) => {
-                  switch (currency) {
-                    case "USD":
-                      return "$ ";
-                    case "SGD":
-                      return "S$ ";
-                    default:
-                      return "Rp ";
-                  }
-                };
+              render={({ field, fieldState }) => (
+                <Field>
+                  <FieldLabel>Current Balance</FieldLabel>
+                  <InputGroup>
+                    <NumericFormat
+                      customInput={InputGroupInput}
+                      thousandSeparator="."
+                      decimalSeparator=","
+                      decimalScale={2}
+                      fixedDecimalScale
+                      allowNegative={isLiability}
+                      prefix={getCurrencyPrefix(selectedCurrency)}
+                      placeholder={getCurrencyPlaceholder(selectedCurrency)}
+                      value={field.value}
+                      onValueChange={(values) => {
+                        field.onChange(values.floatValue ?? 0);
+                      }}
+                      onBlur={field.onBlur}
+                      name={field.name}
+                      getInputRef={field.ref}
+                    />
+                  </InputGroup>
+                  <FieldDescription>
+                    Enter the current or initial balance of this account.
+                  </FieldDescription>
+                  {fieldState.invalid && (
+                    <FieldError errors={[fieldState.error]} />
+                  )}
+                </Field>
+              )}
+            />
 
-                const getCurrencyPlaceholder = (currency: string) => {
-                  switch (currency) {
-                    case "USD":
-                      return "$ 0.00";
-                    case "SGD":
-                      return "S$ 0.00";
-                    default:
-                      return "Rp 0,00";
-                  }
-                };
-                return (
+            {/* Account Number - only for asset accounts */}
+            {!isLiability && (
+              <Controller
+                control={form.control}
+                name="accountNumber"
+                render={({ field, fieldState }) => (
                   <Field>
-                    <FieldLabel>Current Balance</FieldLabel>
+                    <FieldLabel>
+                      Account Number{" "}
+                      <span className="text-muted-foreground">(Optional)</span>
+                    </FieldLabel>
                     <InputGroup>
-                      <NumericFormat
-                        customInput={InputGroupInput}
-                        thousandSeparator="."
-                        decimalSeparator=","
-                        decimalScale={2}
-                        fixedDecimalScale
-                        prefix={getCurrencyPrefix(selectedCurrency)}
-                        placeholder={getCurrencyPlaceholder(selectedCurrency)}
-                        value={field.value}
-                        onValueChange={(values) => {
-                          field.onChange(values.floatValue ?? 0);
-                        }}
-                        onBlur={field.onBlur}
-                        name={field.name}
-                        getInputRef={field.ref}
+                      <InputGroupInput
+                        {...field}
+                        type="text"
+                        maxLength={4}
+                        placeholder="1234"
+                        value={field.value ?? ""}
                       />
                     </InputGroup>
                     <FieldDescription>
-                      Enter the current or initial balance of this account.
+                      Only the last 4 digits are stored for security
                     </FieldDescription>
                     {fieldState.invalid && (
                       <FieldError errors={[fieldState.error]} />
                     )}
                   </Field>
-                );
-              }}
-            />
+                )}
+              />
+            )}
           </div>
+
+          {/* Credit Account Specific Fields */}
+          {isLiability && (
+            <div className="rounded-lg border p-4 space-y-4">
+              <h4 className="font-medium flex items-center gap-2">
+                Credit Account Details
+              </h4>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <Controller
+                  control={form.control}
+                  name="creditLimit"
+                  render={({ field, fieldState }) => (
+                    <Field>
+                      <FieldLabel>Credit Limit</FieldLabel>
+                      <InputGroup>
+                        <NumericFormat
+                          customInput={InputGroupInput}
+                          thousandSeparator="."
+                          decimalSeparator=","
+                          decimalScale={2}
+                          fixedDecimalScale
+                          prefix={getCurrencyPrefix(selectedCurrency)}
+                          placeholder={getCurrencyPlaceholder(selectedCurrency)}
+                          value={field.value}
+                          onValueChange={(values) => {
+                            field.onChange(values.floatValue ?? undefined);
+                          }}
+                          onBlur={field.onBlur}
+                          name={field.name}
+                          getInputRef={field.ref}
+                        />
+                      </InputGroup>
+                      <FieldDescription>
+                        Maximum credit available
+                      </FieldDescription>
+                      {fieldState.invalid && (
+                        <FieldError errors={[fieldState.error]} />
+                      )}
+                    </Field>
+                  )}
+                />
+
+                <Controller
+                  control={form.control}
+                  name="billingCycleDay"
+                  render={({ field, fieldState }) => (
+                    <Field>
+                      <FieldLabel>Billing Cycle Day</FieldLabel>
+                      <InputGroup>
+                        <InputGroupInput
+                          {...field}
+                          type="number"
+                          min={1}
+                          max={31}
+                          placeholder="e.g., 15"
+                          value={field.value ?? ""}
+                          onChange={(e) =>
+                            field.onChange(
+                              e.target.value
+                                ? parseInt(e.target.value, 10)
+                                : undefined,
+                            )
+                          }
+                        />
+                      </InputGroup>
+                      <FieldDescription>Day of month (1-31)</FieldDescription>
+                      {fieldState.invalid && (
+                        <FieldError errors={[fieldState.error]} />
+                      )}
+                    </Field>
+                  )}
+                />
+              </div>
+            </div>
+          )}
 
           {/* Notes Field - Full width */}
           <Controller

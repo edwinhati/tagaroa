@@ -1,5 +1,8 @@
 import type { InferSelectModel } from "drizzle-orm";
-import { Liability } from "../../../../domain/entities/liability.entity";
+import {
+  type InstallmentMetadata,
+  Liability,
+} from "../../../../domain/entities/liability.entity";
 import type { Currency } from "../../../../domain/value-objects/currency";
 import type { liabilities } from "../schemas/liability.schema";
 
@@ -19,6 +22,14 @@ export function mapLiabilityToDomain(row: LiabilityRow): Liability {
     row.createdAt ?? new Date(),
     row.updatedAt ?? new Date(),
     row.version ?? 1,
+    row.transactionId,
+    row.installmentNumber,
+    row.originalAmount ? Number(row.originalAmount) : null,
+    row.totalInterest ? Number(row.totalInterest) : null,
+    row.totalAmount ? Number(row.totalAmount) : null,
+    row.remainingMonths,
+    row.installmentMetadata as InstallmentMetadata | null,
+    row.dueAt,
   );
 }
 
@@ -36,6 +47,17 @@ export function mapLiabilityToPersistence(
     notes: entity.notes,
     deletedAt: entity.deletedAt,
     version: entity.version,
+    transactionId: entity.transactionId,
+    installmentNumber: entity.installmentNumber,
+    originalAmount:
+      entity.originalAmount !== null ? String(entity.originalAmount) : null,
+    totalInterest:
+      entity.totalInterest !== null ? String(entity.totalInterest) : null,
+    totalAmount:
+      entity.totalAmount !== null ? String(entity.totalAmount) : null,
+    remainingMonths: entity.remainingMonths,
+    installmentMetadata: entity.installmentMetadata,
+    dueAt: entity.dueAt,
   };
 }
 

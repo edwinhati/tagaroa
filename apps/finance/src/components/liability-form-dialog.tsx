@@ -40,13 +40,25 @@ import { toast } from "sonner";
 type LiabilityFormDialogProps = Readonly<{
   initialData?: Liability;
   trigger?: React.ReactElement;
+  open?: boolean;
+  onOpenChange?: (open: boolean) => void;
 }>;
 
 export function LiabilityFormDialog({
   initialData,
   trigger,
+  open: controlledOpen,
+  onOpenChange,
 }: LiabilityFormDialogProps) {
-  const [open, setOpen] = useState(false);
+  const [internalOpen, setInternalOpen] = useState(false);
+  const isControlled = controlledOpen !== undefined;
+  const open = isControlled ? controlledOpen : internalOpen;
+  const setOpen = (value: boolean) => {
+    if (!isControlled) {
+      setInternalOpen(value);
+    }
+    onOpenChange?.(value);
+  };
 
   const form = useForm<Liability>({
     resolver: zodResolver(liabilitySchema),
@@ -88,15 +100,19 @@ export function LiabilityFormDialog({
         setOpen(v);
       }}
     >
-      <DialogTrigger
-        render={
-          trigger ?? (
-            <Button className="ml-auto" size="sm">
-              <IconPlus className="-ms-1 opacity-60" size={16} /> Add liability
-            </Button>
-          )
-        }
-      />
+      {trigger && (
+        <DialogTrigger
+          nativeButton={true}
+          render={
+            trigger ?? (
+              <Button className="ml-auto" size="sm">
+                <IconPlus className="-ms-1 opacity-60" size={16} /> Add
+                liability
+              </Button>
+            )
+          }
+        />
+      )}
       <DialogContent className="!max-w-2xl !w-full max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>
@@ -135,7 +151,10 @@ export function LiabilityFormDialog({
                 name="type"
                 control={form.control}
                 render={({ field }) => (
-                  <Select value={field.value} onValueChange={field.onChange}>
+                  <Select
+                    value={field.value ?? ""}
+                    onValueChange={field.onChange}
+                  >
                     <SelectTrigger>
                       <SelectValue placeholder="Select type" />
                     </SelectTrigger>

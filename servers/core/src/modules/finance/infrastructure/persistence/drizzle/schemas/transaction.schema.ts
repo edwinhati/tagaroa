@@ -3,6 +3,7 @@ import {
   decimal,
   index,
   integer,
+  jsonb,
   text,
   timestamp,
   uuid,
@@ -35,6 +36,8 @@ export const transactions = financeSchema.table(
       .defaultNow()
       .$onUpdate(() => new Date()),
     version: integer("version").default(1),
+    // Installment metadata for credit card/pay-later transactions
+    installment: jsonb("installment"),
   },
   (table) => [
     index("idx_transactions_user_id").on(table.userId),

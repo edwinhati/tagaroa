@@ -49,7 +49,10 @@ export function DataTableDeleteDialog({
       open={open}
       onOpenChange={(value) => !isSubmitting && setOpen(value)}
     >
-      <AlertDialogTrigger render={trigger as React.ReactElement} />
+      <AlertDialogTrigger
+        render={trigger as React.ReactElement}
+        nativeButton={false}
+      />
       <AlertDialogContent>
         <div className="flex flex-col gap-2 max-sm:items-center sm:flex-row sm:gap-4">
           <div

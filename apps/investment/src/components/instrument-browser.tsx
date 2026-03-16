@@ -282,16 +282,16 @@ function WatchlistRow({
           onClick={onClick}
           onKeyDown={(e) => e.key === "Enter" && onClick()}
           className={cn(
-            "relative w-full flex items-center gap-2.5 px-3 py-2.5 text-left",
-            "border-b border-border/40 transition-colors cursor-pointer",
-            "hover:bg-muted/40",
-            selected && "bg-primary/8 hover:bg-primary/10",
+            "relative w-full flex items-center gap-2.5 px-3 py-5 text-left rounded-lg",
+            "bg-background/80 border border-border/50 transition-all duration-200 cursor-pointer",
+            "hover:bg-muted hover:border-border",
+            selected && "bg-muted border-border hover:bg-muted/80",
           )}
         >
           {/* Left accent strip */}
           <span
             className={cn(
-              "absolute left-0 top-0 bottom-0 w-[3px] transition-opacity",
+              "absolute left-0 top-1 bottom-1 w-[3px] rounded-full transition-all duration-200",
               config.strip,
               selected ? "opacity-100" : "opacity-0",
             )}
@@ -305,12 +305,17 @@ function WatchlistRow({
           {/* Ticker + Name */}
           <div className="flex-1 min-w-0">
             <div className="flex items-center gap-1.5">
-              <span className="font-mono font-bold text-sm leading-none">
+              <span
+                className={cn(
+                  "font-mono font-bold text-sm leading-none transition-colors",
+                  selected ? "text-foreground" : "text-muted-foreground",
+                )}
+              >
                 {instrument.ticker}
               </span>
               <AssetClassBadge cls={instrument.assetClass} />
             </div>
-            <p className="mt-0.5 text-[11px] text-muted-foreground truncate leading-none">
+            <p className="mt-0.5 text-[11px] text-muted-foreground/70 truncate leading-none">
               {instrument.name ?? "—"}
             </p>
           </div>
@@ -326,10 +331,12 @@ function WatchlistRow({
               <div className="flex-shrink-0 text-right">
                 <p
                   className={cn(
-                    "font-mono text-xs font-semibold leading-none tabular-nums",
+                    "font-mono text-xs font-semibold leading-none tabular-nums transition-colors",
                     price != null
-                      ? "text-foreground"
-                      : "text-muted-foreground/30",
+                      ? selected
+                        ? "text-slate-200"
+                        : "text-slate-300"
+                      : "text-slate-700",
                   )}
                 >
                   {price != null ? formatCompactPrice(price) : "—"}
@@ -358,7 +365,7 @@ function WatchlistRow({
           {/* Chevron */}
           <IconChevronRight
             className={cn(
-              "h-3.5 w-3.5 flex-shrink-0 text-muted-foreground/50 transition-transform",
+              "h-3.5 w-3.5 flex-shrink-0 text-muted-foreground/50 transition-all duration-200",
               selected && "text-primary rotate-90",
             )}
           />
@@ -688,7 +695,7 @@ function AssetInfoPanel({ instrument }: { instrument: Instrument }) {
 
       {/* Key Statistics */}
       <PanelSection title="Key Statistics">
-        <div className="grid grid-cols-3 gap-2">
+        <div className="grid grid-cols-3 gap-2.5">
           {keyStats.map((s) => (
             <StatBox
               key={s.label}
@@ -882,12 +889,10 @@ function OhlcvChart({
         {/* Left: price + change */}
         <div>
           <div className="flex items-baseline gap-1.5">
-            <span className="text-2xl font-bold tracking-tight tabular-nums font-mono">
+            <span className="text-2xl font-bold tracking-tight tabular-nums font-mono text-slate-200">
               {displayPrice != null ? formatCompactPrice(displayPrice) : "—"}
             </span>
-            <span className="text-xs text-muted-foreground font-mono">
-              {currency}
-            </span>
+            <span className="text-xs text-slate-500 font-mono">{currency}</span>
           </div>
           {change != null && changePct != null && (
             <div
@@ -932,7 +937,7 @@ function OhlcvChart({
                   variant="ghost"
                   size="sm"
                   className={cn(
-                    "px-2 py-0.5 text-[11px] font-medium rounded transition-colors cursor-pointer",
+                    "px-2 py-0.5 text-[11px] font-medium rounded transition-all duration-200 cursor-pointer",
                     timeRange === r.value
                       ? "bg-background text-foreground shadow-sm"
                       : "text-muted-foreground hover:text-foreground",
@@ -1267,13 +1272,13 @@ export function InstrumentBrowser() {
   return (
     <>
       {/* Full-height resizable split layout — watchlist left, chart right */}
-      <ResizablePanelGroup className="h-full min-h-[600px] overflow-hidden rounded-md border">
+      <ResizablePanelGroup className="h-full min-h-[600px] overflow-hidden rounded-lg border shadow-sm">
         {/* ── Left: Watchlist panel ── */}
         <ResizablePanel defaultSize="28%" minSize="20%" maxSize="45%">
           <div className="flex h-full flex-col border-r bg-background">
             {/* Sticky header: title + add button */}
-            <div className="flex-shrink-0 flex items-center justify-between border-b px-3 py-2">
-              <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">
+            <div className="flex-shrink-0 flex items-center justify-between border-b px-3 py-2.5">
+              <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
                 Watchlist
               </span>
               <InstrumentDialogForm
@@ -1284,7 +1289,7 @@ export function InstrumentBrowser() {
             </div>
 
             {/* Sticky header: search + filters */}
-            <div className="flex-shrink-0 space-y-2 border-b p-3">
+            <div className="flex-shrink-0 space-y-2.5 border-b p-3">
               {/* Search */}
               <div className="relative">
                 <IconSearch className="absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
@@ -1300,14 +1305,14 @@ export function InstrumentBrowser() {
                     variant="ghost"
                     size="icon"
                     onClick={() => handleSearchChange("")}
-                    className="absolute right-2.5 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground cursor-pointer"
+                    className="absolute right-2.5 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground cursor-pointer h-5 w-5"
                   >
                     <IconX className="h-3 w-3" />
                   </Button>
                 )}
               </div>
               {/* Asset class filter chips */}
-              <div className="flex flex-wrap gap-1">
+              <div className="flex flex-wrap gap-1.5">
                 {ASSET_CLASSES.map(({ value, label }) => (
                   <Button
                     key={value}
@@ -1316,16 +1321,16 @@ export function InstrumentBrowser() {
                     size="sm"
                     onClick={() => handleClassChange(value)}
                     className={cn(
-                      "rounded-full border px-2 py-0.5 text-[11px] font-medium transition-colors cursor-pointer",
+                      "rounded-full border px-2.5 py-1 text-[11px] font-medium transition-all duration-200 cursor-pointer",
                       assetClass === value
                         ? "border-primary bg-primary text-primary-foreground"
-                        : "border-border text-muted-foreground hover:border-primary/40 hover:text-foreground",
+                        : "border-border bg-muted/50 text-muted-foreground hover:border-primary/40 hover:bg-muted hover:text-foreground",
                     )}
                   >
                     {label}
                   </Button>
                 ))}
-              </div>{" "}
+              </div>
             </div>
 
             {/* Instrument count */}
@@ -1342,23 +1347,24 @@ export function InstrumentBrowser() {
             <div className="flex-1 overflow-y-auto">
               {isLoading ? (
                 <div className="space-y-px p-2">
-                  {Array.from({ length: 8 }).map(() => (
+                  {Array.from({ length: 8 }).map((_, i) => (
                     <Skeleton
-                      key={crypto.randomUUID()}
+                      // biome-ignore lint/suspicious/noArrayIndexKey: Loading skeletons are static
+                      key={`skeleton-${i}`}
                       className="h-11 w-full rounded-md"
                     />
                   ))}
                 </div>
               ) : instruments.length === 0 ? (
-                <div className="flex flex-col items-center justify-center gap-3 py-12 text-center text-muted-foreground px-4">
+                <div className="flex flex-col items-center justify-center gap-3 py-12 text-center px-4">
                   <div className="rounded-full bg-muted p-3">
-                    <IconTelescope className="h-5 w-5 opacity-40" />
+                    <IconTelescope className="h-5 w-5 text-muted-foreground" />
                   </div>
                   <div>
                     <p className="text-sm font-medium text-foreground">
                       No instruments
                     </p>
-                    <p className="mt-0.5 text-xs">
+                    <p className="mt-0.5 text-xs text-muted-foreground">
                       {search || assetClass
                         ? "Try adjusting filters"
                         : "Register via the API"}
@@ -1366,18 +1372,20 @@ export function InstrumentBrowser() {
                   </div>
                 </div>
               ) : (
-                instruments.map((instrument) => (
-                  <WatchlistRow
-                    key={instrument.id}
-                    instrument={instrument}
-                    selected={selectedInstrument?.id === instrument.id}
-                    price={
-                      instrument.id ? (prices?.[instrument.id] ?? null) : null
-                    }
-                    onClick={() => handleSelect(instrument)}
-                    onDelete={() => handleRequestDelete(instrument)}
-                  />
-                ))
+                <div className="flex flex-col gap-1 p-1.5">
+                  {instruments.map((instrument) => (
+                    <WatchlistRow
+                      key={instrument.id}
+                      instrument={instrument}
+                      selected={selectedInstrument?.id === instrument.id}
+                      price={
+                        instrument.id ? (prices?.[instrument.id] ?? null) : null
+                      }
+                      onClick={() => handleSelect(instrument)}
+                      onDelete={() => handleRequestDelete(instrument)}
+                    />
+                  ))}
+                </div>
               )}
             </div>
 
@@ -1391,7 +1399,7 @@ export function InstrumentBrowser() {
                   variant="ghost"
                   size="icon"
                   className={cn(
-                    "flex h-7 w-7 items-center justify-center rounded-md border transition-colors cursor-pointer",
+                    "flex h-7 w-7 items-center justify-center rounded-md border transition-all duration-200 cursor-pointer",
                     page === 1
                       ? "border-border/40 text-muted-foreground/40 cursor-not-allowed"
                       : "border-border text-foreground hover:bg-muted",
@@ -1399,7 +1407,7 @@ export function InstrumentBrowser() {
                 >
                   <IconChevronLeft className="h-3.5 w-3.5" />
                 </Button>
-                <span className="text-xs text-muted-foreground">
+                <span className="text-xs text-muted-foreground font-medium">
                   {page} / {totalPages}
                 </span>
                 <Button
@@ -1409,7 +1417,7 @@ export function InstrumentBrowser() {
                   variant="ghost"
                   size="icon"
                   className={cn(
-                    "flex h-7 w-7 items-center justify-center rounded-md border transition-colors cursor-pointer",
+                    "flex h-7 w-7 items-center justify-center rounded-md border transition-all duration-200 cursor-pointer",
                     page >= totalPages
                       ? "border-border/40 text-muted-foreground/40 cursor-not-allowed"
                       : "border-border text-foreground hover:bg-muted",
@@ -1426,7 +1434,7 @@ export function InstrumentBrowser() {
 
         {/* ── Right: Chart panel ── */}
         <ResizablePanel defaultSize="72%" minSize="55%">
-          <div className="flex h-full flex-col overflow-hidden">
+          <div className="flex h-full flex-col overflow-hidden bg-background">
             <ChartPanel instrument={selectedInstrument} />
           </div>
         </ResizablePanel>

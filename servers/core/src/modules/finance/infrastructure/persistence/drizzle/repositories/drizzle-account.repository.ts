@@ -24,6 +24,7 @@ import type {
 import type { Account } from "../../../../domain/entities/account.entity";
 import type {
   AccountFilterParams,
+  CategoryAggregationResult,
   IAccountRepository,
 } from "../../../../domain/repositories/account.repository.interface";
 import { AccountMapper } from "../mappers/account.mapper";
@@ -58,6 +59,10 @@ export class DrizzleAccountRepository implements IAccountRepository {
 
     if (filters?.types && filters.types.length > 0) {
       conditions.push(inArray(accounts.type, filters.types));
+    }
+
+    if (filters?.categories && filters.categories.length > 0) {
+      conditions.push(inArray(accounts.category, filters.categories));
     }
 
     const whereCondition = and(...conditions);
@@ -120,8 +125,8 @@ export class DrizzleAccountRepository implements IAccountRepository {
     userId: string,
     filters?: AccountFilterParams,
   ): Promise<AggregationBucket[]> {
-    const { types: _, ...filtersWithoutType } = filters ?? {};
-    const where = this.buildWhereConditions(userId, filtersWithoutType);
+    const { types: _, kinds: __, ...filtersWithoutTypeAndKind } = filters ?? {};
+    const where = this.buildWhereConditions(userId, filtersWithoutTypeAndKind);
     const rows = await this.db
       .select({
         key: accounts.type,
@@ -143,6 +148,28 @@ export class DrizzleAccountRepository implements IAccountRepository {
       max: Number(row.max) || 0,
       avg: Number(row.avg) || 0,
       sum: Number(row.sum) || 0,
+    }));
+  }
+
+  async aggregateByCategory(
+    userId: string,
+    filters?: Omit<AccountFilterParams, "categories">,
+  ): Promise<CategoryAggregationResult[]> {
+    const where = this.buildWhereConditions(userId, filters);
+    const rows = await this.db
+      .select({
+        category: accounts.category,
+        count: count(),
+        totalBalance: sum(accounts.balance),
+      })
+      .from(accounts)
+      .where(where)
+      .groupBy(accounts.category);
+
+    return rows.map((row) => ({
+      category: row.category as "ASSET" | "LIABILITY" | "OTHER",
+      count: row.count,
+      totalBalance: Number(row.totalBalance) || 0,
     }));
   }
 

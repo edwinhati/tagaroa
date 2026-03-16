@@ -30,6 +30,10 @@ import { DeleteAccountUseCase } from "../../application/use-cases/delete-account
 import { GetAccountUseCase } from "../../application/use-cases/get-account.use-case";
 import { GetAccountsUseCase } from "../../application/use-cases/get-accounts.use-case";
 import { UpdateAccountUseCase } from "../../application/use-cases/update-account.use-case";
+import {
+  AccountCategory,
+  isValidAccountCategory,
+} from "../../domain/value-objects/account-category";
 import { AccountType } from "../../domain/value-objects/account-type";
 
 @Controller("finance/accounts")
@@ -48,6 +52,12 @@ export class AccountController {
     return Object.values(AccountType);
   }
 
+  @Get("categories")
+  @AllowAnonymous()
+  getAccountCategories() {
+    return Object.values(AccountCategory);
+  }
+
   @Get()
   async getAccounts(
     @Session() session: UserSession,
@@ -55,6 +65,7 @@ export class AccountController {
     @Query("limit") limit?: string,
     @Query("search") search?: string,
     @Query("type") type?: string,
+    @Query("category") category?: string,
   ) {
     const pagination = parsePaginationParams({ page, limit });
     const filters = {
@@ -64,6 +75,17 @@ export class AccountController {
             .split(",")
             .map((t) => t.trim())
             .filter(Boolean)
+        : undefined,
+      categories: category
+        ? category
+            .split(",")
+            .map((c) => c.trim().toUpperCase())
+            .filter(
+              (
+                c,
+              ): c is (typeof AccountCategory)[keyof typeof AccountCategory] =>
+                isValidAccountCategory(c),
+            )
         : undefined,
     };
     const result = await this.getAccountsUseCase.execute(

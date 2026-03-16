@@ -119,6 +119,7 @@ export function BudgetFormDialog({
   return (
     <Dialog open={open} onOpenChange={handleOpenChange}>
       <DialogTrigger
+        nativeButton={true}
         render={
           trigger ?? (
             <Button className="ml-auto" size="sm">
@@ -152,7 +153,7 @@ export function BudgetFormDialog({
                 <Field>
                   <FieldLabel>Month</FieldLabel>
                   <Select
-                    value={String(field.value)}
+                    value={field.value ? String(field.value) : ""}
                     onValueChange={(value) => field.onChange(Number(value))}
                   >
                     <SelectTrigger className="w-full">
@@ -194,7 +195,7 @@ export function BudgetFormDialog({
                 <Field>
                   <FieldLabel>Year</FieldLabel>
                   <Select
-                    value={String(field.value)}
+                    value={field.value ? String(field.value) : ""}
                     onValueChange={(value) => field.onChange(Number(value))}
                   >
                     <SelectTrigger className="w-full">
@@ -226,7 +227,10 @@ export function BudgetFormDialog({
               render={({ field, fieldState }) => (
                 <Field>
                   <FieldLabel>Currency</FieldLabel>
-                  <Select onValueChange={field.onChange} value={field.value}>
+                  <Select
+                    onValueChange={field.onChange}
+                    value={field.value ?? ""}
+                  >
                     <SelectTrigger className="w-full">
                       <SelectValue placeholder="Select currency" />
                     </SelectTrigger>

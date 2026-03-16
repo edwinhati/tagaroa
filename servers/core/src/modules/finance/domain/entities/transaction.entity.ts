@@ -1,6 +1,13 @@
 import type { Currency } from "../value-objects/currency";
 import type { TransactionType } from "../value-objects/transaction-type";
 
+export type InstallmentData = {
+  tenure: number;
+  interestRate: number;
+  monthlyAmount: number;
+  liabilityId?: string;
+};
+
 export class Transaction {
   constructor(
     public readonly id: string,
@@ -17,5 +24,13 @@ export class Transaction {
     public readonly createdAt: Date,
     public readonly updatedAt: Date,
     public readonly version: number,
+    public readonly installment: InstallmentData | null = null,
   ) {}
+
+  /**
+   * Check if this transaction has installment data
+   */
+  hasInstallment(): boolean {
+    return this.installment !== null;
+  }
 }

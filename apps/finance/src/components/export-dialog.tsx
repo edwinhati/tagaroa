@@ -48,9 +48,6 @@ export function ExportDialog({
     // Simulate export process
     await new Promise((resolve) => setTimeout(resolve, 1500));
 
-    console.log("Exporting dashboard as", exportFormat);
-    console.log("Date range:", range);
-
     setIsExporting(false);
     onOpenChange(false);
   };

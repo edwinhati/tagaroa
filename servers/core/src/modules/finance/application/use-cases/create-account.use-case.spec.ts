@@ -5,6 +5,7 @@ import {
   ACCOUNT_REPOSITORY,
   type IAccountRepository,
 } from "../../domain/repositories/account.repository.interface";
+import { AccountCategory } from "../../domain/value-objects/account-category";
 import { AccountType } from "../../domain/value-objects/account-type";
 import { Currency } from "../../domain/value-objects/currency";
 import { CreateAccountUseCase } from "./create-account.use-case";
@@ -13,9 +14,11 @@ const mockAccount = new Account(
   "account-id-1",
   "Checking Account",
   AccountType.BANK,
+  AccountCategory.ASSET,
   1000,
   "user-id-1",
   Currency.USD,
+  null,
   null,
   null,
   new Date(),

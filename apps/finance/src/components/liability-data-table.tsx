@@ -19,9 +19,9 @@ import type {
   Liability,
   PaginatedLiabilitiesResult,
 } from "@repo/common/types/liability";
+import { getInstallmentProgress } from "@repo/common/types/liability";
 import { Badge } from "@repo/ui/components/badge";
 import { Button } from "@repo/ui/components/button";
-import { Card, CardContent } from "@repo/ui/components/card";
 import { Checkbox } from "@repo/ui/components/checkbox";
 import {
   DropdownMenu,
@@ -50,16 +50,13 @@ import {
 } from "@repo/ui/components/table";
 import { cn } from "@repo/ui/lib/utils";
 import {
-  IconCashBanknote,
   IconChevronDown,
   IconChevronUp,
   IconCircleCheck,
   IconDots,
   IconEye,
   IconEyeOff,
-  IconListDetails,
   IconPlus,
-  IconWallet,
   IconX,
 } from "@tabler/icons-react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
@@ -106,6 +103,36 @@ const NameCell = ({ row }: { row: Row<Liability> }) => (
 const TypeCell = ({ row }: { row: Row<Liability> }) => {
   const typeValue = row.getValue("type")?.toString().replaceAll("_", " ");
   return <Badge variant="outline">{typeValue}</Badge>;
+};
+
+const InstallmentProgressCell = ({ row }: { row: Row<Liability> }) => {
+  const liability = row.original;
+
+  // Use the helper function to get installment progress
+  const progress = getInstallmentProgress(liability);
+
+  if (!progress) {
+    return <span className="text-muted-foreground">-</span>;
+  }
+
+  const { paid, total, percentage } = progress;
+
+  return (
+    <div className="space-y-1">
+      <div className="flex items-center justify-between text-xs">
+        <span className="text-muted-foreground">
+          {paid} of {total} months
+        </span>
+        <span className="font-medium">{percentage}%</span>
+      </div>
+      <div className="h-1.5 w-full rounded-full bg-muted overflow-hidden">
+        <div
+          className="h-full rounded-full bg-primary transition-all"
+          style={{ width: `${percentage}%` }}
+        />
+      </div>
+    </div>
+  );
 };
 
 const AmountCell = ({ row }: { row: Row<Liability> }) => {
@@ -227,6 +254,13 @@ function LiabilityDataTableContent() {
         size: 100,
       },
       {
+        id: "installmentProgress",
+        header: "Installment Progress",
+        cell: InstallmentProgressCell,
+        size: 150,
+        enableSorting: false,
+      },
+      {
         header: "Amount",
         accessorKey: "amount",
         cell: AmountCell,
@@ -306,31 +340,6 @@ function LiabilityDataTableContent() {
 
   const hasTotalData = (paginationInfo?.total ?? 0) > 0;
 
-  const summaryStats = useMemo(() => {
-    const liabilities = stableData?.liabilities ?? [];
-    const byCurrency: Record<
-      string,
-      { total: number; paid: number; unpaid: number }
-    > = {};
-    let paidCount = 0;
-    let unpaidCount = 0;
-
-    for (const l of liabilities) {
-      const curr = byCurrency[l.currency] ?? { total: 0, paid: 0, unpaid: 0 };
-      byCurrency[l.currency] = curr;
-      curr.total += l.amount;
-      if (l.paidAt) {
-        curr.paid += l.amount;
-        paidCount++;
-      } else {
-        curr.unpaid += l.amount;
-        unpaidCount++;
-      }
-    }
-
-    return { byCurrency, paidCount, unpaidCount };
-  }, [stableData?.liabilities]);
-
   const table = useReactTable({
     data: tableData,
     columns,
@@ -405,93 +414,8 @@ function LiabilityDataTableContent() {
     return <LiabilityTableSkeleton />;
   }
 
-  const formatCurrency = (amount: number, currency: string) =>
-    new Intl.NumberFormat(currency === "IDR" ? "id-ID" : "en-US", {
-      style: "currency",
-      currency,
-    }).format(amount);
-
   return (
     <div className="relative space-y-4">
-      {hasTotalData && (
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
-          <Card className="py-4">
-            <CardContent className="flex items-center gap-4 py-0">
-              <div className="rounded-full bg-blue-100 p-2 dark:bg-blue-900">
-                <IconCashBanknote className="h-5 w-5 text-blue-600 dark:text-blue-400" />
-              </div>
-              <div>
-                <p className="text-sm text-muted-foreground">Total Debt</p>
-                <p className="text-lg font-semibold">
-                  {Object.entries(summaryStats.byCurrency).map(
-                    ([cur, vals]) => (
-                      <span key={cur} className="block text-sm">
-                        {formatCurrency(vals.total, cur)}
-                      </span>
-                    ),
-                  )}
-                </p>
-              </div>
-            </CardContent>
-          </Card>
-          <Card className="py-4">
-            <CardContent className="flex items-center gap-4 py-0">
-              <div className="rounded-full bg-yellow-100 p-2 dark:bg-yellow-900">
-                <IconWallet className="h-5 w-5 text-yellow-600 dark:text-yellow-400" />
-              </div>
-              <div>
-                <p className="text-sm text-muted-foreground">Unpaid</p>
-                <p className="text-lg font-semibold">
-                  {Object.entries(summaryStats.byCurrency).map(
-                    ([cur, vals]) => (
-                      <span key={cur} className="block text-sm">
-                        {formatCurrency(vals.unpaid, cur)}
-                      </span>
-                    ),
-                  )}
-                </p>
-              </div>
-            </CardContent>
-          </Card>
-          <Card className="py-4">
-            <CardContent className="flex items-center gap-4 py-0">
-              <div className="rounded-full bg-green-100 p-2 dark:bg-green-900">
-                <IconCircleCheck className="h-5 w-5 text-green-600 dark:text-green-400" />
-              </div>
-              <div>
-                <p className="text-sm text-muted-foreground">Paid</p>
-                <p className="text-lg font-semibold">
-                  {Object.entries(summaryStats.byCurrency).map(
-                    ([cur, vals]) => (
-                      <span key={cur} className="block text-sm">
-                        {formatCurrency(vals.paid, cur)}
-                      </span>
-                    ),
-                  )}
-                </p>
-              </div>
-            </CardContent>
-          </Card>
-          <Card className="py-4">
-            <CardContent className="flex items-center gap-4 py-0">
-              <div className="rounded-full bg-purple-100 p-2 dark:bg-purple-900">
-                <IconListDetails className="h-5 w-5 text-purple-600 dark:text-purple-400" />
-              </div>
-              <div>
-                <p className="text-sm text-muted-foreground">Items</p>
-                <p className="text-lg font-semibold">
-                  {summaryStats.paidCount + summaryStats.unpaidCount} total
-                  <span className="block text-sm font-normal text-muted-foreground">
-                    {summaryStats.paidCount} paid, {summaryStats.unpaidCount}{" "}
-                    unpaid
-                  </span>
-                </p>
-              </div>
-            </CardContent>
-          </Card>
-        </div>
-      )}
-
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div className="flex items-center gap-3">
           <ServerSearchInput
@@ -761,6 +685,8 @@ function RowActions({
   mutateLiability,
   deleteLiability,
 }: RowActionsProps) {
+  const [editDialogOpen, setEditDialogOpen] = useState(false);
+
   const handleMarkAsPaid = () => {
     mutateLiability({
       ...row.original,
@@ -799,15 +725,15 @@ function RowActions({
         />
         <DropdownMenuContent align="end">
           <DropdownMenuGroup>
-            <LiabilityFormDialog
-              initialData={row.original}
-              trigger={
-                <DropdownMenuItem onSelect={(e) => e.preventDefault()}>
-                  <span>Edit</span>
-                  <DropdownMenuShortcut>⌘E</DropdownMenuShortcut>
-                </DropdownMenuItem>
-              }
-            />
+            <DropdownMenuItem
+              onSelect={(e) => {
+                e.preventDefault();
+                setEditDialogOpen(true);
+              }}
+            >
+              <span>Edit</span>
+              <DropdownMenuShortcut>⌘E</DropdownMenuShortcut>
+            </DropdownMenuItem>
             <DropdownMenuItem
               onSelect={(e) => {
                 e.preventDefault();
@@ -846,6 +772,11 @@ function RowActions({
           />
         </DropdownMenuContent>
       </DropdownMenu>
+      <LiabilityFormDialog
+        initialData={row.original}
+        open={editDialogOpen}
+        onOpenChange={setEditDialogOpen}
+      />
     </div>
   );
 }

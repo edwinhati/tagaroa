@@ -3,8 +3,10 @@
 import { financeApi } from "@repo/common/lib/http";
 import type {
   Account,
+  AccountCategory,
   AccountResponse,
   AccountsApiResponse,
+  CategoryAggregationResult,
   PaginatedAccountsResult,
 } from "@repo/common/types/account";
 import {
@@ -14,18 +16,24 @@ import {
 } from "@tanstack/react-query";
 import { buildSearchParams } from "../utils/url";
 
-const mapAccount = (account: AccountResponse): Account => ({
-  id:
-    account.id !== undefined && account.id !== null && account.id.trim() !== ""
-      ? String(account.id)
-      : undefined,
-  name: account.name,
-  notes: account.notes,
-  type: account.type,
-  balance: account.balance,
-  currency: account.currency,
-  deletedAt: account.deleted_at ?? null,
-});
+const mapAccount = (account: AccountResponse): Account => {
+  return {
+    id:
+      account.id !== undefined &&
+      account.id !== null &&
+      account.id.trim() !== ""
+        ? String(account.id)
+        : undefined,
+    name: account.name,
+    notes: account.notes,
+    type: account.type,
+    category: account.category,
+    balance: account.balance,
+    currency: account.currency,
+    metadata: account.metadata ?? undefined,
+    deletedAt: account.deleted_at ?? null,
+  };
+};
 
 // Fetch all accounts with pagination
 const fetchAccounts = async (params?: {
@@ -33,6 +41,7 @@ const fetchAccounts = async (params?: {
   limit?: number;
   filters?: Record<string, string[]>;
   search?: string;
+  category?: AccountCategory | AccountCategory[];
 }): Promise<PaginatedAccountsResult> => {
   const searchParams = buildSearchParams({
     page: params?.page,
@@ -40,6 +49,14 @@ const fetchAccounts = async (params?: {
     search: params?.search,
     ...params?.filters,
   });
+
+  // Add category filter if provided
+  if (params?.category) {
+    const categories = Array.isArray(params.category)
+      ? params.category
+      : [params.category];
+    searchParams.set("category", categories.join(","));
+  }
 
   const queryString = searchParams.toString();
   const url = queryString ? `/accounts?${queryString}` : "/accounts";
@@ -65,6 +82,11 @@ const fetchAccountTypes = async (): Promise<string[]> => {
   return financeApi.get<string[]>("/accounts/types");
 };
 
+// Fetch account categories
+const fetchAccountCategories = async (): Promise<AccountCategory[]> => {
+  return financeApi.get<AccountCategory[]>("/accounts/categories");
+};
+
 // Create or update an account
 const mutateAccount = async (account: Account): Promise<Account> => {
   // Map frontend Account (camelCase) to backend payload (snake_case)
@@ -75,6 +97,7 @@ const mutateAccount = async (account: Account): Promise<Account> => {
     balance: account.balance,
     currency: account.currency,
     notes: account.notes ?? "",
+    metadata: account.metadata,
     deleted_at: account.deletedAt ?? null,
   };
 
@@ -97,6 +120,7 @@ const deleteAccount = async (id: string): Promise<void> => {
 const fetchExportAccounts = async (params?: {
   filters?: Record<string, string[]>;
   search?: string;
+  category?: AccountCategory | AccountCategory[];
 }): Promise<Account[]> => {
   const result = await fetchAccounts({
     ...params,
@@ -106,11 +130,27 @@ const fetchExportAccounts = async (params?: {
   return result.accounts;
 };
 
+// Fetch category aggregations
+const fetchCategoryAggregations = async (): Promise<
+  CategoryAggregationResult[]
+> => {
+  // Use the accounts endpoint with aggregations
+  const data = await financeApi.get<AccountsApiResponse>("/accounts?limit=1", {
+    unwrapData: false,
+  });
+  // Return category aggregations if available
+  return (
+    (data.meta?.aggregations
+      ?.category as unknown as CategoryAggregationResult[]) || []
+  );
+};
+
 export const accountQueryOptions = (params?: {
   page?: number;
   limit?: number;
   filters?: Record<string, string[]>;
   search?: string;
+  category?: AccountCategory | AccountCategory[];
 }) => {
   return queryOptions({
     queryKey: ["accounts", params],
@@ -179,9 +219,24 @@ export const accountTypesQueryOptions = () => {
   });
 };
 
+export const accountCategoriesQueryOptions = () => {
+  return queryOptions({
+    queryKey: ["account-categories"],
+    queryFn: fetchAccountCategories,
+  });
+};
+
+export const categoryAggregationsQueryOptions = () => {
+  return queryOptions({
+    queryKey: ["account-category-aggregations"],
+    queryFn: fetchCategoryAggregations,
+  });
+};
+
 export const exportAccountsQueryOptions = (params?: {
   filters?: Record<string, string[]>;
   search?: string;
+  category?: AccountCategory | AccountCategory[];
 }) => {
   return queryOptions({
     queryKey: ["accounts-export", params],

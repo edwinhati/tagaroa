@@ -14,7 +14,10 @@ import {
   transactionMutationOptions,
   transactionTypesQueryOptions,
 } from "@repo/common/lib/query/transaction-query";
+import { getAccountCategoryFromType } from "@repo/common/types/account";
 import {
+  calculateMonthlyInstallment,
+  formatInstallmentBreakdown,
   type Transaction,
   transactionSchema,
 } from "@repo/common/types/transaction";
@@ -52,13 +55,21 @@ import {
   SelectValue,
 } from "@repo/ui/components/select";
 import { cn } from "@repo/ui/lib/utils";
-import { IconCalendar, IconLoader2, IconPlus } from "@tabler/icons-react";
+import {
+  IconCalendar,
+  IconClock,
+  IconCreditCard,
+  IconLoader2,
+  IconPlus,
+} from "@tabler/icons-react";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { format } from "date-fns";
 import { useEffect, useRef, useState } from "react";
 import { Controller, useForm, useWatch } from "react-hook-form";
 import { NumericFormat } from "react-number-format";
 import { toast } from "sonner";
+
+type PaymentMethod = "full" | "installment";
 
 type TransactionFormDialogProps = Readonly<{
   initialData?: Partial<Transaction>;
@@ -68,6 +79,13 @@ type TransactionFormDialogProps = Readonly<{
   open?: boolean;
   onOpenChange?: (open: boolean) => void;
 }>;
+
+const TENURE_OPTIONS = [
+  { value: 3, label: "3 months" },
+  { value: 6, label: "6 months" },
+  { value: 12, label: "12 months" },
+  { value: 24, label: "24 months" },
+];
 
 function getDefaultValues(initialData?: Partial<Transaction>): Transaction {
   const defaultDate = initialData?.date ?? new Date();
@@ -82,6 +100,7 @@ function getDefaultValues(initialData?: Partial<Transaction>): Transaction {
     files: initialData?.files ?? [],
     account_id: initialData?.account_id ?? "",
     budget_item_id: initialData?.budget_item_id ?? "",
+    installment: initialData?.installment,
   };
 }
 
@@ -95,6 +114,9 @@ export function TransactionFormDialog({
 }: TransactionFormDialogProps) {
   const [internalOpen, setInternalOpen] = useState(false);
   const [dateOpen, setDateOpen] = useState(false);
+  const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>(
+    initialData?.installment ? "installment" : "full",
+  );
 
   const open = externalOpen ?? internalOpen;
   const setOpen = (newOpen: boolean) => {
@@ -162,6 +184,7 @@ export function TransactionFormDialog({
   useEffect(() => {
     if (initialData) {
       form.reset(getDefaultValues(initialData));
+      setPaymentMethod(initialData?.installment ? "installment" : "full");
     }
   }, [initialData, form]);
 
@@ -196,9 +219,109 @@ export function TransactionFormDialog({
     name: "currency",
   });
 
+  const selectedAccountId = useWatch({
+    control: form.control,
+    name: "account_id",
+  });
+
+  const selectedAmount = useWatch({
+    control: form.control,
+    name: "amount",
+  });
+
+  // Check if selected account is a liability (credit card/pay-later)
+  const selectedAccount = accountsData?.accounts?.find(
+    (a) => a.id === selectedAccountId,
+  );
+  const isLiabilityAccount =
+    selectedAccount &&
+    getAccountCategoryFromType(selectedAccount.type) === "LIABILITY";
+
+  // Initialize installment defaults when dialog opens with installment payment method
+  useEffect(() => {
+    if (open && paymentMethod === "installment" && isLiabilityAccount) {
+      const currentInstallment = form.getValues("installment");
+      const tenure = currentInstallment?.tenure ?? 3;
+      const interestRate = currentInstallment?.interestRate ?? 0;
+      const amount = form.getValues("amount") || 0;
+
+      const monthlyAmount = calculateMonthlyInstallment(
+        amount,
+        interestRate,
+        tenure,
+      );
+
+      form.setValue("installment", {
+        tenure,
+        interestRate,
+        monthlyAmount,
+      });
+    }
+  }, [open, paymentMethod, isLiabilityAccount, form]);
+
+  // Watch installment fields for auto-calculation
+  const installmentTenure = useWatch({
+    control: form.control,
+    name: "installment.tenure",
+  });
+  const installmentInterestRate = useWatch({
+    control: form.control,
+    name: "installment.interestRate",
+  });
+
+  // Auto-calculate monthly amount when tenure or interest changes
+  useEffect(() => {
+    if (
+      paymentMethod === "installment" &&
+      selectedAmount > 0 &&
+      installmentTenure &&
+      installmentInterestRate !== undefined
+    ) {
+      const monthlyAmount = calculateMonthlyInstallment(
+        selectedAmount,
+        installmentInterestRate,
+        installmentTenure,
+      );
+      form.setValue("installment.monthlyAmount", monthlyAmount, {
+        shouldValidate: false,
+      });
+    }
+  }, [
+    paymentMethod,
+    selectedAmount,
+    installmentTenure,
+    installmentInterestRate,
+    form,
+  ]);
+
+  // Clear installment data when switching to full payment or non-liability account
+  useEffect(() => {
+    if (paymentMethod === "full" || !isLiabilityAccount) {
+      form.setValue("installment", undefined);
+    } else if (paymentMethod === "installment") {
+      // Always ensure installment has all required fields
+      const currentInstallment = form.getValues("installment");
+      const tenure = currentInstallment?.tenure ?? 3;
+      const interestRate = currentInstallment?.interestRate ?? 0;
+      const amount = selectedAmount || 0;
+      const monthlyAmount = calculateMonthlyInstallment(
+        amount,
+        interestRate,
+        tenure,
+      );
+
+      form.setValue("installment", {
+        tenure,
+        interestRate,
+        monthlyAmount,
+      });
+    }
+  }, [paymentMethod, isLiabilityAccount, form, selectedAmount]);
+
   const handleOpenChange = (newOpen: boolean) => {
     if (!newOpen) {
       form.reset();
+      setPaymentMethod("full");
     }
     setOpen(newOpen);
   };
@@ -210,6 +333,7 @@ export function TransactionFormDialog({
         initialData?.id ? "Transaction updated" : "Transaction created",
       );
       form.reset();
+      setPaymentMethod("full");
       setOpen(false);
       onSuccess?.();
     },
@@ -274,17 +398,41 @@ export function TransactionFormDialog({
     // Update form field with file IDs
     form.setValue("files", fileIds);
 
-    mutate({
+    const values = form.getValues();
+    const payload: Record<string, unknown> = {
       id: initialData?.id,
-      amount: form.getValues("amount"),
-      date: form.getValues("date"),
-      type: form.getValues("type"),
-      currency: form.getValues("currency"),
-      notes: form.getValues("notes"),
+      amount: values.amount,
+      date: values.date,
+      type: values.type,
+      currency: values.currency,
+      notes: values.notes,
       files: fileIds,
-      account_id: form.getValues("account_id"),
-      budget_item_id: form.getValues("budget_item_id"),
-    });
+      account_id: values.account_id,
+      budget_item_id: values.budget_item_id,
+    };
+
+    if (paymentMethod === "installment" && values.installment) {
+      const tenure = values.installment.tenure ?? 3;
+      const interestRate = values.installment.interestRate ?? 0;
+      const transactionAmount = values.amount || 0;
+
+      const monthlyAmount =
+        values.installment.monthlyAmount && values.installment.monthlyAmount > 0
+          ? values.installment.monthlyAmount
+          : calculateMonthlyInstallment(
+              transactionAmount,
+              interestRate,
+              tenure,
+            );
+
+      payload.installment = {
+        tenure,
+        interest_rate: interestRate,
+        monthly_amount: monthlyAmount,
+      };
+    }
+
+    mutate(payload as Transaction);
   };
 
   const accounts = accountsData?.accounts || [];
@@ -329,6 +477,20 @@ export function TransactionFormDialog({
         return "Rp 0,00";
     }
   };
+
+  // Calculate installment breakdown for display
+  const installmentBreakdown =
+    paymentMethod === "installment" &&
+    selectedAmount > 0 &&
+    installmentTenure &&
+    installmentInterestRate !== undefined
+      ? formatInstallmentBreakdown(
+          selectedAmount,
+          installmentInterestRate,
+          installmentTenure,
+          selectedCurrency,
+        )
+      : null;
 
   return (
     <Dialog open={open} onOpenChange={handleOpenChange} modal={false}>
@@ -639,6 +801,188 @@ export function TransactionFormDialog({
               }}
             />
           </div>
+
+          {/* Payment Method Section - Only for liability accounts */}
+          {isLiabilityAccount && (
+            <div className="space-y-4 rounded-lg border bg-muted/30 p-4">
+              <FieldLabel>Payment Method</FieldLabel>
+              <div className="grid grid-cols-2 gap-4">
+                <button
+                  type="button"
+                  onClick={() => setPaymentMethod("full")}
+                  className={cn(
+                    "flex items-center gap-3 rounded-lg border p-4 transition-all text-left",
+                    paymentMethod === "full"
+                      ? "border-primary bg-primary/5"
+                      : "border-border bg-card hover:bg-muted",
+                  )}
+                >
+                  <div
+                    className={cn(
+                      "flex h-10 w-10 items-center justify-center rounded-full",
+                      paymentMethod === "full"
+                        ? "bg-primary text-primary-foreground"
+                        : "bg-muted",
+                    )}
+                  >
+                    <IconCreditCard size={20} />
+                  </div>
+                  <div>
+                    <div className="font-medium">Full Payment</div>
+                    <div className="text-xs text-muted-foreground">
+                      Pay immediately
+                    </div>
+                  </div>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => setPaymentMethod("installment")}
+                  className={cn(
+                    "flex items-center gap-3 rounded-lg border p-4 transition-all text-left",
+                    paymentMethod === "installment"
+                      ? "border-primary bg-primary/5"
+                      : "border-border bg-card hover:bg-muted",
+                  )}
+                >
+                  <div
+                    className={cn(
+                      "flex h-10 w-10 items-center justify-center rounded-full",
+                      paymentMethod === "installment"
+                        ? "bg-primary text-primary-foreground"
+                        : "bg-muted",
+                    )}
+                  >
+                    <IconClock size={20} />
+                  </div>
+                  <div>
+                    <div className="font-medium">Installment</div>
+                    <div className="text-xs text-muted-foreground">
+                      Spread over months
+                    </div>
+                  </div>
+                </button>
+              </div>
+
+              {/* Installment Fields */}
+              {paymentMethod === "installment" && (
+                <div className="mt-4 space-y-4 border-t pt-4">
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <Controller
+                      control={form.control}
+                      name="installment.tenure"
+                      render={({ field, fieldState }) => (
+                        <Field>
+                          <FieldLabel>Tenure</FieldLabel>
+                          <Select
+                            value={field.value?.toString() ?? ""}
+                            onValueChange={(v) =>
+                              field.onChange(parseInt(v ?? "3", 10))
+                            }
+                          >
+                            <SelectTrigger>
+                              <SelectValue placeholder="Select months" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              {TENURE_OPTIONS.map((option) => (
+                                <SelectItem
+                                  key={option.value}
+                                  value={option.value.toString()}
+                                >
+                                  {option.label}
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                          {fieldState.invalid && (
+                            <FieldError errors={[fieldState.error]} />
+                          )}
+                        </Field>
+                      )}
+                    />
+
+                    <Controller
+                      control={form.control}
+                      name="installment.interestRate"
+                      render={({ field, fieldState }) => (
+                        <Field>
+                          <FieldLabel>Interest Rate (% p.a.)</FieldLabel>
+                          <InputGroup>
+                            <NumericFormat
+                              customInput={InputGroupInput}
+                              decimalScale={2}
+                              fixedDecimalScale
+                              allowNegative={false}
+                              suffix="%"
+                              placeholder="0.00%"
+                              value={field.value ?? 0}
+                              onValueChange={(values) => {
+                                field.onChange(values.floatValue ?? 0);
+                              }}
+                              onBlur={field.onBlur}
+                              name={field.name}
+                              getInputRef={field.ref}
+                            />
+                          </InputGroup>
+                          {fieldState.invalid && (
+                            <FieldError errors={[fieldState.error]} />
+                          )}
+                        </Field>
+                      )}
+                    />
+
+                    <Field>
+                      <FieldLabel>Monthly Amount</FieldLabel>
+                      <InputGroup>
+                        <InputGroupInput
+                          value={
+                            installmentBreakdown?.formatted.monthlyAmount ?? "-"
+                          }
+                          readOnly
+                          className="bg-muted"
+                        />
+                      </InputGroup>
+                      <FieldDescription>Auto-calculated</FieldDescription>
+                    </Field>
+                  </div>
+
+                  {/* Installment Breakdown */}
+                  {installmentBreakdown && (
+                    <div className="rounded-lg bg-muted p-4 space-y-2">
+                      <div className="text-sm font-medium">
+                        Installment Breakdown
+                      </div>
+                      <div className="grid grid-cols-3 gap-4 text-sm">
+                        <div>
+                          <div className="text-muted-foreground">Principal</div>
+                          <div className="font-medium">
+                            {installmentBreakdown.formatted.principal}
+                          </div>
+                        </div>
+                        <div>
+                          <div className="text-muted-foreground">Interest</div>
+                          <div className="font-medium">
+                            {installmentBreakdown.formatted.interest}
+                            {(installmentInterestRate ?? 0) > 0 && (
+                              <span className="text-xs text-muted-foreground ml-1">
+                                ({installmentInterestRate}% p.a.)
+                              </span>
+                            )}
+                          </div>
+                        </div>
+                        <div>
+                          <div className="text-muted-foreground">Total</div>
+                          <div className="font-medium">
+                            {installmentBreakdown.formatted.total}
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+          )}
 
           {/* Notes Field - Full width */}
           <Controller

@@ -31,6 +31,14 @@ const mapTransaction = (transaction: TransactionResponse): Transaction => ({
   deletedAt: transaction.deleted_at ?? null,
   account: transaction.account,
   budget_item: transaction.budget_item,
+  installment: transaction.installment
+    ? {
+        tenure: transaction.installment.tenure,
+        interestRate: transaction.installment.interestRate,
+        monthlyAmount: transaction.installment.monthlyAmount,
+        liabilityId: transaction.installment.liabilityId,
+      }
+    : undefined,
 });
 
 // Fetch all transactions with pagination
@@ -135,7 +143,7 @@ const mutateTransaction = async (
     return mapTransaction(data);
   } else {
     // Create payload - include all fields
-    const createPayload = {
+    const createPayload: Record<string, unknown> = {
       amount: transaction.amount,
       date: transaction.date.toISOString(),
       type: transaction.type,
@@ -146,6 +154,20 @@ const mutateTransaction = async (
       budget_item_id: transaction.budget_item_id,
       deleted_at: transaction.deletedAt ?? null,
     };
+
+    if (transaction.installment) {
+      const installmentPayload = {
+        tenure: transaction.installment.tenure,
+        interest_rate:
+          (transaction.installment as unknown as Record<string, number>)
+            .interest_rate ?? transaction.installment.interestRate,
+        monthly_amount:
+          (transaction.installment as unknown as Record<string, number>)
+            .monthly_amount ?? transaction.installment.monthlyAmount,
+      };
+
+      createPayload.installment = installmentPayload;
+    }
 
     const data = await financeApi.post<TransactionResponse>(
       "/transactions",

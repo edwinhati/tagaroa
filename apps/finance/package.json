@@ -22,10 +22,10 @@
     "@tabler/icons-react": "^3.40.0",
     "@tanstack/react-query": "^5.90.20",
     "@tanstack/react-table": "^8.21.3",
-    "better-auth": "^1.5.4",
+    "better-auth": "^1.5.5",
     "date-fns": "^4.1.0",
     "next": "16.1.6",
-    "posthog-js": "^1.359.1",
+    "posthog-js": "^1.360.2",
     "react": "19.2.4",
     "react-day-picker": "^9.14.0",
     "react-dom": "19.2.4",
@@ -36,7 +36,7 @@
     "zod": "^4.3.6"
   },
   "devDependencies": {
-    "@biomejs/biome": "2.4.6",
+    "@biomejs/biome": "2.4.7",
     "@next/bundle-analyzer": "^16.1.6",
     "@playwright/test": "^1.58.2",
     "@repo/typescript-config": "*",

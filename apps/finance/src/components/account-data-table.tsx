@@ -14,6 +14,7 @@ import {
 } from "@repo/common/lib/query/account-query";
 import type {
   Account,
+  AccountCategory,
   PaginatedAccountsResult,
 } from "@repo/common/types/account";
 import { Badge } from "@repo/ui/components/badge";
@@ -64,6 +65,7 @@ import {
   type Row,
   useReactTable,
 } from "@tanstack/react-table";
+import { useSearchParams } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
 import { AccountFormDialog } from "@/components/account-form-dialog";
 
@@ -144,6 +146,9 @@ const multiColumnFilterFn: FilterFn<Account> = (
 };
 
 function AccountDataTableContent() {
+  const searchParams = useSearchParams();
+  const categoryFilter = searchParams.get("category") as AccountCategory | null;
+
   const [pagination, setPagination] = useState<PaginationState>({
     pageIndex: 0,
     pageSize: 5,
@@ -170,6 +175,7 @@ function AccountDataTableContent() {
       limit: pagination.pageSize,
       filters: serverFilters,
       search: searchQuery,
+      category: categoryFilter ?? undefined,
     }),
   );
 
@@ -370,6 +376,7 @@ function AccountDataTableContent() {
       exportAccountsQueryOptions({
         filters: serverFilters,
         search: searchQuery,
+        category: categoryFilter ?? undefined,
       }),
     );
 

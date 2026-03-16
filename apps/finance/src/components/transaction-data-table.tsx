@@ -62,6 +62,7 @@ import {
   useReactTable,
 } from "@tanstack/react-table";
 import { format } from "date-fns";
+import { useSearchParams } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
 import type { DateRange } from "react-day-picker";
 import { DateRangePicker } from "./date-range-picker";
@@ -182,7 +183,6 @@ function RowActions({ row, deleteTransaction }: RowActionsProps) {
     <div className="flex justify-end">
       <TransactionFormDialog
         initialData={row.original}
-        nativeButton={false}
         open={showEditDialog}
         onOpenChange={setShowEditDialog}
       />
@@ -521,6 +521,24 @@ function TransactionDataTableContent() {
     openPopovers: s.openPopovers,
     setOpenPopovers: s.setOpenPopovers,
   }));
+
+  // Initialize filters from URL query params (e.g. from budget page redirect)
+  const searchParams = useSearchParams();
+  useEffect(() => {
+    const budgetItemId = searchParams.get("budget_item_id");
+    const from = searchParams.get("from");
+    const to = searchParams.get("to");
+
+    if (budgetItemId) {
+      setServerFilters({ budget_item_id: [budgetItemId] });
+    }
+    if (from || to) {
+      setRange({
+        from: from ? new Date(from) : undefined,
+        to: to ? new Date(to) : undefined,
+      });
+    }
+  }, [searchParams, setServerFilters, setRange]);
 
   const { mutate: deleteTransaction } = useMutation(
     transactionDeleteMutationOptions(),

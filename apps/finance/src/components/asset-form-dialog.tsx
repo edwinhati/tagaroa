@@ -132,6 +132,7 @@ export function AssetFormDialog({
   return (
     <Dialog open={open} onOpenChange={handleOpenChange}>
       <DialogTrigger
+        nativeButton={true}
         render={
           trigger ?? (
             <Button className="ml-auto" size="sm">
@@ -189,7 +190,10 @@ export function AssetFormDialog({
               render={({ field, fieldState }) => (
                 <Field>
                   <FieldLabel>Asset Type</FieldLabel>
-                  <Select onValueChange={field.onChange} value={field.value}>
+                  <Select
+                    onValueChange={field.onChange}
+                    value={field.value ?? ""}
+                  >
                     <SelectTrigger className="w-full">
                       <SelectValue placeholder="Select asset type" />
                     </SelectTrigger>
@@ -218,7 +222,10 @@ export function AssetFormDialog({
               render={({ field, fieldState }) => (
                 <Field>
                   <FieldLabel>Currency</FieldLabel>
-                  <Select onValueChange={field.onChange} value={field.value}>
+                  <Select
+                    onValueChange={field.onChange}
+                    value={field.value ?? ""}
+                  >
                     <SelectTrigger className="w-full">
                       <SelectValue placeholder="Select currency" />
                     </SelectTrigger>
