@@ -69,7 +69,7 @@ export class TransactionSideEffectsService {
       account.id,
       account.name,
       account.type,
-      account.kind,
+      account.category,
       newBalance,
       account.userId,
       account.currency,

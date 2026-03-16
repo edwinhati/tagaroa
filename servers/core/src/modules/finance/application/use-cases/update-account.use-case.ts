@@ -76,7 +76,7 @@ export class UpdateAccountUseCase {
       existing.id,
       dto.name ?? existing.name,
       existing.type,
-      existing.kind,
+      existing.category,
       dto.balance ?? existing.balance,
       existing.userId,
       existing.currency,

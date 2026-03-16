@@ -125,8 +125,15 @@ export class DrizzleAccountRepository implements IAccountRepository {
     userId: string,
     filters?: AccountFilterParams,
   ): Promise<AggregationBucket[]> {
-    const { types: _, kinds: __, ...filtersWithoutTypeAndKind } = filters ?? {};
-    const where = this.buildWhereConditions(userId, filtersWithoutTypeAndKind);
+    const {
+      types: _,
+      categories: __,
+      ...filtersWithoutTypeAndCategory
+    } = filters ?? {};
+    const where = this.buildWhereConditions(
+      userId,
+      filtersWithoutTypeAndCategory,
+    );
     const rows = await this.db
       .select({
         key: accounts.type,
