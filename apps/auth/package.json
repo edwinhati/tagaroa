@@ -21,7 +21,7 @@
     "@repo/ui": "*",
     "@tabler/icons-react": "^3.40.0",
     "better-auth": "^1.5.5",
-    "next": "16.1.6",
+    "next": "16.1.7",
     "posthog-js": "^1.360.2",
     "react": "19.2.4",
     "react-dom": "19.2.4",
