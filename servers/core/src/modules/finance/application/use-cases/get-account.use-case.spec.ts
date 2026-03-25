@@ -1,3 +1,5 @@
+import { beforeEach, describe, expect, it, jest } from "bun:test";
+import "reflect-metadata";
 import type { TestingModule } from "@nestjs/testing";
 import { Test } from "@nestjs/testing";
 import { Account } from "../../domain/entities/account.entity";

@@ -1,3 +1,5 @@
+import { beforeEach, describe, expect, it, jest } from "bun:test";
+import "reflect-metadata";
 import { ConfigService } from "@nestjs/config";
 import { Test } from "@nestjs/testing";
 import { File } from "../../domain/entities/file.entity";
