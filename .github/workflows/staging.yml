@@ -115,6 +115,21 @@ jobs:
           echo "version=${VERSION}" >> $GITHUB_OUTPUT
           echo "Generated beta snapshot: ${VERSION}"
 
+      - name: Create pre-release tag
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          VERSION=${{ steps.snapshot.outputs.version }}
+          TAG="v${VERSION}"
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git tag -a "${TAG}" -m "Beta pre-release ${TAG}"
+          git push origin "${TAG}"
+          gh release create "${TAG}" \
+            --title "Beta ${TAG}" \
+            --generate-notes \
+            --prerelease
+
   deploy:
     name: Deploy to Staging
     runs-on: ubuntu-latest
