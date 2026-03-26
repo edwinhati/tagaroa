@@ -24,7 +24,7 @@
     "prepare": "lefthook install",
     "changeset": "changeset",
     "version": "changeset version",
-    "release": "changeset tag"
+    "release": "changeset publish"
   },
   "workspaces": [
     "apps/*",
