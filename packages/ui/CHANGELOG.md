@@ -1,5 +1,11 @@
 # @repo/ui
 
+## 0.1.2
+
+### Patch Changes
+
+- 6c144ee: Fix CI/CD release pipeline to properly create tags and GitHub releases for private packages.
+
 ## 0.1.1
 
 ### Patch Changes
