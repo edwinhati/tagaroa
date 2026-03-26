@@ -1,5 +1,14 @@
 # finance
 
+## 0.1.1
+
+### Patch Changes
+
+- 3eadd39: Fix CI release pipeline: switch from changeset tag to changeset publish to enable automated deploy.
+- Updated dependencies [3eadd39]
+  - @repo/ui@0.1.1
+  - @repo/common@0.1.1
+
 ## 0.1.0
 
 ### Minor Changes
