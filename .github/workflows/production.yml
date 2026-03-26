@@ -84,8 +84,8 @@ jobs:
       contents: write
       pull-requests: write
     outputs:
-      published: ${{ steps.changesets.outputs.published }}
-      version: ${{ steps.get_version.outputs.version }}
+      released: ${{ steps.tag_release.outputs.released }}
+      version: ${{ steps.tag_release.outputs.version }}
     steps:
       - uses: actions/checkout@v4
         with:
@@ -106,28 +106,38 @@ jobs:
 
       - run: bun install
 
-      - id: changesets
-        uses: changesets/action@v1
+      - uses: changesets/action@v1
         with:
           version: bun run version
-          publish: bun run release
           title: "chore: version packages"
           commit: "chore: version packages"
-          createGithubReleases: true
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-      - id: get_version
-        if: steps.changesets.outputs.published == 'true'
+      - id: tag_release
+        if: "startsWith(github.event.head_commit.message, 'chore: version packages')"
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           VERSION=$(node -p "require('./apps/finance/package.json').version")
+          TAG="v${VERSION}"
           echo "version=${VERSION}" >> $GITHUB_OUTPUT
+          # Create git tag
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git tag -a "${TAG}" -m "Release ${TAG}"
+          git push origin "${TAG}"
+          # Create GitHub release
+          gh release create "${TAG}" \
+            --title "Release ${TAG}" \
+            --generate-notes
+          echo "released=true" >> $GITHUB_OUTPUT
 
   deploy:
     name: Deploy to Production
     runs-on: ubuntu-latest
     needs: [build, test, release]
-    if: needs.release.outputs.published == 'true'
+    if: needs.release.outputs.released == 'true'
     environment:
       name: production
     strategy:
