@@ -11,7 +11,7 @@ on:
 
 env:
   REGISTRY: registry.gitlab.com/tagaroa
-  BUN_VERSION: "1.3.9"
+  BUN_VERSION: "1.3.11"
   ENVIRONMENT: development
   NEXT_TELEMETRY_DISABLED: 1
 
