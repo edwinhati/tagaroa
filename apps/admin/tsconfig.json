@@ -5,8 +5,7 @@
     "paths": {
       "@/*": ["./src/*"],
       "@repo/ui/*": ["../../packages/ui/src/*"],
-      "@repo/common/*": ["../../packages/common/src/*"],
-      "@repo/posthog-config/*": ["../../packages/posthog-config/*"]
+      "@repo/common/*": ["../../packages/common/src/*"]
     }
   },
   "include": [

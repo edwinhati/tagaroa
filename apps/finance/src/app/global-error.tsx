@@ -1,8 +1,6 @@
 "use client";
 
 import { Button } from "@repo/ui/components/button";
-import posthog from "posthog-js";
-import { useEffect } from "react";
 
 export default function GlobalError({
   error,
@@ -11,11 +9,6 @@ export default function GlobalError({
   error: Error & { digest?: string };
   reset: () => void;
 }) {
-  useEffect(() => {
-    console.error(error);
-    posthog.captureException(error, { digest: error.digest });
-  }, [error]);
-
   return (
     <html lang="en">
       <body>
