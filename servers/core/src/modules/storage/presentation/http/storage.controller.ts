@@ -141,7 +141,7 @@ export class StorageController {
   private parseExpiry(expiry: string): number {
     // Parse expiry string like "1h", "30m", "1d"
     const match = expiry.match(/^(\d+)([smhd])$/);
-    if (!match || !match[1] || !match[2]) return 3600; // Default 1 hour
+    if (!match?.[1] || !match[2]) return 3600; // Default 1 hour
 
     const value = Number.parseInt(match[1], 10);
     const unit = match[2];

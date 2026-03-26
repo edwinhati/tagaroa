@@ -10,7 +10,7 @@
         "@playwright/test": "^1.58.2",
         "lefthook": "^2.1.4",
         "turbo": "^2.8.20",
-        "typescript": "5.9.3",
+        "typescript": "6.0.2",
       },
     },
     "apps/admin": {
@@ -40,7 +40,7 @@
         "@types/react": "19.2.14",
         "@types/react-dom": "19.2.3",
         "tailwindcss": "^4.2.2",
-        "typescript": "^5",
+        "typescript": "^6.0.2",
       },
     },
     "apps/auth": {
@@ -70,7 +70,7 @@
         "@types/react": "19.2.14",
         "@types/react-dom": "19.2.3",
         "tailwindcss": "^4.2.2",
-        "typescript": "^5",
+        "typescript": "^6.0.2",
       },
     },
     "apps/finance": {
@@ -106,7 +106,7 @@
         "@types/react": "19.2.14",
         "@types/react-dom": "19.2.3",
         "tailwindcss": "^4.2.2",
-        "typescript": "^5",
+        "typescript": "^6.0.2",
       },
     },
     "apps/investment": {
@@ -140,7 +140,7 @@
         "@types/react": "19.2.14",
         "@types/react-dom": "19.2.3",
         "tailwindcss": "^4.2.2",
-        "typescript": "^5",
+        "typescript": "^6.0.2",
       },
     },
     "apps/web": {
@@ -163,7 +163,7 @@
         "@types/react": "19.2.14",
         "@types/react-dom": "19.2.3",
         "tailwindcss": "^4.2.2",
-        "typescript": "^5",
+        "typescript": "^6.0.2",
       },
     },
     "packages/auth": {
@@ -177,7 +177,7 @@
         "@biomejs/biome": "2.4.9",
         "@repo/typescript-config": "*",
         "@types/node": "^25.5.0",
-        "typescript": "^5",
+        "typescript": "^6.0.2",
       },
     },
     "packages/common": {
@@ -206,7 +206,7 @@
         "@types/node": "^25.5.0",
         "@types/react": "19.2.14",
         "@types/react-dom": "19.2.3",
-        "typescript": "^5",
+        "typescript": "^6.0.2",
       },
     },
     "packages/typescript-config": {
@@ -243,7 +243,7 @@
         "@types/react": "19.2.14",
         "@types/react-dom": "19.2.3",
         "tailwindcss": "^4.2.2",
-        "typescript": "^5",
+        "typescript": "^6.0.2",
       },
     },
     "servers/core": {
@@ -287,7 +287,7 @@
         "ts-loader": "^9.5.2",
         "ts-node": "^10.9.2",
         "tsconfig-paths": "^4.2.0",
-        "typescript": "^5.7.3",
+        "typescript": "^6.0.2",
       },
     },
   },
@@ -2232,7 +2232,7 @@
 
     "typedarray": ["typedarray@0.0.6", "", {}, "sha512-/aCDEGatGvZ2BIk+HmLf4ifCJFwvKFNb9/JeZPMulfgFracn9QFcAf5GO8B/mweUjSoblS5In0cWhqpfs/5PQA=="],
 
-    "typescript": ["typescript@5.9.3", "", { "bin": { "tsc": "bin/tsc", "tsserver": "bin/tsserver" } }, "sha512-jl1vZzPDinLr9eUt3J/t7V6FgNEw9QjvBPdysz9KfQDD41fQrC2Y4vKQdiaUpFT4bXlb1RHhLpp8wtm6M5TgSw=="],
+    "typescript": ["typescript@6.0.2", "", { "bin": { "tsc": "bin/tsc", "tsserver": "bin/tsserver" } }, "sha512-bGdAIrZ0wiGDo5l8c++HWtbaNCWTS4UTv7RaTH/ThVIgjkveJt83m74bBHMJkuCbslY8ixgLBVZJIOiQlQTjfQ=="],
 
     "uid": ["uid@2.0.2", "", { "dependencies": { "@lukeed/csprng": "^1.0.0" } }, "sha512-u3xV3X7uzvi5b1MncmZo3i2Aw222Zk1keqLA1YkHldREkAhAqi65wuPfe7lHx8H/Wzy+8CE7S7uS3jekIM5s8g=="],
 
@@ -2377,6 +2377,8 @@
     "@nestjs/cli/commander": ["commander@4.1.1", "", {}, "sha512-NOKm8xhkzAjzFx8B2v5OAHT+u5pRQc2UCa2Vq9jYL/31o2wi9mxBA7LIFs3sV5VSC49z6pEhfbMULvShKj26WA=="],
 
     "@nestjs/cli/ora": ["ora@5.4.1", "", { "dependencies": { "bl": "^4.1.0", "chalk": "^4.1.0", "cli-cursor": "^3.1.0", "cli-spinners": "^2.5.0", "is-interactive": "^1.0.0", "is-unicode-supported": "^0.1.0", "log-symbols": "^4.1.0", "strip-ansi": "^6.0.0", "wcwidth": "^1.0.1" } }, "sha512-5b6Y85tPxZZ7QytO+BQzysW31HJku27cRIlkbAXaNx+BdcVi+LlRFmVXzeF6a7JCwJpyw5c4b+YSVImQIrBpuQ=="],
+
+    "@nestjs/cli/typescript": ["typescript@5.9.3", "", { "bin": { "tsc": "bin/tsc", "tsserver": "bin/tsserver" } }, "sha512-jl1vZzPDinLr9eUt3J/t7V6FgNEw9QjvBPdysz9KfQDD41fQrC2Y4vKQdiaUpFT4bXlb1RHhLpp8wtm6M5TgSw=="],
 
     "@nestjs/config/dotenv": ["dotenv@17.2.3", "", {}, "sha512-JVUnt+DUIzu87TABbhPmNfVdBDt18BLOWjMUFJMSi/Qqg7NTYtabbvSNJGOJ7afbRuv9D/lngizHtP7QyLQ+9w=="],
 

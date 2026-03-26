@@ -17,6 +17,6 @@
     "@repo/typescript-config": "*",
     "@biomejs/biome": "2.4.9",
     "@types/node": "^25.5.0",
-    "typescript": "^5"
+    "typescript": "^6.0.2"
   }
 }
