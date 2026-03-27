@@ -1,5 +1,14 @@
 # auth
 
+## 0.1.4
+
+### Patch Changes
+
+- Fix Docker build failures and optimize CI build context.
+- Updated dependencies
+  - @repo/ui@0.1.4
+  - @repo/common@0.1.4
+
 ## 0.1.3
 
 ### Patch Changes

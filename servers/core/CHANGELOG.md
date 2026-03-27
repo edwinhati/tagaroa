@@ -1,5 +1,11 @@
 # core-service
 
+## 0.1.4
+
+### Patch Changes
+
+- Fix Docker build failures and optimize CI build context.
+
 ## 0.1.3
 
 ### Patch Changes
