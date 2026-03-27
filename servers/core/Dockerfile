@@ -58,9 +58,6 @@ COPY --from=builder --chown=nestjs:nestjs /app/servers/core/dist ./servers/core/
 COPY --from=builder --chown=nestjs:nestjs /app/servers/core/package.json ./servers/core/package.json
 COPY --from=builder --chown=nestjs:nestjs /app/package.json ./package.json
 
-# Copy Drizzle migrations (for db:migrate at deploy time)
-COPY --from=builder --chown=nestjs:nestjs /app/servers/core/drizzle ./servers/core/drizzle
-
 ENV NODE_ENV=production
 ENV PORT=8080
 
