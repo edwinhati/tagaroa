@@ -18,7 +18,7 @@ WORKDIR /app
 COPY --from=pruner /app/out/json/ .
 
 # Install production + dev dependencies (dev needed for nest build)
-RUN bun install --frozen-lockfile
+RUN bun install --frozen-lockfile --ignore-scripts
 
 # ── Stage 3: Build ───────────────────────────────────────────────────
 FROM installer AS builder
@@ -34,7 +34,7 @@ RUN bun run build
 
 # Remove dev dependencies after build
 WORKDIR /app
-RUN bun install --frozen-lockfile --production
+RUN bun install --frozen-lockfile --production --ignore-scripts
 
 # ── Stage 4: Production runner ───────────────────────────────────────
 FROM oven/bun:alpine AS runner

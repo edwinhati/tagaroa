@@ -23,7 +23,7 @@ WORKDIR /app
 COPY --from=base /app/out/json/ .
 
 # Install dependencies using Bun
-RUN bun install
+RUN bun install --ignore-scripts
 
 # Set environment variables as ARGs
 ARG NEXT_PUBLIC_API_URL
