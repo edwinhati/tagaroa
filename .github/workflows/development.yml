@@ -116,7 +116,7 @@ jobs:
           git tag -a "${TAG}" -m "Alpha pre-release ${TAG}"
           git push origin "${TAG}"
           gh release create "${TAG}" \
-            --title "Alpha ${TAG}" \
+            --title "${TAG}" \
             --generate-notes \
             --prerelease
 
