@@ -12,33 +12,17 @@ env:
   NEXT_TELEMETRY_DISABLED: 1
 
 jobs:
-  quality:
-    name: ${{ matrix.check }}
+  build:
+    name: Build
     runs-on: ubuntu-latest
-    strategy:
-      fail-fast: false
-      matrix:
-        check: [build, lint, type-check, test]
-        include:
-          - check: build
-            command: bun run build
-          - check: lint
-            command: bun run lint
-          - check: type-check
-            command: bun run check-types
-          - check: test
-            command: bun run test
     steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
 
-      - name: Setup Bun
-        uses: oven-sh/setup-bun@v2
+      - uses: oven-sh/setup-bun@v2
         with:
           bun-version: ${{ env.BUN_VERSION }}
 
-      - name: Cache Bun dependencies
-        uses: actions/cache@v4
+      - uses: actions/cache@v4
         with:
           path: |
             ~/.bun/install/cache
@@ -46,16 +30,45 @@ jobs:
           key: bun-${{ runner.os }}-${{ hashFiles('**/bun.lock') }}
           restore-keys: bun-${{ runner.os }}-
 
-      - name: Install dependencies
-        run: bun install
+      - run: bun install
 
-      - name: ${{ matrix.check }}
-        run: ${{ matrix.command }}
+      - name: Build workspaces
+        run: bun run build
+
+      - name: Lint
+        run: bun run lint
+
+      - name: Type-check
+        run: bun run check-types
+
+  test:
+    name: Test
+    runs-on: ubuntu-latest
+    needs: build
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: ${{ env.BUN_VERSION }}
+
+      - uses: actions/cache@v4
+        with:
+          path: |
+            ~/.bun/install/cache
+            node_modules
+          key: bun-${{ runner.os }}-${{ hashFiles('**/bun.lock') }}
+          restore-keys: bun-${{ runner.os }}-
+
+      - run: bun install
+
+      - name: Run tests
+        run: bun run test
 
   release:
     name: Release
     runs-on: ubuntu-latest
-    needs: quality
+    needs: test
     permissions:
       contents: write
       pull-requests: write
@@ -98,12 +111,10 @@ jobs:
           VERSION=$(node -p "require('./apps/finance/package.json').version")
           TAG="v${VERSION}"
           echo "version=${VERSION}" >> $GITHUB_OUTPUT
-          # Create git tag
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git tag -a "${TAG}" -m "Release ${TAG}"
           git push origin "${TAG}"
-          # Create GitHub release
           gh release create "${TAG}" \
             --title "Release ${TAG}" \
             --generate-notes
@@ -112,7 +123,7 @@ jobs:
   deploy:
     name: Deploy (${{ matrix.component }})
     runs-on: ubuntu-latest
-    needs: [quality, release]
+    needs: release
     if: needs.release.outputs.released == 'true'
     environment:
       name: production
@@ -131,11 +142,9 @@ jobs:
           - component: core-service
             dockerfile: servers/core/Dockerfile
     steps:
-      - name: Checkout
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
 
-      - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v3
+      - uses: docker/setup-buildx-action@v3
 
       - name: Generate image tags
         id: meta
@@ -148,15 +157,13 @@ jobs:
           TAGS="${TAGS},${{ env.REGISTRY }}/${COMPONENT}:${VERSION}-${GITHUB_SHA::8}"
           echo "image-tags=${TAGS}" >> $GITHUB_OUTPUT
 
-      - name: Log in to Container Registry
-        uses: docker/login-action@v3
+      - uses: docker/login-action@v3
         with:
           registry: ${{ env.REGISTRY }}
           username: ${{ secrets.GITLAB_USERNAME }}
           password: ${{ secrets.GITLAB_TOKEN }}
 
-      - name: Build and push Docker image
-        uses: docker/build-push-action@v6
+      - uses: docker/build-push-action@v6
         with:
           context: .
           file: ${{ matrix.dockerfile }}
@@ -168,8 +175,3 @@ jobs:
           cache-from: type=gha
           cache-to: type=gha,mode=max
           platforms: linux/amd64
-
-      - name: Create deployment notification
-        if: success()
-        run: |
-          echo "✅ Successfully deployed ${{ matrix.component }} version ${{ needs.release.outputs.version }} to production"
