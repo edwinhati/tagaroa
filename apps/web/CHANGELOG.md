@@ -1,5 +1,14 @@
 # web
 
+## 0.1.3
+
+### Patch Changes
+
+- 771d89e: CI pipeline restructure and Docker build fixes.
+- Updated dependencies [771d89e]
+  - @repo/ui@0.1.3
+  - @repo/common@0.1.3
+
 ## 0.1.2
 
 ### Patch Changes

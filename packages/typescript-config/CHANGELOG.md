@@ -1,5 +1,11 @@
 # @repo/typescript-config
 
+## 0.1.3
+
+### Patch Changes
+
+- 771d89e: CI pipeline restructure and Docker build fixes.
+
 ## 0.1.2
 
 ### Patch Changes
