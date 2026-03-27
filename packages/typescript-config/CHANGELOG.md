@@ -1,5 +1,11 @@
 # @repo/typescript-config
 
+## 0.1.5
+
+### Patch Changes
+
+- f73e29d: Include investment app in CI/CD pipeline and Docker configuration.
+
 ## 0.1.4
 
 ### Patch Changes
