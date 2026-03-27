@@ -141,6 +141,8 @@ jobs:
             dockerfile: apps/finance/Dockerfile
           - component: core-service
             dockerfile: servers/core/Dockerfile
+          - component: investment-app
+            dockerfile: apps/investment/Dockerfile
     steps:
       - uses: actions/checkout@v4
 
