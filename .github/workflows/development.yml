@@ -176,6 +176,11 @@ jobs:
           build-args: |
             DEPLOY_ENV=development
             VCS_REF=${{ github.sha }}
+            NEXT_PUBLIC_API_URL=${{ vars.NEXT_PUBLIC_API_URL }}
+            NEXT_PUBLIC_AUTH_APP_URL=${{ vars.NEXT_PUBLIC_AUTH_APP_URL }}
+            NEXT_PUBLIC_DASHBOARD_APP_URL=${{ vars.NEXT_PUBLIC_DASHBOARD_APP_URL }}
+            NEXT_PUBLIC_MAIN_APP_URL=${{ vars.NEXT_PUBLIC_MAIN_APP_URL }}
+            NEXT_PUBLIC_ALLOWED_REDIRECT_ORIGINS=${{ vars.NEXT_PUBLIC_ALLOWED_REDIRECT_ORIGINS }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
           platforms: linux/amd64

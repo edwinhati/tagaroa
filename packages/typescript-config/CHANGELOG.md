@@ -1,5 +1,11 @@
 # @repo/typescript-config
 
+## 0.1.6
+
+### Patch Changes
+
+- Injected NEXT_PUBLIC environment variables as build arguments for Next.js Docker builds.
+
 ## 0.1.5
 
 ### Patch Changes
