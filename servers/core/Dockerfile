@@ -41,11 +41,10 @@ FROM oven/bun:alpine AS runner
 
 WORKDIR /app
 
-# Install dumb-init for proper PID 1 signal handling
-RUN apk add --no-cache dumb-init
-
-# Create non-root user
-RUN addgroup -S nestjs && adduser -S nestjs -G nestjs
+# Install system deps and create non-root user in a single layer
+RUN apk add --no-cache dumb-init curl \
+  && addgroup -S nestjs \
+  && adduser -S nestjs -G nestjs
 
 # Copy production node_modules
 COPY --from=builder --chown=nestjs:nestjs /app/node_modules ./node_modules
@@ -71,8 +70,10 @@ USER nestjs
 
 EXPOSE 8080
 
-HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=3 \
-  CMD wget -qO- http://localhost:8080/api || exit 1
+# Liveness probe — lightweight memory-only check, no DB dependency
+# start-period gives NestJS + Drizzle time to fully boot before checks begin
+HEALTHCHECK --interval=30s --timeout=5s --start-period=30s --retries=3 \
+  CMD curl --fail --silent --max-time 4 http://localhost:8080/api/health/live > /dev/null || exit 1
 
 ENTRYPOINT ["dumb-init", "--"]
 CMD ["bun", "servers/core/dist/main.js"]
