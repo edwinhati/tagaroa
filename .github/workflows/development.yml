@@ -103,7 +103,10 @@ jobs:
           bun changeset version --snapshot alpha || true
           VERSION=$(node -p "require('./apps/finance/package.json').version")
           if [[ "$VERSION" != *"-alpha"* ]]; then
-            VERSION="${VERSION}-alpha.${GITHUB_SHA::8}"
+            # Bump the patch version so it sorts correctly after the current release
+            IFS='.' read -r major minor patch <<< "$VERSION"
+            patch=$((patch + 1))
+            VERSION="${major}.${minor}.${patch}-alpha.${GITHUB_SHA::8}"
           fi
           echo "version=${VERSION}" >> $GITHUB_OUTPUT
           echo "Generated alpha snapshot: ${VERSION}"
