@@ -14,7 +14,7 @@
     "@hookform/resolvers": "^5.2.2",
     "@repo/common": "*",
     "@repo/ui": "*",
-    "@tabler/icons-react": "^3.41.0",
+    "@tabler/icons-react": "^3.41.1",
     "@tanstack/react-query": "^5.95.2",
     "@tanstack/react-table": "^8.21.3",
     "better-auth": "^1.5.6",
