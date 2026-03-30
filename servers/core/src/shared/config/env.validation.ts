@@ -29,6 +29,10 @@ export const envSchema = z.object({
             .filter(Boolean)
         : [],
     ),
+  // Health check thresholds
+  HEALTH_MEMORY_HEAP_THRESHOLD_MB: z.coerce.number().default(512),
+  HEALTH_MEMORY_RSS_THRESHOLD_MB: z.coerce.number().default(1024),
+  HEALTH_DISK_THRESHOLD_PERCENT: z.coerce.number().min(0).max(1).default(0.8),
 });
 
 export type AppConfig = z.infer<typeof envSchema>;

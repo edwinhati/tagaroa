@@ -3,7 +3,7 @@ name: Staging Pipeline
 on:
   push:
     branches:
-      - staging
+      - develop
   pull_request:
     branches:
       - main
@@ -99,8 +99,14 @@ jobs:
       - id: snapshot
         name: Create beta snapshot version
         run: |
-          bun changeset version --snapshot beta
+          bun changeset version --snapshot beta || true
           VERSION=$(node -p "require('./apps/finance/package.json').version")
+          if [[ "$VERSION" != *"-beta"* ]]; then
+            # Bump the patch version so it sorts correctly after the current release
+            IFS='.' read -r major minor patch <<< "$VERSION"
+            patch=$((patch + 1))
+            VERSION="${major}.${minor}.${patch}-beta.${GITHUB_SHA::8}"
+          fi
           echo "version=${VERSION}" >> $GITHUB_OUTPUT
           echo "Generated beta snapshot: ${VERSION}"
 
@@ -112,12 +118,22 @@ jobs:
           TAG="v${VERSION}"
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git tag -a "${TAG}" -m "Beta pre-release ${TAG}"
-          git push origin "${TAG}"
-          gh release create "${TAG}" \
-            --title "${TAG}" \
-            --generate-notes \
-            --prerelease
+          
+          if git ls-remote --tags origin | grep -q "refs/tags/${TAG}$"; then
+            echo "Tag ${TAG} already exists."
+          else
+            git tag -a "${TAG}" -m "Beta pre-release ${TAG}"
+            git push origin "${TAG}"
+          fi
+          
+          if gh release view "${TAG}" >/dev/null 2>&1; then
+            echo "Release ${TAG} already exists."
+          else
+            gh release create "${TAG}" \
+              --title "${TAG}" \
+              --generate-notes \
+              --prerelease
+          fi
 
   deploy:
     name: Deploy (${{ matrix.component }})
