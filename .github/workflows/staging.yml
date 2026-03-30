@@ -3,7 +3,7 @@ name: Staging Pipeline
 on:
   push:
     branches:
-      - staging
+      - develop
   pull_request:
     branches:
       - main
