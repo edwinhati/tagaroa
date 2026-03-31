@@ -993,8 +993,14 @@ function OhlcvChart({
               data={chartData}
               margin={{ top: 4, right: 0, left: 0, bottom: 0 }}
               onMouseMove={(state) => {
-                if (state.isTooltipActive && state.activePayload?.[0]) {
-                  const pt = state.activePayload[0].payload;
+                const s = state as unknown as {
+                  isTooltipActive?: boolean;
+                  activePayload?: {
+                    payload: { close: number; date: string };
+                  }[];
+                };
+                if (s?.isTooltipActive && s?.activePayload?.[0]) {
+                  const pt = s.activePayload[0].payload;
                   setHoveredClose(pt.close);
                   setHoveredDate(pt.date);
                 }
