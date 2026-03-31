@@ -19,7 +19,7 @@
     "react-dom": "^19.2.4"
   },
   "devDependencies": {
-    "@biomejs/biome": "2.4.9",
+    "@biomejs/biome": "2.4.10",
     "@next/bundle-analyzer": "^16.2.1",
     "@repo/typescript-config": "*",
     "@tailwindcss/postcss": "^4.2.2",
