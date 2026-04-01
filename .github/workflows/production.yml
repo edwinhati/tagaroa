@@ -13,8 +13,12 @@ env:
 
 jobs:
   build:
-    name: Build
+    name: Build (${{ matrix.task }})
     runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        task: [build, lint, check-types]
     steps:
       - uses: actions/checkout@v4
 
@@ -32,14 +36,8 @@ jobs:
 
       - run: bun install
 
-      - name: Build workspaces
-        run: bun run build
-
-      - name: Lint
-        run: bun run lint
-
-      - name: Type-check
-        run: bun run check-types
+      - name: Run ${{ matrix.task }}
+        run: bun run ${{ matrix.task }}
 
   test:
     name: Test
