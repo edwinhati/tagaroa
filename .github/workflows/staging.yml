@@ -170,8 +170,8 @@ jobs:
         run: |
           COMPONENT="${{ matrix.component }}"
           TAGS="${{ env.REGISTRY }}/${COMPONENT}:${VERSION}"
-          TAGS="${TAGS},${{ env.REGISTRY }}/${COMPONENT}:staging"
-          TAGS="${TAGS},${{ env.REGISTRY }}/${COMPONENT}:staging-${GITHUB_SHA::8}"
+          TAGS="${TAGS},${{ env.REGISTRY }}/${COMPONENT}:beta"
+          TAGS="${TAGS},${{ env.REGISTRY }}/${COMPONENT}:${GITHUB_SHA::8}"
           echo "image-tags=${TAGS}" >> $GITHUB_OUTPUT
 
       - uses: docker/login-action@v3
