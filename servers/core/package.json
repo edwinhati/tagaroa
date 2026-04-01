@@ -10,6 +10,7 @@
     "start:debug": "bun --debug --watch dist/main",
     "start:prod": "bun dist/main",
     "lint": "biome check --write .",
+    "check-types": "tsc --noEmit",
     "test": "bun test",
     "test:watch": "bun test --watch",
     "test:cov": "bun test --coverage",
