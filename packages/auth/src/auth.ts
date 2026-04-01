@@ -49,7 +49,7 @@ export const auth = betterAuth({
     multiSession({ maximumSessions: MAX_SESSIONS_PER_USER }),
     ...(process.env.NODE_ENV === "production"
       ? [haveIBeenPwned()]
-      : [openAPI()]),
+      : [openAPI({ disableDefaultReference: true })]),
   ],
   trustedOrigins,
   logger: {

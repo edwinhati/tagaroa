@@ -4,6 +4,7 @@ import { DocumentBuilder, SwaggerModule } from "@nestjs/swagger";
 import { apiReference } from "@scalar/nestjs-api-reference";
 import helmet from "helmet";
 import { AppModule } from "./app.module";
+import { auth } from "./modules/auth/auth";
 import { FinanceModule } from "./modules/finance/finance.module";
 import { StorageModule } from "./modules/storage/storage.module";
 import type { AppConfig } from "./shared/config/env.validation";
@@ -59,6 +60,25 @@ async function bootstrap() {
         content: storageDocument,
       }),
     );
+
+    // Auth Reference (OpenAPI)
+    const baseUrl = configService.get("BASE_URL", { infer: true });
+    try {
+      const authSchemaRes = await auth.handler(
+        new Request(`${baseUrl}/api/auth/open-api/generate-schema`),
+      );
+      if (authSchemaRes.ok) {
+        const authSchema = await authSchemaRes.json();
+        app.use(
+          "/api/auth/reference",
+          apiReference({
+            content: authSchema,
+          }),
+        );
+      }
+    } catch (error) {
+      console.error("Failed to generate Auth OpenAPI schema:", error);
+    }
   }
 
   SwaggerModule.setup("docs", app, document);
