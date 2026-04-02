@@ -12,7 +12,6 @@
   },
   "dependencies": {
     "@hookform/resolvers": "^5.2.2",
-    "@repo/auth": "*",
     "@repo/common": "*",
     "@repo/ui": "*",
     "@tabler/icons-react": "^3.41.1",
@@ -29,11 +28,9 @@
     "@biomejs/biome": "2.4.10",
     "@next/bundle-analyzer": "^16.2.2",
     "@repo/typescript-config": "*",
-    "@tailwindcss/postcss": "^4.2.2",
     "@types/node": "^25.5.0",
     "@types/react": "19.2.14",
     "@types/react-dom": "19.2.3",
-    "tailwindcss": "^4.2.2",
     "typescript": "^6.0.2"
   }
 }

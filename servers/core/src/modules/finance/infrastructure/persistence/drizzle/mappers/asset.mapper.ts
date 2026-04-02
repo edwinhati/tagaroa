@@ -5,7 +5,7 @@ import type { assets } from "../schemas/asset.schema";
 
 type AssetRow = InferSelectModel<typeof assets>;
 
-export function mapAssetToDomain(row: AssetRow): Asset {
+function mapAssetToDomain(row: AssetRow): Asset {
   return new Asset(
     row.id,
     row.userId,
@@ -23,7 +23,7 @@ export function mapAssetToDomain(row: AssetRow): Asset {
   );
 }
 
-export function mapAssetToPersistence(
+function mapAssetToPersistence(
   entity: Asset,
 ): Omit<AssetRow, "createdAt" | "updatedAt"> {
   return {

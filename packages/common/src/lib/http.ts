@@ -14,7 +14,7 @@ function getApiUrl(service: Service, path: string): string {
   return `${baseUrl}/api/${servicePrefix[service]}${path}`;
 }
 
-export type ApiRequestInit = Omit<RequestInit, "headers" | "body"> & {
+type ApiRequestInit = Omit<RequestInit, "headers" | "body"> & {
   headers?: Record<string, string>;
   // When provided, body will be JSON.stringified and Content-Type set accordingly
   json?: unknown;
@@ -26,7 +26,7 @@ export type ApiRequestInit = Omit<RequestInit, "headers" | "body"> & {
 
 type JsonEnvelope<T> = { data?: T; error?: string } | T;
 
-export async function apiRequest<T = unknown>(
+async function apiRequest<T = unknown>(
   service: Service,
   path: string,
   init: ApiRequestInit = {},
@@ -46,13 +46,6 @@ export async function apiRequest<T = unknown>(
   const unwrapData = init.unwrapData ?? true;
   return handleResponse<T>(response, unwrapData);
 }
-
-export const authApi = {
-  get: <T>(path: string, init: ApiRequestInit = {}) =>
-    apiRequest<T>("auth", path, { method: "GET", ...init }),
-  post: <T>(path: string, json?: unknown, init: ApiRequestInit = {}) =>
-    apiRequest<T>("auth", path, { method: "POST", json, ...init }),
-};
 
 export const financeApi = {
   get: <T>(path: string, init: ApiRequestInit = {}) =>

@@ -19,11 +19,6 @@ async function fetchSession(
   }
 }
 
-type Options = {
-  authAppUrl: string;
-  verifyPath?: string; // default "/verify-email"
-};
-
 type RoleBasedOptions = {
   authAppUrl: string;
   verifyPath?: string; // default "/verify-email"
@@ -86,10 +81,7 @@ function clearSessionCookie(response: NextResponse) {
 }
 
 // Shared proxy pre-checks
-async function handleCommonProxyLogic(
-  request: NextRequest,
-  _authAppUrl: string,
-) {
+async function handleCommonProxyLogic(request: NextRequest) {
   const { pathname, searchParams } = request.nextUrl;
 
   // Skip auth check for health checks and monitoring endpoints
@@ -169,7 +161,7 @@ async function proxyCommon<UserT extends User | UserWithRole>(
     honorAuthRefererOnRoot,
   } = opts;
 
-  const commonResult = await handleCommonProxyLogic(request, authAppUrl);
+  const commonResult = await handleCommonProxyLogic(request);
   const continuation = evaluateCommonResult(
     request,
     authAppUrl,
@@ -359,21 +351,7 @@ function resolveDefaultRoleRedirect(
 
 /* --------------------------- Public creators ------------------------- */
 
-export function createAuthProxy(opts: Options) {
-  const verifyPath = opts.verifyPath ?? "/verify-email";
-
-  return async function proxy(request: NextRequest) {
-    return proxyCommon<User>(request, {
-      authAppUrl: opts.authAppUrl,
-      verifyPath,
-      requireVerified: true,
-      // Additional safety to avoid loop on "/" after coming from auth
-      honorAuthRefererOnRoot: true,
-    });
-  };
-}
-
-export function createRoleBasedProxy(opts: RoleBasedOptions) {
+function createRoleBasedProxy(opts: RoleBasedOptions) {
   const verifyPath = opts.verifyPath ?? "/verify-email";
   const allowedRoles =
     opts.allowedRoles ?? (opts.requireAdmin ? ["admin"] : []);
@@ -421,54 +399,3 @@ export function createBasicProxy(opts: Omit<RoleBasedOptions, "allowedRoles">) {
 /* ------------------------ Redirect utility API ----------------------- */
 
 // Utility function for auth app to determine redirect based on user role
-export async function getRedirectPathForUser(
-  requestedRedirect?: string | null,
-  headers?: Headers,
-): Promise<string> {
-  const defaultUrl = process.env.NEXT_PUBLIC_DASHBOARD_APP_URL as string;
-
-  if (!headers) return defaultUrl;
-
-  try {
-    const session = await fetchSession(headers.get("cookie") ?? "");
-    const user = session?.user as UserWithRole | null | undefined;
-
-    if (!user) return defaultUrl;
-
-    const userIsAdmin = isAdmin(user);
-
-    // If there's a requested redirect and it's valid, use it
-    if (requestedRedirect) {
-      try {
-        const redirectUrl = new URL(requestedRedirect);
-        const adminAppUrl = process.env.NEXT_PUBLIC_ADMIN_APP_URL as string;
-
-        // Check if the redirect is to admin app
-        const isAdminRedirect =
-          redirectUrl.origin === new URL(adminAppUrl).origin;
-
-        // Allow the redirect if:
-        // - User is admin and redirect is to admin app
-        // - User is not admin and redirect is not to admin app
-        if (
-          (userIsAdmin && isAdminRedirect) ||
-          (!userIsAdmin && !isAdminRedirect)
-        ) {
-          return requestedRedirect;
-        }
-      } catch {
-        console.warn("Invalid redirect URL:", requestedRedirect);
-      }
-    }
-
-    // Default redirect based on role
-    if (userIsAdmin) {
-      return process.env.NEXT_PUBLIC_ADMIN_APP_URL as string;
-    } else {
-      return defaultUrl;
-    }
-  } catch (error) {
-    console.error("Error determining redirect path:", error);
-    return defaultUrl;
-  }
-}

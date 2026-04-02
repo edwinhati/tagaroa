@@ -21,7 +21,7 @@ export type PaginatedResult<T> = {
   aggregations?: Aggregations;
 };
 
-export type PaginationInfo = {
+type PaginationInfo = {
   page: number;
   limit: number;
   offset: number;

@@ -7,7 +7,7 @@ import type {
 import type { Currency } from "../../domain/value-objects/currency";
 import type { TransactionType } from "../../domain/value-objects/transaction-type";
 
-export type TransactionAccountDto = {
+type TransactionAccountDto = {
   id: string;
   name: string;
   type: string;
@@ -15,13 +15,13 @@ export type TransactionAccountDto = {
   currency: string;
 };
 
-export type TransactionBudgetItemDto = {
+type TransactionBudgetItemDto = {
   id: string;
   allocation: number;
   category: string;
 };
 
-export type TransactionResponseDto = {
+type TransactionResponseDto = {
   id: string;
   amount: number;
   date: Date;
@@ -41,9 +41,7 @@ export type TransactionResponseDto = {
   installment?: InstallmentData;
 };
 
-export function toTransactionAccountDto(
-  account: Account,
-): TransactionAccountDto {
+function toTransactionAccountDto(account: Account): TransactionAccountDto {
   return {
     id: account.id,
     name: account.name,
@@ -53,7 +51,7 @@ export function toTransactionAccountDto(
   };
 }
 
-export function toTransactionBudgetItemDto(
+function toTransactionBudgetItemDto(
   item: BudgetItem,
 ): TransactionBudgetItemDto {
   return {

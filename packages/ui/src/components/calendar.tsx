@@ -1,20 +1,19 @@
 "use client";
 
-import * as React from "react";
-import {
-  DayPicker,
-  getDefaultClassNames,
-  type DayButton,
-  type Locale,
-} from "react-day-picker";
-
-import { cn } from "@repo/ui/lib/utils";
 import { Button, buttonVariants } from "@repo/ui/components/button";
+import { cn } from "@repo/ui/lib/utils";
 import {
+  IconChevronDown,
   IconChevronLeft,
   IconChevronRight,
-  IconChevronDown,
 } from "@tabler/icons-react";
+import * as React from "react";
+import {
+  type DayButton,
+  DayPicker,
+  getDefaultClassNames,
+  type Locale,
+} from "react-day-picker";
 
 function Calendar({
   className,

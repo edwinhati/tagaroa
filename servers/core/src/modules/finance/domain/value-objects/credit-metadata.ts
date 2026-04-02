@@ -56,21 +56,6 @@ export function isCreditAccountMetadata(
 }
 
 /**
- * Type guard for asset account metadata
- */
-export function isAssetAccountMetadata(
-  metadata: AccountMetadata | null | undefined,
-): metadata is AssetAccountMetadata {
-  if (!metadata) return false;
-  const assetMeta = metadata as AssetAccountMetadata;
-  return (
-    assetMeta.accountNumber !== undefined ||
-    assetMeta.provider !== undefined ||
-    assetMeta.isDefault !== undefined
-  );
-}
-
-/**
  * Calculate available credit based on credit limit and current balance
  * Note: For liability accounts, balance is typically negative (money owed)
  */
@@ -94,18 +79,4 @@ export function calculateCreditUtilization(
   // Balance is negative for credit accounts, so utilization = -balance / creditLimit
   const amountOwed = Math.abs(Math.min(0, balance));
   return Math.min(100, (amountOwed / creditLimit) * 100);
-}
-
-/**
- * Get utilization color based on percentage
- * - Green: < 30%
- * - Amber: 30-70%
- * - Red: > 70%
- */
-export function getUtilizationColor(
-  utilization: number,
-): "green" | "amber" | "red" {
-  if (utilization < 30) return "green";
-  if (utilization <= 70) return "amber";
-  return "red";
 }

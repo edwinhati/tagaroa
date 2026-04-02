@@ -1,6 +1,6 @@
 import type { CashFlow } from "../../../domain/portfolio/entities/cash-flow.entity";
 
-export type CashFlowResponseDto = {
+type CashFlowResponseDto = {
   id: string;
   portfolio_id: string;
   type: string;

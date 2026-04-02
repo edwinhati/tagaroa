@@ -165,6 +165,85 @@ const StatusCell = ({ row }: { row: Row<Liability> }) => {
 
 const ActionsHeaderCell = () => <span className="sr-only">Actions</span>;
 
+type LiabilityTableMeta = {
+  mutateLiability: (liability: Liability) => void;
+  deleteLiability: (id: string) => void;
+};
+
+const ActionsCell = ({
+  row,
+  table,
+}: {
+  row: Row<Liability>;
+  table: ReturnType<typeof useReactTable<Liability>>;
+}) => {
+  const meta = table.options.meta as LiabilityTableMeta | undefined;
+  return meta?.mutateLiability && meta?.deleteLiability ? (
+    <RowActions
+      row={row}
+      mutateLiability={meta.mutateLiability}
+      deleteLiability={meta.deleteLiability}
+    />
+  ) : null;
+};
+
+const multiColumnFilterFn: FilterFn<Liability> = (row, filterValue) => {
+  const searchableRowContent =
+    `${row.original.name} ${row.original.type}`.toLowerCase();
+  const searchTerm = (filterValue ?? "").toLowerCase();
+  return searchableRowContent.includes(searchTerm);
+};
+
+const columns: ColumnDef<Liability>[] = [
+  {
+    id: "select",
+    header: SelectHeaderCell,
+    cell: SelectRowCell,
+    size: 28,
+    enableSorting: false,
+  },
+  {
+    header: "Name",
+    accessorKey: "name",
+    cell: NameCell,
+    size: 180,
+    filterFn: multiColumnFilterFn,
+  },
+  {
+    header: "Type",
+    accessorKey: "type",
+    cell: TypeCell,
+    size: 100,
+  },
+  {
+    id: "installmentProgress",
+    header: "Installment Progress",
+    cell: InstallmentProgressCell,
+    size: 150,
+    enableSorting: false,
+  },
+  {
+    header: "Amount",
+    accessorKey: "amount",
+    cell: AmountCell,
+    size: 120,
+  },
+  {
+    id: "status",
+    header: "Status",
+    cell: StatusCell,
+    size: 100,
+    enableSorting: false,
+  },
+  {
+    id: "actions",
+    header: ActionsHeaderCell,
+    cell: ActionsCell,
+    size: 60,
+    enableSorting: false,
+  },
+];
+
 export function LiabilityDataTable() {
   const [isMounted, setIsMounted] = useState(false);
 
@@ -183,17 +262,6 @@ export function LiabilityDataTable() {
 
   return <LiabilityDataTableContent />;
 }
-
-const multiColumnFilterFn: FilterFn<Liability> = (
-  row,
-  _columnId,
-  filterValue,
-) => {
-  const searchableRowContent =
-    `${row.original.name} ${row.original.type}`.toLowerCase();
-  const searchTerm = (filterValue ?? "").toLowerCase();
-  return searchableRowContent.includes(searchTerm);
-};
 
 function LiabilityDataTableContent() {
   const [pagination, setPagination] = useState<PaginationState>({
@@ -231,65 +299,6 @@ function LiabilityDataTableContent() {
 
   const queryClient = useQueryClient();
 
-  const columns: ColumnDef<Liability>[] = useMemo(
-    () => [
-      {
-        id: "select",
-        header: SelectHeaderCell,
-        cell: SelectRowCell,
-        size: 28,
-        enableSorting: false,
-      },
-      {
-        header: "Name",
-        accessorKey: "name",
-        cell: NameCell,
-        size: 180,
-        filterFn: multiColumnFilterFn,
-      },
-      {
-        header: "Type",
-        accessorKey: "type",
-        cell: TypeCell,
-        size: 100,
-      },
-      {
-        id: "installmentProgress",
-        header: "Installment Progress",
-        cell: InstallmentProgressCell,
-        size: 150,
-        enableSorting: false,
-      },
-      {
-        header: "Amount",
-        accessorKey: "amount",
-        cell: AmountCell,
-        size: 120,
-      },
-      {
-        id: "status",
-        header: "Status",
-        cell: StatusCell,
-        size: 100,
-        enableSorting: false,
-      },
-      {
-        id: "actions",
-        header: ActionsHeaderCell,
-        cell: ({ row }) => (
-          <RowActions
-            row={row}
-            mutateLiability={mutateLiability}
-            deleteLiability={deleteLiability}
-          />
-        ),
-        size: 60,
-        enableSorting: false,
-      },
-    ],
-    [deleteLiability, mutateLiability],
-  );
-
   useEffect(() => {
     if (liabilitiesResponse && !error) {
       setStableData({
@@ -321,7 +330,7 @@ function LiabilityDataTableContent() {
     () =>
       (liabilityTypes ?? []).map((type) => ({
         value: type,
-        label: type.replace(/_/g, " "),
+        label: type.replaceAll("_", " "),
       })),
     [liabilityTypes],
   );
@@ -350,6 +359,10 @@ function LiabilityDataTableContent() {
     onPaginationChange: setPagination,
     state: {
       pagination,
+    },
+    meta: {
+      mutateLiability,
+      deleteLiability,
     },
   });
 
@@ -542,20 +555,23 @@ function LiabilityDataTableContent() {
                     );
                   }
 
+                  let ariaSort: "ascending" | "descending" | "none" | undefined;
+                  if (canSort) {
+                    if (sortState === "asc") {
+                      ariaSort = "ascending";
+                    } else if (sortState === "desc") {
+                      ariaSort = "descending";
+                    } else {
+                      ariaSort = "none";
+                    }
+                  }
+
                   return (
                     <TableHead
                       key={header.id}
                       style={widthStyle}
                       className="h-11"
-                      aria-sort={
-                        canSort
-                          ? sortState === "asc"
-                            ? "ascending"
-                            : sortState === "desc"
-                              ? "descending"
-                              : "none"
-                          : undefined
-                      }
+                      aria-sort={ariaSort}
                     >
                       {headerContent}
                     </TableHead>

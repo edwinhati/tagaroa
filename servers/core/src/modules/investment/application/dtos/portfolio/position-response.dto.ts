@@ -1,6 +1,6 @@
 import type { Position } from "../../../domain/portfolio/entities/position.entity";
 
-export type PositionResponseDto = {
+type PositionResponseDto = {
   id: string;
   portfolio_id: string;
   instrument_id: string;

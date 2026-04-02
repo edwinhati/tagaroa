@@ -6,7 +6,7 @@ import { type ComponentProps, useState } from "react";
 
 type ButtonComponentProps = ComponentProps<typeof Button>;
 
-export type DataTableExportButtonProps = Readonly<{
+type DataTableExportButtonProps = Readonly<{
   onClick: () => void | Promise<void>;
   loading?: boolean;
   disabled?: boolean;

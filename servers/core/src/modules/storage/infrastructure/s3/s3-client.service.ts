@@ -1,6 +1,6 @@
 import { Injectable } from "@nestjs/common";
 
-export interface S3Config {
+interface S3Config {
   provider: "minio" | "aws" | "r2";
   bucket: string;
   region: string;

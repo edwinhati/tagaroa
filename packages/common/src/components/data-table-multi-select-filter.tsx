@@ -11,13 +11,13 @@ import {
 import { IconFilter } from "@tabler/icons-react";
 import { useId } from "react";
 
-export type DataTableMultiSelectOption = Readonly<{
+type DataTableMultiSelectOption = Readonly<{
   value: string;
   label: string;
   count?: number | string;
 }>;
 
-export type DataTableMultiSelectFilterProps = Readonly<{
+type DataTableMultiSelectFilterProps = Readonly<{
   triggerLabel: string;
   options: DataTableMultiSelectOption[];
   selectedValues: string[];

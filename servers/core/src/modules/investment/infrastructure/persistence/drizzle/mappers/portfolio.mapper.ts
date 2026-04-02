@@ -6,7 +6,7 @@ import type { portfolios } from "../schemas/portfolio.schema";
 
 type PortfolioRow = InferSelectModel<typeof portfolios>;
 
-export function mapPortfolioToDomain(row: PortfolioRow): Portfolio {
+function mapPortfolioToDomain(row: PortfolioRow): Portfolio {
   return new Portfolio(
     row.id,
     row.userId,
@@ -22,7 +22,7 @@ export function mapPortfolioToDomain(row: PortfolioRow): Portfolio {
   );
 }
 
-export function mapPortfolioToPersistence(
+function mapPortfolioToPersistence(
   entity: Portfolio,
 ): Omit<PortfolioRow, "createdAt" | "updatedAt"> {
   return {

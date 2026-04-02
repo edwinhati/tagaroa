@@ -21,7 +21,7 @@ import {
 } from "../../../domain/portfolio/repositories/position.repository.interface";
 import { Timeframe } from "../../../domain/value-objects/timeframe.value-object";
 
-export interface CorrelationMatrix {
+interface CorrelationMatrix {
   tickers: string[];
   matrix: number[][];
 }

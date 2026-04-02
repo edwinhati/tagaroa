@@ -7,7 +7,7 @@ export type CandlePoint = {
   volume?: number;
 };
 
-export type ComputedMetrics = {
+type ComputedMetrics = {
   dayOpen: number;
   dayHigh: number;
   dayLow: number;

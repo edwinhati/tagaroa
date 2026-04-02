@@ -1,6 +1,6 @@
 import type { Trade } from "../../../domain/portfolio/entities/trade.entity";
 
-export type TradeResponseDto = {
+type TradeResponseDto = {
   id: string;
   portfolio_id: string;
   position_id: string | null;

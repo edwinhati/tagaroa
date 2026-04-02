@@ -11,7 +11,7 @@ if (!databaseUrl && !isTest) {
 
 let dbInstance: ReturnType<typeof drizzle> | null = null;
 
-export const getDatabase = (): ReturnType<typeof drizzle> => {
+const getDatabase = (): ReturnType<typeof drizzle> => {
   if (!dbInstance) {
     if (!databaseUrl) {
       return {} as ReturnType<typeof drizzle>;

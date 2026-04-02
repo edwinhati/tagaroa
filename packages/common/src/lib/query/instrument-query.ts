@@ -117,17 +117,6 @@ export const instrumentsQueryOptions = (params?: {
     queryKey: ["instruments", params],
     queryFn: () => fetchInstruments(params),
   });
-
-export const instrumentQueryOptions = (id: string) =>
-  queryOptions({
-    queryKey: ["instruments", id],
-    queryFn: () =>
-      investmentApi
-        .get<InstrumentResponse>(`/instruments/${id}`)
-        .then(mapInstrument),
-    enabled: !!id,
-  });
-
 export const ohlcvQueryOptions = (params: {
   instrumentId: string;
   timeframe: string;

@@ -5,7 +5,7 @@ import type { cashFlows } from "../schemas/cash-flow.schema";
 
 type CashFlowRow = InferSelectModel<typeof cashFlows>;
 
-export function mapCashFlowToDomain(row: CashFlowRow): CashFlow {
+function mapCashFlowToDomain(row: CashFlowRow): CashFlow {
   return new CashFlow(
     row.id,
     row.portfolioId,
@@ -17,7 +17,7 @@ export function mapCashFlowToDomain(row: CashFlowRow): CashFlow {
   );
 }
 
-export function mapCashFlowToPersistence(
+function mapCashFlowToPersistence(
   entity: CashFlow,
 ): Omit<CashFlowRow, "createdAt"> {
   return {

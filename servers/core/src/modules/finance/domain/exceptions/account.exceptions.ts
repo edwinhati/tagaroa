@@ -13,17 +13,3 @@ export class AccountAccessDeniedException extends DomainException {
     this.name = "AccountAccessDeniedException";
   }
 }
-
-export class InvalidAccountTypeException extends DomainException {
-  constructor(type: string) {
-    super("INVALID_ACCOUNT_TYPE", `Invalid account type: '${type}'`);
-    this.name = "InvalidAccountTypeException";
-  }
-}
-
-export class InvalidCurrencyException extends DomainException {
-  constructor(currency: string) {
-    super("INVALID_CURRENCY", `Invalid currency: '${currency}'`);
-    this.name = "InvalidCurrencyException";
-  }
-}

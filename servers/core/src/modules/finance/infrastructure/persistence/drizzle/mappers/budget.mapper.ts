@@ -4,7 +4,7 @@ import type { budgets } from "../schemas/budget.schema";
 
 type BudgetRow = InferSelectModel<typeof budgets>;
 
-export function mapBudgetToDomain(row: BudgetRow): Budget {
+function mapBudgetToDomain(row: BudgetRow): Budget {
   return new Budget(
     row.id,
     row.month,
@@ -19,7 +19,7 @@ export function mapBudgetToDomain(row: BudgetRow): Budget {
   );
 }
 
-export function mapBudgetToPersistence(
+function mapBudgetToPersistence(
   entity: Budget,
 ): Omit<BudgetRow, "createdAt" | "updatedAt"> {
   return {

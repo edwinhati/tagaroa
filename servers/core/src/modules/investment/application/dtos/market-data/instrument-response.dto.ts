@@ -1,6 +1,6 @@
 import type { Instrument } from "../../../domain/market-data/entities/instrument.entity";
 
-export type InstrumentResponseDto = {
+type InstrumentResponseDto = {
   id: string;
   ticker: string;
   name: string;

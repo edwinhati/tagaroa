@@ -44,28 +44,7 @@ export type JsonApiResponse<T> = {
   jsonapi?: { version: string };
   links?: JsonApiLinks;
 };
-
-export type JsonApiErrorResponse = {
-  errors: Array<{
-    status?: string;
-    code?: string;
-    title?: string;
-    detail?: string;
-    meta?: Record<string, unknown>;
-  }>;
-  jsonapi?: { version: string };
-};
-
 // Legacy - marked as deprecated
-/** @deprecated Use JsonApiResponse instead */
-export type LegacyApiResponse<T> = {
-  timestamp: string;
-  data: T | null;
-  pagination?: PaginationInfo;
-  aggregations?: Record<string, AggregationItem[]>;
-  message: string;
-};
-
 export type FilterState = {
   serverFilters: Record<string, string[]>;
   range: DateRange | undefined;

@@ -4,13 +4,13 @@ import { createFilterStore } from "@repo/common/stores/filter-store";
 import type { FilterState } from "@repo/common/types";
 import { createContext, type ReactNode, useRef } from "react";
 
-export type FilterStoreApi = ReturnType<typeof createFilterStore>;
+type FilterStoreApi = ReturnType<typeof createFilterStore>;
 
 export const FilterStoreContext = createContext<FilterStoreApi | undefined>(
   undefined,
 );
 
-export interface FilterProviderProps {
+interface FilterProviderProps {
   children: ReactNode;
   initialState?: Partial<FilterState>;
 }

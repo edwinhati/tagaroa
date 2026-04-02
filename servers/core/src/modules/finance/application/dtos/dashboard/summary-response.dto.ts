@@ -1,9 +1,9 @@
-export class MoneyAmountDto {
+class MoneyAmountDto {
   amount!: number;
   currency!: string;
 }
 
-export class PeriodComparisonDto {
+class PeriodComparisonDto {
   current!: number;
   previous!: number;
   change!: number;

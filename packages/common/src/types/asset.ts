@@ -34,15 +34,6 @@ export type AssetResponse = {
 };
 
 export type AssetsApiResponse = JsonApiResponse<AssetResponse[]>;
-export type AssetsApiError = {
-  errors: Array<{
-    status?: string;
-    code?: string;
-    title?: string;
-    detail?: string;
-  }>;
-};
-
 export type PaginatedAssetsResult = {
   assets: Asset[];
   pagination?: PaginationInfo;

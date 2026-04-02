@@ -10,9 +10,3 @@ export const LiabilityType = {
 } as const;
 
 export type LiabilityType = (typeof LiabilityType)[keyof typeof LiabilityType];
-
-const validTypes = new Set<string>(Object.values(LiabilityType));
-
-export function isValidLiabilityType(value: string): value is LiabilityType {
-  return validTypes.has(value);
-}

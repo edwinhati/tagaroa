@@ -201,10 +201,26 @@ const MARKET_STATUS_CONFIG: Record<
   },
 };
 
-function getMarketStatus(
-  _exchange: string | null | undefined,
-  assetClass: string,
-): MarketStatus {
+function getStockMarketStatus(etDay: number, normalised: number): MarketStatus {
+  if (etDay === 0 || etDay === 6) return "closed";
+  const PRE = 4 * 60;
+  const OPEN = 9 * 60 + 30;
+  const CLOSE = 16 * 60;
+  const AFTER = 20 * 60;
+  if (normalised >= OPEN && normalised < CLOSE) return "open";
+  if (normalised >= PRE && normalised < OPEN) return "pre";
+  if (normalised >= CLOSE && normalised < AFTER) return "after";
+  return "closed";
+}
+
+function getForexMarketStatus(etDay: number, normalised: number): MarketStatus {
+  if (etDay === 6) return "closed";
+  if (etDay === 5 && normalised >= 17 * 60) return "closed";
+  if (etDay === 0 && normalised < 17 * 60) return "closed";
+  return "open";
+}
+
+function getMarketStatus(assetClass: string): MarketStatus {
   if (assetClass === "CRYPTO") return "open";
 
   const now = new Date();
@@ -214,22 +230,11 @@ function getMarketStatus(
   const etDay = (now.getUTCDay() + Math.floor(etMins / (24 * 60)) + 7) % 7;
 
   if (assetClass === "STOCK" || assetClass === "ETF") {
-    if (etDay === 0 || etDay === 6) return "closed";
-    const PRE = 4 * 60;
-    const OPEN = 9 * 60 + 30;
-    const CLOSE = 16 * 60;
-    const AFTER = 20 * 60;
-    if (normalised >= OPEN && normalised < CLOSE) return "open";
-    if (normalised >= PRE && normalised < OPEN) return "pre";
-    if (normalised >= CLOSE && normalised < AFTER) return "after";
-    return "closed";
+    return getStockMarketStatus(etDay, normalised);
   }
 
   if (assetClass === "FOREX") {
-    if (etDay === 6) return "closed";
-    if (etDay === 5 && normalised >= 17 * 60) return "closed";
-    if (etDay === 0 && normalised < 17 * 60) return "closed";
-    return "open";
+    return getForexMarketStatus(etDay, normalised);
   }
 
   return "closed";
@@ -239,7 +244,7 @@ function getMarketStatus(
 // AssetClassBadge — compact pill
 // ---------------------------------------------------------------------------
 
-function AssetClassBadge({ cls }: { cls: string }) {
+function AssetClassBadge({ cls }: { readonly cls: string }) {
   const config = CLASS_CONFIG[cls] ?? DEFAULT_CLASS_CONFIG;
   return (
     <span
@@ -266,11 +271,11 @@ function WatchlistRow({
   onClick,
   onDelete,
 }: {
-  instrument: Instrument;
-  selected: boolean;
-  price?: number | null;
-  onClick: () => void;
-  onDelete?: () => void;
+  readonly instrument: Instrument;
+  readonly selected: boolean;
+  readonly price?: number | null;
+  readonly onClick: () => void;
+  readonly onDelete?: () => void;
 }) {
   const config = CLASS_CONFIG[instrument.assetClass] ?? DEFAULT_CLASS_CONFIG;
 
@@ -322,24 +327,25 @@ function WatchlistRow({
 
           {/* Price + Status */}
           {(() => {
-            const status = getMarketStatus(
-              instrument.exchange,
-              instrument.assetClass,
-            );
+            const status = getMarketStatus(instrument.assetClass);
             const statusCfg = MARKET_STATUS_CONFIG[status];
+
+            let priceColorClass = "text-slate-300";
+            if (price == null) {
+              priceColorClass = "text-slate-700";
+            } else if (selected) {
+              priceColorClass = "text-slate-200";
+            }
+
             return (
               <div className="flex-shrink-0 text-right">
                 <p
                   className={cn(
                     "font-mono text-xs font-semibold leading-none tabular-nums transition-colors",
-                    price != null
-                      ? selected
-                        ? "text-slate-200"
-                        : "text-slate-300"
-                      : "text-slate-700",
+                    priceColorClass,
                   )}
                 >
-                  {price != null ? formatCompactPrice(price) : "—"}
+                  {price == null ? "—" : formatCompactPrice(price)}
                 </p>
                 <div className="mt-1 flex items-center justify-end gap-1">
                   <span
@@ -435,9 +441,9 @@ function StatBox({
   value,
   highlight,
 }: {
-  label: string;
-  value: string;
-  highlight?: "positive" | "negative" | null;
+  readonly label: string;
+  readonly value: string;
+  readonly highlight?: "positive" | "negative" | null;
 }) {
   return (
     <div className="flex flex-col gap-0.5 rounded-lg border border-border/40 bg-muted/30 px-3 py-2.5">
@@ -461,8 +467,8 @@ function PanelSection({
   title,
   children,
 }: {
-  title: string;
-  children: React.ReactNode;
+  readonly title: string;
+  readonly children: React.ReactNode;
 }) {
   return (
     <div className="border-b border-border/40 px-4 py-4">
@@ -474,7 +480,189 @@ function PanelSection({
   );
 }
 
-function AssetInfoPanel({ instrument }: { instrument: Instrument }) {
+type Metrics = ReturnType<typeof computeMetrics>;
+
+type StatDef = {
+  label: string;
+  value: string;
+  highlight?: "positive" | "negative" | null;
+};
+
+const hl = (
+  above: boolean | null | undefined,
+): "positive" | "negative" | null => {
+  if (above === true) return "positive";
+  if (above === false) return "negative";
+  return null;
+};
+
+const getSmaLabel = (above: boolean | null | undefined): string => {
+  if (above === true) return "Above";
+  if (above === false) return "Below";
+  return "—";
+};
+
+function buildKeyStats(
+  instrument: Instrument,
+  m: Metrics | undefined | null,
+  getMeta: <T>(key: string) => T | null,
+  dec: number,
+): StatDef[] {
+  const isStock =
+    instrument.assetClass === "STOCK" || instrument.assetClass === "ETF";
+  const isCrypto = instrument.assetClass === "CRYPTO";
+  const prevClose = getMeta<number>("previousClose") ?? m?.prevClose;
+
+  const stats: StatDef[] = [
+    {
+      label: "Prev Close",
+      value: prevClose == null ? "—" : fmt(prevClose, dec),
+    },
+    { label: "Open", value: m ? fmt(m.dayOpen, dec) : "—" },
+    { label: "Day Range", value: m ? fmtRange(m.dayLow, m.dayHigh, dec) : "—" },
+    {
+      label: "52W Range",
+      value: m ? fmtRange(m.fiftyTwoWeekLow, m.fiftyTwoWeekHigh, dec) : "—",
+    },
+  ];
+
+  if (isStock) {
+    const eps = getMeta<number>("eps");
+    stats.push(
+      {
+        label: "Market Cap",
+        value: fmtCompact(getMeta<number>("marketCap")),
+      },
+      { label: "P/E Ratio", value: fmt(getMeta<number>("peRatio")) },
+      {
+        label: "EPS",
+        value: eps == null ? "—" : `${instrument.currency} ${fmt(eps)}`,
+      },
+      {
+        label: "Div Yield",
+        value: fmtPercent(getMeta<number>("dividendYield")),
+      },
+      { label: "Beta", value: fmt(getMeta<number>("beta")) },
+    );
+  } else if (isCrypto) {
+    const circ = getMeta<number>("circulatingSupply");
+    const max = getMeta<number>("maxSupply");
+    stats.push(
+      {
+        label: "Market Cap",
+        value: fmtCompact(getMeta<number>("marketCap")),
+      },
+      {
+        label: "Circ. Supply",
+        value: circ == null ? "—" : `${fmtCompact(circ)} ${instrument.ticker}`,
+      },
+      {
+        label: "Max Supply",
+        value:
+          max == null ? "Unlimited" : `${fmtCompact(max)} ${instrument.ticker}`,
+      },
+      {
+        label: "All-Time High",
+        value: fmt(getMeta<number>("allTimeHigh"), dec),
+      },
+      {
+        label: "ATH Date",
+        value: fmtDate(getMeta<string>("allTimeHighDate")),
+      },
+    );
+  } else {
+    stats.push({
+      label: "Avg Volume",
+      value: fmtCompact(getMeta<number>("averageVolume") ?? m?.avgVolume20d),
+    });
+  }
+
+  return stats;
+}
+
+function buildTechnicals(
+  m: Metrics | undefined | null,
+  dec: number,
+): StatDef[] {
+  return [
+    {
+      label: "SMA 50",
+      value: m?.sma50 == null ? "—" : fmt(m.sma50, dec),
+      highlight: hl(m?.aboveSma50),
+    },
+    {
+      label: "SMA 200",
+      value: m?.sma200 == null ? "—" : fmt(m.sma200, dec),
+      highlight: hl(m?.aboveSma200),
+    },
+    {
+      label: "30D Volatility",
+      value:
+        m?.volatility30d == null
+          ? "—"
+          : `${(m.volatility30d * 100).toFixed(1)}%`,
+    },
+    { label: "Avg Vol (20D)", value: fmtCompact(m?.avgVolume20d) },
+    {
+      label: "vs SMA 50",
+      value: getSmaLabel(m?.aboveSma50),
+      highlight: hl(m?.aboveSma50),
+    },
+    {
+      label: "vs SMA 200",
+      value: getSmaLabel(m?.aboveSma200),
+      highlight: hl(m?.aboveSma200),
+    },
+  ].filter((t) => t.value !== "—");
+}
+
+function buildAboutFields(
+  instrument: Instrument,
+  getMeta: <T>(key: string) => T | null,
+): { label: string; value: string }[] {
+  const isStock =
+    instrument.assetClass === "STOCK" || instrument.assetClass === "ETF";
+  const isCrypto = instrument.assetClass === "CRYPTO";
+
+  const fields: { label: string; value: string | null }[] = [];
+
+  if (isStock) {
+    const employees = getMeta<number>("employees");
+    fields.push(
+      { label: "Sector", value: getMeta<string>("sector") },
+      { label: "Industry", value: getMeta<string>("industry") },
+      { label: "CEO", value: getMeta<string>("ceo") },
+      {
+        label: "Employees",
+        value:
+          employees == null ? null : Number(employees).toLocaleString("en-US"),
+      },
+      { label: "Country", value: getMeta<string>("country") },
+    );
+  }
+
+  if (isCrypto) {
+    const gd = getMeta<string>("genesisDate");
+    fields.push(
+      { label: "Category", value: getMeta<string>("category") },
+      {
+        label: "Genesis Date",
+        value: gd ? fmtDate(gd) : null,
+      },
+    );
+  }
+
+  fields.push(
+    { label: "Exchange", value: instrument.exchange ?? null },
+    { label: "Website", value: getMeta<string>("website") },
+  );
+
+  return fields.filter(
+    (f): f is { label: string; value: string } => !!f && !!f.value,
+  );
+}
+
+function AssetInfoPanel({ instrument }: { readonly instrument: Instrument }) {
   const [descExpanded, setDescExpanded] = useState(false);
   const queryClient = useQueryClient();
 
@@ -517,160 +705,18 @@ function AssetInfoPanel({ instrument }: { instrument: Instrument }) {
   const getMeta = <T,>(key: string): T | null =>
     (meta[key] as T | undefined) ?? null;
 
-  const isStock =
-    instrument.assetClass === "STOCK" || instrument.assetClass === "ETF";
   const isCrypto = instrument.assetClass === "CRYPTO";
   const dec = isCrypto && (m?.dayClose ?? 1) < 0.01 ? 6 : 2;
 
   // ── Key Statistics ────────────────────────────────────────────────────────
-  type StatDef = {
-    label: string;
-    value: string;
-    highlight?: "positive" | "negative" | null;
-  };
-  const hl = (
-    above: boolean | null | undefined,
-  ): "positive" | "negative" | null =>
-    above === true ? "positive" : above === false ? "negative" : null;
-
-  const prevClose = getMeta<number>("previousClose") ?? m?.prevClose;
-  const keyStats: StatDef[] = [
-    {
-      label: "Prev Close",
-      value: prevClose != null ? fmt(prevClose, dec) : "—",
-    },
-    { label: "Open", value: m ? fmt(m.dayOpen, dec) : "—" },
-    { label: "Day Range", value: m ? fmtRange(m.dayLow, m.dayHigh, dec) : "—" },
-    {
-      label: "52W Range",
-      value: m ? fmtRange(m.fiftyTwoWeekLow, m.fiftyTwoWeekHigh, dec) : "—",
-    },
-    ...(isStock
-      ? ([
-          {
-            label: "Market Cap",
-            value: fmtCompact(getMeta<number>("marketCap")),
-          },
-          { label: "P/E Ratio", value: fmt(getMeta<number>("peRatio")) },
-          {
-            label: "EPS",
-            value:
-              getMeta<number>("eps") != null
-                ? `${instrument.currency} ${fmt(getMeta<number>("eps"))}`
-                : "—",
-          },
-          {
-            label: "Div Yield",
-            value: fmtPercent(getMeta<number>("dividendYield")),
-          },
-          { label: "Beta", value: fmt(getMeta<number>("beta")) },
-        ] as StatDef[])
-      : isCrypto
-        ? ([
-            {
-              label: "Market Cap",
-              value: fmtCompact(getMeta<number>("marketCap")),
-            },
-            {
-              label: "Circ. Supply",
-              value:
-                getMeta<number>("circulatingSupply") != null
-                  ? `${fmtCompact(getMeta<number>("circulatingSupply"))} ${instrument.ticker}`
-                  : "—",
-            },
-            {
-              label: "Max Supply",
-              value:
-                getMeta<number>("maxSupply") != null
-                  ? `${fmtCompact(getMeta<number>("maxSupply"))} ${instrument.ticker}`
-                  : "Unlimited",
-            },
-            {
-              label: "All-Time High",
-              value: fmt(getMeta<number>("allTimeHigh"), dec),
-            },
-            {
-              label: "ATH Date",
-              value: fmtDate(getMeta<string>("allTimeHighDate")),
-            },
-          ] as StatDef[])
-        : ([
-            {
-              label: "Avg Volume",
-              value: fmtCompact(
-                getMeta<number>("averageVolume") ?? m?.avgVolume20d,
-              ),
-            },
-          ] as StatDef[])),
-  ];
+  const keyStats = buildKeyStats(instrument, m, getMeta, dec);
 
   // ── Technical Indicators ──────────────────────────────────────────────────
-  const technicals: StatDef[] = [
-    {
-      label: "SMA 50",
-      value: m?.sma50 != null ? fmt(m.sma50, dec) : "—",
-      highlight: hl(m?.aboveSma50),
-    },
-    {
-      label: "SMA 200",
-      value: m?.sma200 != null ? fmt(m.sma200, dec) : "—",
-      highlight: hl(m?.aboveSma200),
-    },
-    {
-      label: "30D Volatility",
-      value:
-        m?.volatility30d != null
-          ? `${(m.volatility30d * 100).toFixed(1)}%`
-          : "—",
-    },
-    { label: "Avg Vol (20D)", value: fmtCompact(m?.avgVolume20d) },
-    {
-      label: "vs SMA 50",
-      value:
-        m?.aboveSma50 === true
-          ? "Above"
-          : m?.aboveSma50 === false
-            ? "Below"
-            : "—",
-      highlight: hl(m?.aboveSma50),
-    },
-    {
-      label: "vs SMA 200",
-      value:
-        m?.aboveSma200 === true
-          ? "Above"
-          : m?.aboveSma200 === false
-            ? "Below"
-            : "—",
-      highlight: hl(m?.aboveSma200),
-    },
-  ].filter((t) => t.value !== "—");
+  const technicals = buildTechnicals(m, dec);
 
   // ── About fields ──────────────────────────────────────────────────────────
   const description = getMeta<string>("description");
-  const aboutFields = [
-    isStock && { label: "Sector", value: getMeta<string>("sector") },
-    isStock && { label: "Industry", value: getMeta<string>("industry") },
-    isStock && { label: "CEO", value: getMeta<string>("ceo") },
-    isStock && {
-      label: "Employees",
-      value:
-        getMeta<number>("employees") != null
-          ? Number(getMeta<number>("employees")).toLocaleString("en-US")
-          : null,
-    },
-    isStock && { label: "Country", value: getMeta<string>("country") },
-    isCrypto && { label: "Category", value: getMeta<string>("category") },
-    isCrypto && {
-      label: "Genesis Date",
-      value:
-        fmtDate(getMeta<string>("genesisDate")) !== "—"
-          ? fmtDate(getMeta<string>("genesisDate"))
-          : null,
-    },
-    { label: "Exchange", value: instrument.exchange },
-    { label: "Website", value: getMeta<string>("website") },
-  ].filter((f): f is { label: string; value: string } => !!f && !!f.value);
+  const aboutFields = buildAboutFields(instrument, getMeta);
 
   return (
     <div className="flex flex-col">
@@ -783,14 +829,207 @@ function AssetInfoPanel({ instrument }: { instrument: Instrument }) {
 // OhlcvChart — Perplexity Finance-style price history chart
 // ---------------------------------------------------------------------------
 
+function ChartTooltip({
+  active,
+  payload,
+}: {
+  readonly active?: boolean;
+  readonly payload?: { payload: CandlePoint }[];
+}) {
+  if (!active || !payload?.length) return null;
+  const pt = payload[0]?.payload;
+  if (!pt) return null;
+
+  return (
+    <div className="rounded-lg border border-border/50 bg-card/95 px-3 py-2 text-card-foreground shadow-lg backdrop-blur-sm">
+      <p className="text-[11px] text-muted-foreground font-mono">{pt.date}</p>
+      <p className="text-sm font-bold tabular-nums font-mono">
+        {formatCompactPrice(pt.close)}
+      </p>
+      {pt.open != null && (
+        <div className="mt-1 flex gap-2 text-[10px] text-muted-foreground tabular-nums font-mono">
+          <span>O {formatCompactPrice(pt.open)}</span>
+          <span>H {formatCompactPrice(pt.high)}</span>
+          <span>L {formatCompactPrice(pt.low)}</span>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function computeOhlcvStats(
+  chartData: { close: number; high?: number; low?: number }[],
+  hoveredClose: number | null,
+) {
+  const startPrice = chartData.at(0)?.close ?? null;
+  const latestPrice = chartData.at(-1)?.close ?? null;
+  const periodHigh = chartData.length
+    ? Math.max(...chartData.map((d) => d.high ?? d.close))
+    : null;
+  const periodLow = chartData.length
+    ? Math.min(...chartData.map((d) => d.low ?? d.close))
+    : null;
+
+  const displayPrice = hoveredClose ?? latestPrice;
+  const change =
+    displayPrice != null && startPrice != null
+      ? displayPrice - startPrice
+      : null;
+  const changePct =
+    change != null && startPrice ? (change / startPrice) * 100 : null;
+  const isPositive = change == null ? true : change >= 0;
+
+  return { displayPrice, change, changePct, isPositive, periodHigh, periodLow };
+}
+
+function OhlcvEmptyState({
+  ticker,
+  isSyncing,
+  handleSync,
+}: {
+  readonly ticker: string;
+  readonly isSyncing: boolean;
+  readonly handleSync: () => void;
+}) {
+  return (
+    <div className="flex flex-col items-center justify-center gap-4 p-8 h-full text-center text-muted-foreground">
+      <div className="rounded-full bg-muted p-5">
+        <IconChartCandle className="h-7 w-7 opacity-40" />
+      </div>
+      <div>
+        <p className="font-medium text-foreground">No price history</p>
+        <p className="mt-1 text-sm">Sync data to display the chart.</p>
+      </div>
+      <Button
+        size="sm"
+        variant="secondary"
+        onClick={handleSync}
+        disabled={isSyncing}
+        className="gap-2"
+      >
+        <IconRefresh
+          className={cn("h-3.5 w-3.5", isSyncing && "animate-spin")}
+        />
+        {isSyncing ? "Syncing…" : `Sync ${ticker}`}
+      </Button>
+    </div>
+  );
+}
+
+function OhlcvChartHeader({
+  displayPrice,
+  currency,
+  change,
+  changePct,
+  isPositive,
+  hoveredDate,
+  timeRange,
+  periodHigh,
+  periodLow,
+  setTimeRange,
+  handleSync,
+  isSyncing,
+}: {
+  readonly displayPrice: number | null;
+  readonly currency: string;
+  readonly change: number | null;
+  readonly changePct: number | null;
+  readonly isPositive: boolean;
+  readonly hoveredDate: string | null;
+  readonly timeRange: TimeRange;
+  readonly periodHigh: number | null;
+  readonly periodLow: number | null;
+  readonly setTimeRange: (r: TimeRange) => void;
+  readonly handleSync: () => void;
+  readonly isSyncing: boolean;
+}) {
+  return (
+    <div className="flex items-start justify-between px-4 mb-2 flex-shrink-0">
+      <div>
+        <div className="flex items-baseline gap-1.5">
+          <span className="text-2xl font-bold tracking-tight tabular-nums font-mono text-slate-200">
+            {displayPrice == null ? "—" : formatCompactPrice(displayPrice)}
+          </span>
+          <span className="text-xs text-slate-500 font-mono">{currency}</span>
+        </div>
+        {change != null && changePct != null && (
+          <div
+            className={cn(
+              "flex items-center gap-1 text-sm font-medium tabular-nums mt-0.5",
+              isPositive ? "text-emerald-500" : "text-rose-500",
+            )}
+          >
+            {isPositive ? (
+              <IconTrendingUp className="h-3.5 w-3.5" />
+            ) : (
+              <IconTrendingDown className="h-3.5 w-3.5" />
+            )}
+            {isPositive ? "+" : ""}
+            {formatCompactPrice(Math.abs(change))} ({isPositive ? "+" : ""}
+            {changePct.toFixed(2)}%)
+            <span className="text-xs text-muted-foreground font-normal ml-0.5">
+              {hoveredDate ?? timeRange}
+            </span>
+          </div>
+        )}
+      </div>
+
+      <div className="flex flex-col items-end gap-1.5">
+        {periodHigh != null && periodLow != null && (
+          <div className="text-[11px] text-muted-foreground font-mono tabular-nums">
+            <span className="text-muted-foreground/60">H </span>
+            {formatCompactPrice(periodHigh)}
+            <span className="mx-1.5 text-muted-foreground/30">·</span>
+            <span className="text-muted-foreground/60">L </span>
+            {formatCompactPrice(periodLow)}
+          </div>
+        )}
+        <div className="flex items-center gap-1">
+          <div className="flex items-center gap-0.5 rounded-md bg-muted/50 p-0.5">
+            {TIME_RANGES.map((r) => (
+              <Button
+                key={r.value}
+                type="button"
+                onClick={() => setTimeRange(r.value)}
+                variant="ghost"
+                size="sm"
+                className={cn(
+                  "px-2 py-0.5 text-[11px] font-medium rounded transition-all duration-200 cursor-pointer",
+                  timeRange === r.value
+                    ? "bg-background text-foreground shadow-sm"
+                    : "text-muted-foreground hover:text-foreground",
+                )}
+              >
+                {r.value}
+              </Button>
+            ))}
+          </div>
+          <Button
+            size="sm"
+            variant="ghost"
+            onClick={handleSync}
+            disabled={isSyncing}
+            className="h-6 w-6 p-0 text-muted-foreground hover:text-foreground"
+            title="Sync price data"
+          >
+            <IconRefresh
+              className={cn("h-3.5 w-3.5", isSyncing && "animate-spin")}
+            />
+          </Button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function OhlcvChart({
   instrumentId,
   ticker,
   currency,
 }: {
-  instrumentId: string;
-  ticker: string;
-  currency: string;
+  readonly instrumentId: string;
+  readonly ticker: string;
+  readonly currency: string;
 }) {
   const [timeRange, setTimeRange] = useState<TimeRange>("3M");
   const [hoveredClose, setHoveredClose] = useState<number | null>(null);
@@ -819,7 +1058,7 @@ function OhlcvChart({
     onSuccess: (result) => {
       queryClient.invalidateQueries({ queryKey: ["ohlcv"] });
       toast.success(
-        `Synced ${result.synced} candle${result.synced !== 1 ? "s" : ""} for ${ticker}`,
+        `Synced ${result.synced} candle${result.synced === 1 ? "" : "s"} for ${ticker}`,
       );
     },
     onError: (err: Error) => toast.error(`Sync failed: ${err.message}`),
@@ -845,24 +1084,8 @@ function OhlcvChart({
     low: c.low,
   }));
 
-  const startPrice = chartData.at(0)?.close ?? null;
-  const latestPrice = chartData.at(-1)?.close ?? null;
-  const periodHigh = chartData.length
-    ? Math.max(...chartData.map((d) => d.high ?? d.close))
-    : null;
-  const periodLow = chartData.length
-    ? Math.min(...chartData.map((d) => d.low ?? d.close))
-    : null;
-
-  const displayPrice = hoveredClose ?? latestPrice;
-  const change =
-    displayPrice != null && startPrice != null
-      ? displayPrice - startPrice
-      : null;
-  const changePct =
-    change != null && startPrice ? (change / startPrice) * 100 : null;
-  const isPositive = change != null ? change >= 0 : true;
-  const strokeColor = isPositive ? "#22c55e" : "#f43f5e";
+  const stats = computeOhlcvStats(chartData, hoveredClose);
+  const strokeColor = stats.isPositive ? "#22c55e" : "#f43f5e";
   const gradId = `ohlcv-grad-${instrumentId.slice(0, 8)}`;
 
   if (isLoading) {
@@ -884,108 +1107,27 @@ function OhlcvChart({
 
   return (
     <div className="flex h-full flex-col pt-3 pb-2">
-      {/* ── Stats header ── */}
-      <div className="flex items-start justify-between px-4 mb-2 flex-shrink-0">
-        {/* Left: price + change */}
-        <div>
-          <div className="flex items-baseline gap-1.5">
-            <span className="text-2xl font-bold tracking-tight tabular-nums font-mono text-slate-200">
-              {displayPrice != null ? formatCompactPrice(displayPrice) : "—"}
-            </span>
-            <span className="text-xs text-slate-500 font-mono">{currency}</span>
-          </div>
-          {change != null && changePct != null && (
-            <div
-              className={cn(
-                "flex items-center gap-1 text-sm font-medium tabular-nums mt-0.5",
-                isPositive ? "text-emerald-500" : "text-rose-500",
-              )}
-            >
-              {isPositive ? (
-                <IconTrendingUp className="h-3.5 w-3.5" />
-              ) : (
-                <IconTrendingDown className="h-3.5 w-3.5" />
-              )}
-              {isPositive ? "+" : ""}
-              {formatCompactPrice(Math.abs(change))} ({isPositive ? "+" : ""}
-              {changePct.toFixed(2)}%)
-              <span className="text-xs text-muted-foreground font-normal ml-0.5">
-                {hoveredDate ?? timeRange}
-              </span>
-            </div>
-          )}
-        </div>
+      <OhlcvChartHeader
+        displayPrice={stats.displayPrice}
+        currency={currency}
+        change={stats.change}
+        changePct={stats.changePct}
+        isPositive={stats.isPositive}
+        hoveredDate={hoveredDate}
+        timeRange={timeRange}
+        periodHigh={stats.periodHigh}
+        periodLow={stats.periodLow}
+        setTimeRange={setTimeRange}
+        handleSync={handleSync}
+        isSyncing={isSyncing}
+      />
 
-        {/* Right: H/L + time range pills + sync */}
-        <div className="flex flex-col items-end gap-1.5">
-          {periodHigh != null && periodLow != null && (
-            <div className="text-[11px] text-muted-foreground font-mono tabular-nums">
-              <span className="text-muted-foreground/60">H </span>
-              {formatCompactPrice(periodHigh)}
-              <span className="mx-1.5 text-muted-foreground/30">·</span>
-              <span className="text-muted-foreground/60">L </span>
-              {formatCompactPrice(periodLow)}
-            </div>
-          )}
-          <div className="flex items-center gap-1">
-            <div className="flex items-center gap-0.5 rounded-md bg-muted/50 p-0.5">
-              {TIME_RANGES.map((r) => (
-                <Button
-                  key={r.value}
-                  type="button"
-                  onClick={() => setTimeRange(r.value)}
-                  variant="ghost"
-                  size="sm"
-                  className={cn(
-                    "px-2 py-0.5 text-[11px] font-medium rounded transition-all duration-200 cursor-pointer",
-                    timeRange === r.value
-                      ? "bg-background text-foreground shadow-sm"
-                      : "text-muted-foreground hover:text-foreground",
-                  )}
-                >
-                  {r.value}
-                </Button>
-              ))}
-            </div>
-            <Button
-              size="sm"
-              variant="ghost"
-              onClick={handleSync}
-              disabled={isSyncing}
-              className="h-6 w-6 p-0 text-muted-foreground hover:text-foreground"
-              title="Sync price data"
-            >
-              <IconRefresh
-                className={cn("h-3.5 w-3.5", isSyncing && "animate-spin")}
-              />
-            </Button>
-          </div>
-        </div>
-      </div>
-
-      {/* ── Chart or empty state ── */}
       {chartData.length === 0 ? (
-        <div className="flex flex-col items-center justify-center gap-4 p-8 h-full text-center text-muted-foreground">
-          <div className="rounded-full bg-muted p-5">
-            <IconChartCandle className="h-7 w-7 opacity-40" />
-          </div>
-          <div>
-            <p className="font-medium text-foreground">No price history</p>
-            <p className="mt-1 text-sm">Sync data to display the chart.</p>
-          </div>
-          <Button
-            size="sm"
-            variant="secondary"
-            onClick={handleSync}
-            disabled={isSyncing}
-            className="gap-2"
-          >
-            <IconRefresh
-              className={cn("h-3.5 w-3.5", isSyncing && "animate-spin")}
-            />
-            {isSyncing ? "Syncing…" : `Sync ${ticker}`}
-          </Button>
-        </div>
+        <OhlcvEmptyState
+          ticker={ticker}
+          handleSync={handleSync}
+          isSyncing={isSyncing}
+        />
       ) : (
         <div className="flex-1 min-h-0 px-2">
           <ResponsiveContainer width="100%" height="100%">
@@ -1033,28 +1175,7 @@ function OhlcvChart({
                   strokeOpacity: 0.5,
                 }}
                 isAnimationActive={false}
-                content={({ active, payload }) => {
-                  if (!active || !payload?.length) return null;
-                  const pt = payload[0]?.payload;
-                  if (!pt) return null;
-                  return (
-                    <div className="rounded-lg border border-border/50 bg-card/95 px-3 py-2 text-card-foreground shadow-lg backdrop-blur-sm">
-                      <p className="text-[11px] text-muted-foreground font-mono">
-                        {pt.date}
-                      </p>
-                      <p className="text-sm font-bold tabular-nums font-mono">
-                        {formatCompactPrice(pt.close)}
-                      </p>
-                      {pt.open != null && (
-                        <div className="mt-1 flex gap-2 text-[10px] text-muted-foreground tabular-nums font-mono">
-                          <span>O {formatCompactPrice(pt.open)}</span>
-                          <span>H {formatCompactPrice(pt.high)}</span>
-                          <span>L {formatCompactPrice(pt.low)}</span>
-                        </div>
-                      )}
-                    </div>
-                  );
-                }}
+                content={<ChartTooltip />}
               />
               <Area
                 type="monotone"
@@ -1083,7 +1204,11 @@ function OhlcvChart({
 // ChartPanel — full-height panel: empty state or selected instrument
 // ---------------------------------------------------------------------------
 
-function ChartPanel({ instrument }: { instrument: Instrument | null }) {
+function ChartPanel({
+  instrument,
+}: {
+  readonly instrument: Instrument | null;
+}) {
   const [activeTab, setActiveTab] = useState<ChartTab>("live");
 
   if (!instrument) {
@@ -1232,7 +1357,7 @@ export function InstrumentBrowser() {
 
   const { mutate: deleteInstrument, isPending: isDeleting } = useMutation({
     ...deleteInstrumentMutationOptions(),
-    onSuccess: (_data, id) => {
+    onSuccess: (id) => {
       queryClient.invalidateQueries({ queryKey: ["instruments"] });
       if (selectedInstrument?.id === id) setSelectedInstrument(null);
       setInstrumentToDelete(null);
@@ -1273,6 +1398,48 @@ export function InstrumentBrowser() {
 
   function handleRequestDelete(instrument: Instrument) {
     setInstrumentToDelete(instrument);
+  }
+
+  let watchlistContent: React.ReactNode;
+  if (isLoading) {
+    watchlistContent = (
+      <div className="space-y-px p-2">
+        {Array.from({ length: 8 }, (_, i) => `skeleton-${i}`).map((key) => (
+          <Skeleton key={key} className="h-11 w-full rounded-md" />
+        ))}
+      </div>
+    );
+  } else if (instruments.length === 0) {
+    watchlistContent = (
+      <div className="flex flex-col items-center justify-center gap-3 py-12 text-center px-4">
+        <div className="rounded-full bg-muted p-3">
+          <IconTelescope className="h-5 w-5 text-muted-foreground" />
+        </div>
+        <div>
+          <p className="text-sm font-medium text-foreground">No instruments</p>
+          <p className="mt-0.5 text-xs text-muted-foreground">
+            {search || assetClass
+              ? "Try adjusting filters"
+              : "Register via the API"}
+          </p>
+        </div>
+      </div>
+    );
+  } else {
+    watchlistContent = (
+      <div className="flex flex-col gap-1 p-1.5">
+        {instruments.map((instrument) => (
+          <WatchlistRow
+            key={instrument.id}
+            instrument={instrument}
+            selected={selectedInstrument?.id === instrument.id}
+            price={instrument.id ? (prices?.[instrument.id] ?? null) : null}
+            onClick={() => handleSelect(instrument)}
+            onDelete={() => handleRequestDelete(instrument)}
+          />
+        ))}
+      </div>
+    );
   }
 
   return (
@@ -1344,56 +1511,13 @@ export function InstrumentBrowser() {
               <div className="flex-shrink-0 border-b px-3 py-1.5">
                 <p className="text-[11px] text-muted-foreground">
                   <span className="font-semibold text-foreground">{total}</span>{" "}
-                  instrument{total !== 1 ? "s" : ""}
+                  instrument{total === 1 ? "" : "s"}
                 </p>
               </div>
             )}
 
             {/* Scrollable list */}
-            <div className="flex-1 overflow-y-auto">
-              {isLoading ? (
-                <div className="space-y-px p-2">
-                  {Array.from({ length: 8 }).map((_, i) => (
-                    <Skeleton
-                      // biome-ignore lint/suspicious/noArrayIndexKey: Loading skeletons are static
-                      key={`skeleton-${i}`}
-                      className="h-11 w-full rounded-md"
-                    />
-                  ))}
-                </div>
-              ) : instruments.length === 0 ? (
-                <div className="flex flex-col items-center justify-center gap-3 py-12 text-center px-4">
-                  <div className="rounded-full bg-muted p-3">
-                    <IconTelescope className="h-5 w-5 text-muted-foreground" />
-                  </div>
-                  <div>
-                    <p className="text-sm font-medium text-foreground">
-                      No instruments
-                    </p>
-                    <p className="mt-0.5 text-xs text-muted-foreground">
-                      {search || assetClass
-                        ? "Try adjusting filters"
-                        : "Register via the API"}
-                    </p>
-                  </div>
-                </div>
-              ) : (
-                <div className="flex flex-col gap-1 p-1.5">
-                  {instruments.map((instrument) => (
-                    <WatchlistRow
-                      key={instrument.id}
-                      instrument={instrument}
-                      selected={selectedInstrument?.id === instrument.id}
-                      price={
-                        instrument.id ? (prices?.[instrument.id] ?? null) : null
-                      }
-                      onClick={() => handleSelect(instrument)}
-                      onDelete={() => handleRequestDelete(instrument)}
-                    />
-                  ))}
-                </div>
-              )}
-            </div>
+            <div className="flex-1 overflow-y-auto">{watchlistContent}</div>
 
             {/* Pagination */}
             {totalPages > 1 && (

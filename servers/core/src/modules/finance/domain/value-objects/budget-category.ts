@@ -1,9 +1,9 @@
-export type BudgetCategory = {
+type BudgetCategory = {
   name: string;
   type: string;
 };
 
-export const BudgetCategoryType = {
+const BudgetCategoryType = {
   MONTHLY_EXPENSE: "MONTHLY EXPENSE",
   DAILY_EXPENSE: "DAILY EXPENSE",
   WEEKLY_EXPENSE: "WEEKLY EXPENSE",

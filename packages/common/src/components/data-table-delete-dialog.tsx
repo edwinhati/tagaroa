@@ -15,7 +15,7 @@ import { IconAlertCircle } from "@tabler/icons-react";
 import type * as React from "react";
 import { useState } from "react";
 
-export type DataTableDeleteDialogProps = Readonly<{
+type DataTableDeleteDialogProps = Readonly<{
   itemName: string;
   itemType: string;
   onConfirm: () => void | Promise<void>;

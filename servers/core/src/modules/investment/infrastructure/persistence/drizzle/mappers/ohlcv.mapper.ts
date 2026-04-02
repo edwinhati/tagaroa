@@ -5,7 +5,7 @@ import type { ohlcv } from "../schemas/ohlcv.schema";
 
 type OhlcvRow = InferSelectModel<typeof ohlcv>;
 
-export function mapOhlcvToDomain(row: OhlcvRow): Ohlcv {
+function mapOhlcvToDomain(row: OhlcvRow): Ohlcv {
   return new Ohlcv(
     row.instrumentId,
     row.timestamp,
@@ -18,7 +18,7 @@ export function mapOhlcvToDomain(row: OhlcvRow): Ohlcv {
   );
 }
 
-export function mapOhlcvToPersistence(entity: Ohlcv): OhlcvRow {
+function mapOhlcvToPersistence(entity: Ohlcv): OhlcvRow {
   return {
     instrumentId: entity.instrumentId,
     timestamp: entity.timestamp,

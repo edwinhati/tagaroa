@@ -12,7 +12,7 @@ import {
   PORTFOLIO_REPOSITORY,
 } from "../../../domain/portfolio/repositories/portfolio.repository.interface";
 
-export interface SnapshotHistoryItem {
+interface SnapshotHistoryItem {
   timestamp: Date;
   nav: number;
   cash: number;

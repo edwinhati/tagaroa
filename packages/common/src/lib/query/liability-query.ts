@@ -172,10 +172,3 @@ export const exportLiabilitiesQueryOptions = (params?: {
     queryKey: ["liabilities-export", params],
     queryFn: () => fetchExportLiabilities(params),
   });
-
-export const exportLiabilities = (params?: {
-  filters?: Record<string, string[]>;
-  search?: string;
-}) => {
-  return fetchExportLiabilities(params);
-};

@@ -3,7 +3,6 @@
   "devDependencies": {
     "@biomejs/biome": "^2.4.10",
     "@changesets/cli": "^2.29.0",
-    "@playwright/test": "^1.59.0",
     "lefthook": "^2.1.4",
     "turbo": "^2.9.3",
     "typescript": "6.0.2"

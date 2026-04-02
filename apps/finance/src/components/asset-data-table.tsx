@@ -63,7 +63,7 @@ import {
   type Row,
   useReactTable,
 } from "@tanstack/react-table";
-import { useEffect, useMemo, useState } from "react";
+import { type ReactNode, useEffect, useMemo, useState } from "react";
 import { AssetFormDialog } from "@/components/asset-form-dialog";
 
 const SelectHeaderCell = ({
@@ -115,6 +115,29 @@ const TickerCell = ({ row }: { row: Row<Asset> }) => {
 
 const ActionsHeaderCell = () => <span className="sr-only">Actions</span>;
 
+const ActionsCell = ({
+  row,
+  table,
+}: {
+  row: Row<Asset>;
+  table: ReturnType<typeof useReactTable<Asset>>;
+}) => {
+  const meta = table.options.meta as
+    | {
+        mutateAsset: (asset: Asset) => void;
+        deleteAsset: (id: string) => void;
+      }
+    | undefined;
+
+  return (
+    <RowActions
+      row={row}
+      mutateAsset={meta?.mutateAsset ?? (() => {})}
+      deleteAsset={meta?.deleteAsset ?? (() => {})}
+    />
+  );
+};
+
 export function AssetDataTable() {
   const [isMounted, setIsMounted] = useState(false);
 
@@ -134,7 +157,7 @@ export function AssetDataTable() {
   return <AssetDataTableContent />;
 }
 
-const multiColumnFilterFn: FilterFn<Asset> = (row, _columnId, filterValue) => {
+const multiColumnFilterFn: FilterFn<Asset> = (row, filterValue) => {
   const searchableRowContent =
     `${row.original.name} ${row.original.type} ${row.original.ticker || ""}`.toLowerCase();
   const searchTerm = (filterValue ?? "").toLowerCase();
@@ -207,17 +230,11 @@ function AssetDataTableContent() {
       {
         id: "actions",
         header: ActionsHeaderCell,
-        cell: ({ row }) => (
-          <RowActions
-            row={row}
-            mutateAsset={mutateAsset}
-            deleteAsset={deleteAsset}
-          />
-        ),
+        cell: ActionsCell,
         size: 60,
       },
     ],
-    [deleteAsset, mutateAsset],
+    [],
   );
 
   useEffect(() => {
@@ -251,7 +268,7 @@ function AssetDataTableContent() {
     () =>
       (assetTypes ?? []).map((type) => ({
         value: type,
-        label: type.replace(/_/g, " "),
+        label: type.replaceAll("_", " "),
       })),
     [assetTypes],
   );
@@ -280,6 +297,10 @@ function AssetDataTableContent() {
     onPaginationChange: setPagination,
     state: {
       pagination,
+    },
+    meta: {
+      mutateAsset,
+      deleteAsset,
     },
   });
 
@@ -340,6 +361,88 @@ function AssetDataTableContent() {
 
   if (isInitialLoading) {
     return <AssetTableSkeleton />;
+  }
+
+  let tableBodyContent: ReactNode;
+
+  if (showLoadingState) {
+    tableBodyContent = skeletonRowKeys.map((rowKey) => (
+      <TableRow key={rowKey} className="pointer-events-none">
+        {columns.map((column, cellIndex) => {
+          const columnKey = resolveColumnKey(column, cellIndex);
+          return (
+            <TableCell key={`${columnKey}-${rowKey}`}>
+              <Skeleton
+                className={cellIndex === 0 ? "h-4 w-4 rounded" : "h-5 w-full"}
+              />
+            </TableCell>
+          );
+        })}
+      </TableRow>
+    ));
+  } else if (hasRows) {
+    tableBodyContent = table.getRowModel().rows.map((row) => (
+      <TableRow
+        key={row.id}
+        data-state={row.getIsSelected() ? "selected" : undefined}
+        className="transition-colors"
+      >
+        {row.getVisibleCells().map((cell) => (
+          <TableCell key={cell.id} className="last:py-0">
+            {flexRender(cell.column.columnDef.cell, cell.getContext())}
+          </TableCell>
+        ))}
+      </TableRow>
+    ));
+  } else if (!hasTotalData && !hasActiveFilters) {
+    tableBodyContent = (
+      <TableRow>
+        <TableCell colSpan={columns.length} className="h-96">
+          <div className="flex h-full">
+            <Empty>
+              <EmptyHeader>
+                <EmptyTitle>No Assets Yet</EmptyTitle>
+                <EmptyDescription>
+                  You haven&apos;t added any assets yet. Get started by adding
+                  your first asset to track your net worth.
+                </EmptyDescription>
+              </EmptyHeader>
+              <EmptyContent>
+                <AssetFormDialog
+                  trigger={
+                    <Button size="sm">
+                      <IconPlus
+                        className="-ms-1 opacity-60"
+                        size={16}
+                        aria-hidden="true"
+                      />
+                      Add asset
+                    </Button>
+                  }
+                />
+              </EmptyContent>
+            </Empty>
+          </div>
+        </TableCell>
+      </TableRow>
+    );
+  } else {
+    tableBodyContent = (
+      <TableRow>
+        <TableCell colSpan={columns.length} className="h-96">
+          <div className="flex h-full">
+            <div className="flex h-full w-full flex-col items-center justify-center text-center">
+              <div className="text-muted-foreground">
+                <h3 className="text-lg font-medium">No results found</h3>
+                <p className="mt-1 text-sm">
+                  Try adjusting your search or filter criteria
+                </p>
+              </div>
+            </div>
+          </div>
+        </TableCell>
+      </TableRow>
+    );
   }
 
   return (
@@ -415,6 +518,18 @@ function AssetDataTableContent() {
 
                   const canSort = header.column.getCanSort();
                   const sortState = header.column.getIsSorted();
+
+                  let ariaSort: "ascending" | "descending" | "none" | undefined;
+                  if (canSort) {
+                    if (sortState === "asc") {
+                      ariaSort = "ascending";
+                    } else if (sortState === "desc") {
+                      ariaSort = "descending";
+                    } else {
+                      ariaSort = "none";
+                    }
+                  }
+
                   const headerLabel = flexRender(
                     header.column.columnDef.header,
                     header.getContext(),
@@ -458,15 +573,7 @@ function AssetDataTableContent() {
                       key={header.id}
                       style={widthStyle}
                       className="h-11"
-                      aria-sort={
-                        canSort
-                          ? sortState === "asc"
-                            ? "ascending"
-                            : sortState === "desc"
-                              ? "descending"
-                              : "none"
-                          : undefined
-                      }
+                      aria-sort={ariaSort}
                     >
                       {headerContent}
                     </TableHead>
@@ -475,94 +582,7 @@ function AssetDataTableContent() {
               </TableRow>
             ))}
           </TableHeader>
-          <TableBody>
-            {(() => {
-              if (showLoadingState) {
-                return skeletonRowKeys.map((rowKey) => (
-                  <TableRow key={rowKey} className="pointer-events-none">
-                    {columns.map((column, cellIndex) => {
-                      const columnKey = resolveColumnKey(column, cellIndex);
-                      return (
-                        <TableCell key={`${columnKey}-${rowKey}`}>
-                          <Skeleton
-                            className={
-                              cellIndex === 0 ? "h-4 w-4 rounded" : "h-5 w-full"
-                            }
-                          />
-                        </TableCell>
-                      );
-                    })}
-                  </TableRow>
-                ));
-              }
-
-              if (hasRows) {
-                return table.getRowModel().rows.map((row) => (
-                  <TableRow
-                    key={row.id}
-                    data-state={row.getIsSelected() ? "selected" : undefined}
-                    className="transition-colors"
-                  >
-                    {row.getVisibleCells().map((cell) => (
-                      <TableCell key={cell.id} className="last:py-0">
-                        {flexRender(
-                          cell.column.columnDef.cell,
-                          cell.getContext(),
-                        )}
-                      </TableCell>
-                    ))}
-                  </TableRow>
-                ));
-              }
-
-              const renderEmptyState = !hasTotalData && !hasActiveFilters;
-              return (
-                <TableRow>
-                  <TableCell colSpan={columns.length} className="h-96">
-                    <div className="flex h-full">
-                      {renderEmptyState ? (
-                        <Empty>
-                          <EmptyHeader>
-                            <EmptyTitle>No Assets Yet</EmptyTitle>
-                            <EmptyDescription>
-                              You haven&apos;t added any assets yet. Get started
-                              by adding your first asset to track your net
-                              worth.
-                            </EmptyDescription>
-                          </EmptyHeader>
-                          <EmptyContent>
-                            <AssetFormDialog
-                              trigger={
-                                <Button size="sm">
-                                  <IconPlus
-                                    className="-ms-1 opacity-60"
-                                    size={16}
-                                    aria-hidden="true"
-                                  />
-                                  Add asset
-                                </Button>
-                              }
-                            />
-                          </EmptyContent>
-                        </Empty>
-                      ) : (
-                        <div className="flex h-full w-full flex-col items-center justify-center text-center">
-                          <div className="text-muted-foreground">
-                            <h3 className="text-lg font-medium">
-                              No results found
-                            </h3>
-                            <p className="mt-1 text-sm">
-                              Try adjusting your search or filter criteria
-                            </p>
-                          </div>
-                        </div>
-                      )}
-                    </div>
-                  </TableCell>
-                </TableRow>
-              );
-            })()}
-          </TableBody>
+          <TableBody>{tableBodyContent}</TableBody>
         </Table>
       </div>
 

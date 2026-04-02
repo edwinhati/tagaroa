@@ -78,15 +78,6 @@ export type TransactionResponse = {
 };
 
 export type TransactionsApiResponse = JsonApiResponse<TransactionResponse[]>;
-export type TransactionsApiError = {
-  errors: Array<{
-    status?: string;
-    code?: string;
-    title?: string;
-    detail?: string;
-  }>;
-};
-
 export type PaginatedTransactionsResult = {
   transactions: Transaction[];
   pagination?: PaginationInfo;
@@ -111,20 +102,6 @@ export function calculateMonthlyInstallment(
 }
 
 // Helper to calculate total interest
-export function calculateTotalInterest(
-  principal: number,
-  annualInterestRate: number,
-  tenureMonths: number,
-): number {
-  const monthlyAmount = calculateMonthlyInstallment(
-    principal,
-    annualInterestRate,
-    tenureMonths,
-  );
-  const totalAmount = monthlyAmount * tenureMonths;
-  return Math.round((totalAmount - principal) * 100) / 100;
-}
-
 // Helper to format installment breakdown
 export function formatInstallmentBreakdown(
   principal: number,

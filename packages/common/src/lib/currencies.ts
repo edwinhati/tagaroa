@@ -10,5 +10,3 @@ export const currencies = [
   { value: "HKD", label: "Hong Kong Dollar (HKD)" },
   { value: "SGD", label: "Singapore Dollar (SGD)" },
 ] as const;
-
-export type CurrencyCode = (typeof currencies)[number]["value"];
