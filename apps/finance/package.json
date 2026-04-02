@@ -1,6 +1,6 @@
 {
   "name": "finance",
-  "version": "0.1.7",
+  "version": "0.1.8",
   "private": true,
   "scripts": {
     "dev": "bun --bun next dev --port 3004",
