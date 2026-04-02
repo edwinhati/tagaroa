@@ -38,6 +38,7 @@ jobs:
           path: |
             ~/.bun/install/cache
             node_modules
+            .turbo
           key: bun-${{ runner.os }}-${{ hashFiles('**/bun.lock') }}
           restore-keys: bun-${{ runner.os }}-
 
@@ -62,6 +63,7 @@ jobs:
           path: |
             ~/.bun/install/cache
             node_modules
+            .turbo
           key: bun-${{ runner.os }}-${{ hashFiles('**/bun.lock') }}
           restore-keys: bun-${{ runner.os }}-
 
@@ -101,10 +103,14 @@ jobs:
       - id: snapshot
         name: Create alpha snapshot version
         run: |
-          bun changeset version --snapshot alpha || true
+          # Apply pending changesets as an alpha snapshot.
+          # Exits 0 with a no-op message when no changeset files are present;
+          # the version fallback below handles that case.
+          bun changeset version --snapshot alpha
+          # All apps share a single version via the fixed[] group in changeset config.
           VERSION=$(node -p "require('./apps/finance/package.json').version")
           if [[ "$VERSION" != *"-alpha"* ]]; then
-            # Bump the patch version so it sorts correctly after the current release
+            # No changeset was consumed; derive a version from current release + sha.
             IFS='.' read -r major minor patch <<< "$VERSION"
             patch=$((patch + 1))
             VERSION="${major}.${minor}.${patch}-alpha.${GITHUB_SHA::8}"

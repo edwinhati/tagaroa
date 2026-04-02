@@ -31,6 +31,7 @@ jobs:
           path: |
             ~/.bun/install/cache
             node_modules
+            .turbo
           key: bun-${{ runner.os }}-${{ hashFiles('**/bun.lock') }}
           restore-keys: bun-${{ runner.os }}-
 
@@ -55,6 +56,7 @@ jobs:
           path: |
             ~/.bun/install/cache
             node_modules
+            .turbo
           key: bun-${{ runner.os }}-${{ hashFiles('**/bun.lock') }}
           restore-keys: bun-${{ runner.os }}-
 
