@@ -8,6 +8,7 @@
       "auth",
       "admin",
       "finance",
+      "investment",
       "core-service",
       "@repo/ui",
       "@repo/common",
