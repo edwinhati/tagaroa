@@ -12,7 +12,7 @@ interface S3Config {
 
 @Injectable()
 export class S3ClientService {
-  private config: S3Config;
+  private readonly config: S3Config;
 
   constructor() {
     this.config = this.loadConfig();
@@ -60,7 +60,7 @@ export class S3ClientService {
 
     // AWS Signature V4 requires timestamps in specific format
     const now = new Date();
-    const amzDate = now.toISOString().replace(/[:-]|\.\d{3}/g, ""); // YYYYMMDDTHHMMSSZ
+    const amzDate = now.toISOString().replaceAll(/[:-]|\.\d{3}/g, ""); // YYYYMMDDTHHMMSSZ
     const dateStamp = amzDate.slice(0, 8); // YYYYMMDD
 
     // Calculate payload hash using SHA256 (not HMAC!)
@@ -81,7 +81,9 @@ export class S3ClientService {
     }
 
     // Sort headers alphabetically
-    const sortedHeaderKeys = Object.keys(headers).sort();
+    const sortedHeaderKeys = Object.keys(headers).sort((a, b) =>
+      a.localeCompare(b),
+    );
     const canonicalHeaders = sortedHeaderKeys
       .map((key) => `${key}:${headers[key]}`)
       .join("\n");

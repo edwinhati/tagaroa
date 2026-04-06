@@ -21,18 +21,18 @@ import { formatCurrency } from "@/utils/currency";
 import { MiniSparkline } from "./mini-sparkline";
 
 interface StatCardsSectionProps {
-  range?: DateRange;
+  readonly range?: DateRange;
 }
 
 interface StatCardProps {
-  title: string;
-  value: string;
-  change?: string;
-  trend?: "up" | "down" | "neutral";
-  icon?: React.ReactNode;
-  iconBgColor?: string;
-  sparklineData?: { value: number }[];
-  className?: string;
+  readonly title: string;
+  readonly value: string;
+  readonly change?: string;
+  readonly trend?: "up" | "down" | "neutral";
+  readonly icon?: React.ReactNode;
+  readonly iconBgColor?: string;
+  readonly sparklineData?: { value: number }[];
+  readonly className?: string;
 }
 
 const StatCard = ({
@@ -45,6 +45,13 @@ const StatCard = ({
   sparklineData,
   className,
 }: StatCardProps) => {
+  let sparklineColor = "hsl(var(--muted-foreground))";
+  if (trend === "up") {
+    sparklineColor = "hsl(142, 76%, 36%)";
+  } else if (trend === "down") {
+    sparklineColor = "hsl(349, 89%, 60%)";
+  }
+
   return (
     <Card
       className={cn(
@@ -101,13 +108,7 @@ const StatCard = ({
             <MiniSparkline
               data={sparklineData}
               className="h-10 w-full"
-              color={
-                trend === "up"
-                  ? "hsl(142, 76%, 36%)"
-                  : trend === "down"
-                    ? "hsl(349, 89%, 60%)"
-                    : "hsl(var(--muted-foreground))"
-              }
+              color={sparklineColor}
             />
           </div>
         )}
@@ -128,6 +129,19 @@ const StatCardSkeleton = () => (
     </CardContent>
   </Card>
 );
+
+const getTrend = (
+  change: number,
+  reverse = false,
+): "up" | "down" | "neutral" => {
+  if (change > 0) return reverse ? "down" : "up";
+  if (change < 0) return reverse ? "up" : "down";
+  return "neutral";
+};
+
+const formatChange = (change: number): string => {
+  return `${change > 0 ? "+" : ""}${change.toFixed(2)}%`;
+};
 
 export function StatCardsSection({ range }: StatCardsSectionProps) {
   const { data: summary, isLoading: summaryLoading } = useQuery({
@@ -158,26 +172,13 @@ export function StatCardsSection({ range }: StatCardsSectionProps) {
     );
   }
 
-  const savingsTrend =
-    (summary?.savings_comparison.change ?? 0) > 0
-      ? "up"
-      : (summary?.savings_comparison.change ?? 0) < 0
-        ? "down"
-        : "neutral";
+  const savingsChange = summary?.savings_comparison.change ?? 0;
+  const incomeChange = summary?.income_comparison.change ?? 0;
+  const expenseChange = summary?.expense_comparison.change ?? 0;
 
-  const incomeTrend =
-    (summary?.income_comparison.change ?? 0) > 0
-      ? "up"
-      : (summary?.income_comparison.change ?? 0) < 0
-        ? "down"
-        : "neutral";
-
-  const expenseTrend =
-    (summary?.expense_comparison.change ?? 0) > 0
-      ? "down"
-      : (summary?.expense_comparison.change ?? 0) < 0
-        ? "up"
-        : "neutral";
+  const savingsTrend = getTrend(savingsChange);
+  const incomeTrend = getTrend(incomeChange);
+  const expenseTrend = getTrend(expenseChange, true);
 
   // Prepare sparkline data from trends
   const incomeSparkline =
@@ -195,9 +196,7 @@ export function StatCardsSection({ range }: StatCardsSectionProps) {
           summary?.income.amount ?? 0,
           summary?.income.currency ?? "IDR",
         )}
-        change={`${(summary?.income_comparison.change ?? 0) > 0 ? "+" : ""}${(
-          summary?.income_comparison.change ?? 0
-        ).toFixed(2)}%`}
+        change={formatChange(incomeChange)}
         trend={incomeTrend}
         icon={<IconMoneybag className="h-4 w-4" />}
         iconBgColor="text-emerald-500 bg-emerald-500/10 rounded-xl p-2.5"
@@ -209,9 +208,7 @@ export function StatCardsSection({ range }: StatCardsSectionProps) {
           summary?.expenses.amount ?? 0,
           summary?.expenses.currency ?? "IDR",
         )}
-        change={`${(summary?.expense_comparison.change ?? 0) > 0 ? "+" : ""}${(
-          summary?.expense_comparison.change ?? 0
-        ).toFixed(2)}%`}
+        change={formatChange(expenseChange)}
         trend={expenseTrend}
         icon={<IconReceipt className="h-4 w-4" />}
         iconBgColor="text-rose-500 bg-rose-500/10 rounded-xl p-2.5"
@@ -223,9 +220,7 @@ export function StatCardsSection({ range }: StatCardsSectionProps) {
           summary?.savings.amount ?? 0,
           summary?.savings.currency ?? "IDR",
         )}
-        change={`${(summary?.savings_comparison.change ?? 0) > 0 ? "+" : ""}${(
-          summary?.savings_comparison.change ?? 0
-        ).toFixed(2)}%`}
+        change={formatChange(savingsChange)}
         trend={savingsTrend}
         icon={<IconPigMoney className="h-4 w-4" />}
         iconBgColor={cn(
