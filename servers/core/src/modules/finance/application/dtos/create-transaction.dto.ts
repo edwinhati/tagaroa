@@ -13,7 +13,7 @@ const InstallmentSchema = z
   .optional();
 
 // Frontend sends account_id / budget_item_id (snake_case) — transform to camelCase
-export const CreateTransactionSchema = z
+const CreateTransactionSchema = z
   .object({
     amount: z.number().min(0.01),
     date: z.string(),

@@ -17,7 +17,7 @@ import {
 } from "../../domain/repositories/transaction.repository.interface";
 import type { GetTransactionsDto } from "../dtos/get-transactions.dto";
 
-export type TransactionWithRelations = {
+type TransactionWithRelations = {
   transaction: Transaction;
   account: Account;
   budgetItem: BudgetItem | null;

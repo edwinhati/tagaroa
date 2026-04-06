@@ -29,7 +29,7 @@ const STALENESS_DAYS: Partial<Record<AssetClass, number>> = {
   [AssetClass.COMMODITY]: 3,
 };
 
-export interface PositionWithPnl {
+interface PositionWithPnl {
   id: string;
   portfolioId: string;
   instrumentId: string;

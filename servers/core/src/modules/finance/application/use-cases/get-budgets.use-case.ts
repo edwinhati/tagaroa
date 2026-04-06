@@ -10,7 +10,7 @@ import { BUDGET_REPOSITORY } from "../../domain/repositories/budget.repository.i
 import type { IBudgetItemRepository } from "../../domain/repositories/budget-item.repository.interface";
 import { BUDGET_ITEM_REPOSITORY } from "../../domain/repositories/budget-item.repository.interface";
 
-export type BudgetWithItems = {
+type BudgetWithItems = {
   budget: Budget;
   items: BudgetItem[];
 };

@@ -3,7 +3,7 @@ import { createZodDto } from "../../../../shared/pipes/zod-validation.pipe";
 import { Currency } from "../../domain/value-objects/currency";
 import { LiabilityType } from "../../domain/value-objects/liability-type";
 
-export const CreateLiabilitySchema = z.object({
+const CreateLiabilitySchema = z.object({
   name: z.string().min(1),
   type: z.nativeEnum(LiabilityType),
   amount: z.number().optional(),

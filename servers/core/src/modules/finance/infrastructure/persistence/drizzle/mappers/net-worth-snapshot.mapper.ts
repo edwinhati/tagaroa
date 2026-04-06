@@ -5,7 +5,7 @@ import type { netWorthSnapshots } from "../schemas/net-worth-snapshot.schema";
 
 type NetWorthSnapshotRow = InferSelectModel<typeof netWorthSnapshots>;
 
-export function mapNetWorthSnapshotToDomain(
+function mapNetWorthSnapshotToDomain(
   row: NetWorthSnapshotRow,
 ): NetWorthSnapshot {
   return new NetWorthSnapshot(
@@ -20,7 +20,7 @@ export function mapNetWorthSnapshotToDomain(
   );
 }
 
-export function mapNetWorthSnapshotToPersistence(
+function mapNetWorthSnapshotToPersistence(
   entity: NetWorthSnapshot,
 ): Omit<NetWorthSnapshotRow, "createdAt"> {
   return {

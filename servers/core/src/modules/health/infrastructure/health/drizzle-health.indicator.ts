@@ -8,7 +8,7 @@ import { sql } from "drizzle-orm";
 import type { BunSQLDatabase } from "drizzle-orm/bun-sql";
 import { DRIZZLE } from "../../../../shared/database/database.constants";
 
-export interface DrizzleHealthIndicatorOptions {
+interface DrizzleHealthIndicatorOptions {
   timeout?: number;
 }
 

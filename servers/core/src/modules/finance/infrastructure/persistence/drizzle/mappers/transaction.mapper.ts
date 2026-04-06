@@ -9,7 +9,7 @@ import type { transactions } from "../schemas/transaction.schema";
 
 type TransactionRow = InferSelectModel<typeof transactions>;
 
-export function mapTransactionToDomain(row: TransactionRow): Transaction {
+function mapTransactionToDomain(row: TransactionRow): Transaction {
   return new Transaction(
     row.id,
     Number(row.amount),
@@ -29,7 +29,7 @@ export function mapTransactionToDomain(row: TransactionRow): Transaction {
   );
 }
 
-export function mapTransactionToPersistence(
+function mapTransactionToPersistence(
   entity: Transaction,
 ): Omit<TransactionRow, "createdAt" | "updatedAt"> {
   const dateStr = entity.date.toISOString().split("T")[0];

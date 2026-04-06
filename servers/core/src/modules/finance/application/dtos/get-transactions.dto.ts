@@ -6,7 +6,7 @@ import { TransactionType } from "../../domain/value-objects/transaction-type";
 const commaSplit = (v: unknown) =>
   typeof v === "string" ? v.split(",").filter(Boolean) : v;
 
-export const GetTransactionsSchema = z
+const GetTransactionsSchema = z
   .object({
     page: z.coerce.number().int().min(1).optional(),
     limit: z.coerce.number().int().min(1).optional(),

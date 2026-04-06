@@ -40,44 +40,9 @@ export type AccountMetadata =
   | Record<string, unknown>;
 
 // Helper to check if metadata is credit metadata
-export function isCreditMetadata(
-  metadata: AccountMetadata | null | undefined,
-): metadata is CreditAccountMetadata {
-  if (!metadata) return false;
-  return (
-    "creditLimit" in metadata ||
-    "availableCredit" in metadata ||
-    "billingCycleDay" in metadata
-  );
-}
-
 // Helper to get utilization color
-export function getUtilizationColor(
-  utilization: number,
-): "green" | "amber" | "red" {
-  if (utilization < 30) return "green";
-  if (utilization <= 70) return "amber";
-  return "red";
-}
-
 // Calculate credit utilization
-export function calculateCreditUtilization(
-  creditLimit: number,
-  balance: number,
-): number {
-  if (creditLimit <= 0) return 0;
-  const amountOwed = Math.abs(Math.min(0, balance));
-  return Math.min(100, (amountOwed / creditLimit) * 100);
-}
-
 // Calculate available credit
-export function calculateAvailableCredit(
-  creditLimit: number,
-  balance: number,
-): number {
-  return Math.max(0, creditLimit + balance);
-}
-
 // Map account types to their corresponding categories
 export function getAccountCategoryFromType(type: string): AccountCategory {
   const liabilityTypes = new Set(["CREDIT-CARD", "PAY-LATER"]);
@@ -127,24 +92,8 @@ export type AccountResponse = {
 };
 
 export type AccountsApiResponse = JsonApiResponse<AccountResponse[]>;
-export type AccountsApiError = {
-  errors: Array<{
-    status?: string;
-    code?: string;
-    title?: string;
-    detail?: string;
-  }>;
-};
-
 export type PaginatedAccountsResult = {
   accounts: Account[];
   pagination?: PaginationInfo;
   aggregations: Record<string, AggregationItem[]>;
-};
-
-// Category aggregation result from backend
-export type CategoryAggregationResult = {
-  category: AccountCategory;
-  count: number;
-  totalBalance: number;
 };

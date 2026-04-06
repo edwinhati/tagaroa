@@ -8,7 +8,7 @@ import type { liabilities } from "../schemas/liability.schema";
 
 type LiabilityRow = InferSelectModel<typeof liabilities>;
 
-export function mapLiabilityToDomain(row: LiabilityRow): Liability {
+function mapLiabilityToDomain(row: LiabilityRow): Liability {
   return new Liability(
     row.id,
     row.userId,
@@ -33,7 +33,7 @@ export function mapLiabilityToDomain(row: LiabilityRow): Liability {
   );
 }
 
-export function mapLiabilityToPersistence(
+function mapLiabilityToPersistence(
   entity: Liability,
 ): Omit<LiabilityRow, "createdAt" | "updatedAt"> {
   return {

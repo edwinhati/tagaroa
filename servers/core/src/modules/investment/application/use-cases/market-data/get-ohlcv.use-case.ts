@@ -11,7 +11,7 @@ import {
 } from "../../../domain/market-data/repositories/ohlcv.repository.interface";
 import type { Timeframe } from "../../../domain/value-objects/timeframe.value-object";
 
-export interface GetOhlcvParams {
+interface GetOhlcvParams {
   instrumentId: string;
   timeframe: Timeframe;
   startDate?: Date;

@@ -9,7 +9,7 @@ export type BudgetPeriodState = {
   setYear: (year: number) => void;
 };
 
-export const getDefaultPeriod = (): { month: number; year: number } => {
+const getDefaultPeriod = (): { month: number; year: number } => {
   const today = new Date();
   const currentMonth = today.getMonth() + 1;
   const currentDate = today.getDate();

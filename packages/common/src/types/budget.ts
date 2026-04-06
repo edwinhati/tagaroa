@@ -22,8 +22,6 @@ export const budgetSchema = z.object({
 export type Budget = z.infer<typeof budgetSchema>;
 export type BudgetInput = z.input<typeof budgetSchema>;
 export type BudgetItem = z.infer<typeof budgetItemSchema>;
-export type BudgetItemInput = z.input<typeof budgetItemSchema>;
-
 export type BudgetItemResponse = {
   id: string;
   allocation: number;
@@ -50,15 +48,6 @@ export type BudgetResponse = {
 };
 
 export type BudgetsApiResponse = JsonApiResponse<BudgetResponse[]>;
-export type BudgetsApiError = {
-  errors: Array<{
-    status?: string;
-    code?: string;
-    title?: string;
-    detail?: string;
-  }>;
-};
-
 export type PaginatedBudgetsResult = {
   budgets: Budget[];
   pagination?: PaginationInfo;

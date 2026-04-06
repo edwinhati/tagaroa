@@ -23,7 +23,7 @@ import {
 import type { Table } from "@tanstack/react-table";
 import type { ReactNode } from "react";
 
-export type DataTablePaginationProps<TData> = Readonly<{
+type DataTablePaginationProps<TData> = Readonly<{
   table: Table<TData>;
   pageSizeOptions?: number[];
   label?: string;

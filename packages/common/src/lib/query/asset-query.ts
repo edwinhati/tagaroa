@@ -166,10 +166,3 @@ export const exportAssetsQueryOptions = (params?: {
     queryFn: () => fetchExportAssets(params),
   });
 };
-
-export const exportAssets = (params?: {
-  filters?: Record<string, string[]>;
-  search?: string;
-}) => {
-  return fetchExportAssets(params);
-};

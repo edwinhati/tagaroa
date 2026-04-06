@@ -1,11 +1,11 @@
 "use client";
 
-import * as React from "react";
 import { Dialog as SheetPrimitive } from "@base-ui/react/dialog";
+import { Button } from "@repo/ui/components/button";
 
 import { cn } from "@repo/ui/lib/utils";
-import { Button } from "@repo/ui/components/button";
 import { IconX } from "@tabler/icons-react";
+import type * as React from "react";
 
 function Sheet({ ...props }: SheetPrimitive.Root.Props) {
   return <SheetPrimitive.Root data-slot="sheet" {...props} />;
@@ -124,11 +124,11 @@ function SheetDescription({
 
 export {
   Sheet,
-  SheetTrigger,
   SheetClose,
   SheetContent,
-  SheetHeader,
-  SheetFooter,
-  SheetTitle,
   SheetDescription,
+  SheetFooter,
+  SheetHeader,
+  SheetTitle,
+  SheetTrigger,
 };

@@ -36,7 +36,7 @@ function isPriceStale(priceDate: Date, assetClass: AssetClass): boolean {
   return ageDays > thresholdDays;
 }
 
-export interface NavBreakdownItem {
+interface NavBreakdownItem {
   ticker: string;
   side: string;
   quantity: number;
@@ -47,7 +47,7 @@ export interface NavBreakdownItem {
   isFallback: boolean;
 }
 
-export interface NavResult {
+interface NavResult {
   nav: number;
   cash: number;
   pricesFrom: "ohlcv" | "fallback";

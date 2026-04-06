@@ -5,7 +5,7 @@ import type { trades } from "../schemas/trade.schema";
 
 type TradeRow = InferSelectModel<typeof trades>;
 
-export function mapTradeToDomain(row: TradeRow): Trade {
+function mapTradeToDomain(row: TradeRow): Trade {
   return new Trade(
     row.id,
     row.portfolioId,
@@ -21,9 +21,7 @@ export function mapTradeToDomain(row: TradeRow): Trade {
   );
 }
 
-export function mapTradeToPersistence(
-  entity: Trade,
-): Omit<TradeRow, "createdAt"> {
+function mapTradeToPersistence(entity: Trade): Omit<TradeRow, "createdAt"> {
   return {
     id: entity.id,
     portfolioId: entity.portfolioId,

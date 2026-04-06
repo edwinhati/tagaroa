@@ -15,7 +15,7 @@ import {
   TRANSACTION_REPOSITORY,
 } from "../../domain/repositories/transaction.repository.interface";
 
-export type TransactionWithRelations = {
+type TransactionWithRelations = {
   transaction: Transaction;
   account: Account;
   budgetItem: BudgetItem | null;

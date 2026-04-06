@@ -3,7 +3,7 @@
  * Provides `acquire()` which resolves when a token is available,
  * refilling at `refillRate` tokens per second up to `maxTokens`.
  */
-export class RateLimiter {
+class RateLimiter {
   private tokens: number;
   private lastRefill: number;
 

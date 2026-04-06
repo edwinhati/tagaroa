@@ -7,7 +7,7 @@ import type { accounts } from "../schemas/account.schema";
 
 type AccountRow = InferSelectModel<typeof accounts>;
 
-export function mapAccountToDomain(row: AccountRow): Account {
+function mapAccountToDomain(row: AccountRow): Account {
   // Derive category from stored category or fall back to type-based derivation
   const category: AccountCategory =
     (row.category as AccountCategory) ?? getAccountCategoryFromType(row.type);
@@ -34,7 +34,7 @@ export function mapAccountToDomain(row: AccountRow): Account {
   );
 }
 
-export function mapAccountToPersistence(
+function mapAccountToPersistence(
   entity: Account,
 ): Omit<AccountRow, "createdAt" | "updatedAt"> {
   return {

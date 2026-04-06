@@ -195,17 +195,6 @@ const createPortfolio = async (
   );
   return mapPortfolio(data);
 };
-
-const updatePortfolio = async (
-  payload: Pick<Portfolio, "id" | "name" | "status">,
-): Promise<Portfolio> => {
-  const data = await investmentApi.patch<PortfolioResponse>(
-    `/portfolios/${payload.id}`,
-    { name: payload.name, status: payload.status },
-  );
-  return mapPortfolio(data);
-};
-
 const deletePortfolio = async (id: string): Promise<void> => {
   await investmentApi.delete(`/portfolios/${id}`);
 };
@@ -372,16 +361,6 @@ export const createPortfolioMutationOptions = () => {
       queryClient.invalidateQueries({ queryKey: ["portfolios"] }),
   });
 };
-
-export const updatePortfolioMutationOptions = () => {
-  const queryClient = useQueryClient();
-  return mutationOptions({
-    mutationFn: updatePortfolio,
-    onSettled: () =>
-      queryClient.invalidateQueries({ queryKey: ["portfolios"] }),
-  });
-};
-
 export const deletePortfolioMutationOptions = () => {
   const queryClient = useQueryClient();
   return mutationOptions({

@@ -1,4 +1,4 @@
-export const getCookieDomain = (): string | undefined => {
+const getCookieDomain = (): string | undefined => {
   try {
     return process.env.BASE_URL
       ? new URL(process.env.BASE_URL).hostname

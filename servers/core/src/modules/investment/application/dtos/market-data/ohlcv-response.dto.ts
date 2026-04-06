@@ -1,6 +1,6 @@
 import type { Ohlcv } from "../../../domain/market-data/entities/ohlcv.entity";
 
-export type OhlcvResponseDto = {
+type OhlcvResponseDto = {
   instrument_id: string;
   timestamp: Date;
   timeframe: string;

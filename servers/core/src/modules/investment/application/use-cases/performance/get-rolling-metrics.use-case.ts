@@ -14,7 +14,7 @@ import {
 
 const RISK_FREE_DAILY = 0.02 / 252;
 
-export interface RollingMetrics {
+interface RollingMetrics {
   windowDays: number;
   sharpe: number | null;
   volatility: number | null;

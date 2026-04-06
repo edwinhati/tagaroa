@@ -28,7 +28,7 @@ const MetadataSchema = z
   ])
   .optional();
 
-export const UpdateAccountSchema = z.object({
+const UpdateAccountSchema = z.object({
   name: z.string().min(1).optional(),
   balance: z.number().optional(),
   notes: z.string().nullable().optional(),

@@ -5,7 +5,7 @@ import type { instruments } from "../schemas/instrument.schema";
 
 type InstrumentRow = InferSelectModel<typeof instruments>;
 
-export function mapInstrumentToDomain(row: InstrumentRow): Instrument {
+function mapInstrumentToDomain(row: InstrumentRow): Instrument {
   return new Instrument(
     row.id,
     row.ticker,
@@ -19,7 +19,7 @@ export function mapInstrumentToDomain(row: InstrumentRow): Instrument {
   );
 }
 
-export function mapInstrumentToPersistence(
+function mapInstrumentToPersistence(
   entity: Instrument,
 ): Omit<InstrumentRow, "createdAt" | "updatedAt"> {
   return {

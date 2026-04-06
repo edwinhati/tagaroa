@@ -57,15 +57,6 @@ export type LiabilityResponse = {
 };
 
 export type LiabilitiesApiResponse = JsonApiResponse<LiabilityResponse[]>;
-export type LiabilitiesApiError = {
-  errors: Array<{
-    status?: string;
-    code?: string;
-    title?: string;
-    detail?: string;
-  }>;
-};
-
 export type PaginatedLiabilitiesResult = {
   liabilities: Liability[];
   pagination?: PaginationInfo;
@@ -73,19 +64,6 @@ export type PaginatedLiabilitiesResult = {
 };
 
 // Helper to check if liability is an installment
-export function isInstallmentLiability(
-  liability: Liability | LiabilityResponse,
-): boolean {
-  return (
-    ("transactionId" in liability &&
-      liability.transactionId !== undefined &&
-      liability.transactionId !== null) ||
-    ("transaction_id" in liability &&
-      liability.transaction_id !== undefined &&
-      liability.transaction_id !== null)
-  );
-}
-
 // Helper to get installment progress
 export function getInstallmentProgress(
   liability: Liability | LiabilityResponse,

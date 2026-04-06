@@ -30,7 +30,7 @@ const MetadataSchema = z
   ])
   .optional();
 
-export const CreateAccountSchema = z.object({
+const CreateAccountSchema = z.object({
   name: z.string().min(1),
   type: z.nativeEnum(AccountType),
   balance: z.number().optional(),

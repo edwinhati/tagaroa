@@ -51,20 +51,6 @@ export class PositionAlreadyClosedException extends DomainException {
   }
 }
 
-export class InvalidAssetClassException extends DomainException {
-  constructor(assetClass: string) {
-    super("INVALID_ASSET_CLASS", `Invalid asset class: '${assetClass}'`);
-    this.name = "InvalidAssetClassException";
-  }
-}
-
-export class InvalidTimeframeException extends DomainException {
-  constructor(timeframe: string) {
-    super("INVALID_TIMEFRAME", `Invalid timeframe: '${timeframe}'`);
-    this.name = "InvalidTimeframeException";
-  }
-}
-
 export class MarketDataProviderException extends DomainException {
   constructor(message: string) {
     super("MARKET_DATA_PROVIDER_ERROR", message);

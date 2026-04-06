@@ -6,7 +6,6 @@ import type {
   AccountCategory,
   AccountResponse,
   AccountsApiResponse,
-  CategoryAggregationResult,
   PaginatedAccountsResult,
 } from "@repo/common/types/account";
 import {
@@ -83,10 +82,6 @@ const fetchAccountTypes = async (): Promise<string[]> => {
 };
 
 // Fetch account categories
-const fetchAccountCategories = async (): Promise<AccountCategory[]> => {
-  return financeApi.get<AccountCategory[]>("/accounts/categories");
-};
-
 // Create or update an account
 const mutateAccount = async (account: Account): Promise<Account> => {
   // Map frontend Account (camelCase) to backend payload (snake_case)
@@ -131,20 +126,6 @@ const fetchExportAccounts = async (params?: {
 };
 
 // Fetch category aggregations
-const fetchCategoryAggregations = async (): Promise<
-  CategoryAggregationResult[]
-> => {
-  // Use the accounts endpoint with aggregations
-  const data = await financeApi.get<AccountsApiResponse>("/accounts?limit=1", {
-    unwrapData: false,
-  });
-  // Return category aggregations if available
-  return (
-    (data.meta?.aggregations
-      ?.category as unknown as CategoryAggregationResult[]) || []
-  );
-};
-
 export const accountQueryOptions = (params?: {
   page?: number;
   limit?: number;
@@ -218,21 +199,6 @@ export const accountTypesQueryOptions = () => {
     queryFn: fetchAccountTypes,
   });
 };
-
-export const accountCategoriesQueryOptions = () => {
-  return queryOptions({
-    queryKey: ["account-categories"],
-    queryFn: fetchAccountCategories,
-  });
-};
-
-export const categoryAggregationsQueryOptions = () => {
-  return queryOptions({
-    queryKey: ["account-category-aggregations"],
-    queryFn: fetchCategoryAggregations,
-  });
-};
-
 export const exportAccountsQueryOptions = (params?: {
   filters?: Record<string, string[]>;
   search?: string;

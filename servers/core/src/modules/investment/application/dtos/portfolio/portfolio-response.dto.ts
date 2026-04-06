@@ -1,6 +1,6 @@
 import type { Portfolio } from "../../../domain/portfolio/entities/portfolio.entity";
 
-export type PortfolioResponseDto = {
+type PortfolioResponseDto = {
   id: string;
   user_id: string;
   name: string;

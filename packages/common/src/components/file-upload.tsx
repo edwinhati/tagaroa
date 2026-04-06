@@ -19,8 +19,6 @@ import {
 import type * as React from "react";
 import { useMemo } from "react";
 
-export type { FileWithPreview };
-
 const getFileIcon = (file: {
   file: File | { type: string; name: string; url?: string };
 }) => {

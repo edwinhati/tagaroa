@@ -20,5 +20,3 @@ export const getDatabase = (): ReturnType<typeof drizzle> => {
   }
   return dbInstance;
 };
-
-export const db = getDatabase();

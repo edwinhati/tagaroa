@@ -5,7 +5,7 @@ import type { positions } from "../schemas/position.schema";
 
 type PositionRow = InferSelectModel<typeof positions>;
 
-export function mapPositionToDomain(row: PositionRow): Position {
+function mapPositionToDomain(row: PositionRow): Position {
   return new Position(
     row.id,
     row.portfolioId,
@@ -20,7 +20,7 @@ export function mapPositionToDomain(row: PositionRow): Position {
   );
 }
 
-export function mapPositionToPersistence(
+function mapPositionToPersistence(
   entity: Position,
 ): Omit<PositionRow, "createdAt" | "updatedAt"> {
   return {

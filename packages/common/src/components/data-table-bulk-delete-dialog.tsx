@@ -17,7 +17,7 @@ import { useState } from "react";
 
 type ButtonVariantProps = NonNullable<Parameters<typeof buttonVariants>[0]>;
 
-export type DataTableBulkDeleteDialogProps = Readonly<{
+type DataTableBulkDeleteDialogProps = Readonly<{
   selectedCount: number;
   onConfirm: () => void | Promise<void>;
   triggerLabel?: string;

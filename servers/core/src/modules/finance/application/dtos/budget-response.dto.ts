@@ -1,7 +1,7 @@
 import type { Budget } from "../../domain/entities/budget.entity";
 import type { BudgetItem } from "../../domain/entities/budget-item.entity";
 
-export type BudgetItemResponseDto = {
+type BudgetItemResponseDto = {
   id: string;
   allocation: number;
   spent: number;
@@ -13,7 +13,7 @@ export type BudgetItemResponseDto = {
   version: number;
 };
 
-export type BudgetResponseDto = {
+type BudgetResponseDto = {
   id: string;
   month: number;
   year: number;

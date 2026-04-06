@@ -5,7 +5,7 @@ import { AssetClass } from "../../../domain/value-objects/asset-class.value-obje
 // Result type
 // ---------------------------------------------------------------------------
 
-export type InstrumentLookupResult = {
+type InstrumentLookupResult = {
   ticker: string;
   name: string;
   assetClass: AssetClass;

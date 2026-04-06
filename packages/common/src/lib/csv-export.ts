@@ -3,7 +3,7 @@
 /**
  * Options for CSV export configuration
  */
-export type CsvExportOptions = {
+type CsvExportOptions = {
   // Custom filename (without .csv extension)
   filename?: string;
   // Custom headers (uses object keys if not provided)

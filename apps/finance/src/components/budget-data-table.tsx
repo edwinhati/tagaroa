@@ -105,7 +105,7 @@ const BudgetSelectRowCell = ({ row }: { row: Row<BudgetItem> }) => (
 );
 
 // Category color and icon mapping
-export const CATEGORY_CONFIG: Record<
+const CATEGORY_CONFIG: Record<
   string,
   {
     bg: string;

@@ -1,6 +1,6 @@
 import type { PerformanceMetrics } from "../../../domain/performance/entities/performance-metrics.entity";
 
-export type PerformanceMetricsResponseDto = {
+type PerformanceMetricsResponseDto = {
   portfolio_id: string;
   total_return: number;
   total_return_pct: number;

@@ -9,9 +9,3 @@ export const Timeframe = {
 } as const;
 
 export type Timeframe = (typeof Timeframe)[keyof typeof Timeframe];
-
-const validTimeframes = new Set<string>(Object.values(Timeframe));
-
-export function isValidTimeframe(value: string): value is Timeframe {
-  return validTimeframes.has(value);
-}

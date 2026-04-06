@@ -3,13 +3,13 @@
 import { createBudgetStore } from "@repo/common/stores/budget-store";
 import { createContext, type ReactNode, useRef } from "react";
 
-export type BudgetStoreApi = ReturnType<typeof createBudgetStore>;
+type BudgetStoreApi = ReturnType<typeof createBudgetStore>;
 
 export const BudgetStoreContext = createContext<BudgetStoreApi | undefined>(
   undefined,
 );
 
-export interface BudgetProviderProps {
+interface BudgetProviderProps {
   children: ReactNode;
   month?: number;
   year?: number;

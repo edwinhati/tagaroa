@@ -2,7 +2,7 @@ import { z } from "zod";
 import { createZodDto } from "../../../../../shared/pipes/zod-validation.pipe";
 import { PositionSide } from "../../../domain/value-objects/position-side.value-object";
 
-export const AddPositionSchema = z.object({
+const AddPositionSchema = z.object({
   instrumentId: z.string().uuid(),
   quantity: z.number().min(0.00000001),
   averageCost: z.number().min(0),

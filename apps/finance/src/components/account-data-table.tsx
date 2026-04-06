@@ -134,16 +134,68 @@ export function AccountDataTable() {
 }
 
 // Custom filter function for multi-column searching
-const multiColumnFilterFn: FilterFn<Account> = (
-  row,
-  _columnId,
-  filterValue,
-) => {
+const multiColumnFilterFn: FilterFn<Account> = (row, filterValue) => {
   const searchableRowContent =
     `${row.original.name} ${row.original.type}`.toLowerCase();
   const searchTerm = (filterValue ?? "").toLowerCase();
   return searchableRowContent.includes(searchTerm);
 };
+
+type AccountTableMeta = {
+  deleteAccount: (id: string) => void;
+};
+
+const ActionsCell = ({
+  row,
+  table,
+}: {
+  row: Row<Account>;
+  table: ReturnType<typeof useReactTable<Account>>;
+}) => {
+  const meta = table.options.meta as AccountTableMeta | undefined;
+  return meta?.deleteAccount ? (
+    <RowActions row={row} deleteAccount={meta.deleteAccount} />
+  ) : null;
+};
+
+const columns: ColumnDef<Account>[] = [
+  {
+    id: "select",
+    header: SelectHeaderCell,
+    cell: SelectRowCell,
+    size: 28,
+  },
+  {
+    header: "Name",
+    accessorKey: "name",
+    cell: NameCell,
+    size: 180,
+    filterFn: multiColumnFilterFn,
+  },
+  {
+    header: "Notes",
+    accessorKey: "notes",
+    size: 220,
+  },
+  {
+    header: "Type",
+    accessorKey: "type",
+    cell: TypeCell,
+    size: 100,
+  },
+  {
+    header: "Balance",
+    accessorKey: "balance",
+    cell: BalanceCell,
+    size: 120,
+  },
+  {
+    id: "actions",
+    header: ActionsHeaderCell,
+    cell: ActionsCell,
+    size: 60,
+  },
+];
 
 function AccountDataTableContent() {
   const searchParams = useSearchParams();
@@ -177,50 +229,6 @@ function AccountDataTableContent() {
       search: searchQuery,
       category: categoryFilter ?? undefined,
     }),
-  );
-
-  const columns: ColumnDef<Account>[] = useMemo(
-    () => [
-      {
-        id: "select",
-        header: SelectHeaderCell,
-        cell: SelectRowCell,
-        size: 28,
-      },
-      {
-        header: "Name",
-        accessorKey: "name",
-        cell: NameCell,
-        size: 180,
-        filterFn: multiColumnFilterFn,
-      },
-      {
-        header: "Notes",
-        accessorKey: "notes",
-        size: 220,
-      },
-      {
-        header: "Type",
-        accessorKey: "type",
-        cell: TypeCell,
-        size: 100,
-      },
-      {
-        header: "Balance",
-        accessorKey: "balance",
-        cell: BalanceCell,
-        size: 120,
-      },
-      {
-        id: "actions",
-        header: ActionsHeaderCell,
-        cell: ({ row }) => (
-          <RowActions row={row} deleteAccount={deleteAccount} />
-        ),
-        size: 60,
-      },
-    ],
-    [deleteAccount],
   );
 
   // Update stable data only when new data arrives, not during loading
@@ -303,6 +311,9 @@ function AccountDataTableContent() {
     onPaginationChange: setPagination,
     state: {
       pagination,
+    },
+    meta: {
+      deleteAccount,
     },
   });
 

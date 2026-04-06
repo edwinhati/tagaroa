@@ -6,7 +6,7 @@ const nextConfig: NextConfig = {
   transpilePackages: ["@repo/ui", "@repo/common"],
 };
 
-export default () => {
+export default (): NextConfig => {
   if (process.env.ANALYZE === "true") {
     return withBundleAnalyzer({ enabled: true })(nextConfig);
   }

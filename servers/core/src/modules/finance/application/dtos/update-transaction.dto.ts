@@ -3,7 +3,7 @@ import { createZodDto } from "../../../../shared/pipes/zod-validation.pipe";
 import { Currency } from "../../domain/value-objects/currency";
 import { TransactionType } from "../../domain/value-objects/transaction-type";
 
-export const UpdateTransactionSchema = z
+const UpdateTransactionSchema = z
   .object({
     amount: z.number().min(0.01).optional(),
     date: z.string().optional(),

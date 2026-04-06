@@ -13,7 +13,7 @@ import {
   PORTFOLIO_REPOSITORY,
 } from "../../../domain/portfolio/repositories/portfolio.repository.interface";
 
-export class CashFlowNotFoundException extends DomainException {
+class CashFlowNotFoundException extends DomainException {
   constructor(id: string) {
     super("CASH_FLOW_NOT_FOUND", `Cash flow with id '${id}' not found`);
     this.name = "CashFlowNotFoundException";

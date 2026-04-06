@@ -20,7 +20,7 @@ import {
   POSITION_REPOSITORY,
 } from "../../../domain/portfolio/repositories/position.repository.interface";
 
-export interface AllocationByInstrument {
+interface AllocationByInstrument {
   instrumentId: string;
   ticker: string;
   assetClass: string;
@@ -28,13 +28,13 @@ export interface AllocationByInstrument {
   value: number;
 }
 
-export interface AllocationByAssetClass {
+interface AllocationByAssetClass {
   assetClass: string;
   weight: number;
   value: number;
 }
 
-export interface PortfolioAllocation {
+interface PortfolioAllocation {
   byInstrument: AllocationByInstrument[];
   byAssetClass: AllocationByAssetClass[];
   herfindahlIndex: number;

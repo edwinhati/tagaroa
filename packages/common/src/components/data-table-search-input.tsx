@@ -8,7 +8,7 @@ import type { Table } from "@tanstack/react-table";
 import { useCallback, useId, useMemo, useRef } from "react";
 
 // Client-side (table-based) search props
-export type DataTableSearchInputProps<TData> = Readonly<{
+type DataTableSearchInputProps<TData> = Readonly<{
   table: Table<TData>;
   columnId: string;
   placeholder?: string;
@@ -18,7 +18,7 @@ export type DataTableSearchInputProps<TData> = Readonly<{
 }>;
 
 // Server-side (value/onChange) search props
-export type ServerSearchInputProps = Readonly<{
+type ServerSearchInputProps = Readonly<{
   value: string;
   onChange: (value: string) => void;
   placeholder?: string;
