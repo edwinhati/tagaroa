@@ -32,7 +32,7 @@ function mapAssetToPersistence(
     name: entity.name,
     type: entity.type,
     value: String(entity.value),
-    shares: entity.shares !== null ? String(entity.shares) : null,
+    shares: entity.shares === null ? null : String(entity.shares),
     ticker: entity.ticker,
     currency: entity.currency,
     notes: entity.notes,

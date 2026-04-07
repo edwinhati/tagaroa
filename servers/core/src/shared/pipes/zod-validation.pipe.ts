@@ -4,9 +4,9 @@ import {
   Injectable,
   type PipeTransform,
 } from "@nestjs/common";
-import type { ZodSchema, z } from "zod";
+import { z } from "zod";
 
-type ZodDtoStatic<T extends ZodSchema> = {
+type ZodDtoStatic<T extends z.ZodTypeAny> = {
   new (): z.output<T>;
   _schema: T;
 };
@@ -15,11 +15,14 @@ type ZodDtoStatic<T extends ZodSchema> = {
  * Creates a DTO class that carries a Zod schema for validation.
  * Instances of the returned class are typed as the schema's output.
  */
-export function createZodDto<T extends ZodSchema>(schema: T): ZodDtoStatic<T> {
-  const ZodDto = class {};
-  return Object.assign(ZodDto, {
-    _schema: schema,
-  }) as unknown as ZodDtoStatic<T>;
+export function createZodDto<T extends z.ZodTypeAny>(
+  schema: T,
+): ZodDtoStatic<T> {
+  // biome-ignore lint/complexity/noStaticOnlyClass: This class is a NestJS DTO wrapper for the Zod schema.
+  const ZodDto = class {
+    static readonly _schema = schema;
+  };
+  return ZodDto as unknown as ZodDtoStatic<T>;
 }
 
 /**
@@ -31,7 +34,7 @@ export class ZodValidationPipe implements PipeTransform {
   transform(value: unknown, metadata: ArgumentMetadata) {
     if (metadata.type === "custom") return value;
 
-    const schema = (metadata.metatype as { _schema?: ZodSchema } | undefined)
+    const schema = (metadata.metatype as { _schema?: z.ZodTypeAny } | undefined)
       ?._schema;
     if (!schema) return value;
 
@@ -39,7 +42,7 @@ export class ZodValidationPipe implements PipeTransform {
     if (!result.success) {
       throw new BadRequestException({
         message: "Validation failed",
-        errors: result.error.flatten(),
+        errors: z.flattenError(result.error),
       });
     }
     return result.data;

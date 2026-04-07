@@ -52,4 +52,4 @@ export type PaginatedBudgetsResult = {
   budgets: Budget[];
   pagination?: PaginationInfo;
 };
-export type { PaginationInfo };
+export type { PaginationInfo } from "@repo/common/types";

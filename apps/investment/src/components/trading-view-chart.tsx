@@ -6,37 +6,35 @@ import { cn } from "@repo/ui/lib/utils";
 import { IconAlertCircle, IconRefresh } from "@tabler/icons-react";
 import { useCallback, useEffect, useRef, useState } from "react";
 
-interface TradingViewWidget {
-  new (config: TradingViewWidgetConfig): unknown;
-}
+type TradingViewWidget = new (config: TradingViewWidgetConfig) => unknown;
 
 interface TradingViewWidgetConfig {
-  container_id: string;
-  width: string | number;
-  height: string | number;
-  symbol: string;
-  interval: string;
-  timezone: string;
-  theme: "light" | "dark";
-  style: string;
-  locale: string;
-  toolbar_bg?: string;
-  enable_publishing: boolean;
-  allow_symbol_change: boolean;
-  hide_side_toolbar?: boolean;
-  save_image?: boolean;
-  studies?: string[];
-  show_popup_button?: boolean;
-  popup_width?: string;
-  popup_height?: string;
+  readonly container_id: string;
+  readonly width: string | number;
+  readonly height: string | number;
+  readonly symbol: string;
+  readonly interval: string;
+  readonly timezone: string;
+  readonly theme: "light" | "dark";
+  readonly style: string;
+  readonly locale: string;
+  readonly toolbar_bg?: string;
+  readonly enable_publishing: boolean;
+  readonly allow_symbol_change: boolean;
+  readonly hide_side_toolbar?: boolean;
+  readonly save_image?: boolean;
+  readonly studies?: string[];
+  readonly show_popup_button?: boolean;
+  readonly popup_width?: string;
+  readonly popup_height?: string;
 }
 
 declare global {
-  interface Window {
-    TradingView?: {
-      widget: TradingViewWidget;
-    };
-  }
+  var TradingView:
+    | {
+        widget: TradingViewWidget;
+      }
+    | undefined;
 }
 
 // Global script manager to handle TradingView script loading
@@ -57,7 +55,7 @@ class TradingViewScriptManager {
   loadScript(): Promise<void> {
     return new Promise((resolve, reject) => {
       // If already loaded, resolve immediately
-      if (this.isLoaded && window.TradingView?.widget) {
+      if (this.isLoaded && globalThis.TradingView?.widget) {
         resolve();
         return;
       }
@@ -72,7 +70,7 @@ class TradingViewScriptManager {
       }
 
       // Check if script already exists
-      if (window.TradingView?.widget) {
+      if (globalThis.TradingView?.widget) {
         this.isLoaded = true;
         this.executeCallbacks();
         return;
@@ -119,8 +117,8 @@ class TradingViewScriptManager {
 }
 
 interface TradingViewChartProps {
-  symbol?: string;
-  interval?:
+  readonly symbol?: string;
+  readonly interval?:
     | "1"
     | "3"
     | "5"
@@ -132,18 +130,18 @@ interface TradingViewChartProps {
     | "D"
     | "W"
     | "M";
-  theme?: "light" | "dark";
-  height?: number | string;
-  allowSymbolChange?: boolean;
-  enablePublishing?: boolean;
-  timezone?: string;
-  locale?: string;
-  style?: "0" | "1" | "2" | "3" | "4" | "5" | "6" | "7" | "8" | "9";
-  hideSideToolbar?: boolean;
-  studies?: string[];
-  className?: string;
-  onLoad?: () => void;
-  onError?: (error: Error) => void;
+  readonly theme?: "light" | "dark";
+  readonly height?: number | string;
+  readonly allowSymbolChange?: boolean;
+  readonly enablePublishing?: boolean;
+  readonly timezone?: string;
+  readonly locale?: string;
+  readonly style?: "0" | "1" | "2" | "3" | "4" | "5" | "6" | "7" | "8" | "9";
+  readonly hideSideToolbar?: boolean;
+  readonly studies?: string[];
+  readonly className?: string;
+  readonly onLoad?: () => void;
+  readonly onError?: (error: Error) => void;
 }
 
 /**
@@ -188,7 +186,7 @@ export function TradingViewChart({
       // Ensure script is loaded
       await scriptManager.loadScript();
 
-      if (!window.TradingView?.widget) {
+      if (!globalThis.TradingView?.widget) {
         throw new Error("TradingView widget not available");
       }
 
@@ -219,7 +217,7 @@ export function TradingViewChart({
         popup_height: "650",
       };
 
-      widgetRef.current = new window.TradingView.widget(config);
+      widgetRef.current = new globalThis.TradingView.widget(config);
       setIsLoading(false);
       setError(null);
       onLoad?.();
