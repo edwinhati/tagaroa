@@ -39,6 +39,7 @@ export class TransactionSideEffectsService {
         budgetItem.deletedAt,
         budgetItem.createdAt,
         new Date(),
+        budgetItem.version + 1,
       );
       await this.budgetItemRepository.update(updated);
     }

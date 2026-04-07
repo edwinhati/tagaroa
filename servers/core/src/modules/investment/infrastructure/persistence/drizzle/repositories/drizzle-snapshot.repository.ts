@@ -25,6 +25,7 @@ export class DrizzleSnapshotRepository implements IPortfolioSnapshotRepository {
         unknown
       > | null,
       createdAt: row.createdAt ?? new Date(),
+      version: Number(row.version),
     } as PortfolioSnapshot;
   }
 
@@ -76,6 +77,7 @@ export class DrizzleSnapshotRepository implements IPortfolioSnapshotRepository {
         nav: String(snapshot.nav),
         cash: String(snapshot.cash),
         positionsSnapshot: snapshot.positionsSnapshot,
+        version: String(snapshot.version),
       })
       .returning();
     if (!row) throw new Error("Failed to create snapshot");

@@ -22,6 +22,9 @@ export const positions = investmentSchema.table(
     updatedAt: timestamp("updated_at", { withTimezone: true })
       .defaultNow()
       .$onUpdate(() => new Date()),
+    version: decimal("version", { precision: 20, scale: 0 })
+      .notNull()
+      .default("1"),
   },
   (table) => [
     index("idx_positions_portfolio_id").on(table.portfolioId),

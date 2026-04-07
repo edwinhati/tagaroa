@@ -37,6 +37,7 @@ export class UpdateBudgetUseCase {
       dto.amount ?? existing.amount,
       existing.userId,
       existing.currency,
+      [], // Items loaded separately
       existing.deletedAt,
       existing.createdAt,
       new Date(),

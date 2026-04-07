@@ -10,6 +10,7 @@ export class NetWorthSnapshot {
     public readonly netWorth: number,
     public readonly currency: Currency,
     public readonly createdAt: Date,
+    public readonly version: number,
   ) {}
 
   getNetWorth(): number {

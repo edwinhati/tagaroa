@@ -25,6 +25,9 @@ export const netWorthSnapshots = financeSchema.table(
       .default("0"),
     currency: varchar("currency", { length: 3 }).notNull(),
     createdAt: timestamp("created_at", { withTimezone: true }).defaultNow(),
+    version: decimal("version", { precision: 20, scale: 0 })
+      .notNull()
+      .default("1"),
   },
   (table) => [
     index("idx_net_worth_snapshots_user_id").on(table.userId),

@@ -24,6 +24,12 @@ export const trades = investmentSchema.table(
     realizedPnl: decimal("realized_pnl", { precision: 20, scale: 8 }),
     timestamp: timestamp("timestamp", { withTimezone: true }).notNull(),
     createdAt: timestamp("created_at", { withTimezone: true }).defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true })
+      .defaultNow()
+      .$onUpdate(() => new Date()),
+    version: decimal("version", { precision: 20, scale: 0 })
+      .notNull()
+      .default("1"),
   },
   (table) => [
     index("idx_trades_portfolio_id").on(table.portfolioId),

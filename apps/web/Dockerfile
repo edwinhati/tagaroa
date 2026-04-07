@@ -60,9 +60,9 @@ WORKDIR /app
 RUN addgroup -S nodejs && adduser -S nextjs -G nodejs
 
 # Copy build output
-COPY --from=installer --chown=nextjs:nodejs /app/apps/web/.next/standalone ./
-COPY --from=installer --chown=nextjs:nodejs /app/apps/web/.next/static ./apps/web/.next/static
-# COPY --from=installer --chown=nextjs:nodejs /app/apps/web/public ./apps/web/public
+COPY --chmod=555 --from=installer --chown=nextjs:nodejs /app/apps/web/.next/standalone ./
+COPY --chmod=555 --from=installer --chown=nextjs:nodejs /app/apps/web/.next/static ./apps/web/.next/static
+# COPY --chmod=555 --from=installer --chown=nextjs:nodejs /app/apps/web/public ./apps/web/public
 
 # Remove write permissions from copied resources for security (run as root)
 RUN chmod -R 555 /app

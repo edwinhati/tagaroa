@@ -96,6 +96,7 @@ export class AddPositionUseCase {
         null,
         existing.createdAt,
         now,
+        existing.version + 1,
       );
       position = await this.positionRepository.update(consolidated);
     } else {
@@ -112,6 +113,7 @@ export class AddPositionUseCase {
           null,
           now,
           now,
+          1,
         ),
       );
     }
@@ -130,6 +132,8 @@ export class AddPositionUseCase {
         null,
         tradeTimestamp,
         now,
+        now,
+        1,
       ),
     );
 

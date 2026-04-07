@@ -12,6 +12,7 @@ function mapBudgetToDomain(row: BudgetRow): Budget {
     Number(row.amount),
     row.userId,
     row.currency,
+    [], // Items loaded separately
     row.deletedAt,
     row.createdAt ?? new Date(),
     row.updatedAt ?? new Date(),

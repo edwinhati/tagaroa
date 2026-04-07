@@ -13,5 +13,7 @@ export class Trade {
     public readonly realizedPnl: number | null,
     public readonly timestamp: Date,
     public readonly createdAt: Date,
+    public readonly updatedAt: Date,
+    public readonly version: number,
   ) {}
 }

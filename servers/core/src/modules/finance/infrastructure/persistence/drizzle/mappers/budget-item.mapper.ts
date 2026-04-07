@@ -14,6 +14,7 @@ function mapBudgetItemToDomain(row: BudgetItemRow): BudgetItem {
     row.deletedAt,
     row.createdAt ?? new Date(),
     row.updatedAt ?? new Date(),
+    Number(row.version),
   );
 }
 
@@ -27,6 +28,7 @@ function mapBudgetItemToPersistence(
     allocation: String(entity.allocation),
     spent: String(entity.spent),
     deletedAt: entity.deletedAt,
+    version: String(entity.version),
   };
 }
 

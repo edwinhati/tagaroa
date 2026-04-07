@@ -17,6 +17,7 @@ function mapPositionToDomain(row: PositionRow): Position {
     row.closedAt ?? null,
     row.createdAt ?? new Date(),
     row.updatedAt ?? new Date(),
+    Number(row.version),
   );
 }
 
@@ -32,6 +33,7 @@ function mapPositionToPersistence(
     side: entity.side,
     openedAt: entity.openedAt,
     closedAt: entity.closedAt,
+    version: String(entity.version),
   };
 }
 

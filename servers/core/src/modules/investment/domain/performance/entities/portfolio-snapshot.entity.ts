@@ -7,5 +7,6 @@ export class PortfolioSnapshot {
     public readonly cash: number,
     public readonly positionsSnapshot: Record<string, unknown> | null,
     public readonly createdAt: Date,
+    public readonly version: number,
   ) {}
 }

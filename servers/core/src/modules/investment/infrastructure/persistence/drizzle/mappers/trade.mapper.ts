@@ -18,10 +18,14 @@ function mapTradeToDomain(row: TradeRow): Trade {
     row.realizedPnl == null ? null : Number(row.realizedPnl),
     row.timestamp,
     row.createdAt ?? new Date(),
+    row.updatedAt ?? new Date(),
+    Number(row.version),
   );
 }
 
-function mapTradeToPersistence(entity: Trade): Omit<TradeRow, "createdAt"> {
+function mapTradeToPersistence(
+  entity: Trade,
+): Omit<TradeRow, "createdAt" | "updatedAt"> {
   return {
     id: entity.id,
     portfolioId: entity.portfolioId,
@@ -33,6 +37,7 @@ function mapTradeToPersistence(entity: Trade): Omit<TradeRow, "createdAt"> {
     fees: String(entity.fees),
     realizedPnl: entity.realizedPnl == null ? null : String(entity.realizedPnl),
     timestamp: entity.timestamp,
+    version: String(entity.version),
   };
 }
 

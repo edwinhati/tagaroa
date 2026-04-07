@@ -43,6 +43,7 @@ export class CreateBudgetUseCase {
       dto.amount,
       userId,
       dto.currency,
+      [], // Items loaded separately
       null,
       now,
       now,
@@ -61,6 +62,7 @@ export class CreateBudgetUseCase {
           null,
           now,
           now,
+          1,
         ),
     );
 

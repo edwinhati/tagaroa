@@ -5,7 +5,7 @@ import type {
 import type { Transaction } from "../entities/transaction.entity";
 import type { TransactionType } from "../value-objects/transaction-type";
 
-export const TRANSACTION_REPOSITORY = "TRANSACTION_REPOSITORY";
+export const TRANSACTION_REPOSITORY = Symbol("TRANSACTION_REPOSITORY");
 
 export type TransactionFilterParams = {
   search?: string;

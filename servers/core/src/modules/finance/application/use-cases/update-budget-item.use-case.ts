@@ -65,6 +65,7 @@ export class UpdateBudgetItemUseCase {
       existing.deletedAt,
       existing.createdAt,
       new Date(),
+      existing.version + 1,
     );
 
     return this.budgetItemRepository.update(updated);

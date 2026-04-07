@@ -18,6 +18,9 @@ export const budgetItems = financeSchema.table(
     updatedAt: timestamp("updated_at", { withTimezone: true })
       .defaultNow()
       .$onUpdate(() => new Date()),
+    version: decimal("version", { precision: 20, scale: 0 })
+      .notNull()
+      .default("1"),
   },
   (_table) => [
     // Normalized SQL matching PostgreSQL's stored form (PG adds ::numeric cast for numeric columns)

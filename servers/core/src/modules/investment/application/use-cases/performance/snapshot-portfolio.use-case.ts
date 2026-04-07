@@ -66,6 +66,7 @@ export class SnapshotPortfolioUseCase {
       cash,
       positionsSnapshot,
       now,
+      1,
     );
 
     return this.snapshotRepository.create(snapshot);

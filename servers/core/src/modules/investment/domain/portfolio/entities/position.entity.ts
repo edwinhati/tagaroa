@@ -12,7 +12,38 @@ export class Position {
     public readonly closedAt: Date | null,
     public readonly createdAt: Date,
     public readonly updatedAt: Date,
+    public readonly version: number,
   ) {}
+
+  static create(
+    portfolioId: string,
+    instrumentId: string,
+    quantity: number,
+    averageCost: number,
+    side: PositionSide,
+  ): Position {
+    if (quantity <= 0) {
+      throw new Error("Position quantity must be positive");
+    }
+    if (averageCost < 0) {
+      throw new Error("Position average cost cannot be negative");
+    }
+
+    const now = new Date();
+    return new Position(
+      crypto.randomUUID(),
+      portfolioId,
+      instrumentId,
+      quantity,
+      averageCost,
+      side,
+      now,
+      null,
+      now,
+      now,
+      1,
+    );
+  }
 
   isOpen(): boolean {
     return this.closedAt === null;
@@ -26,5 +57,59 @@ export class Position {
     const costBasis = this.quantity * this.averageCost;
     const mv = this.marketValue(currentPrice);
     return this.side === "LONG" ? mv - costBasis : costBasis - mv;
+  }
+
+  consolidate(other: Position): Position {
+    if (this.side !== other.side) {
+      throw new Error("Cannot consolidate positions with different sides");
+    }
+    if (this.instrumentId !== other.instrumentId) {
+      throw new Error("Cannot consolidate positions for different instruments");
+    }
+    if (this.portfolioId !== other.portfolioId) {
+      throw new Error("Cannot consolidate positions from different portfolios");
+    }
+    if (!this.isOpen()) {
+      throw new Error("Cannot consolidate into a closed position");
+    }
+
+    const totalQty = this.quantity + other.quantity;
+    const weightedAvgCost =
+      (this.quantity * this.averageCost + other.quantity * other.averageCost) /
+      totalQty;
+
+    return new Position(
+      this.id,
+      this.portfolioId,
+      this.instrumentId,
+      totalQty,
+      weightedAvgCost,
+      this.side,
+      this.openedAt,
+      this.closedAt,
+      this.createdAt,
+      new Date(),
+      this.version + 1,
+    );
+  }
+
+  close(_closePrice: number): Position {
+    if (!this.isOpen()) {
+      throw new Error("Position is already closed");
+    }
+
+    return new Position(
+      this.id,
+      this.portfolioId,
+      this.instrumentId,
+      this.quantity,
+      this.averageCost,
+      this.side,
+      this.openedAt,
+      new Date(),
+      this.createdAt,
+      new Date(),
+      this.version + 1,
+    );
   }
 }

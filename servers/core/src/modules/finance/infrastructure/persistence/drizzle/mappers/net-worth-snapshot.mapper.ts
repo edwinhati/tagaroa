@@ -17,6 +17,7 @@ function mapNetWorthSnapshotToDomain(
     Number(row.netWorth),
     row.currency as Currency,
     row.createdAt ?? new Date(),
+    Number(row.version),
   );
 }
 
@@ -31,6 +32,7 @@ function mapNetWorthSnapshotToPersistence(
     totalLiabilities: String(entity.totalLiabilities),
     netWorth: String(entity.netWorth),
     currency: entity.currency,
+    version: String(entity.version),
   };
 }
 

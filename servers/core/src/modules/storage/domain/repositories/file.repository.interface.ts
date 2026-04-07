@@ -1,6 +1,6 @@
 import type { File } from "../entities/file.entity";
 
-export const FILE_REPOSITORY = "FILE_REPOSITORY";
+export const FILE_REPOSITORY = Symbol("FILE_REPOSITORY");
 
 export interface IFileRepository {
   findById(id: string): Promise<File | null>;

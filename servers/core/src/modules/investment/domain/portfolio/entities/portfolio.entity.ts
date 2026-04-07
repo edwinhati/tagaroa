@@ -16,6 +16,37 @@ export class Portfolio {
     public readonly version: number,
   ) {}
 
+  static create(
+    id: string,
+    userId: string,
+    name: string,
+    mode: PortfolioMode,
+    initialCapital: number,
+    currency: string,
+  ): Portfolio {
+    if (!name || name.trim().length === 0) {
+      throw new Error("Portfolio name is required");
+    }
+    if (initialCapital < 0) {
+      throw new Error("Initial capital must be non-negative");
+    }
+
+    const now = new Date();
+    return new Portfolio(
+      id,
+      userId,
+      name,
+      mode,
+      initialCapital,
+      currency,
+      "ACTIVE" as PortfolioStatus,
+      null,
+      now,
+      now,
+      1,
+    );
+  }
+
   isActive(): boolean {
     return this.deletedAt === null;
   }

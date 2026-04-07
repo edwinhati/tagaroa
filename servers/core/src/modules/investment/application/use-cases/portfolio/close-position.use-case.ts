@@ -81,6 +81,8 @@ export class ClosePositionUseCase {
         realizedPnl,
         now,
         now,
+        now,
+        1,
       ),
     );
 
@@ -98,6 +100,7 @@ export class ClosePositionUseCase {
         now,
         position.createdAt,
         now,
+        position.version + 1,
       );
     } else {
       // Partial close: reduce quantity
@@ -113,6 +116,7 @@ export class ClosePositionUseCase {
         null,
         position.createdAt,
         now,
+        position.version + 1,
       );
     }
 

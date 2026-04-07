@@ -14,6 +14,9 @@ export const portfolioSnapshots = investmentSchema.table(
     cash: decimal("cash", { precision: 20, scale: 8 }).notNull(),
     positionsSnapshot: jsonb("positions_snapshot"),
     createdAt: timestamp("created_at", { withTimezone: true }).defaultNow(),
+    version: decimal("version", { precision: 20, scale: 0 })
+      .notNull()
+      .default("1"),
   },
   (table) => [
     index("idx_portfolio_snapshots_portfolio_id").on(table.portfolioId),
