@@ -1,5 +1,11 @@
 # core-service
 
+## 0.1.9
+
+### Patch Changes
+
+- refactor: standardize readonly modifiers and type definitions across the codebase
+
 ## 0.1.8
 
 ### Patch Changes

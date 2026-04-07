@@ -1,5 +1,13 @@
 # finance
 
+## 0.1.9
+
+### Patch Changes
+
+- refactor: standardize readonly modifiers and type definitions across the codebase
+  - @repo/ui@0.1.9
+  - @repo/common@0.1.9
+
 ## 0.1.8
 
 ### Patch Changes
