@@ -1,5 +1,17 @@
 # @repo/auth
 
+## 0.1.0
+
+### Minor Changes
+
+- Add Better Auth Infrastructure integration
+
+  - Install @better-auth/infra package for dashboard, analytics, and security features
+  - Add dash() and sentinel() plugins to server auth configuration
+  - Add dashClient() and sentinelClient() to auth client
+  - Add db:generate and db:migrate scripts for Better Auth schema management
+  - Add BETTER_AUTH_API_KEY environment variable documentation
+
 ## 0.0.1
 
 ### Patch Changes

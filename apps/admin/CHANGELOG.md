@@ -1,5 +1,13 @@
 # admin
 
+## 0.2.0
+
+### Patch Changes
+
+- Updated dependencies
+  - @repo/common@0.2.0
+  - @repo/ui@0.2.0
+
 ## 0.1.9
 
 ### Patch Changes
