@@ -12,6 +12,7 @@
       "core-service",
       "@repo/ui",
       "@repo/common",
+      "@repo/playwright-config",
       "@repo/typescript-config"
     ]
   ],

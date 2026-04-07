@@ -1,0 +1,10 @@
+{
+  "name": "@repo/playwright-config",
+  "version": "0.1.0",
+  "private": true,
+  "license": "MIT",
+  "main": "./index.ts",
+  "peerDependencies": {
+    "@playwright/test": ">=1.0.0"
+  }
+}

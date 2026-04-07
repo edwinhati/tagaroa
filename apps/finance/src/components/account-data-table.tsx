@@ -1,10 +1,12 @@
 "use client";
 
 import { DataTableBulkDeleteDialog } from "@repo/common/components/data-table-bulk-delete-dialog";
+import { DataTableEmptyState } from "@repo/common/components/data-table-empty-state";
 import { DataTableExportButton } from "@repo/common/components/data-table-export-button";
 import { DataTableMultiSelectFilter } from "@repo/common/components/data-table-multi-select-filter";
 import { DataTablePagination } from "@repo/common/components/data-table-pagination";
 import { ServerSearchInput } from "@repo/common/components/data-table-search-input";
+import { DataTableSortableHeader } from "@repo/common/components/data-table-sortable-header";
 import { Loading } from "@repo/common/components/loading";
 import { exportToCSV } from "@repo/common/lib/csv-export";
 import {
@@ -12,6 +14,7 @@ import {
   exportAccountsQueryOptions,
   useAccountDeleteMutationOptions,
 } from "@repo/common/lib/query/account-query";
+import { resolveColumnKey } from "@repo/common/lib/resolve-column-key";
 import type {
   Account,
   AccountCategory,
@@ -46,14 +49,7 @@ import {
   TableHeader,
   TableRow,
 } from "@repo/ui/components/table";
-import { cn } from "@repo/ui/lib/utils";
-import {
-  IconChevronDown,
-  IconChevronUp,
-  IconDots,
-  IconPlus,
-  IconWallet,
-} from "@tabler/icons-react";
+import { IconDots, IconPlus, IconWallet } from "@tabler/icons-react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   type ColumnDef,
@@ -477,69 +473,9 @@ function AccountDataTableContent() {
           <TableHeader>
             {table.getHeaderGroups().map((headerGroup) => (
               <TableRow key={headerGroup.id} className="hover:bg-transparent">
-                {headerGroup.headers.map((header) => {
-                  const widthStyle = { width: `${header.getSize()}px` };
-
-                  if (header.isPlaceholder) {
-                    return (
-                      <TableHead
-                        key={header.id}
-                        style={widthStyle}
-                        className="h-11"
-                      />
-                    );
-                  }
-
-                  const canSort = header.column.getCanSort();
-                  const sortState = header.column.getIsSorted();
-                  const headerLabel = flexRender(
-                    header.column.columnDef.header,
-                    header.getContext(),
-                  );
-                  let headerContent = headerLabel;
-
-                  if (canSort) {
-                    const toggleSorting =
-                      header.column.getToggleSortingHandler();
-                    headerContent = (
-                      <Button
-                        type="button"
-                        variant="ghost"
-                        className={cn(
-                          "flex h-8 select-none items-center justify-between gap-2 px-0 hover:bg-transparent focus-visible:ring-0",
-                          "cursor-pointer",
-                        )}
-                        onClick={toggleSorting}
-                      >
-                        {headerLabel}
-                        {sortState === "asc" && (
-                          <IconChevronUp
-                            className="shrink-0 opacity-60"
-                            size={16}
-                            aria-hidden="true"
-                          />
-                        )}
-                        {sortState === "desc" && (
-                          <IconChevronDown
-                            className="shrink-0 opacity-60"
-                            size={16}
-                            aria-hidden="true"
-                          />
-                        )}
-                      </Button>
-                    );
-                  }
-
-                  return (
-                    <TableHead
-                      key={header.id}
-                      style={widthStyle}
-                      className="h-11"
-                    >
-                      {headerContent}
-                    </TableHead>
-                  );
-                })}
+                {headerGroup.headers.map((header) => (
+                  <DataTableSortableHeader key={header.id} header={header} />
+                ))}
               </TableRow>
             ))}
           </TableHeader>
@@ -616,16 +552,7 @@ function AccountDataTableContent() {
                           </EmptyContent>
                         </Empty>
                       ) : (
-                        <div className="flex h-full w-full flex-col items-center justify-center text-center">
-                          <div className="text-muted-foreground">
-                            <h3 className="text-lg font-medium">
-                              No results found
-                            </h3>
-                            <p className="mt-1 text-sm">
-                              Try adjusting your search or filter criteria
-                            </p>
-                          </div>
-                        </div>
+                        <DataTableEmptyState />
                       )}
                     </div>
                   </TableCell>
@@ -764,20 +691,3 @@ function AccountTableSkeleton() {
     </div>
   );
 }
-
-const resolveColumnKey = (
-  column: ColumnDef<Account>,
-  fallbackIndex: number,
-) => {
-  if (column.id) {
-    return column.id;
-  }
-  if ("accessorKey" in column) {
-    const accessorKey = (column as { accessorKey?: string | number })
-      .accessorKey;
-    if (accessorKey !== undefined) {
-      return accessorKey.toString();
-    }
-  }
-  return `col-${fallbackIndex}`;
-};
