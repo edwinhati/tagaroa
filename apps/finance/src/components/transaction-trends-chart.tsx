@@ -36,16 +36,16 @@ const chartConfig = {
   },
 } satisfies ChartConfig;
 
-interface TrendsTooltipProps {
+type TrendsTooltipProps = Readonly<{
   active?: boolean;
-  payload?: Array<{
-    dataKey: string;
-    value: number;
-    color: string;
-    name: string;
+  payload?: ReadonlyArray<{
+    readonly dataKey: string;
+    readonly value: number;
+    readonly color: string;
+    readonly name: string;
   }>;
   label?: string;
-}
+}>;
 
 function TrendsTooltip({ active, payload, label }: TrendsTooltipProps) {
   if (!active || !payload?.length) return null;
@@ -120,7 +120,7 @@ function TrendsTooltip({ active, payload, label }: TrendsTooltipProps) {
 }
 
 const TransactionTrendsChart = React.memo(
-  ({ range }: { range?: DateRange }) => {
+  ({ range }: Readonly<{ range?: DateRange }>) => {
     const queryParams = {
       startDate: range?.from
         ? range.from.toISOString().split("T")[0]

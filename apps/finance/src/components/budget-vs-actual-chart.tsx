@@ -18,7 +18,8 @@ import { IconTarget } from "@tabler/icons-react";
 import { useQuery } from "@tanstack/react-query";
 import React from "react";
 import type { DateRange } from "react-day-picker";
-import { Bar, BarChart, CartesianGrid, Cell, XAxis, YAxis } from "recharts";
+import { Bar, BarChart, CartesianGrid, XAxis, YAxis } from "recharts";
+
 import { formatCurrencyCompact } from "@/utils/currency";
 
 const chartConfig = {
@@ -32,22 +33,22 @@ const chartConfig = {
   },
 } satisfies ChartConfig;
 
-interface BudgetTooltipProps {
+type BudgetTooltipProps = Readonly<{
   active?: boolean;
-  payload?: Array<{
-    dataKey: string;
-    value: number;
-    payload: {
-      category: string;
-      allocated: number;
-      spent: number;
-      remaining: number;
-      percentage: number;
-      is_over_budget: boolean;
+  payload?: ReadonlyArray<{
+    readonly dataKey: string;
+    readonly value: number;
+    readonly payload: {
+      readonly category: string;
+      readonly allocated: number;
+      readonly spent: number;
+      readonly remaining: number;
+      readonly percentage: number;
+      readonly is_over_budget: boolean;
     };
   }>;
   label?: string;
-}
+}>;
 
 function BudgetTooltip({ active, payload, label }: BudgetTooltipProps) {
   if (!active || !payload?.length) return null;
@@ -110,24 +111,58 @@ function BudgetTooltip({ active, payload, label }: BudgetTooltipProps) {
   );
 }
 
-const BudgetVsActualChart = React.memo(({ range }: { range?: DateRange }) => {
-  // Use range.to for budget period since budget periods run from 25th of prev month to 25th of current month
-  // The budget period is named after the ending month (e.g., Dec 25 - Jan 25 is January's budget)
-  const month = range?.to ? range.to.getMonth() + 1 : new Date().getMonth() + 1;
-  const year = range?.to ? range.to.getFullYear() : new Date().getFullYear();
+const BudgetVsActualChart = React.memo(
+  ({ range }: Readonly<{ range?: DateRange }>) => {
+    // Use range.to for budget period since budget periods run from 25th of prev month to 25th of current month
+    // The budget period is named after the ending month (e.g., Dec 25 - Jan 25 is January's budget)
+    const month = range?.to
+      ? range.to.getMonth() + 1
+      : new Date().getMonth() + 1;
+    const year = range?.to ? range.to.getFullYear() : new Date().getFullYear();
 
-  const { data, isLoading } = useQuery({
-    ...budgetPerformanceQueryOptions({ month, year }),
-  });
+    const { data, isLoading } = useQuery({
+      ...budgetPerformanceQueryOptions({ month, year }),
+    });
 
-  const monthName = new Date(year, month - 1).toLocaleDateString("en-US", {
-    month: "long",
-    year: "numeric",
-  });
+    const monthName = new Date(year, month - 1).toLocaleDateString("en-US", {
+      month: "long",
+      year: "numeric",
+    });
 
-  if (isLoading) {
+    if (isLoading) {
+      return (
+        <Card className="h-full">
+          <CardHeader className="flex flex-row items-start justify-between space-y-0 pb-4">
+            <div>
+              <CardTitle className="text-base font-semibold">
+                Budget vs Actual
+              </CardTitle>
+              <CardDescription className="text-xs">{monthName}</CardDescription>
+            </div>
+            <div className="p-2.5 rounded-xl bg-amber-500/10 ring-1 ring-amber-500/20">
+              <IconTarget className="h-4 w-4 text-amber-500" />
+            </div>
+          </CardHeader>
+          <CardContent className="pl-2">
+            <Skeleton className="h-[280px] w-full rounded-lg" />
+          </CardContent>
+        </Card>
+      );
+    }
+
+    const chartData =
+      (data?.items ?? []).map((item) => ({
+        category: item.category,
+        allocated: item.allocated,
+        spent: item.spent,
+        remaining: item.remaining,
+        percentage: item.percentage,
+        is_over_budget: item.is_over_budget,
+        fill: item.is_over_budget ? "hsl(349, 89%, 60%)" : "var(--color-spent)",
+      })) ?? [];
+
     return (
-      <Card className="h-full">
+      <Card className="h-full border-border/40 bg-card/60 backdrop-blur-md shadow-sm ">
         <CardHeader className="flex flex-row items-start justify-between space-y-0 pb-4">
           <div>
             <CardTitle className="text-base font-semibold">
@@ -140,83 +175,46 @@ const BudgetVsActualChart = React.memo(({ range }: { range?: DateRange }) => {
           </div>
         </CardHeader>
         <CardContent className="pl-2">
-          <Skeleton className="h-[280px] w-full rounded-lg" />
+          <ChartContainer config={chartConfig} className="h-[280px] w-full">
+            <BarChart data={chartData} accessibilityLayer barGap={4}>
+              <CartesianGrid
+                vertical={false}
+                strokeDasharray="3 3"
+                className="stroke-muted/30"
+              />
+              <XAxis
+                dataKey="category"
+                tickLine={false}
+                tickMargin={10}
+                axisLine={false}
+                className="text-[10px]"
+                tickFormatter={(value) =>
+                  value.length > 8 ? `${value.slice(0, 8)}...` : value
+                }
+              />
+              <YAxis hide />
+              <ChartTooltip
+                cursor={{ fill: "hsl(var(--muted)/0.3)" }}
+                content={<BudgetTooltip />}
+              />
+              <Bar
+                dataKey="allocated"
+                fill="var(--color-allocated)"
+                radius={[4, 4, 0, 0]}
+                className="transition-opacity duration-200 hover:opacity-80"
+              />
+              <Bar
+                dataKey="spent"
+                radius={[4, 4, 0, 0]}
+                className="transition-opacity duration-200 hover:opacity-80"
+              />
+            </BarChart>
+          </ChartContainer>
         </CardContent>
       </Card>
     );
-  }
-
-  const chartData =
-    (data?.items ?? []).map((item) => ({
-      category: item.category,
-      allocated: item.allocated,
-      spent: item.spent,
-      remaining: item.remaining,
-      percentage: item.percentage,
-      is_over_budget: item.is_over_budget,
-    })) ?? [];
-
-  return (
-    <Card className="h-full border-border/40 bg-card/60 backdrop-blur-md shadow-sm ">
-      <CardHeader className="flex flex-row items-start justify-between space-y-0 pb-4">
-        <div>
-          <CardTitle className="text-base font-semibold">
-            Budget vs Actual
-          </CardTitle>
-          <CardDescription className="text-xs">{monthName}</CardDescription>
-        </div>
-        <div className="p-2.5 rounded-xl bg-amber-500/10 ring-1 ring-amber-500/20">
-          <IconTarget className="h-4 w-4 text-amber-500" />
-        </div>
-      </CardHeader>
-      <CardContent className="pl-2">
-        <ChartContainer config={chartConfig} className="h-[280px] w-full">
-          <BarChart data={chartData} accessibilityLayer barGap={4}>
-            <CartesianGrid
-              vertical={false}
-              strokeDasharray="3 3"
-              className="stroke-muted/30"
-            />
-            <XAxis
-              dataKey="category"
-              tickLine={false}
-              tickMargin={10}
-              axisLine={false}
-              className="text-[10px]"
-              tickFormatter={(value) =>
-                value.length > 8 ? `${value.slice(0, 8)}...` : value
-              }
-            />
-            <YAxis hide />
-            <ChartTooltip
-              cursor={{ fill: "hsl(var(--muted)/0.3)" }}
-              content={<BudgetTooltip />}
-            />
-            <Bar
-              dataKey="allocated"
-              fill="var(--color-allocated)"
-              radius={[4, 4, 0, 0]}
-              className="transition-opacity duration-200 hover:opacity-80"
-            />
-            <Bar dataKey="spent" radius={[4, 4, 0, 0]}>
-              {chartData.map((entry) => (
-                <Cell
-                  key={entry.category}
-                  fill={
-                    entry.is_over_budget
-                      ? "hsl(349, 89%, 60%)"
-                      : "var(--color-spent)"
-                  }
-                  className="transition-opacity duration-200 hover:opacity-80"
-                />
-              ))}
-            </Bar>
-          </BarChart>
-        </ChartContainer>
-      </CardContent>
-    </Card>
-  );
-});
+  },
+);
 
 BudgetVsActualChart.displayName = "BudgetVsActualChart";
 

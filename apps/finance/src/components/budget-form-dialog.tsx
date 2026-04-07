@@ -1,7 +1,7 @@
 "use client";
 
 import { zodResolver } from "@hookform/resolvers/zod";
-import { budgetMutationOptions } from "@repo/common/lib/query/budget-query";
+import { useBudgetMutationOptions } from "@repo/common/lib/query/budget-query";
 import {
   type Budget,
   type BudgetInput,
@@ -84,8 +84,9 @@ export function BudgetFormDialog({
     setOpen(newOpen);
   };
 
+  const budgetMutationOpts = useBudgetMutationOptions();
   const { mutate, isPending } = useMutation({
-    ...budgetMutationOptions(),
+    ...budgetMutationOpts,
     onSuccess: () => {
       toast.success(initialData ? "Budget updated" : "Budget created");
       form.reset();

@@ -3,8 +3,8 @@
 import { zodResolver } from "@hookform/resolvers/zod";
 import { currencies } from "@repo/common/lib/currencies";
 import {
-  liabilityMutationOptions,
   liabilityTypesQueryOptions,
+  useLiabilityMutationOptions,
 } from "@repo/common/lib/query/liability-query";
 import { type Liability, liabilitySchema } from "@repo/common/types/liability";
 import { Button } from "@repo/ui/components/button";
@@ -77,8 +77,9 @@ export function LiabilityFormDialog({
     name: "currency",
   });
 
+  const liabilityMutationOpts = useLiabilityMutationOptions();
   const { mutate, isPending } = useMutation({
-    ...liabilityMutationOptions(),
+    ...liabilityMutationOpts,
     onSuccess: () => {
       toast.success(initialData ? "Liability updated" : "Liability created");
       form.reset();
@@ -91,6 +92,18 @@ export function LiabilityFormDialog({
   const { data: liabilityTypes } = useQuery(liabilityTypesQueryOptions());
 
   const onSubmit = () => mutate({ ...form.getValues(), id: initialData?.id });
+
+  let submitButtonContent: React.ReactNode = "Add Liability";
+  if (isPending) {
+    submitButtonContent = (
+      <>
+        <IconLoader2 className="animate-spin mr-2 h-4 w-4" aria-hidden="true" />
+        Saving...
+      </>
+    );
+  } else if (initialData) {
+    submitButtonContent = "Update Liability";
+  }
 
   return (
     <Dialog
@@ -161,7 +174,7 @@ export function LiabilityFormDialog({
                     <SelectContent>
                       {liabilityTypes?.map((type) => (
                         <SelectItem key={type} value={type}>
-                          {type.replace(/_/g, " ")}
+                          {type.replaceAll("_", " ")}
                         </SelectItem>
                       ))}
                     </SelectContent>
@@ -237,19 +250,7 @@ export function LiabilityFormDialog({
               aria-busy={isPending}
               className="flex-1"
             >
-              {isPending ? (
-                <>
-                  <IconLoader2
-                    className="animate-spin mr-2 h-4 w-4"
-                    aria-hidden="true"
-                  />
-                  Saving...
-                </>
-              ) : initialData ? (
-                "Update Liability"
-              ) : (
-                "Add Liability"
-              )}
+              {submitButtonContent}
             </Button>
           </div>
         </form>

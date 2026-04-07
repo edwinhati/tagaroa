@@ -33,20 +33,47 @@ import {
 } from "recharts";
 import { formatCurrencyCompact } from "@/utils/currency";
 
-interface InsightsPanelProps {
+type InsightsPanelProps = Readonly<{
   range?: DateRange;
   currency?: string;
-}
+}>;
 
 // ─── Savings Rate Gauge ────────────────────────────────────────────────────
+
+type SavingsRateLabelProps = Readonly<{
+  viewBox?: { cx: number; cy: number };
+  percentage: number;
+}>;
+
+const SavingsRateLabel = ({ viewBox, percentage }: SavingsRateLabelProps) => {
+  if (viewBox && "cx" in viewBox && "cy" in viewBox) {
+    return (
+      <text
+        x={viewBox.cx}
+        y={viewBox.cy}
+        textAnchor="middle"
+        dominantBaseline="middle"
+      >
+        <tspan
+          x={viewBox.cx}
+          y={viewBox.cy}
+          className="fill-foreground text-[11px] font-bold"
+        >
+          {percentage.toFixed(0)}%
+        </tspan>
+      </text>
+    );
+  }
+  return null;
+};
 
 const SavingsRateGauge = ({
   rate,
   trend,
-}: {
+}: Readonly<{
   rate: number;
   trend: "up" | "down" | "stable";
-}) => {
+}>) => {
   const percentage = Math.min(Math.max(rate, 0), 100);
 
   const getRateColor = () => {
@@ -67,21 +94,25 @@ const SavingsRateGauge = ({
   } satisfies ChartConfig;
 
   const TrendIcon =
-    trend === "up"
-      ? IconArrowUpRight
-      : trend === "down"
-        ? IconArrowDownRight
-        : IconEqual;
+    {
+      up: IconArrowUpRight,
+      down: IconArrowDownRight,
+      stable: IconEqual,
+    }[trend] || IconEqual;
 
   const trendColor =
-    trend === "up"
-      ? "text-emerald-500"
-      : trend === "down"
-        ? "text-rose-500"
-        : "text-muted-foreground";
+    {
+      up: "text-emerald-500",
+      down: "text-rose-500",
+      stable: "text-muted-foreground",
+    }[trend] || "text-muted-foreground";
 
   const trendLabel =
-    trend === "up" ? "Improving" : trend === "down" ? "Declining" : "Stable";
+    {
+      up: "Improving",
+      down: "Declining",
+      stable: "Stable",
+    }[trend] || "Stable";
 
   return (
     <div className="flex items-center gap-4 p-4 rounded-xl bg-muted/30 border border-border/40">
@@ -105,28 +136,7 @@ const SavingsRateGauge = ({
             polarRadius={[36, 26]}
           />
           <PolarRadiusAxis tick={false} tickLine={false} axisLine={false}>
-            <Label
-              content={({ viewBox }) => {
-                if (viewBox && "cx" in viewBox && "cy" in viewBox) {
-                  return (
-                    <text
-                      x={viewBox.cx}
-                      y={viewBox.cy}
-                      textAnchor="middle"
-                      dominantBaseline="middle"
-                    >
-                      <tspan
-                        x={viewBox.cx}
-                        y={viewBox.cy}
-                        className="fill-foreground text-[11px] font-bold"
-                      >
-                        {percentage.toFixed(0)}%
-                      </tspan>
-                    </text>
-                  );
-                }
-              }}
-            />
+            <Label content={<SavingsRateLabel percentage={percentage} />} />
           </PolarRadiusAxis>
           <RadialBar dataKey="rate" cornerRadius={6} />
         </RadialBarChart>
@@ -154,13 +164,13 @@ const ProgressItem = ({
   percentage,
   type,
   currency = "IDR",
-}: {
+}: Readonly<{
   category: string;
   amount: number;
   percentage: number;
   type: "income" | "expense";
   currency?: string;
-}) => {
+}>) => {
   const barColor = type === "income" ? "bg-emerald-500" : "bg-rose-500";
   const textColor =
     type === "income"
@@ -208,12 +218,16 @@ const TopItemsSection = ({
   title,
   type,
   currency,
-}: {
-  items: { category: string; amount: number; percentage: number }[];
+}: Readonly<{
+  items: ReadonlyArray<{
+    readonly category: string;
+    readonly amount: number;
+    readonly percentage: number;
+  }>;
   title: string;
   type: "income" | "expense";
   currency?: string;
-}) => {
+}>) => {
   if (!items || items.length === 0) return null;
 
   const Icon = type === "income" ? IconTrendingUp : IconTrendingDown;
@@ -247,9 +261,9 @@ const TopItemsSection = ({
 
 const RecommendationsList = ({
   recommendations,
-}: {
-  recommendations: string[];
-}) => {
+}: Readonly<{
+  recommendations: ReadonlyArray<string>;
+}>) => {
   if (!recommendations || recommendations.length === 0) return null;
 
   return (

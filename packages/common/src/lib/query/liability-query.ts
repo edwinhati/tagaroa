@@ -109,7 +109,7 @@ export const liabilityQueryOptions = (params?: {
     queryFn: () => fetchLiabilities(params),
   });
 
-export const liabilityMutationOptions = () => {
+export const useLiabilityMutationOptions = () => {
   const queryClient = useQueryClient();
   return mutationOptions({
     mutationFn: mutateLiability,
@@ -118,7 +118,7 @@ export const liabilityMutationOptions = () => {
   });
 };
 
-export const liabilityDeleteMutationOptions = () => {
+export const useLiabilityDeleteMutationOptions = () => {
   const queryClient = useQueryClient();
 
   return mutationOptions({

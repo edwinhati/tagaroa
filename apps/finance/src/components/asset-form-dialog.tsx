@@ -3,8 +3,8 @@
 import { zodResolver } from "@hookform/resolvers/zod";
 import { currencies } from "@repo/common/lib/currencies";
 import {
-  assetMutationOptions,
   assetTypesQueryOptions,
+  useAssetMutationOptions,
 } from "@repo/common/lib/query/asset-query";
 import { type Asset, assetSchema } from "@repo/common/types/asset";
 import { Button } from "@repo/ui/components/button";
@@ -90,8 +90,9 @@ export function AssetFormDialog({
     setOpen(newOpen);
   };
 
+  const assetMutationOpts = useAssetMutationOptions();
   const { mutate, isPending } = useMutation({
-    ...assetMutationOptions(),
+    ...assetMutationOpts,
     onSuccess: () => {
       toast.success(initialData ? "Asset updated" : "Asset created");
       form.reset();
@@ -200,7 +201,7 @@ export function AssetFormDialog({
                     <SelectContent>
                       {(assetTypes ?? []).map((type) => (
                         <SelectItem key={type} value={type}>
-                          {type.replace(/_/g, " ")}
+                          {type.replaceAll("_", " ")}
                         </SelectItem>
                       ))}
                     </SelectContent>

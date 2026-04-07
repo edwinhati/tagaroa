@@ -36,16 +36,16 @@ const chartConfig = {
   },
 } satisfies ChartConfig;
 
-interface MonthlyTooltipProps {
+type MonthlyTooltipProps = Readonly<{
   active?: boolean;
-  payload?: Array<{
-    dataKey: string;
-    value: number;
-    color: string;
-    name: string;
+  payload?: ReadonlyArray<{
+    readonly dataKey: string;
+    readonly value: number;
+    readonly color: string;
+    readonly name: string;
   }>;
   label?: string;
-}
+}>;
 
 function MonthlyTooltip({ active, payload, label }: MonthlyTooltipProps) {
   if (!active || !payload?.length) return null;
@@ -113,7 +113,7 @@ function MonthlyTooltip({ active, payload, label }: MonthlyTooltipProps) {
 }
 
 const MonthlyComparisonChart = React.memo(
-  ({ range }: { range?: DateRange }) => {
+  ({ range }: Readonly<{ range?: DateRange }>) => {
     const queryParams = {
       startDate: range?.from
         ? range.from.toISOString().split("T")[0]

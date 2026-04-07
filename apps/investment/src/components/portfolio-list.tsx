@@ -2,9 +2,9 @@
 
 import { currencies } from "@repo/common/lib/currencies";
 import {
-  createPortfolioMutationOptions,
-  deletePortfolioMutationOptions,
   portfoliosQueryOptions,
+  useCreatePortfolioMutationOptions,
+  useDeletePortfolioMutationOptions,
 } from "@repo/common/lib/query/portfolio-query";
 import type { Portfolio } from "@repo/common/types/investment";
 import { Button } from "@repo/ui/components/button";
@@ -70,8 +70,9 @@ function CreatePortfolioDialog() {
   const [initialCapital, setInitialCapital] = useState("10000");
   const [currency, setCurrency] = useState("USD");
 
+  const createPortfolioMutationOpts = useCreatePortfolioMutationOptions();
   const { mutate, isPending } = useMutation({
-    ...createPortfolioMutationOptions(),
+    ...createPortfolioMutationOpts,
     onSuccess: () => {
       setOpen(false);
       setName("");
@@ -130,19 +131,19 @@ function CreatePortfolioDialog() {
                 <SelectItem value="paper">
                   <span className="flex items-center gap-2">
                     <span className="h-1.5 w-1.5 rounded-full bg-amber-500" />
-                    Paper — simulated, no real money
+                    <span>Paper — simulated, no real money</span>
                   </span>
                 </SelectItem>
                 <SelectItem value="backtest">
                   <span className="flex items-center gap-2">
                     <span className="h-1.5 w-1.5 rounded-full bg-blue-500" />
-                    Backtest — historical data replay
+                    <span>Backtest — historical data replay</span>
                   </span>
                 </SelectItem>
                 <SelectItem value="live">
                   <span className="flex items-center gap-2">
                     <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" />
-                    Live — real execution
+                    <span>Live — real execution</span>
                   </span>
                 </SelectItem>
               </SelectContent>
@@ -198,10 +199,10 @@ function CreatePortfolioDialog() {
 function PortfolioCard({
   portfolio,
   onDelete,
-}: {
+}: Readonly<{
   portfolio: Portfolio;
   onDelete: (id: string) => void;
-}) {
+}>) {
   const mode = MODE_CONFIG[portfolio.mode] ?? MODE_CONFIG.paper;
   const isActive = portfolio.status === "active";
 
@@ -242,7 +243,7 @@ function PortfolioCard({
             )}
           >
             <span className={cn("h-1.5 w-1.5 rounded-full", mode.dot)} />
-            {mode.label}
+            <span>{mode.label}</span>
           </span>
           <span className="text-xs capitalize text-muted-foreground">
             {portfolio.status}
@@ -281,9 +282,11 @@ export function PortfolioList() {
   const portfolios = data?.portfolios ?? [];
   const total = data?.pagination?.total ?? 0;
   const totalPages = data?.pagination?.total_pages ?? 1;
+  const portfolioCountLabel = `${total} portfolio${total === 1 ? "" : "s"}`;
 
+  const deletePortfolioMutationOpts = useDeletePortfolioMutationOptions();
   const { mutate: deletePortfolio } = useMutation({
-    ...deletePortfolioMutationOptions(),
+    ...deletePortfolioMutationOpts,
     onSuccess: () => toast.success("Portfolio deleted"),
     onError: (err: Error) => toast.error(err.message),
   });
@@ -293,26 +296,19 @@ export function PortfolioList() {
     deletePortfolio(id);
   }
 
-  return (
-    <div className="flex flex-col gap-6 p-6 max-w-7xl">
-      <div className="flex items-center justify-between">
-        <div className="text-sm text-muted-foreground">
-          {isLoading ? (
-            <Skeleton className="inline-block h-4 w-24" />
-          ) : (
-            `${total} portfolio${total !== 1 ? "s" : ""}`
-          )}
-        </div>
-        <CreatePortfolioDialog />
-      </div>
-
-      {isLoading ? (
+  const content = (() => {
+    if (isLoading) {
+      return (
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
           {["sk-1", "sk-2", "sk-3", "sk-4", "sk-5", "sk-6"].map((key) => (
             <Skeleton key={key} className="h-52 w-full rounded-xl" />
           ))}
         </div>
-      ) : portfolios.length === 0 ? (
+      );
+    }
+
+    if (portfolios.length === 0) {
+      return (
         <div className="flex flex-col items-center gap-4 rounded-xl border border-dashed py-16 text-center">
           <div className="rounded-full bg-muted p-4">
             <IconBriefcase className="h-6 w-6 text-muted-foreground" />
@@ -325,17 +321,36 @@ export function PortfolioList() {
           </div>
           <CreatePortfolioDialog />
         </div>
-      ) : (
-        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-          {portfolios.map((portfolio) => (
-            <PortfolioCard
-              key={portfolio.id}
-              portfolio={portfolio}
-              onDelete={handleDelete}
-            />
-          ))}
+      );
+    }
+
+    return (
+      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+        {portfolios.map((portfolio) => (
+          <PortfolioCard
+            key={portfolio.id}
+            portfolio={portfolio}
+            onDelete={handleDelete}
+          />
+        ))}
+      </div>
+    );
+  })();
+
+  return (
+    <div className="flex flex-col gap-6 p-6 max-w-7xl">
+      <div className="flex items-center justify-between">
+        <div className="text-sm text-muted-foreground">
+          {isLoading ? (
+            <Skeleton className="inline-block h-4 w-24" />
+          ) : (
+            portfolioCountLabel
+          )}
         </div>
-      )}
+        <CreatePortfolioDialog />
+      </div>
+
+      {content}
 
       {totalPages > 1 && (
         <div className="flex items-center justify-center gap-2 pt-2">

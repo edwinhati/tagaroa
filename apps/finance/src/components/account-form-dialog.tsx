@@ -3,8 +3,8 @@
 import { zodResolver } from "@hookform/resolvers/zod";
 import { currencies } from "@repo/common/lib/currencies";
 import {
-  accountMutationOptions,
   accountTypesQueryOptions,
+  useAccountMutationOptions,
 } from "@repo/common/lib/query/account-query";
 import {
   type Account,
@@ -151,8 +151,9 @@ export function AccountFormDialog({
     setOpen(newOpen);
   };
 
+  const accountMutationOpts = useAccountMutationOptions();
   const { mutate, isPending } = useMutation({
-    ...accountMutationOptions(),
+    ...accountMutationOpts,
     onSuccess: () => {
       toast.success(initialData ? "Account updated" : "Account created");
       form.reset();

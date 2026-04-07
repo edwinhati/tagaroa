@@ -2,20 +2,20 @@
 
 import { instrumentsQueryOptions } from "@repo/common/lib/query/instrument-query";
 import {
-  addPositionMutationOptions,
   allocationQueryOptions,
-  autoSnapshotMutationOptions,
   cashFlowsQueryOptions,
-  closePositionMutationOptions,
   computeNavQueryOptions,
   correlationMatrixQueryOptions,
-  deleteCashFlowMutationOptions,
   performanceQueryOptions,
   portfolioQueryOptions,
   positionsWithPnlQueryOptions,
-  recordCashFlowMutationOptions,
-  recordSnapshotMutationOptions,
   tradesQueryOptions,
+  useAddPositionMutationOptions,
+  useAutoSnapshotMutationOptions,
+  useClosePositionMutationOptions,
+  useDeleteCashFlowMutationOptions,
+  useRecordCashFlowMutationOptions,
+  useRecordSnapshotMutationOptions,
 } from "@repo/common/lib/query/portfolio-query";
 import type {
   CashFlow,
@@ -114,8 +114,9 @@ function AddPositionDialog({ portfolioId }: { portfolioId: string }) {
   );
   const instruments = instrumentsData?.instruments ?? [];
 
+  const addPositionMutationOpts = useAddPositionMutationOptions(portfolioId);
   const { mutate, isPending } = useMutation({
-    ...addPositionMutationOptions(portfolioId),
+    ...addPositionMutationOpts,
     onSuccess: () => {
       setOpen(false);
       resetForm();
@@ -375,8 +376,10 @@ function RecordSnapshotDialog({
     }
   }, [open, navData]);
 
+  const recordSnapshotMutationOpts =
+    useRecordSnapshotMutationOptions(portfolioId);
   const { mutate, isPending } = useMutation({
-    ...recordSnapshotMutationOptions(portfolioId),
+    ...recordSnapshotMutationOpts,
     onSuccess: () => {
       setOpen(false);
       toast.success("Snapshot recorded");
@@ -552,8 +555,9 @@ function AutoSnapshotButton({
   portfolioId: string;
   currency: string;
 }) {
+  const autoSnapshotMutationOpts = useAutoSnapshotMutationOptions(portfolioId);
   const { mutate, isPending } = useMutation({
-    ...autoSnapshotMutationOptions(portfolioId),
+    ...autoSnapshotMutationOpts,
     onSuccess: (data) => {
       toast.success(
         `Snapshot recorded — NAV: ${currency} ${data.nav.toLocaleString("en-US", { maximumFractionDigits: 2 })}`,
@@ -800,8 +804,10 @@ function ClosePositionDialog({
   const [quantity, setQuantity] = useState("");
   const [fees, setFees] = useState("");
 
+  const closePositionMutationOpts =
+    useClosePositionMutationOptions(portfolioId);
   const { mutate, isPending } = useMutation({
-    ...closePositionMutationOptions(portfolioId),
+    ...closePositionMutationOpts,
     onSuccess: () => {
       setOpen(false);
       setPrice("");
@@ -1039,8 +1045,10 @@ function RecordCashFlowDialog({ portfolioId }: { portfolioId: string }) {
   const [amount, setAmount] = useState("");
   const [description, setDescription] = useState("");
 
+  const recordCashFlowMutationOpts =
+    useRecordCashFlowMutationOptions(portfolioId);
   const { mutate, isPending } = useMutation({
-    ...recordCashFlowMutationOptions(portfolioId),
+    ...recordCashFlowMutationOpts,
     onSuccess: () => {
       setOpen(false);
       setAmount("");
@@ -1286,12 +1294,14 @@ function CashFlowsSection({ portfolioId }: { portfolioId: string }) {
   const { data: cashFlows = [], isLoading } = useQuery(
     cashFlowsQueryOptions(portfolioId),
   );
+  const deleteCashFlowMutationOpts =
+    useDeleteCashFlowMutationOptions(portfolioId);
   const {
     mutate: deleteFlow,
     isPending: deleting,
     variables: deletingId,
   } = useMutation({
-    ...deleteCashFlowMutationOptions(portfolioId),
+    ...deleteCashFlowMutationOpts,
     onSuccess: () => toast.success("Cash flow deleted"),
     onError: (err: Error) => toast.error(err.message),
   });

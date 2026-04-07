@@ -23,7 +23,7 @@ const uploadFile = async (file: File): Promise<FileMetadata> => {
 // Get file by ID
 // Get presigned URL for file
 // Delete file
-export const uploadFileMutationOptions = () => {
+export const useUploadFileMutationOptions = () => {
   const queryClient = useQueryClient();
 
   return mutationOptions<FileMetadata, Error, File>({

@@ -3,11 +3,11 @@
 import { ChartContainer } from "@repo/ui/components/chart";
 import { Line, LineChart } from "recharts";
 
-type MiniSparklineProps = {
-  data: { value: number }[];
+type MiniSparklineProps = Readonly<{
+  data: ReadonlyArray<{ readonly value: number }>;
   className?: string;
   color?: string;
-};
+}>;
 
 export function MiniSparkline({
   data,

@@ -103,7 +103,7 @@ export const assetQueryOptions = (params?: {
     queryFn: () => fetchAssets(params),
   });
 
-export const assetMutationOptions = () => {
+export const useAssetMutationOptions = () => {
   const queryClient = useQueryClient();
   return mutationOptions({
     mutationFn: mutateAsset,
@@ -111,7 +111,7 @@ export const assetMutationOptions = () => {
   });
 };
 
-export const assetDeleteMutationOptions = () => {
+export const useAssetDeleteMutationOptions = () => {
   const queryClient = useQueryClient();
 
   return mutationOptions({

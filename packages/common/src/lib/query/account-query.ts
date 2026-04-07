@@ -139,7 +139,7 @@ export const accountQueryOptions = (params?: {
   });
 };
 
-export const accountMutationOptions = () => {
+export const useAccountMutationOptions = () => {
   const queryClient = useQueryClient();
 
   return mutationOptions({
@@ -150,7 +150,7 @@ export const accountMutationOptions = () => {
   });
 };
 
-export const accountDeleteMutationOptions = () => {
+export const useAccountDeleteMutationOptions = () => {
   const queryClient = useQueryClient();
 
   return mutationOptions({

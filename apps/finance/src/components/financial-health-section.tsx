@@ -20,20 +20,20 @@ import type { DateRange } from "react-day-picker";
 import { formatCurrencyCompact } from "@/utils/currency";
 import { MiniSparkline } from "./mini-sparkline";
 
-interface FinancialHealthSectionProps {
+type FinancialHealthSectionProps = Readonly<{
   range?: DateRange;
-}
+}>;
 
-interface HealthCardProps {
+type HealthCardProps = Readonly<{
   title: string;
   value: string;
   subtitle?: string;
   trend?: "up" | "down" | "stable";
   icon?: React.ReactNode;
   iconBgColor?: string;
-  sparklineData?: { value: number }[];
+  sparklineData?: ReadonlyArray<{ readonly value: number }>;
   className?: string;
-}
+}>;
 
 const HealthCard = ({
   title,

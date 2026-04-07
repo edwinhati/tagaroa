@@ -8,9 +8,9 @@ import { ServerSearchInput } from "@repo/common/components/data-table-search-inp
 import { Loading } from "@repo/common/components/loading";
 import { exportToCSV } from "@repo/common/lib/csv-export";
 import {
-  accountDeleteMutationOptions,
   accountQueryOptions,
   exportAccountsQueryOptions,
+  useAccountDeleteMutationOptions,
 } from "@repo/common/lib/query/account-query";
 import type {
   Account,
@@ -72,9 +72,9 @@ import { AccountFormDialog } from "@/components/account-form-dialog";
 // Cell renderer components - defined outside to avoid recreation on each render
 const SelectHeaderCell = ({
   table,
-}: {
+}: Readonly<{
   table: ReturnType<typeof useReactTable<Account>>;
-}) => (
+}>) => (
   <Checkbox
     checked={table.getIsAllPageRowsSelected()}
     indeterminate={table.getIsSomePageRowsSelected()}
@@ -83,7 +83,7 @@ const SelectHeaderCell = ({
   />
 );
 
-const SelectRowCell = ({ row }: { row: Row<Account> }) => (
+const SelectRowCell = ({ row }: Readonly<{ row: Row<Account> }>) => (
   <Checkbox
     checked={row.getIsSelected()}
     onCheckedChange={(value) => row.toggleSelected(!!value)}
@@ -91,16 +91,16 @@ const SelectRowCell = ({ row }: { row: Row<Account> }) => (
   />
 );
 
-const NameCell = ({ row }: { row: Row<Account> }) => (
+const NameCell = ({ row }: Readonly<{ row: Row<Account> }>) => (
   <div className="font-medium">{row.getValue("name")}</div>
 );
 
-const TypeCell = ({ row }: { row: Row<Account> }) => {
+const TypeCell = ({ row }: Readonly<{ row: Row<Account> }>) => {
   const typeValue = row.getValue("type")?.toString().replaceAll("_", "-");
   return <Badge variant="outline">{typeValue}</Badge>;
 };
 
-const BalanceCell = ({ row }: { row: Row<Account> }) => {
+const BalanceCell = ({ row }: Readonly<{ row: Row<Account> }>) => {
   const amount = Number.parseFloat(row.getValue("balance"));
   const formatted = new Intl.NumberFormat(
     row.original.currency === "IDR" ? "id-ID" : "en-US",
@@ -148,10 +148,10 @@ type AccountTableMeta = {
 const ActionsCell = ({
   row,
   table,
-}: {
+}: Readonly<{
   row: Row<Account>;
   table: ReturnType<typeof useReactTable<Account>>;
-}) => {
+}>) => {
   const meta = table.options.meta as AccountTableMeta | undefined;
   return meta?.deleteAccount ? (
     <RowActions row={row} deleteAccount={meta.deleteAccount} />
@@ -217,7 +217,8 @@ function AccountDataTableContent() {
   );
   const [isInitialLoading, setIsInitialLoading] = useState(true);
 
-  const { mutate: deleteAccount } = useMutation(accountDeleteMutationOptions());
+  const accountDeleteMutationOpts = useAccountDeleteMutationOptions();
+  const { mutate: deleteAccount } = useMutation(accountDeleteMutationOpts);
 
   const queryClient = useQueryClient();
 

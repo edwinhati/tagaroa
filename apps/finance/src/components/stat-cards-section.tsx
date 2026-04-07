@@ -20,20 +20,20 @@ import type { DateRange } from "react-day-picker";
 import { formatCurrency } from "@/utils/currency";
 import { MiniSparkline } from "./mini-sparkline";
 
-interface StatCardsSectionProps {
-  readonly range?: DateRange;
-}
+type StatCardsSectionProps = Readonly<{
+  range?: DateRange;
+}>;
 
-interface StatCardProps {
-  readonly title: string;
-  readonly value: string;
-  readonly change?: string;
-  readonly trend?: "up" | "down" | "neutral";
-  readonly icon?: React.ReactNode;
-  readonly iconBgColor?: string;
-  readonly sparklineData?: { value: number }[];
-  readonly className?: string;
-}
+type StatCardProps = Readonly<{
+  title: string;
+  value: string;
+  change?: string;
+  trend?: "up" | "down" | "neutral";
+  icon?: React.ReactNode;
+  iconBgColor?: string;
+  sparklineData?: ReadonlyArray<{ readonly value: number }>;
+  className?: string;
+}>;
 
 const StatCard = ({
   title,

@@ -353,7 +353,7 @@ export const portfolioQueryOptions = (id: string) =>
     enabled: !!id,
   });
 
-export const createPortfolioMutationOptions = () => {
+export const useCreatePortfolioMutationOptions = () => {
   const queryClient = useQueryClient();
   return mutationOptions({
     mutationFn: createPortfolio,
@@ -361,7 +361,7 @@ export const createPortfolioMutationOptions = () => {
       queryClient.invalidateQueries({ queryKey: ["portfolios"] }),
   });
 };
-export const deletePortfolioMutationOptions = () => {
+export const useDeletePortfolioMutationOptions = () => {
   const queryClient = useQueryClient();
   return mutationOptions({
     mutationFn: deletePortfolio,
@@ -397,7 +397,7 @@ export const positionsQueryOptions = (portfolioId: string, openOnly = true) =>
     enabled: !!portfolioId,
   });
 
-export const addPositionMutationOptions = (portfolioId: string) => {
+export const useAddPositionMutationOptions = (portfolioId: string) => {
   const queryClient = useQueryClient();
   return mutationOptions({
     mutationFn: (
@@ -410,7 +410,7 @@ export const addPositionMutationOptions = (portfolioId: string) => {
   });
 };
 
-export const closePositionMutationOptions = (portfolioId: string) => {
+export const useClosePositionMutationOptions = (portfolioId: string) => {
   const queryClient = useQueryClient();
   return mutationOptions({
     mutationFn: ({
@@ -434,7 +434,7 @@ export const performanceQueryOptions = (portfolioId: string) =>
     enabled: !!portfolioId,
   });
 
-export const recordSnapshotMutationOptions = (portfolioId: string) => {
+export const useRecordSnapshotMutationOptions = (portfolioId: string) => {
   const queryClient = useQueryClient();
   return mutationOptions({
     mutationFn: (payload: { nav: number; cash: number }) =>
@@ -455,7 +455,7 @@ export const computeNavQueryOptions = (portfolioId: string) =>
     staleTime: 30_000,
   });
 
-export const autoSnapshotMutationOptions = (portfolioId: string) => {
+export const useAutoSnapshotMutationOptions = (portfolioId: string) => {
   const queryClient = useQueryClient();
   return mutationOptions({
     mutationFn: (): Promise<AutoSnapshotResult> =>
@@ -517,7 +517,7 @@ export const cashFlowsQueryOptions = (
     enabled: !!portfolioId,
   });
 
-export const recordCashFlowMutationOptions = (portfolioId: string) => {
+export const useRecordCashFlowMutationOptions = (portfolioId: string) => {
   const queryClient = useQueryClient();
   return mutationOptions({
     mutationFn: (payload: {
@@ -531,7 +531,7 @@ export const recordCashFlowMutationOptions = (portfolioId: string) => {
   });
 };
 
-export const deleteCashFlowMutationOptions = (portfolioId: string) => {
+export const useDeleteCashFlowMutationOptions = (portfolioId: string) => {
   const queryClient = useQueryClient();
   return mutationOptions({
     mutationFn: (cashFlowId: string) => deleteCashFlow(portfolioId, cashFlowId),

@@ -9,11 +9,11 @@ import { ServerSearchInput } from "@repo/common/components/data-table-search-inp
 import { Loading } from "@repo/common/components/loading";
 import { exportToCSV } from "@repo/common/lib/csv-export";
 import {
-  assetDeleteMutationOptions,
-  assetMutationOptions,
   assetQueryOptions,
   assetTypesQueryOptions,
   exportAssetsQueryOptions,
+  useAssetDeleteMutationOptions,
+  useAssetMutationOptions,
 } from "@repo/common/lib/query/asset-query";
 import type { Asset, PaginatedAssetsResult } from "@repo/common/types/asset";
 import { Badge } from "@repo/ui/components/badge";
@@ -177,9 +177,13 @@ function AssetDataTableContent() {
   );
   const [isInitialLoading, setIsInitialLoading] = useState(true);
 
-  const { mutate: mutateAsset } = useMutation(assetMutationOptions());
+  const assetMutationOpts = useAssetMutationOptions();
+  const { mutate: mutateAsset } = useMutation(assetMutationOpts);
 
-  const { mutate: deleteAsset } = useMutation(assetDeleteMutationOptions());
+  const assetDeleteMutationOpts = useAssetDeleteMutationOptions();
+  const { mutate: deleteAsset } = useMutation({
+    ...assetDeleteMutationOpts,
+  });
 
   const queryClient = useQueryClient();
 

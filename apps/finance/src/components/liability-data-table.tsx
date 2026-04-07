@@ -10,10 +10,10 @@ import { Loading } from "@repo/common/components/loading";
 import { exportToCSV } from "@repo/common/lib/csv-export";
 import {
   exportLiabilitiesQueryOptions,
-  liabilityDeleteMutationOptions,
-  liabilityMutationOptions,
   liabilityQueryOptions,
   liabilityTypesQueryOptions,
+  useLiabilityDeleteMutationOptions,
+  useLiabilityMutationOptions,
 } from "@repo/common/lib/query/liability-query";
 import type {
   Liability,
@@ -276,10 +276,12 @@ function LiabilityDataTableContent() {
     useState<PaginatedLiabilitiesResult | null>(null);
   const [isInitialLoading, setIsInitialLoading] = useState(true);
 
-  const { mutate: mutateLiability } = useMutation(liabilityMutationOptions());
+  const liabilityMutationOpts = useLiabilityMutationOptions();
+  const { mutate: mutateLiability } = useMutation(liabilityMutationOpts);
 
+  const liabilityDeleteMutationOpts = useLiabilityDeleteMutationOptions();
   const { mutate: deleteLiability } = useMutation({
-    ...liabilityDeleteMutationOptions(),
+    ...liabilityDeleteMutationOpts,
     onSuccess: () => toast.success("Liability deleted"),
     onError: (err) =>
       toast.error("Failed to delete", { description: err.message }),

@@ -136,7 +136,7 @@ export const budgetHistoryQueryOptions = (params?: {
   });
 };
 
-export const budgetMutationOptions = () => {
+export const useBudgetMutationOptions = () => {
   const queryClient = useQueryClient();
 
   return mutationOptions({
@@ -166,7 +166,7 @@ const updateBudgetItem = async (
   return mapBudgetItem(data);
 };
 
-export const budgetItemMutationOptions = () => {
+export const useBudgetItemMutationOptions = () => {
   const queryClient = useQueryClient();
 
   return mutationOptions({

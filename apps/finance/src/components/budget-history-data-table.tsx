@@ -61,12 +61,12 @@ const formatCurrency = (value: number, currency = "IDR") => {
 };
 
 // Summary card component matching main budget page
-interface SummaryCardProps {
+type SummaryCardProps = Readonly<{
   title: string;
   value: string;
   icon: React.ReactNode;
   iconColor: string;
-}
+}>;
 
 const SummaryCard = ({ title, value, icon, iconColor }: SummaryCardProps) => (
   <Card
@@ -106,10 +106,10 @@ const SummaryCard = ({ title, value, icon, iconColor }: SummaryCardProps) => (
 const HistorySummary = ({
   budgets,
   total,
-}: {
-  budgets: Budget[];
+}: Readonly<{
+  budgets: ReadonlyArray<Budget>;
   total: number;
-}) => {
+}>) => {
   const totalAmount = useMemo(
     () => budgets.reduce((sum, b) => sum + b.amount, 0),
     [budgets],

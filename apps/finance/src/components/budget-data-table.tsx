@@ -6,9 +6,9 @@ import { Loading } from "@repo/common/components/loading";
 import { useBudgetPeriod } from "@repo/common/hooks/use-budget-period";
 import { useFilters } from "@repo/common/hooks/use-filters";
 import {
-  budgetItemMutationOptions,
-  budgetMutationOptions,
   budgetQueryOptions,
+  useBudgetItemMutationOptions,
+  useBudgetMutationOptions,
 } from "@repo/common/lib/query/budget-query";
 import type { Budget, BudgetItem } from "@repo/common/types/budget";
 import { Button } from "@repo/ui/components/button";
@@ -251,6 +251,36 @@ const RemainingCell = ({ row }: { row: Row<BudgetItem> }) => {
 
 const BudgetActionsHeaderCell = () => <span className="sr-only">Actions</span>;
 
+const AllocationCell = ({
+  row,
+  table,
+}: {
+  row: Row<BudgetItem>;
+  table: ReturnType<typeof useReactTable<BudgetItem>>;
+}) => {
+  const meta = table.options.meta as
+    | {
+        updateBudgetItem: (itemId: string, newAllocation: number) => void;
+      }
+    | undefined;
+
+  return (
+    <EditableCell
+      row={row}
+      value={row.getValue("allocation")}
+      onUpdate={(itemId, newAllocation) => {
+        if (!row.original.id) {
+          toast.error("Cannot update budget item", {
+            description: "Missing item ID",
+          });
+          return;
+        }
+        meta?.updateBudgetItem(itemId, newAllocation);
+      }}
+    />
+  );
+};
+
 const BudgetActionsCell = ({ row }: { row: Row<BudgetItem> }) => {
   const router = useRouter();
   const { month, year } = useBudgetPeriod((s) => ({
@@ -355,8 +385,9 @@ function BudgetDataTableContent() {
     refetch,
   } = useQuery(budgetQueryOptions({ month, year }));
 
+  const budgetItemMutationOpts = useBudgetItemMutationOptions();
   const { mutate: updateBudgetItem } = useMutation({
-    ...budgetItemMutationOptions(),
+    ...budgetItemMutationOpts,
     onSuccess: () => {
       toast.success("Budget item updated successfully");
     },
@@ -453,21 +484,7 @@ function BudgetDataTableContent() {
       {
         header: "Allocation",
         accessorKey: "allocation",
-        cell: ({ row }) => (
-          <EditableCell
-            row={row}
-            value={row.getValue("allocation")}
-            onUpdate={(itemId, newAllocation) => {
-              if (!row.original.id) {
-                toast.error("Cannot update budget item", {
-                  description: "Missing item ID",
-                });
-                return;
-              }
-              handleBudgetItemUpdate(itemId, newAllocation);
-            }}
-          />
-        ),
+        cell: AllocationCell,
         size: 160,
         enableSorting: false,
       },
@@ -488,12 +505,12 @@ function BudgetDataTableContent() {
       {
         id: "actions",
         header: BudgetActionsHeaderCell,
-        cell: ({ row }) => <BudgetActionsCell row={row} />,
+        cell: BudgetActionsCell,
         size: 100,
         enableSorting: false,
       },
     ],
-    [handleBudgetItemUpdate],
+    [],
   );
 
   // TanStack Table exposes functions that React Compiler cannot memoize; suppress rule locally.
@@ -513,6 +530,9 @@ function BudgetDataTableContent() {
       sorting,
       pagination,
       columnFilters,
+    },
+    meta: {
+      updateBudgetItem: handleBudgetItemUpdate,
     },
   });
 
@@ -781,8 +801,9 @@ const EditableBudgetAmount = ({
   const [editValue, setEditValue] = useState(amount);
   const inputRef = useRef<HTMLInputElement>(null);
 
-  const { mutate: updateBudget } = useMutation({
-    ...budgetMutationOptions(),
+  const budgetMutationOpts = useBudgetMutationOptions();
+  const { mutate: mutateBudget } = useMutation({
+    ...budgetMutationOpts,
     onSuccess: () => {
       toast.success("Budget amount updated successfully");
       onUpdate();
@@ -804,7 +825,7 @@ const EditableBudgetAmount = ({
     }
 
     if (!Number.isNaN(editValue) && editValue !== amount && editValue > 0) {
-      updateBudget({
+      mutateBudget({
         id: budgetId,
         amount: editValue,
         currency,

@@ -17,7 +17,13 @@ import { Skeleton } from "@repo/ui/components/skeleton";
 import { IconWallet } from "@tabler/icons-react";
 import { useQuery } from "@tanstack/react-query";
 import React, { useMemo } from "react";
-import { Cell, Label, Pie, PieChart } from "recharts";
+import {
+  Label,
+  Pie,
+  PieChart,
+  type PieSectorShapeProps,
+  Sector,
+} from "recharts";
 import { formatCurrencyCompact, formatCurrencySmart } from "@/utils/currency";
 
 // Premium color palette for fintech dashboard
@@ -29,14 +35,18 @@ const CHART_COLORS = [
   "hsl(349, 89%, 60%)", // Rose red
 ];
 
-interface AccountTooltipProps {
+type AccountTooltipProps = Readonly<{
   active?: boolean;
-  payload?: Array<{
-    name: string;
-    value: number;
-    payload: { name: string; value: number; fill: string };
+  payload?: ReadonlyArray<{
+    readonly name: string;
+    readonly value: number;
+    readonly payload: {
+      readonly name: string;
+      readonly value: number;
+      readonly fill: string;
+    };
   }>;
-}
+}>;
 
 function AccountTooltip({ active, payload }: AccountTooltipProps) {
   if (!active || !payload?.length) return null;
@@ -64,6 +74,55 @@ function AccountTooltip({ active, payload }: AccountTooltipProps) {
   );
 }
 
+type ChartSectorProps = Readonly<PieSectorShapeProps>;
+
+function ChartSector(props: ChartSectorProps) {
+  return (
+    <Sector
+      {...props}
+      className="transition-opacity duration-200 hover:opacity-80 outline-none"
+    />
+  );
+}
+
+type ChartLabelProps = Readonly<{
+  viewBox?: { cx?: number; cy?: number };
+  totalBalance: number;
+}>;
+
+function ChartLabel({ viewBox, totalBalance }: ChartLabelProps) {
+  if (
+    viewBox &&
+    typeof viewBox.cx === "number" &&
+    typeof viewBox.cy === "number"
+  ) {
+    return (
+      <text
+        x={viewBox.cx}
+        y={viewBox.cy}
+        textAnchor="middle"
+        dominantBaseline="middle"
+      >
+        <tspan
+          x={viewBox.cx}
+          y={viewBox.cy - 8}
+          className="fill-foreground text-sm font-bold"
+        >
+          {formatCurrencySmart(totalBalance)}
+        </tspan>
+        <tspan
+          x={viewBox.cx}
+          y={viewBox.cy + 10}
+          className="fill-muted-foreground text-[10px] font-medium"
+        >
+          Total Balance
+        </tspan>
+      </text>
+    );
+  }
+  return null;
+}
+
 const AccountOverviewChart = React.memo(() => {
   const { data, isLoading } = useQuery(accountAggregationsQueryOptions());
 
@@ -72,7 +131,7 @@ const AccountOverviewChart = React.memo(() => {
       data?.by_type.map((item, index) => ({
         name:
           item.type.charAt(0).toUpperCase() +
-          item.type.slice(1).toLowerCase().replace(/-/g, " "),
+          item.type.slice(1).toLowerCase().replaceAll("-", " "),
         value: item.balance,
         fill: CHART_COLORS[index % CHART_COLORS.length],
       })) ?? []
@@ -84,7 +143,7 @@ const AccountOverviewChart = React.memo(() => {
       value: { label: "Balance" },
     };
     chartData.forEach((item, index) => {
-      config[item.name.toLowerCase().replace(/\s/g, "")] = {
+      config[item.name.toLowerCase().replaceAll(/\s/g, "")] = {
         label: item.name,
         color: CHART_COLORS[index % CHART_COLORS.length],
       };
@@ -176,43 +235,9 @@ const AccountOverviewChart = React.memo(() => {
               strokeWidth={2}
               stroke="hsl(var(--background))"
               paddingAngle={2}
+              shape={ChartSector}
             >
-              {chartData.map((entry) => (
-                <Cell
-                  key={`cell-${entry.name}`}
-                  fill={entry.fill}
-                  className="transition-opacity duration-200 hover:opacity-80"
-                />
-              ))}
-              <Label
-                content={({ viewBox }) => {
-                  if (viewBox && "cx" in viewBox && "cy" in viewBox) {
-                    return (
-                      <text
-                        x={viewBox.cx}
-                        y={viewBox.cy}
-                        textAnchor="middle"
-                        dominantBaseline="middle"
-                      >
-                        <tspan
-                          x={viewBox.cx}
-                          y={(viewBox.cy || 0) - 8}
-                          className="fill-foreground text-sm font-bold"
-                        >
-                          {formatCurrencySmart(totalBalance)}
-                        </tspan>
-                        <tspan
-                          x={viewBox.cx}
-                          y={(viewBox.cy || 0) + 10}
-                          className="fill-muted-foreground text-[10px] font-medium"
-                        >
-                          Total Balance
-                        </tspan>
-                      </text>
-                    );
-                  }
-                }}
-              />
+              <Label content={<ChartLabel totalBalance={totalBalance} />} />
             </Pie>
           </PieChart>
         </ChartContainer>

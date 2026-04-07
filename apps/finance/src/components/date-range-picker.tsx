@@ -21,11 +21,11 @@ import {
 import { useState } from "react";
 import type { DateRange } from "react-day-picker";
 
-interface DateRangePickerProps {
+type DateRangePickerProps = Readonly<{
   date: DateRange | undefined;
   onDateChange: (date: DateRange | undefined) => void;
   className?: string;
-}
+}>;
 
 export function DateRangePicker({
   date,
@@ -114,6 +114,24 @@ export function DateRangePicker({
     },
   ];
 
+  const dateLabel = (() => {
+    if (!date?.from) {
+      return <span>Pick a date range</span>;
+    }
+
+    const from = format(date.from, "LLL dd, y");
+    if (date.to) {
+      const to = format(date.to, "LLL dd, y");
+      return (
+        <>
+          {from} - {to}
+        </>
+      );
+    }
+
+    return from;
+  })();
+
   return (
     <Popover open={isOpen} onOpenChange={setIsOpen}>
       <PopoverTrigger
@@ -128,18 +146,7 @@ export function DateRangePicker({
             )}
           >
             <IconCalendar className="mr-2 h-4 w-4" />
-            {date?.from ? (
-              date.to ? (
-                <>
-                  {format(date.from, "LLL dd, y")} -{" "}
-                  {format(date.to, "LLL dd, y")}
-                </>
-              ) : (
-                format(date.from, "LLL dd, y")
-              )
-            ) : (
-              <span>Pick a date range</span>
-            )}
+            {dateLabel}
             <IconChevronDown className="ml-auto h-4 w-4 opacity-50" />
           </Button>
         }

@@ -9,7 +9,7 @@ import { storageApi } from "@repo/common/lib/http";
 import { accountQueryOptions } from "@repo/common/lib/query/account-query";
 import { budgetQueryOptions } from "@repo/common/lib/query/budget-query";
 import type { FileMetadata as StorageFileMetadata } from "@repo/common/lib/query/storage-query";
-import { uploadFileMutationOptions } from "@repo/common/lib/query/storage-query";
+import { useUploadFileMutationOptions } from "@repo/common/lib/query/storage-query";
 import {
   transactionTypesQueryOptions,
   useTransactionMutationOptions,
@@ -345,8 +345,9 @@ export function TransactionFormDialog({
     },
   });
 
+  const uploadFileMutationOpts = useUploadFileMutationOptions();
   const { mutate: uploadFile } = useMutation({
-    ...uploadFileMutationOptions(),
+    ...uploadFileMutationOpts,
     onSuccess: (storageFileMetadata, file) => {
       // Convert storage FileMetadata to hook FileMetadata format
       const fileMetadata = {
@@ -668,7 +669,7 @@ export function TransactionFormDialog({
                     <SelectContent>
                       {(transactionTypes ?? []).map((type) => (
                         <SelectItem key={type} value={type}>
-                          {type.toUpperCase().replace("_", " ")}
+                          {type.toUpperCase().replaceAll("_", " ")}
                         </SelectItem>
                       ))}
                     </SelectContent>
