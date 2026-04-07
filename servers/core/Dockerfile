@@ -47,18 +47,18 @@ RUN apk add --no-cache dumb-init curl \
   && adduser -S nestjs -G nestjs
 
 # Copy production node_modules
-COPY --from=builder --chown=nestjs:nestjs /app/node_modules ./node_modules
-COPY --from=builder --chown=nestjs:nestjs /app/servers/core/node_modules ./servers/core/node_modules
+COPY --chmod=555 --from=builder --chown=nestjs:nestjs /app/node_modules ./node_modules
+COPY --chmod=555 --from=builder --chown=nestjs:nestjs /app/servers/core/node_modules ./servers/core/node_modules
 
 # Copy compiled output
-COPY --from=builder --chown=nestjs:nestjs /app/servers/core/dist ./servers/core/dist
+COPY --chmod=555 --from=builder --chown=nestjs:nestjs /app/servers/core/dist ./servers/core/dist
 
 # Copy package.json (needed for module resolution)
-COPY --from=builder --chown=nestjs:nestjs /app/servers/core/package.json ./servers/core/package.json
-COPY --from=builder --chown=nestjs:nestjs /app/package.json ./package.json
+COPY --chmod=555 --from=builder --chown=nestjs:nestjs /app/servers/core/package.json ./servers/core/package.json
+COPY --chmod=555 --from=builder --chown=nestjs:nestjs /app/package.json ./package.json
 
 # Copy internal packages (needed for workspace symlinks in node_modules)
-COPY --from=builder --chown=nestjs:nestjs /app/packages ./packages
+COPY --chmod=555 --from=builder --chown=nestjs:nestjs /app/packages ./packages
 
 ENV NODE_ENV=production
 ENV PORT=8080

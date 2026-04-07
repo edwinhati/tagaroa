@@ -170,7 +170,7 @@ export class GetInstrumentMetadataUseCase {
       return {
         description: rawDesc
           ? rawDesc
-              .replaceAll(/<[^>]*>/g, "")
+              .replaceAll(/<[^>]{0,1000}>/g, "")
               .replaceAll(/\s+/g, " ")
               .trim()
           : null,
