@@ -175,6 +175,50 @@ export const useFileUpload = (
     });
   }, [onFilesChange]);
 
+  const processNewFiles = useCallback(
+    (
+      newFilesArray: File[],
+      existingFiles: FileWithPreview[],
+      errors: string[],
+    ): FileWithPreview[] => {
+      const validFiles: FileWithPreview[] = [];
+
+      for (const file of newFilesArray) {
+        if (multiple) {
+          const isDuplicate = existingFiles.some(
+            (existingFile) =>
+              existingFile.file.name === file.name &&
+              existingFile.file.size === file.size,
+          );
+          if (isDuplicate) continue;
+        }
+
+        if (file.size > maxSize) {
+          errors.push(
+            multiple
+              ? `Some files exceed the maximum size of ${formatBytes(maxSize)}.`
+              : `File exceeds the maximum size of ${formatBytes(maxSize)}.`,
+          );
+          continue;
+        }
+
+        const error = validateFile(file);
+        if (error) {
+          errors.push(error);
+        } else {
+          validFiles.push({
+            file,
+            id: generateUniqueId(file),
+            preview: createPreview(file),
+          });
+        }
+      }
+
+      return validFiles;
+    },
+    [multiple, maxSize, validateFile, generateUniqueId, createPreview],
+  );
+
   const addFiles = useCallback(
     (newFiles: FileList | File[]) => {
       if (!newFiles || newFiles.length === 0) return;
@@ -183,13 +227,10 @@ export const useFileUpload = (
       const errors: string[] = [];
 
       setState((prev) => {
-        // Clear existing errors when new files are uploaded
         const clearedErrorsState = { ...prev, errors: [] };
 
-        // In single file mode, clear existing files first
         if (!multiple) {
-          // Clean up object URLs
-          prev.files.forEach((file) => {
+          for (const file of prev.files) {
             if (
               file.preview &&
               file.file instanceof File &&
@@ -197,11 +238,10 @@ export const useFileUpload = (
             ) {
               URL.revokeObjectURL(file.preview);
             }
-          });
+          }
           clearedErrorsState.files = [];
         }
 
-        // Check if adding these files would exceed maxFiles (only in multiple mode)
         if (
           multiple &&
           maxFiles !== Infinity &&
@@ -211,87 +251,33 @@ export const useFileUpload = (
           return { ...clearedErrorsState, errors };
         }
 
-        const validFiles: FileWithPreview[] = [];
+        const validFiles = processNewFiles(
+          newFilesArray,
+          clearedErrorsState.files,
+          errors,
+        );
 
-        newFilesArray.forEach((file) => {
-          // Only check for duplicates if multiple files are allowed
-          if (multiple) {
-            const isDuplicate = clearedErrorsState.files.some(
-              (existingFile) =>
-                existingFile.file.name === file.name &&
-                existingFile.file.size === file.size,
-            );
-
-            // Skip duplicate files silently
-            if (isDuplicate) {
-              return;
-            }
-          }
-
-          // Check file size
-          if (file.size > maxSize) {
-            errors.push(
-              multiple
-                ? `Some files exceed the maximum size of ${formatBytes(maxSize)}.`
-                : `File exceeds the maximum size of ${formatBytes(maxSize)}.`,
-            );
-            return;
-          }
-
-          const error = validateFile(file);
-          if (error) {
-            errors.push(error);
-          } else {
-            validFiles.push({
-              file,
-              id: generateUniqueId(file),
-              preview: createPreview(file),
-            });
-          }
-        });
-
-        // Only update state if we have valid files to add
         if (validFiles.length > 0) {
-          // Call the onFilesAdded callback with the newly added valid files
           onFilesAdded?.(validFiles);
-
-          const newFiles = multiple
+          const updatedFiles = multiple
             ? [...clearedErrorsState.files, ...validFiles]
             : validFiles;
+          setTimeout(() => onFilesChange?.(updatedFiles), 0);
+          return { ...clearedErrorsState, files: updatedFiles, errors };
+        }
 
-          // Schedule onFilesChange to run after state update
-          setTimeout(() => onFilesChange?.(newFiles), 0);
-
-          return {
-            ...clearedErrorsState,
-            files: newFiles,
-            errors,
-          };
-        } else if (errors.length > 0) {
-          return {
-            ...clearedErrorsState,
-            errors,
-          };
+        if (errors.length > 0) {
+          return { ...clearedErrorsState, errors };
         }
 
         return clearedErrorsState;
       });
 
-      // Reset input value after handling files
       if (inputRef.current) {
         inputRef.current.value = "";
       }
     },
-    [
-      maxFiles,
-      multiple,
-      maxSize,
-      validateFile,
-      createPreview,
-      generateUniqueId,
-      onFilesChange,
-      onFilesAdded,
-    ],
+    [maxFiles, multiple, processNewFiles, onFilesChange, onFilesAdded],
   );
 
   const removeFile = useCallback(
