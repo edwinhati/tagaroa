@@ -1,3 +1,4 @@
+import { dash, sentinel } from "@better-auth/infra";
 import { betterAuth } from "better-auth";
 import { drizzleAdapter } from "better-auth/adapters/drizzle";
 import {
@@ -47,6 +48,16 @@ export const auth = betterAuth({
   plugins: [
     admin(),
     multiSession({ maximumSessions: MAX_SESSIONS_PER_USER }),
+    dash({
+      apiKey: process.env.BETTER_AUTH_API_KEY,
+    }),
+    ...(process.env.BETTER_AUTH_API_KEY
+      ? [
+          sentinel({
+            apiKey: process.env.BETTER_AUTH_API_KEY,
+          }),
+        ]
+      : []),
     ...(process.env.NODE_ENV === "production"
       ? [haveIBeenPwned()]
       : [openAPI({ disableDefaultReference: true })]),

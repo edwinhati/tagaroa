@@ -7,6 +7,7 @@
     "lint": "biome check"
   },
   "dependencies": {
+    "@better-auth/infra": "^0.1.14",
     "@repo/ui": "*",
     "@tabler/icons-react": "^3.41.1",
     "@tanstack/react-query": "^5.96.2",
