@@ -54,7 +54,7 @@ export const portfolioSchema = z.object({
   initialCapital: z.number().positive(),
   currency: z.string().min(3).max(10),
   status: z.enum(["active", "paused", "closed"] as const).optional(),
-  deletedAt: z.string().datetime().nullable().optional(),
+  deletedAt: z.iso.datetime().nullable().optional(),
 });
 
 export type Portfolio = z.infer<typeof portfolioSchema>;
@@ -89,8 +89,8 @@ export const positionSchema = z.object({
   quantity: z.number().positive(),
   averageCost: z.number().positive(),
   side: z.enum(["LONG", "SHORT"] as const),
-  openedAt: z.string().datetime(),
-  closedAt: z.string().datetime().nullable().optional(),
+  openedAt: z.iso.datetime(),
+  closedAt: z.iso.datetime().nullable().optional(),
 });
 
 export type Position = z.infer<typeof positionSchema>;

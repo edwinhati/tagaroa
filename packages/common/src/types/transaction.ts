@@ -25,7 +25,7 @@ export const transactionSchema = z.object({
   files: z.array(z.string()).optional(),
   account_id: z.string().min(1, "Account is required"),
   budget_item_id: z.string().optional(),
-  deletedAt: z.string().datetime().nullable().optional(),
+  deletedAt: z.iso.datetime().nullable().optional(),
   installment: installmentSchema.optional(),
   account: z
     .object({

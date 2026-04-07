@@ -61,7 +61,7 @@ export const accountSchema = z.object({
   currency: z.string().min(3).max(3),
   notes: z.string().optional(),
   metadata: z.record(z.string(), z.unknown()).optional(),
-  deletedAt: z.string().datetime().nullable().optional(),
+  deletedAt: z.iso.datetime().nullable().optional(),
   // Credit account fields (stored in metadata but managed as form fields)
   creditLimit: z.number().optional(),
   billingCycleDay: z.number().min(1).max(31).optional(),

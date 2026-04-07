@@ -82,7 +82,7 @@ export class GetInsightsUseCase {
       });
 
     const topIncomeSources: InsightItemDto[] = incomeAccountAgg
-      .sort((a, b) => b.sum - a.sum)
+      .toSorted((a, b) => b.sum - a.sum)
       .slice(0, 5)
       .map((agg) => ({
         category: agg.key || "Unknown",
@@ -100,7 +100,7 @@ export class GetInsightsUseCase {
 
     // aggregateByCategory already returns category names as keys
     const topExpenses: InsightItemDto[] = expenseCategoryAgg
-      .sort((a, b) => b.sum - a.sum)
+      .toSorted((a, b) => b.sum - a.sum)
       .slice(0, 5)
       .map((agg) => ({
         category: agg.key || "Uncategorized",

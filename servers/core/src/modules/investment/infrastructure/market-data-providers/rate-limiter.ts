@@ -43,4 +43,4 @@ export const coinGeckoRateLimiter = new RateLimiter(10, 10 / 60);
 // Yahoo Finance (unofficial): 30 req/min to be safe
 export const yahooRateLimiter = new RateLimiter(30, 30 / 60);
 // ECB: very permissive, 60 req/min
-export const ecbRateLimiter = new RateLimiter(60, 60 / 60);
+export const ecbRateLimiter = new RateLimiter(60, 1);

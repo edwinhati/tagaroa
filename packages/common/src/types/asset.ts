@@ -14,7 +14,7 @@ export const assetSchema = z.object({
   ticker: z.string().optional().nullable(),
   currency: z.string().min(3).max(3),
   notes: z.string().optional(),
-  deletedAt: z.string().datetime().nullable().optional(),
+  deletedAt: z.iso.datetime().nullable().optional(),
 });
 
 export type Asset = z.infer<typeof assetSchema>;

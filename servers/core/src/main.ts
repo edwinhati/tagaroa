@@ -68,7 +68,10 @@ async function bootstrap() {
         new Request(`${baseUrl}/api/auth/open-api/generate-schema`),
       );
       if (authSchemaRes.ok) {
-        const authSchema = await authSchemaRes.json();
+        const authSchema = (await authSchemaRes.json()) as Record<
+          string,
+          unknown
+        >;
         app.use(
           "/api/auth/reference",
           apiReference({

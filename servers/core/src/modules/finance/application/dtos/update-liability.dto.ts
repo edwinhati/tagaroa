@@ -5,10 +5,10 @@ import { LiabilityType } from "../../domain/value-objects/liability-type";
 
 const UpdateLiabilitySchema = z.object({
   name: z.string().optional(),
-  type: z.nativeEnum(LiabilityType).optional(),
+  type: z.enum(LiabilityType).optional(),
   amount: z.number().optional(),
-  currency: z.nativeEnum(Currency).optional(),
-  paidAt: z.string().datetime({ offset: true }).nullable().optional(),
+  currency: z.enum(Currency).optional(),
+  paidAt: z.iso.datetime({ offset: true }).nullable().optional(),
   notes: z.string().nullable().optional(),
 });
 

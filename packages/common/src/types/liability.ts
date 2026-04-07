@@ -20,9 +20,9 @@ export const liabilitySchema = z.object({
   type: z.string(),
   amount: z.number(),
   currency: z.string().min(3).max(3),
-  paidAt: z.string().datetime().nullable().optional(),
+  paidAt: z.iso.datetime().nullable().optional(),
   notes: z.string().optional(),
-  deletedAt: z.string().datetime().nullable().optional(),
+  deletedAt: z.iso.datetime().nullable().optional(),
   // Installment-related fields
   transactionId: z.string().optional(),
   installmentNumber: z.number().optional(),
@@ -74,12 +74,12 @@ export function getInstallmentProgress(
     ("installment_metadata" in liability && liability.installment_metadata);
 
   // Get remaining months from either camelCase or snake_case property
-  const remainingMonths =
-    "remainingMonths" in liability
-      ? liability.remainingMonths
-      : "remaining_months" in liability
-        ? liability.remaining_months
-        : undefined;
+  let remainingMonths: number | undefined;
+  if ("remainingMonths" in liability) {
+    remainingMonths = liability.remainingMonths;
+  } else if ("remaining_months" in liability) {
+    remainingMonths = liability.remaining_months;
+  }
 
   if (!metadata || remainingMonths === undefined) {
     return null;

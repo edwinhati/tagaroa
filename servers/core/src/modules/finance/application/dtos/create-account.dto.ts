@@ -9,7 +9,7 @@ const CreditMetadataSchema = z.object({
   availableCredit: z.number().min(0).optional(),
   billingCycleDay: z.number().int().min(1).max(31).optional(),
   minimumPayment: z.number().min(0).optional(),
-  nextDueDate: z.string().datetime().optional(),
+  nextDueDate: z.iso.datetime().optional(),
   interestRate: z.number().min(0).max(100).optional(),
 });
 
@@ -32,9 +32,9 @@ const MetadataSchema = z
 
 const CreateAccountSchema = z.object({
   name: z.string().min(1),
-  type: z.nativeEnum(AccountType),
+  type: z.enum(AccountType),
   balance: z.number().optional(),
-  currency: z.nativeEnum(Currency),
+  currency: z.enum(Currency),
   notes: z.string().nullable().optional(),
   metadata: MetadataSchema,
 });
