@@ -15,7 +15,7 @@ function mapTradeToDomain(row: TradeRow): Trade {
     Number(row.quantity),
     Number(row.price),
     Number(row.fees),
-    row.realizedPnl != null ? Number(row.realizedPnl) : null,
+    row.realizedPnl == null ? null : Number(row.realizedPnl),
     row.timestamp,
     row.createdAt ?? new Date(),
   );
@@ -31,7 +31,7 @@ function mapTradeToPersistence(entity: Trade): Omit<TradeRow, "createdAt"> {
     quantity: String(entity.quantity),
     price: String(entity.price),
     fees: String(entity.fees),
-    realizedPnl: entity.realizedPnl != null ? String(entity.realizedPnl) : null,
+    realizedPnl: entity.realizedPnl == null ? null : String(entity.realizedPnl),
     timestamp: entity.timestamp,
   };
 }

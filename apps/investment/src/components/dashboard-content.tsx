@@ -45,19 +45,21 @@ const MODE_CONFIG = {
   },
 } as const;
 
+interface StatCardProps {
+  readonly label: string;
+  readonly value: number;
+  readonly icon: React.ElementType;
+  readonly accent: string;
+  readonly loading: boolean;
+}
+
 function StatCard({
   label,
   value,
   icon: Icon,
   accent,
   loading,
-}: {
-  label: string;
-  value: number;
-  icon: React.ElementType;
-  accent: string;
-  loading: boolean;
-}) {
+}: StatCardProps) {
   return (
     <Card className="relative overflow-hidden transition-all duration-200 hover:shadow-md">
       <div className={cn("absolute inset-x-0 top-0 h-0.5", accent)} />
@@ -87,7 +89,11 @@ function StatCard({
   );
 }
 
-function PortfolioCard({ portfolio }: { portfolio: Portfolio }) {
+interface PortfolioCardProps {
+  readonly portfolio: Portfolio;
+}
+
+function PortfolioCard({ portfolio }: PortfolioCardProps) {
   const mode = MODE_CONFIG[portfolio.mode] ?? MODE_CONFIG.paper;
   const isActive = portfolio.status === "active";
 
@@ -170,6 +176,47 @@ export function DashboardContent() {
     },
   ];
 
+  let portfolioListContent: React.ReactNode;
+
+  if (isLoading) {
+    portfolioListContent = (
+      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+        {["sk-1", "sk-2", "sk-3"].map((key) => (
+          <Skeleton key={key} className="h-36 w-full rounded-xl" />
+        ))}
+      </div>
+    );
+  } else if (portfolios.length === 0) {
+    portfolioListContent = (
+      <div className="flex flex-col items-center gap-4 rounded-xl border border-dashed py-14 text-center">
+        <div className="rounded-full bg-muted p-4">
+          <IconBriefcase className="h-6 w-6 text-muted-foreground" />
+        </div>
+        <div>
+          <p className="font-medium">No portfolios yet</p>
+          <p className="mt-1 text-sm text-muted-foreground">
+            Create your first portfolio to get started
+          </p>
+        </div>
+        <Link
+          href="/portfolios"
+          className="inline-flex items-center gap-1.5 rounded-lg bg-primary px-4 py-2 text-sm font-medium text-primary-foreground transition-opacity hover:opacity-90 cursor-pointer"
+        >
+          <IconPlus className="h-4 w-4" />
+          New Portfolio
+        </Link>
+      </div>
+    );
+  } else {
+    portfolioListContent = (
+      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+        {portfolios.map((portfolio) => (
+          <PortfolioCard key={portfolio.id} portfolio={portfolio} />
+        ))}
+      </div>
+    );
+  }
+
   return (
     <div className="flex flex-col gap-8 p-6 max-w-7xl">
       {/* Stat cards */}
@@ -199,38 +246,7 @@ export function DashboardContent() {
           </Link>
         </div>
 
-        {isLoading ? (
-          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-            {["sk-1", "sk-2", "sk-3"].map((key) => (
-              <Skeleton key={key} className="h-36 w-full rounded-xl" />
-            ))}
-          </div>
-        ) : portfolios.length === 0 ? (
-          <div className="flex flex-col items-center gap-4 rounded-xl border border-dashed py-14 text-center">
-            <div className="rounded-full bg-muted p-4">
-              <IconBriefcase className="h-6 w-6 text-muted-foreground" />
-            </div>
-            <div>
-              <p className="font-medium">No portfolios yet</p>
-              <p className="mt-1 text-sm text-muted-foreground">
-                Create your first portfolio to get started
-              </p>
-            </div>
-            <Link
-              href="/portfolios"
-              className="inline-flex items-center gap-1.5 rounded-lg bg-primary px-4 py-2 text-sm font-medium text-primary-foreground transition-opacity hover:opacity-90 cursor-pointer"
-            >
-              <IconPlus className="h-4 w-4" />
-              New Portfolio
-            </Link>
-          </div>
-        ) : (
-          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-            {portfolios.map((portfolio) => (
-              <PortfolioCard key={portfolio.id} portfolio={portfolio} />
-            ))}
-          </div>
-        )}
+        {portfolioListContent}
       </section>
     </div>
   );

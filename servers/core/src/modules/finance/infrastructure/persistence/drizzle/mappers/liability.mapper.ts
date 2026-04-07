@@ -50,11 +50,11 @@ function mapLiabilityToPersistence(
     transactionId: entity.transactionId,
     installmentNumber: entity.installmentNumber,
     originalAmount:
-      entity.originalAmount !== null ? String(entity.originalAmount) : null,
+      entity.originalAmount === null ? null : String(entity.originalAmount),
     totalInterest:
-      entity.totalInterest !== null ? String(entity.totalInterest) : null,
+      entity.totalInterest === null ? null : String(entity.totalInterest),
     totalAmount:
-      entity.totalAmount !== null ? String(entity.totalAmount) : null,
+      entity.totalAmount === null ? null : String(entity.totalAmount),
     remainingMonths: entity.remainingMonths,
     installmentMetadata: entity.installmentMetadata,
     dueAt: entity.dueAt,
