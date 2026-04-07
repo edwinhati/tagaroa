@@ -22,7 +22,7 @@ const DEFAULT_FILENAME = "export";
  */
 function escapeCSVValue(value: string): string {
   if (value.includes(",") || value.includes('"') || value.includes("\n")) {
-    return `"${value.replace(/"/g, '""')}"`;
+    return `"${value.replaceAll('"', '""')}"`;
   }
   return value;
 }
@@ -35,15 +35,27 @@ function valueToString(value: unknown): string {
     return "";
   }
 
+  if (typeof value === "string") {
+    return value;
+  }
+
   if (value instanceof Date) {
     return value.toISOString();
   }
 
-  if (typeof value === "object") {
-    return JSON.stringify(value);
+  if (
+    typeof value === "number" ||
+    typeof value === "boolean" ||
+    typeof value === "bigint" ||
+    typeof value === "symbol" ||
+    typeof value === "function"
+  ) {
+    return String(value);
   }
 
-  return String(value);
+  // For everything else (objects and arrays), use JSON.stringify
+  // to avoid [object Object] format
+  return JSON.stringify(value) || "";
 }
 
 /**
@@ -111,7 +123,7 @@ function downloadCSV(csv: string, filename: string): void {
 
   document.body.appendChild(link);
   link.click();
-  document.body.removeChild(link);
+  link.remove();
 
   URL.revokeObjectURL(url);
 }
@@ -141,7 +153,7 @@ function downloadCSV(csv: string, filename: string): void {
  *   filename: "report",
  *   formatValue: (key, value) => {
  *     if (key === "amount") return `$${value}`;
- *     return String(value);
+ *     return typeof value === "string" ? value : String(value);
  *   }
  * });
  * ```

@@ -45,7 +45,7 @@ const CLASS_COLOR: Record<string, string> = {
     "bg-orange-500/10 text-orange-600 border-orange-500/20 dark:text-orange-400",
 };
 
-function AssetClassBadge({ cls }: { cls: string }) {
+function AssetClassBadge({ cls }: Readonly<{ cls: string }>) {
   return (
     <span
       className={cn(
@@ -67,12 +67,20 @@ function ResultRow({
   alreadyAdded,
   onAdd,
   isAdding,
-}: {
+}: Readonly<{
   result: InstrumentLookupResult;
   alreadyAdded: boolean;
   onAdd: () => void;
   isAdding: boolean;
-}) {
+}>) {
+  let icon = <IconPlus className="h-3.5 w-3.5" />;
+
+  if (isAdding) {
+    icon = <IconLoader2 className="h-3.5 w-3.5 animate-spin" />;
+  } else if (alreadyAdded) {
+    icon = <IconCheck className="h-3.5 w-3.5 text-emerald-500" />;
+  }
+
   return (
     <div className="flex items-center gap-3 rounded-md px-3 py-2.5 hover:bg-muted/50 transition-colors">
       {/* Ticker + badges */}
@@ -106,13 +114,7 @@ function ResultRow({
         className="h-7 w-7 p-0 flex-shrink-0"
         title={alreadyAdded ? "Already in registry" : `Add ${result.ticker}`}
       >
-        {isAdding ? (
-          <IconLoader2 className="h-3.5 w-3.5 animate-spin" />
-        ) : alreadyAdded ? (
-          <IconCheck className="h-3.5 w-3.5 text-emerald-500" />
-        ) : (
-          <IconPlus className="h-3.5 w-3.5" />
-        )}
+        {icon}
       </Button>
     </div>
   );
@@ -124,10 +126,10 @@ function ResultRow({
 
 interface InstrumentDialogFormProps {
   /** Tickers already in the registry — used to disable duplicate adds */
-  existingTickers: Set<string>;
+  readonly existingTickers: Set<string>;
   /** Triggered after a successful registration so the parent can refresh */
-  onAdded?: (instrument: Instrument) => void;
-  children?: React.ReactElement;
+  readonly onAdded?: (instrument: Instrument) => void;
+  readonly children?: React.ReactElement;
 }
 
 export function InstrumentDialogForm({

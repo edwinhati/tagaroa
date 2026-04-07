@@ -15,7 +15,7 @@ function correlationColor(value: number): string {
 }
 
 interface CorrelationHeatmapProps {
-  data: CorrelationMatrix;
+  readonly data: CorrelationMatrix;
 }
 
 export function CorrelationHeatmap({ data }: CorrelationHeatmapProps) {

@@ -38,17 +38,56 @@ function formatCurrency(value: number): string {
   }).format(value);
 }
 
+interface CustomTooltipProps {
+  readonly active?: boolean;
+  readonly payload?: ReadonlyArray<{
+    readonly payload: SnapshotHistoryItem;
+  }>;
+}
+
+function CustomTooltip({ active, payload }: CustomTooltipProps) {
+  if (!active || !payload?.[0]) return null;
+
+  const item = payload[0].payload;
+
+  return (
+    <div className="rounded-lg border bg-popover p-2 shadow-md text-xs">
+      <p className="font-medium">
+        {new Date(item.timestamp).toLocaleDateString("en-US", {
+          month: "short",
+          day: "numeric",
+          year: "numeric",
+        })}
+      </p>
+      <p className="text-muted-foreground">
+        NAV:{" "}
+        <span className="font-mono font-medium text-foreground">
+          {formatCurrency(item.nav)}
+        </span>
+      </p>
+      <p className="text-muted-foreground">
+        Cash: <span className="font-mono">{formatCurrency(item.cash)}</span>
+      </p>
+      {item.drawdown > 0 && (
+        <p className="text-rose-500">Drawdown: {item.drawdown.toFixed(2)}%</p>
+      )}
+    </div>
+  );
+}
+
 interface NavChartProps {
-  portfolioId: string;
+  readonly portfolioId: string;
 }
 
 export function NavChart({ portfolioId }: NavChartProps) {
   const [selectedRange, setSelectedRange] = useState<number | null>(90);
 
   const startDate =
-    selectedRange !== null
-      ? new Date(Date.now() - selectedRange * 24 * 60 * 60 * 1000).toISOString()
-      : undefined;
+    selectedRange === null
+      ? undefined
+      : new Date(
+          Date.now() - selectedRange * 24 * 60 * 60 * 1000,
+        ).toISOString();
 
   const { data: history, isLoading } = useQuery(
     snapshotHistoryQueryOptions(
@@ -135,40 +174,7 @@ export function NavChart({ portfolioId }: NavChartProps) {
             axisLine={false}
             width={70}
           />
-          <Tooltip
-            content={({ active, payload }) => {
-              if (!active || !payload?.[0]) return null;
-              const item = payload[0].payload as SnapshotHistoryItem;
-              return (
-                <div className="rounded-lg border bg-popover p-2 shadow-md text-xs">
-                  <p className="font-medium">
-                    {new Date(item.timestamp).toLocaleDateString("en-US", {
-                      month: "short",
-                      day: "numeric",
-                      year: "numeric",
-                    })}
-                  </p>
-                  <p className="text-muted-foreground">
-                    NAV:{" "}
-                    <span className="font-mono font-medium text-foreground">
-                      {formatCurrency(item.nav)}
-                    </span>
-                  </p>
-                  <p className="text-muted-foreground">
-                    Cash:{" "}
-                    <span className="font-mono">
-                      {formatCurrency(item.cash)}
-                    </span>
-                  </p>
-                  {item.drawdown > 0 && (
-                    <p className="text-rose-500">
-                      Drawdown: {item.drawdown.toFixed(2)}%
-                    </p>
-                  )}
-                </div>
-              );
-            }}
-          />
+          <Tooltip content={<CustomTooltip />} />
           <Area
             type="monotone"
             dataKey="nav"

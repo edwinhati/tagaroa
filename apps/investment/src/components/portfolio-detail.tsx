@@ -65,8 +65,8 @@ import { toast } from "sonner";
 import { CorrelationHeatmap } from "./correlation-heatmap";
 import { NavChart } from "./nav-chart";
 
-interface Props {
-  portfolioId: string;
+interface PortfolioDetailProps {
+  readonly portfolioId: string;
 }
 
 const MODE_CONFIG = {
@@ -95,7 +95,11 @@ const MODE_CONFIG = {
 
 // ─── Add Position Dialog ──────────────────────────────────────────────────────
 
-function AddPositionDialog({ portfolioId }: { portfolioId: string }) {
+interface AddPositionDialogProps {
+  readonly portfolioId: string;
+}
+
+function AddPositionDialog({ portfolioId }: AddPositionDialogProps) {
   const [open, setOpen] = useState(false);
   const [instrumentId, setInstrumentId] = useState("");
   const [quantity, setQuantity] = useState("");
@@ -249,29 +253,35 @@ function AddPositionDialog({ portfolioId }: { portfolioId: string }) {
           <div className="flex flex-col gap-1.5">
             <Label>Side</Label>
             <div className="grid grid-cols-2 gap-2">
-              {(["LONG", "SHORT"] as const).map((s) => (
-                <Button
-                  key={s}
-                  type="button"
-                  variant="ghost"
-                  onClick={() => setSide(s)}
-                  className={cn(
-                    "flex items-center justify-center gap-2 rounded-lg border py-2.5 text-sm font-medium transition-colors cursor-pointer",
-                    side === s
-                      ? s === "LONG"
-                        ? "border-emerald-500 bg-emerald-500/10 text-emerald-600 dark:text-emerald-400"
-                        : "border-rose-500 bg-rose-500/10 text-rose-600 dark:text-rose-400"
-                      : "border-border text-muted-foreground hover:bg-muted",
-                  )}
-                >
-                  {s === "LONG" ? (
-                    <IconArrowUpRight className="h-4 w-4" />
-                  ) : (
-                    <IconArrowDownRight className="h-4 w-4" />
-                  )}
-                  {s}
-                </Button>
-              ))}
+              {(["LONG", "SHORT"] as const).map((s) => {
+                const isActive = side === s;
+                const activeStyles =
+                  s === "LONG"
+                    ? "border-emerald-500 bg-emerald-500/10 text-emerald-600 dark:text-emerald-400"
+                    : "border-rose-500 bg-rose-500/10 text-rose-600 dark:text-rose-400";
+
+                return (
+                  <Button
+                    key={s}
+                    type="button"
+                    variant="ghost"
+                    onClick={() => setSide(s)}
+                    className={cn(
+                      "flex items-center justify-center gap-2 rounded-lg border py-2.5 text-sm font-medium transition-colors cursor-pointer",
+                      isActive
+                        ? activeStyles
+                        : "border-border text-muted-foreground hover:bg-muted",
+                    )}
+                  >
+                    {s === "LONG" ? (
+                      <IconArrowUpRight className="h-4 w-4" />
+                    ) : (
+                      <IconArrowDownRight className="h-4 w-4" />
+                    )}
+                    {s}
+                  </Button>
+                );
+              })}
             </div>
           </div>
 
@@ -350,15 +360,17 @@ function AddPositionDialog({ portfolioId }: { portfolioId: string }) {
 
 // ─── Record Snapshot Dialog ───────────────────────────────────────────────────
 
+interface RecordSnapshotDialogProps {
+  readonly portfolioId: string;
+  readonly initialCapital: number;
+  readonly currency: string;
+}
+
 function RecordSnapshotDialog({
   portfolioId,
   initialCapital,
   currency,
-}: {
-  portfolioId: string;
-  initialCapital: number;
-  currency: string;
-}) {
+}: RecordSnapshotDialogProps) {
   const [open, setOpen] = useState(false);
   const [nav, setNav] = useState(String(initialCapital));
   const [cash, setCash] = useState(String(initialCapital));
@@ -548,13 +560,15 @@ function RecordSnapshotDialog({
 
 // ─── Auto Snapshot Button ─────────────────────────────────────────────────────
 
+interface AutoSnapshotButtonProps {
+  readonly portfolioId: string;
+  readonly currency: string;
+}
+
 function AutoSnapshotButton({
   portfolioId,
   currency,
-}: {
-  portfolioId: string;
-  currency: string;
-}) {
+}: AutoSnapshotButtonProps) {
   const autoSnapshotMutationOpts = useAutoSnapshotMutationOptions(portfolioId);
   const { mutate, isPending } = useMutation({
     ...autoSnapshotMutationOpts,
@@ -582,7 +596,7 @@ function AutoSnapshotButton({
 
 // ─── Performance panel ────────────────────────────────────────────────────────
 
-function ReturnValue({ pct }: { pct: number }) {
+function ReturnValue({ pct }: Readonly<{ pct: number }>) {
   const isPositive = pct >= 0;
   const Icon = isPositive ? IconArrowUpRight : IconArrowDownRight;
   return (
@@ -603,17 +617,14 @@ function ReturnValue({ pct }: { pct: number }) {
   );
 }
 
-function MetricCard({
-  label,
-  value,
-  sub,
-  accent,
-}: {
-  label: string;
-  value: React.ReactNode;
-  sub?: string;
-  accent?: string;
-}) {
+interface MetricCardProps {
+  readonly label: string;
+  readonly value: React.ReactNode;
+  readonly sub?: string;
+  readonly accent?: string;
+}
+
+function MetricCard({ label, value, sub, accent }: MetricCardProps) {
   return (
     <Card className="relative overflow-hidden">
       {accent && (
@@ -634,15 +645,17 @@ function MetricCard({
   );
 }
 
+interface NullableMetricProps {
+  readonly value: number | null;
+  readonly suffix?: string;
+  readonly prefix?: string;
+}
+
 function NullableMetric({
   value,
   suffix = "",
   prefix = "",
-}: {
-  value: number | null;
-  suffix?: string;
-  prefix?: string;
-}) {
+}: NullableMetricProps) {
   if (value == null) {
     return (
       <span className="font-mono text-2xl font-bold tabular-nums text-muted-foreground">
@@ -659,7 +672,7 @@ function NullableMetric({
   );
 }
 
-function SharpeValue({ value }: { value: number | null }) {
+function SharpeValue({ value }: Readonly<{ value: number | null }>) {
   if (value == null) {
     return (
       <span className="font-mono text-2xl font-bold tabular-nums text-muted-foreground">
@@ -667,29 +680,28 @@ function SharpeValue({ value }: { value: number | null }) {
       </span>
     );
   }
+  let statusColor = "text-rose-600 dark:text-rose-400";
+  if (value >= 1) {
+    statusColor = "text-emerald-600 dark:text-emerald-400";
+  } else if (value >= 0) {
+    statusColor = "text-amber-600 dark:text-amber-400";
+  }
+
   return (
     <span
-      className={cn(
-        "font-mono text-2xl font-bold tabular-nums",
-        value >= 1
-          ? "text-emerald-600 dark:text-emerald-400"
-          : value >= 0
-            ? "text-amber-600 dark:text-amber-400"
-            : "text-rose-600 dark:text-rose-400",
-      )}
+      className={cn("font-mono text-2xl font-bold tabular-nums", statusColor)}
     >
       {value.toFixed(2)}
     </span>
   );
 }
 
-function PerformancePanel({
-  metrics,
-  currency,
-}: {
-  metrics: PerformanceMetrics;
-  currency: string;
-}) {
+interface PerformancePanelProps {
+  readonly metrics: PerformanceMetrics;
+  readonly currency: string;
+}
+
+function PerformancePanel({ metrics, currency }: PerformancePanelProps) {
   const ddPct = Math.min(metrics.maxDrawdownPct, 100);
   return (
     <div className="flex flex-col gap-4">
@@ -788,17 +800,19 @@ function PerformancePanel({
 
 // ─── Close Position Dialog ────────────────────────────────────────────────────
 
+interface ClosePositionDialogProps {
+  readonly portfolioId: string;
+  readonly positionId: string;
+  readonly ticker?: string;
+  readonly maxQty?: number;
+}
+
 function ClosePositionDialog({
   portfolioId,
   positionId,
   ticker,
   maxQty,
-}: {
-  portfolioId: string;
-  positionId: string;
-  ticker?: string;
-  maxQty?: number;
-}) {
+}: ClosePositionDialogProps) {
   const [open, setOpen] = useState(false);
   const [price, setPrice] = useState("");
   const [quantity, setQuantity] = useState("");
@@ -909,13 +923,12 @@ function ClosePositionDialog({
 
 // ─── Position row ─────────────────────────────────────────────────────────────
 
-function PositionRow({
-  position,
-  portfolioId,
-}: {
-  position: PositionWithPnl;
-  portfolioId: string;
-}) {
+interface PositionRowProps {
+  readonly position: PositionWithPnl;
+  readonly portfolioId: string;
+}
+
+function PositionRow({ position, portfolioId }: PositionRowProps) {
   const isLong = position.side === "LONG";
   const isUp = position.unrealizedPnl >= 0;
 
@@ -1039,7 +1052,11 @@ const CF_TYPE_CONFIG = {
 
 // ─── Record Cash Flow Dialog ──────────────────────────────────────────────────
 
-function RecordCashFlowDialog({ portfolioId }: { portfolioId: string }) {
+interface RecordCashFlowDialogProps {
+  readonly portfolioId: string;
+}
+
+function RecordCashFlowDialog({ portfolioId }: RecordCashFlowDialogProps) {
   const [open, setOpen] = useState(false);
   const [type, setType] = useState<CashFlow["type"]>("DEPOSIT");
   const [amount, setAmount] = useState("");
@@ -1139,16 +1156,73 @@ function RecordCashFlowDialog({ portfolioId }: { portfolioId: string }) {
 
 // ─── Trades section ───────────────────────────────────────────────────────────
 
-function TradesSection({
-  portfolioId,
-  instrumentsById,
-}: {
-  portfolioId: string;
-  instrumentsById: Map<string, { ticker: string; assetClass: string }>;
-}) {
+interface TradesSectionProps {
+  readonly portfolioId: string;
+  readonly instrumentsById: Map<
+    string,
+    { readonly ticker: string; readonly assetClass: string }
+  >;
+}
+
+function TradesSection({ portfolioId, instrumentsById }: TradesSectionProps) {
   const { data: trades = [], isLoading } = useQuery(
     tradesQueryOptions(portfolioId),
   );
+
+  const content = (() => {
+    if (isLoading) return <Skeleton className="h-40 w-full rounded-xl" />;
+
+    if (trades.length === 0) {
+      return (
+        <div className="flex items-center justify-center rounded-xl border border-dashed py-8">
+          <p className="text-sm text-muted-foreground">
+            No trades recorded yet
+          </p>
+        </div>
+      );
+    }
+
+    return (
+      <div className="overflow-hidden rounded-xl border">
+        <Table>
+          <TableHeader>
+            <TableRow className="bg-muted/30 hover:bg-muted/30">
+              <TableHead className="text-xs uppercase tracking-wider">
+                Date
+              </TableHead>
+              <TableHead className="text-xs uppercase tracking-wider">
+                Instrument
+              </TableHead>
+              <TableHead className="text-xs uppercase tracking-wider">
+                Side
+              </TableHead>
+              <TableHead className="text-right text-xs uppercase tracking-wider">
+                Qty
+              </TableHead>
+              <TableHead className="text-right text-xs uppercase tracking-wider">
+                Price
+              </TableHead>
+              <TableHead className="text-right text-xs uppercase tracking-wider">
+                Fees
+              </TableHead>
+              <TableHead className="text-right text-xs uppercase tracking-wider">
+                Realized P&L
+              </TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {trades.map((trade) => (
+              <TradeRow
+                key={trade.id}
+                trade={trade}
+                instrumentsById={instrumentsById}
+              />
+            ))}
+          </TableBody>
+        </Table>
+      </div>
+    );
+  })();
 
   return (
     <section>
@@ -1157,65 +1231,20 @@ function TradesSection({
           Trade History
         </h2>
       </div>
-      {isLoading ? (
-        <Skeleton className="h-40 w-full rounded-xl" />
-      ) : trades.length === 0 ? (
-        <div className="flex items-center justify-center rounded-xl border border-dashed py-8">
-          <p className="text-sm text-muted-foreground">
-            No trades recorded yet
-          </p>
-        </div>
-      ) : (
-        <div className="overflow-hidden rounded-xl border">
-          <Table>
-            <TableHeader>
-              <TableRow className="bg-muted/30 hover:bg-muted/30">
-                <TableHead className="text-xs uppercase tracking-wider">
-                  Date
-                </TableHead>
-                <TableHead className="text-xs uppercase tracking-wider">
-                  Instrument
-                </TableHead>
-                <TableHead className="text-xs uppercase tracking-wider">
-                  Side
-                </TableHead>
-                <TableHead className="text-right text-xs uppercase tracking-wider">
-                  Qty
-                </TableHead>
-                <TableHead className="text-right text-xs uppercase tracking-wider">
-                  Price
-                </TableHead>
-                <TableHead className="text-right text-xs uppercase tracking-wider">
-                  Fees
-                </TableHead>
-                <TableHead className="text-right text-xs uppercase tracking-wider">
-                  Realized P&L
-                </TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {trades.map((trade) => (
-                <TradeRow
-                  key={trade.id}
-                  trade={trade}
-                  instrumentsById={instrumentsById}
-                />
-              ))}
-            </TableBody>
-          </Table>
-        </div>
-      )}
+      {content}
     </section>
   );
 }
 
-function TradeRow({
-  trade,
-  instrumentsById,
-}: {
-  trade: Trade;
-  instrumentsById: Map<string, { ticker: string; assetClass: string }>;
-}) {
+interface TradeRowProps {
+  readonly trade: Trade;
+  readonly instrumentsById: Map<
+    string,
+    { readonly ticker: string; readonly assetClass: string }
+  >;
+}
+
+function TradeRow({ trade, instrumentsById }: TradeRowProps) {
   const instrument = instrumentsById.get(trade.instrumentId);
   const isBuy = trade.side === "BUY";
   const pnl = trade.realizedPnl;
@@ -1290,7 +1319,11 @@ function TradeRow({
 
 // ─── Cash Flows section ───────────────────────────────────────────────────────
 
-function CashFlowsSection({ portfolioId }: { portfolioId: string }) {
+interface CashFlowsSectionProps {
+  readonly portfolioId: string;
+}
+
+function CashFlowsSection({ portfolioId }: CashFlowsSectionProps) {
   const { data: cashFlows = [], isLoading } = useQuery(
     cashFlowsQueryOptions(portfolioId),
   );
@@ -1306,17 +1339,11 @@ function CashFlowsSection({ portfolioId }: { portfolioId: string }) {
     onError: (err: Error) => toast.error(err.message),
   });
 
-  return (
-    <section>
-      <div className="mb-4 flex items-center justify-between">
-        <h2 className="border-l-2 border-primary pl-3 text-sm font-semibold uppercase tracking-widest text-muted-foreground">
-          Cash Flows
-        </h2>
-        <RecordCashFlowDialog portfolioId={portfolioId} />
-      </div>
-      {isLoading ? (
-        <Skeleton className="h-40 w-full rounded-xl" />
-      ) : cashFlows.length === 0 ? (
+  const content = (() => {
+    if (isLoading) return <Skeleton className="h-40 w-full rounded-xl" />;
+
+    if (cashFlows.length === 0) {
+      return (
         <div className="flex flex-col items-center gap-4 rounded-xl border border-dashed py-8 text-center">
           <p className="text-sm text-muted-foreground">
             No cash flows recorded
@@ -1326,83 +1353,101 @@ function CashFlowsSection({ portfolioId }: { portfolioId: string }) {
             time-weighted return calculations.
           </p>
         </div>
-      ) : (
-        <div className="overflow-hidden rounded-xl border">
-          <Table>
-            <TableHeader>
-              <TableRow className="bg-muted/30 hover:bg-muted/30">
-                <TableHead className="text-xs uppercase tracking-wider">
-                  Date
-                </TableHead>
-                <TableHead className="text-xs uppercase tracking-wider">
-                  Type
-                </TableHead>
-                <TableHead className="text-right text-xs uppercase tracking-wider">
-                  Amount
-                </TableHead>
-                <TableHead className="text-xs uppercase tracking-wider">
-                  Description
-                </TableHead>
-                <TableHead />
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {cashFlows.map((cf) => {
-                const cfg = CF_TYPE_CONFIG[cf.type];
-                return (
-                  <TableRow key={cf.id} className="group hover:bg-muted/40">
-                    <TableCell className="text-sm text-muted-foreground">
-                      {new Date(cf.timestamp).toLocaleDateString("en-US", {
-                        month: "short",
-                        day: "numeric",
-                        year: "numeric",
-                      })}
-                    </TableCell>
-                    <TableCell>
-                      <span
-                        className={cn(
-                          "rounded-md border px-2 py-0.5 text-xs font-medium",
-                          cfg.cls,
-                        )}
-                      >
-                        {cfg.label}
-                      </span>
-                    </TableCell>
-                    <TableCell className="text-right font-mono tabular-nums font-medium">
-                      {cf.amount.toLocaleString("en-US", {
-                        minimumFractionDigits: 2,
-                        maximumFractionDigits: 2,
-                      })}
-                    </TableCell>
-                    <TableCell className="text-sm text-muted-foreground">
-                      {cf.description ?? "—"}
-                    </TableCell>
-                    <TableCell className="text-right">
-                      <Button
-                        type="button"
-                        variant="ghost"
-                        size="icon"
-                        onClick={() => cf.id && deleteFlow(cf.id)}
-                        disabled={deleting && deletingId === cf.id}
-                        className="invisible rounded-md border p-1 text-muted-foreground transition-colors hover:border-rose-500/30 hover:bg-rose-500/10 hover:text-rose-600 group-hover:visible cursor-pointer disabled:opacity-50"
-                      >
-                        <IconTrash className="h-3.5 w-3.5" />
-                      </Button>
-                    </TableCell>
-                  </TableRow>
-                );
-              })}
-            </TableBody>
-          </Table>
-        </div>
-      )}
+      );
+    }
+
+    return (
+      <div className="overflow-hidden rounded-xl border">
+        <Table>
+          <TableHeader>
+            <TableRow className="bg-muted/30 hover:bg-muted/30">
+              <TableHead className="text-xs uppercase tracking-wider">
+                Date
+              </TableHead>
+              <TableHead className="text-xs uppercase tracking-wider">
+                Type
+              </TableHead>
+              <TableHead className="text-right text-xs uppercase tracking-wider">
+                Amount
+              </TableHead>
+              <TableHead className="text-xs uppercase tracking-wider">
+                Description
+              </TableHead>
+              <TableHead />
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {cashFlows.map((cf) => {
+              const cfg = CF_TYPE_CONFIG[cf.type];
+              return (
+                <TableRow key={cf.id} className="group hover:bg-muted/40">
+                  <TableCell className="text-sm text-muted-foreground">
+                    {new Date(cf.timestamp).toLocaleDateString("en-US", {
+                      month: "short",
+                      day: "numeric",
+                      year: "numeric",
+                    })}
+                  </TableCell>
+                  <TableCell>
+                    <span
+                      className={cn(
+                        "rounded-md border px-2 py-0.5 text-xs font-medium",
+                        cfg.cls,
+                      )}
+                    >
+                      {cfg.label}
+                    </span>
+                  </TableCell>
+                  <TableCell className="text-right font-mono tabular-nums font-medium">
+                    {cf.amount.toLocaleString("en-US", {
+                      minimumFractionDigits: 2,
+                      maximumFractionDigits: 2,
+                    })}
+                  </TableCell>
+                  <TableCell className="text-sm text-muted-foreground">
+                    {cf.description ?? "—"}
+                  </TableCell>
+                  <TableCell className="text-right">
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="icon"
+                      onClick={() => cf.id && deleteFlow(cf.id)}
+                      disabled={deleting && deletingId === cf.id}
+                      className="invisible rounded-md border p-1 text-muted-foreground transition-colors hover:border-rose-500/30 hover:bg-rose-500/10 hover:text-rose-600 group-hover:visible cursor-pointer disabled:opacity-50"
+                    >
+                      <IconTrash className="h-3.5 w-3.5" />
+                    </Button>
+                  </TableCell>
+                </TableRow>
+              );
+            })}
+          </TableBody>
+        </Table>
+      </div>
+    );
+  })();
+
+  return (
+    <section>
+      <div className="mb-4 flex items-center justify-between">
+        <h2 className="border-l-2 border-primary pl-3 text-sm font-semibold uppercase tracking-widest text-muted-foreground">
+          Cash Flows
+        </h2>
+        <RecordCashFlowDialog portfolioId={portfolioId} />
+      </div>
+      {content}
     </section>
   );
 }
 
 // ─── Analytics section ────────────────────────────────────────────────────────
 
-function AnalyticsSection({ portfolioId }: { portfolioId: string }) {
+interface AnalyticsSectionProps {
+  readonly portfolioId: string;
+}
+
+function AnalyticsSection({ portfolioId }: AnalyticsSectionProps) {
   const { data: correlation, isLoading } = useQuery(
     correlationMatrixQueryOptions(portfolioId),
   );
@@ -1411,6 +1456,12 @@ function AnalyticsSection({ portfolioId }: { portfolioId: string }) {
   const hasPositions = (allocation?.byInstrument.length ?? 0) > 0;
 
   if (!hasPositions) return null;
+
+  const content = (() => {
+    if (isLoading) return <Skeleton className="h-32 w-full rounded" />;
+    if (correlation) return <CorrelationHeatmap data={correlation} />;
+    return null;
+  })();
 
   return (
     <section>
@@ -1428,13 +1479,7 @@ function AnalyticsSection({ portfolioId }: { portfolioId: string }) {
             Pairwise Pearson correlation of daily returns (trailing 365 days)
           </p>
         </CardHeader>
-        <CardContent>
-          {isLoading ? (
-            <Skeleton className="h-32 w-full rounded" />
-          ) : correlation ? (
-            <CorrelationHeatmap data={correlation} />
-          ) : null}
-        </CardContent>
+        <CardContent>{content}</CardContent>
       </Card>
     </section>
   );
@@ -1442,7 +1487,7 @@ function AnalyticsSection({ portfolioId }: { portfolioId: string }) {
 
 // ─── Main component ───────────────────────────────────────────────────────────
 
-export function PortfolioDetail({ portfolioId }: Props) {
+export function PortfolioDetail({ portfolioId }: PortfolioDetailProps) {
   const { data: portfolio, isLoading: portfolioLoading } = useQuery(
     portfolioQueryOptions(portfolioId),
   );
@@ -1486,6 +1531,103 @@ export function PortfolioDetail({ portfolioId }: Props) {
   }
 
   const mode = MODE_CONFIG[portfolio.mode] ?? MODE_CONFIG.paper;
+
+  const performanceContent = (() => {
+    if (metricsLoading) {
+      return (
+        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+          {["sk-metrics-1", "sk-metrics-2", "sk-metrics-3", "sk-metrics-4"].map(
+            (key) => (
+              <Skeleton key={key} className="h-28 rounded-xl" />
+            ),
+          )}
+        </div>
+      );
+    }
+
+    if (metrics && metrics.snapshotCount > 0) {
+      return (
+        <PerformancePanel metrics={metrics} currency={portfolio.currency} />
+      );
+    }
+
+    return (
+      <div className="flex flex-col items-center gap-4 rounded-xl border border-dashed py-10 text-center">
+        <p className="font-medium">No snapshots recorded yet</p>
+        <p className="max-w-sm text-sm text-muted-foreground">
+          Performance metrics (returns, Sharpe ratio, drawdown) are computed
+          from NAV snapshots over time. Record your first snapshot to start
+          tracking.
+        </p>
+        <RecordSnapshotDialog
+          portfolioId={portfolioId}
+          initialCapital={portfolio.initialCapital}
+          currency={portfolio.currency}
+        />
+      </div>
+    );
+  })();
+
+  const positionsContent = (() => {
+    if (positionsLoading)
+      return <Skeleton className="h-40 w-full rounded-xl" />;
+
+    if (positions.length === 0) {
+      return (
+        <div className="flex flex-col items-center gap-4 rounded-xl border border-dashed py-12 text-center">
+          <p className="text-sm text-muted-foreground">
+            No open positions yet.
+          </p>
+          <AddPositionDialog portfolioId={portfolioId} />
+        </div>
+      );
+    }
+
+    return (
+      <div className="overflow-hidden rounded-xl border">
+        <Table>
+          <TableHeader>
+            <TableRow className="bg-muted/30 hover:bg-muted/30">
+              <TableHead className="text-xs uppercase tracking-wider">
+                Instrument
+              </TableHead>
+              <TableHead className="text-xs uppercase tracking-wider">
+                Side
+              </TableHead>
+              <TableHead className="text-right text-xs uppercase tracking-wider">
+                Qty
+              </TableHead>
+              <TableHead className="text-right text-xs uppercase tracking-wider">
+                Avg Cost
+              </TableHead>
+              <TableHead className="text-right text-xs uppercase tracking-wider">
+                Price
+              </TableHead>
+              <TableHead className="text-right text-xs uppercase tracking-wider">
+                Mkt Value
+              </TableHead>
+              <TableHead className="text-right text-xs uppercase tracking-wider">
+                Unr. P&L
+              </TableHead>
+              <TableHead className="text-right text-xs uppercase tracking-wider">
+                Wt
+              </TableHead>
+              <TableHead />
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {positions.map((pos) => (
+              <PositionRow
+                key={pos.id}
+                position={pos}
+                portfolioId={portfolioId}
+              />
+            ))}
+          </TableBody>
+        </Table>
+      </div>
+    );
+  })();
 
   return (
     <div className="flex flex-col gap-8 p-6 max-w-7xl">
@@ -1548,34 +1690,7 @@ export function PortfolioDetail({ portfolioId }: Props) {
             />
           </div>
         </div>
-        {metricsLoading ? (
-          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-            {[
-              "sk-metrics-1",
-              "sk-metrics-2",
-              "sk-metrics-3",
-              "sk-metrics-4",
-            ].map((key) => (
-              <Skeleton key={key} className="h-28 rounded-xl" />
-            ))}
-          </div>
-        ) : metrics && metrics.snapshotCount > 0 ? (
-          <PerformancePanel metrics={metrics} currency={portfolio.currency} />
-        ) : (
-          <div className="flex flex-col items-center gap-4 rounded-xl border border-dashed py-10 text-center">
-            <p className="font-medium">No snapshots recorded yet</p>
-            <p className="max-w-sm text-sm text-muted-foreground">
-              Performance metrics (returns, Sharpe ratio, drawdown) are computed
-              from NAV snapshots over time. Record your first snapshot to start
-              tracking.
-            </p>
-            <RecordSnapshotDialog
-              portfolioId={portfolioId}
-              initialCapital={portfolio.initialCapital}
-              currency={portfolio.currency}
-            />
-          </div>
-        )}
+        {performanceContent}
       </section>
 
       {/* NAV History */}
@@ -1602,59 +1717,7 @@ export function PortfolioDetail({ portfolioId }: Props) {
           <AddPositionDialog portfolioId={portfolioId} />
         </div>
 
-        {positionsLoading ? (
-          <Skeleton className="h-40 w-full rounded-xl" />
-        ) : positions.length === 0 ? (
-          <div className="flex flex-col items-center gap-4 rounded-xl border border-dashed py-12 text-center">
-            <p className="text-sm text-muted-foreground">
-              No open positions yet.
-            </p>
-            <AddPositionDialog portfolioId={portfolioId} />
-          </div>
-        ) : (
-          <div className="overflow-hidden rounded-xl border">
-            <Table>
-              <TableHeader>
-                <TableRow className="bg-muted/30 hover:bg-muted/30">
-                  <TableHead className="text-xs uppercase tracking-wider">
-                    Instrument
-                  </TableHead>
-                  <TableHead className="text-xs uppercase tracking-wider">
-                    Side
-                  </TableHead>
-                  <TableHead className="text-right text-xs uppercase tracking-wider">
-                    Qty
-                  </TableHead>
-                  <TableHead className="text-right text-xs uppercase tracking-wider">
-                    Avg Cost
-                  </TableHead>
-                  <TableHead className="text-right text-xs uppercase tracking-wider">
-                    Price
-                  </TableHead>
-                  <TableHead className="text-right text-xs uppercase tracking-wider">
-                    Mkt Value
-                  </TableHead>
-                  <TableHead className="text-right text-xs uppercase tracking-wider">
-                    Unr. P&L
-                  </TableHead>
-                  <TableHead className="text-right text-xs uppercase tracking-wider">
-                    Wt
-                  </TableHead>
-                  <TableHead />
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {positions.map((pos) => (
-                  <PositionRow
-                    key={pos.id}
-                    position={pos}
-                    portfolioId={portfolioId}
-                  />
-                ))}
-              </TableBody>
-            </Table>
-          </div>
-        )}
+        {positionsContent}
       </section>
 
       {/* Trade History */}

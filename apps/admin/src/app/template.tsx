@@ -24,7 +24,7 @@ export default function RootTemplate({
         <SidebarInset>
           <AppNavbar
             nav={nav.map((item) => ({ name: item.name, href: item.href }))}
-            currentPath={currentPath}
+            pathname={currentPath}
           />
           <div className="flex flex-1 flex-col">{children}</div>
         </SidebarInset>

@@ -12,24 +12,30 @@ import {
 import Link from "next/link";
 import * as React from "react";
 
-type NavItem = { name: string; href: string };
+type NavItem = { readonly name: string; readonly href: string };
 
 type AppNavbarProps = {
-  nav?: NavItem[];
-  currentPath?: string;
+  readonly nav?: readonly NavItem[];
+  readonly pathname?: string;
 };
 
-type Crumb = { name: string; href: string; isLast: boolean };
+type Crumb = {
+  readonly name: string;
+  readonly href: string;
+  readonly isLast: boolean;
+};
 
 function formatSegment(segment: string): string {
   // UUID / numeric IDs → "Detail"
   if (/^[0-9a-f-]{8,}$/i.test(segment) || /^\d+$/.test(segment))
     return "Detail";
-  return segment.charAt(0).toUpperCase() + segment.slice(1).replace(/-/g, " ");
+  return (
+    segment.charAt(0).toUpperCase() + segment.slice(1).replaceAll("-", " ")
+  );
 }
 
-function buildCrumbs(nav: NavItem[], currentPath: string): Crumb[] {
-  const segments = currentPath.split("/").filter(Boolean);
+function buildCrumbs(nav: readonly NavItem[], pathname: string): Crumb[] {
+  const segments = pathname.split("/").filter(Boolean);
 
   if (segments.length === 0) {
     const root = nav.find((item) => item.href === "/");
@@ -55,11 +61,11 @@ function buildCrumbs(nav: NavItem[], currentPath: string): Crumb[] {
   return crumbs;
 }
 
-export function AppNavbar({ nav, currentPath }: AppNavbarProps) {
+export function AppNavbar({ nav, pathname }: AppNavbarProps) {
   const crumbs = React.useMemo<Crumb[]>(() => {
-    if (!nav || !currentPath) return [];
-    return buildCrumbs(nav, currentPath);
-  }, [nav, currentPath]);
+    if (!nav || !pathname) return [];
+    return buildCrumbs(nav, pathname);
+  }, [nav, pathname]);
 
   return (
     <header className="border rounded-md mb-2 mt-2 px-3 md:px-3">

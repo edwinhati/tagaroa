@@ -32,7 +32,7 @@ export default function RootTemplate({
       <SidebarProvider defaultOpen={false}>
         <AppSidebar appName="Investment" nav={nav} />
         <SidebarInset>
-          <AppNavbar nav={navForNavbar} currentPath={pathname} />
+          <AppNavbar nav={navForNavbar} pathname={pathname} />
           <div className="flex flex-1 flex-col">{children}</div>
         </SidebarInset>
       </SidebarProvider>

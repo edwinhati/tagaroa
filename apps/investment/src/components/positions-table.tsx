@@ -25,13 +25,12 @@ import { useQuery } from "@tanstack/react-query";
 
 type InstrumentMap = Map<string, { ticker: string; assetClass: string }>;
 
-function PositionRow({
-  position,
-  instrumentsById,
-}: {
-  position: Position;
-  instrumentsById: InstrumentMap;
-}) {
+interface PositionRowProps {
+  readonly position: Position;
+  readonly instrumentsById: InstrumentMap;
+}
+
+function PositionRow({ position, instrumentsById }: PositionRowProps) {
   const isLong = position.side === "LONG";
   const instrument = instrumentsById.get(position.instrumentId);
 
@@ -87,18 +86,69 @@ function PositionRow({
   );
 }
 
+interface PortfolioSectionProps {
+  readonly portfolioId: string;
+  readonly portfolioName: string;
+  readonly instrumentsById: InstrumentMap;
+}
+
 function PortfolioSection({
   portfolioId,
   portfolioName,
   instrumentsById,
-}: {
-  portfolioId: string;
-  portfolioName: string;
-  instrumentsById: InstrumentMap;
-}) {
+}: PortfolioSectionProps) {
   const { data: positions = [], isLoading } = useQuery(
     positionsQueryOptions(portfolioId),
   );
+
+  const content = (() => {
+    if (isLoading) {
+      return <Skeleton className="h-32 w-full rounded-xl" />;
+    }
+
+    if (positions.length === 0) {
+      return (
+        <div className="rounded-xl border border-dashed px-5 py-6 text-center text-sm text-muted-foreground">
+          No open positions
+        </div>
+      );
+    }
+
+    return (
+      <div className="overflow-hidden rounded-xl border">
+        <Table>
+          <TableHeader>
+            <TableRow className="bg-muted/30 hover:bg-muted/30">
+              <TableHead className="text-xs uppercase tracking-wider">
+                Instrument
+              </TableHead>
+              <TableHead className="text-xs uppercase tracking-wider">
+                Side
+              </TableHead>
+              <TableHead className="text-right text-xs uppercase tracking-wider">
+                Qty
+              </TableHead>
+              <TableHead className="text-right text-xs uppercase tracking-wider">
+                Avg Cost
+              </TableHead>
+              <TableHead className="text-right text-xs uppercase tracking-wider">
+                Opened
+              </TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {positions.map((pos) => (
+              <PositionRow
+                key={pos.id}
+                position={pos}
+                instrumentsById={instrumentsById}
+              />
+            ))}
+          </TableBody>
+        </Table>
+      </div>
+    );
+  })();
 
   return (
     <section className="flex flex-col gap-3">
@@ -111,46 +161,7 @@ function PortfolioSection({
         )}
       </div>
 
-      {isLoading ? (
-        <Skeleton className="h-32 w-full rounded-xl" />
-      ) : positions.length === 0 ? (
-        <div className="rounded-xl border border-dashed px-5 py-6 text-center text-sm text-muted-foreground">
-          No open positions
-        </div>
-      ) : (
-        <div className="overflow-hidden rounded-xl border">
-          <Table>
-            <TableHeader>
-              <TableRow className="bg-muted/30 hover:bg-muted/30">
-                <TableHead className="text-xs uppercase tracking-wider">
-                  Instrument
-                </TableHead>
-                <TableHead className="text-xs uppercase tracking-wider">
-                  Side
-                </TableHead>
-                <TableHead className="text-right text-xs uppercase tracking-wider">
-                  Qty
-                </TableHead>
-                <TableHead className="text-right text-xs uppercase tracking-wider">
-                  Avg Cost
-                </TableHead>
-                <TableHead className="text-right text-xs uppercase tracking-wider">
-                  Opened
-                </TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {positions.map((pos) => (
-                <PositionRow
-                  key={pos.id}
-                  position={pos}
-                  instrumentsById={instrumentsById}
-                />
-              ))}
-            </TableBody>
-          </Table>
-        </div>
-      )}
+      {content}
     </section>
   );
 }
