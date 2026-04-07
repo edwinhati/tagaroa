@@ -52,9 +52,9 @@ type SignInFormValues = z.infer<typeof signInFormSchema>;
 
 const subscribeToClient = (callback: () => void) => {
   const globalWindow =
-    typeof globalThis !== "undefined"
-      ? (globalThis as { window?: Window }).window
-      : undefined;
+    typeof globalThis === "undefined"
+      ? undefined
+      : (globalThis as { window?: Window }).window;
   if (globalWindow) {
     const id = globalWindow.requestAnimationFrame(() => callback());
     return () => {

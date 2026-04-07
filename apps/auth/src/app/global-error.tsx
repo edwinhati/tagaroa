@@ -7,8 +7,8 @@ export default function GlobalError({
   error,
   reset,
 }: Readonly<{
-  error: Error & { digest?: string };
-  reset: () => void;
+  readonly error: Error & { readonly digest?: string };
+  readonly reset: () => void;
 }>) {
   useEffect(() => {
     console.error(error);

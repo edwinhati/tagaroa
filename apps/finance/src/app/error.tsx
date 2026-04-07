@@ -5,10 +5,10 @@ import { Button } from "@repo/ui/components/button";
 export default function ErrorBoundary({
   error,
   reset,
-}: {
-  error: Error & { digest?: string };
-  reset: () => void;
-}) {
+}: Readonly<{
+  readonly error: Error & { readonly digest?: string };
+  readonly reset: () => void;
+}>) {
   return (
     <div className="flex min-h-[400px] flex-col items-center justify-center gap-4">
       <h2 className="text-xl font-semibold">Something went wrong</h2>

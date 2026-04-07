@@ -6,8 +6,8 @@ export default function ErrorBoundary({
   error,
   reset,
 }: {
-  error: Error & { digest?: string };
-  reset: () => void;
+  readonly error: Error & { readonly digest?: string };
+  readonly reset: () => void;
 }) {
   return (
     <div className="flex min-h-[400px] flex-col items-center justify-center gap-4">

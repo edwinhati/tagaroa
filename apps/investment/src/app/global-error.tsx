@@ -5,10 +5,10 @@ import { Button } from "@repo/ui/components/button";
 export default function GlobalError({
   error,
   reset,
-}: {
-  error: Error & { digest?: string };
-  reset: () => void;
-}) {
+}: Readonly<{
+  readonly error: Error & { readonly digest?: string };
+  readonly reset: () => void;
+}>) {
   return (
     <html lang="en">
       <body>

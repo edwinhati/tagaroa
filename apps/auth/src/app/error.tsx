@@ -7,8 +7,8 @@ export default function ErrorBoundary({
   error,
   reset,
 }: {
-  error: Error & { digest?: string };
-  reset: () => void;
+  readonly error: Error & { readonly digest?: string };
+  readonly reset: () => void;
 }) {
   useEffect(() => {
     console.error(error);
