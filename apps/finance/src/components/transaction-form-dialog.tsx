@@ -11,8 +11,8 @@ import { budgetQueryOptions } from "@repo/common/lib/query/budget-query";
 import type { FileMetadata as StorageFileMetadata } from "@repo/common/lib/query/storage-query";
 import { uploadFileMutationOptions } from "@repo/common/lib/query/storage-query";
 import {
-  transactionMutationOptions,
   transactionTypesQueryOptions,
+  useTransactionMutationOptions,
 } from "@repo/common/lib/query/transaction-query";
 import { getAccountCategoryFromType } from "@repo/common/types/account";
 import {
@@ -326,8 +326,9 @@ export function TransactionFormDialog({
     setOpen(newOpen);
   };
 
+  const transactionMutationOpts = useTransactionMutationOptions();
   const { mutate, isPending } = useMutation({
-    ...transactionMutationOptions(),
+    ...transactionMutationOpts,
     onSuccess: () => {
       toast.success(
         initialData?.id ? "Transaction updated" : "Transaction created",
@@ -492,24 +493,31 @@ export function TransactionFormDialog({
         )
       : null;
 
+  let dialogTrigger = null;
+  if (trigger) {
+    dialogTrigger = (
+      <DialogTrigger render={trigger} nativeButton={nativeButton} />
+    );
+  } else if (externalOpen === undefined) {
+    dialogTrigger = (
+      <DialogTrigger
+        render={
+          <Button className="ml-auto" size="sm">
+            <IconPlus
+              className="-ms-1 opacity-60"
+              size={16}
+              aria-hidden="true"
+            />
+            Add Transaction
+          </Button>
+        }
+      />
+    );
+  }
+
   return (
     <Dialog open={open} onOpenChange={handleOpenChange} modal={false}>
-      {trigger ? (
-        <DialogTrigger render={trigger} nativeButton={nativeButton} />
-      ) : externalOpen === undefined ? (
-        <DialogTrigger
-          render={
-            <Button className="ml-auto" size="sm">
-              <IconPlus
-                className="-ms-1 opacity-60"
-                size={16}
-                aria-hidden="true"
-              />
-              Add Transaction
-            </Button>
-          }
-        />
-      ) : undefined}
+      {dialogTrigger}
       <DialogContent className="!max-w-2xl !w-full max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>
@@ -637,7 +645,6 @@ export function TransactionFormDialog({
                           field.onChange(date);
                           setDateOpen(false);
                         }}
-                        initialFocus
                       />
                     </PopoverContent>
                   </Popover>
@@ -877,7 +884,7 @@ export function TransactionFormDialog({
                           <Select
                             value={field.value?.toString() ?? ""}
                             onValueChange={(v) =>
-                              field.onChange(parseInt(v ?? "3", 10))
+                              field.onChange(Number.parseInt(v ?? "3", 10))
                             }
                           >
                             <SelectTrigger>

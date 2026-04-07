@@ -32,45 +32,7 @@ export class UpdateAccountUseCase {
       throw new AccountAccessDeniedException();
     }
 
-    // Merge metadata if provided
-    let updatedMetadata: AccountMetadata | null = existing.metadata;
-    if (dto.metadata !== undefined) {
-      if (dto.metadata === null) {
-        updatedMetadata = null;
-      } else {
-        updatedMetadata = {
-          ...(existing.metadata ?? {}),
-          ...dto.metadata,
-        } as AccountMetadata;
-
-        // Convert nextDueDate string to Date if present
-        if (
-          "nextDueDate" in dto.metadata &&
-          typeof dto.metadata.nextDueDate === "string"
-        ) {
-          updatedMetadata = {
-            ...updatedMetadata,
-            nextDueDate: new Date(dto.metadata.nextDueDate),
-          };
-        }
-
-        // Recalculate available credit if credit limit or balance changed
-        const newBalance = dto.balance ?? existing.balance;
-        if (existing.isLiability()) {
-          const meta = dto.metadata as { creditLimit?: number };
-          const creditLimit = meta.creditLimit;
-          if (creditLimit !== undefined && creditLimit > 0) {
-            updatedMetadata = {
-              ...updatedMetadata,
-              availableCredit: calculateAvailableCredit(
-                creditLimit,
-                newBalance,
-              ),
-            };
-          }
-        }
-      }
-    }
+    const updatedMetadata = this.mergeMetadata(existing, dto);
 
     const updated = new Account(
       existing.id,
@@ -89,5 +51,45 @@ export class UpdateAccountUseCase {
     );
 
     return this.accountRepository.update(updated);
+  }
+
+  private mergeMetadata(
+    existing: Account,
+    dto: UpdateAccountDto,
+  ): AccountMetadata | null {
+    if (dto.metadata === undefined) {
+      return existing.metadata;
+    }
+
+    if (dto.metadata === null) {
+      return null;
+    }
+
+    let merged: AccountMetadata = {
+      ...existing.metadata,
+      ...dto.metadata,
+    } as AccountMetadata;
+
+    if (
+      "nextDueDate" in dto.metadata &&
+      typeof dto.metadata.nextDueDate === "string"
+    ) {
+      merged = { ...merged, nextDueDate: new Date(dto.metadata.nextDueDate) };
+    }
+
+    const meta = dto.metadata as { creditLimit?: number };
+    const newBalance = dto.balance ?? existing.balance;
+    if (
+      existing.isLiability() &&
+      meta.creditLimit !== undefined &&
+      meta.creditLimit > 0
+    ) {
+      merged = {
+        ...merged,
+        availableCredit: calculateAvailableCredit(meta.creditLimit, newBalance),
+      };
+    }
+
+    return merged;
   }
 }

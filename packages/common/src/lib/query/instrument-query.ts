@@ -168,7 +168,14 @@ export const deleteInstrumentMutationOptions = () =>
 
 export const latestPricesQueryOptions = (instrumentIds: string[]) =>
   queryOptions({
-    queryKey: ["ohlcv", "prices", instrumentIds.slice().sort().join(",")],
+    queryKey: [
+      "ohlcv",
+      "prices",
+      instrumentIds
+        .slice()
+        .sort((a, b) => a.localeCompare(b))
+        .join(","),
+    ],
     queryFn: () =>
       investmentApi.get<Record<string, number | null>>(
         `/ohlcv/prices?ids=${instrumentIds.join(",")}`,

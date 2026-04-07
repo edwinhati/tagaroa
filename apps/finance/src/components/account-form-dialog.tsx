@@ -180,11 +180,9 @@ export function AccountFormDialog({
       ) {
         metadata.billingCycleDay = formData.billingCycleDay;
       }
-    } else {
+    } else if (formData.accountNumber) {
       // Asset account metadata
-      if (formData.accountNumber) {
-        metadata.accountNumber = formData.accountNumber;
-      }
+      metadata.accountNumber = formData.accountNumber;
     }
 
     const accountData = {
@@ -471,7 +469,7 @@ export function AccountFormDialog({
                           onChange={(e) =>
                             field.onChange(
                               e.target.value
-                                ? parseInt(e.target.value, 10)
+                                ? Number.parseInt(e.target.value, 10)
                                 : undefined,
                             )
                           }

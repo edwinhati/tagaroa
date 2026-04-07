@@ -8,8 +8,8 @@ import { Loading } from "@repo/common/components/loading";
 import { useDebounce } from "@repo/common/hooks/use-debounce";
 import { useFilters } from "@repo/common/hooks/use-filters";
 import {
-  transactionDeleteMutationOptions,
   transactionQueryOptions,
+  useTransactionDeleteMutationOptions,
 } from "@repo/common/lib/query/transaction-query";
 import type { AggregationItem } from "@repo/common/types";
 import type {
@@ -540,9 +540,8 @@ function TransactionDataTableContent() {
     }
   }, [searchParams, setServerFilters, setRange]);
 
-  const { mutate: deleteTransaction } = useMutation(
-    transactionDeleteMutationOptions(),
-  );
+  const deleteMutationOpts = useTransactionDeleteMutationOptions();
+  const { mutate: deleteTransaction } = useMutation(deleteMutationOpts);
 
   const { data: transactionsResponse, error } = useQuery(
     transactionQueryOptions({

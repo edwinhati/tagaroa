@@ -79,65 +79,13 @@ export class GetPositionsWithPnlUseCase {
 
     if (positions.length === 0) return [];
 
-    // Compute total market value for weight calculation
     const enriched: Omit<PositionWithPnl, "weight">[] = [];
     let totalMarketValue = 0;
 
     for (const position of positions) {
-      const instrument = await this.instrumentRepository.findById(
-        position.instrumentId,
-      );
-      const ticker = instrument?.ticker ?? position.instrumentId.slice(0, 8);
-      const assetClass = instrument?.assetClass ?? "UNKNOWN";
-
-      const latestOhlcv = await this.ohlcvRepository.findLatest(
-        position.instrumentId,
-        "1d",
-      );
-      const currentPrice = latestOhlcv
-        ? Number(latestOhlcv.close)
-        : Number(position.averageCost);
-      const priceDate = latestOhlcv ? latestOhlcv.timestamp : null;
-
-      const thresholdDays = STALENESS_DAYS[assetClass as AssetClass] ?? 3;
-      const isStale =
-        priceDate === null
-          ? false
-          : (Date.now() - priceDate.getTime()) / (1000 * 60 * 60 * 24) >
-            thresholdDays;
-
-      const qty = Number(position.quantity);
-      const avgCost = Number(position.averageCost);
-      const costBasis =
-        position.side === "LONG" ? qty * avgCost : -(qty * avgCost);
-      const marketVal =
-        position.side === "LONG" ? qty * currentPrice : -(qty * currentPrice);
-      const unrealizedPnl = marketVal - costBasis;
-      const unrealizedPnlPct =
-        Math.abs(costBasis) > 0
-          ? (unrealizedPnl / Math.abs(costBasis)) * 100
-          : 0;
-
-      totalMarketValue += Math.abs(marketVal);
-
-      enriched.push({
-        id: position.id,
-        portfolioId: position.portfolioId,
-        instrumentId: position.instrumentId,
-        ticker,
-        assetClass,
-        quantity: qty,
-        averageCost: avgCost,
-        side: position.side,
-        openedAt: position.openedAt,
-        currentPrice,
-        marketValue: marketVal,
-        costBasis,
-        unrealizedPnl,
-        unrealizedPnlPct,
-        isStale,
-        priceDate,
-      });
+      const item = await this.enrichPosition(position);
+      totalMarketValue += Math.abs(item.marketValue);
+      enriched.push(item);
     }
 
     return enriched.map((p) => ({
@@ -147,5 +95,60 @@ export class GetPositionsWithPnlUseCase {
           ? (Math.abs(p.marketValue) / totalMarketValue) * 100
           : 0,
     }));
+  }
+
+  private async enrichPosition(
+    position: Awaited<
+      ReturnType<IPositionRepository["findOpenByPortfolioId"]>
+    >[number],
+  ): Promise<Omit<PositionWithPnl, "weight">> {
+    const instrument = await this.instrumentRepository.findById(
+      position.instrumentId,
+    );
+    const ticker = instrument?.ticker ?? position.instrumentId.slice(0, 8);
+    const assetClass = instrument?.assetClass ?? "UNKNOWN";
+
+    const latestOhlcv = await this.ohlcvRepository.findLatest(
+      position.instrumentId,
+      "1d",
+    );
+    const currentPrice = latestOhlcv
+      ? Number(latestOhlcv.close)
+      : Number(position.averageCost);
+    const priceDate = latestOhlcv ? latestOhlcv.timestamp : null;
+
+    const thresholdDays = STALENESS_DAYS[assetClass as AssetClass] ?? 3;
+    const isStale =
+      priceDate !== null &&
+      (Date.now() - priceDate.getTime()) / (1000 * 60 * 60 * 24) >
+        thresholdDays;
+
+    const qty = Number(position.quantity);
+    const avgCost = Number(position.averageCost);
+    const sign = position.side === "LONG" ? 1 : -1;
+    const costBasis = sign * qty * avgCost;
+    const marketVal = sign * qty * currentPrice;
+    const unrealizedPnl = marketVal - costBasis;
+    const unrealizedPnlPct =
+      Math.abs(costBasis) > 0 ? (unrealizedPnl / Math.abs(costBasis)) * 100 : 0;
+
+    return {
+      id: position.id,
+      portfolioId: position.portfolioId,
+      instrumentId: position.instrumentId,
+      ticker,
+      assetClass,
+      quantity: qty,
+      averageCost: avgCost,
+      side: position.side,
+      openedAt: position.openedAt,
+      currentPrice,
+      marketValue: marketVal,
+      costBasis,
+      unrealizedPnl,
+      unrealizedPnlPct,
+      isStale,
+      priceDate,
+    };
   }
 }

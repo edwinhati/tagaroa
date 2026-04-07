@@ -26,6 +26,8 @@ interface CorrelationMatrix {
   matrix: number[][];
 }
 
+type InstrumentReturns = { ticker: string; returns: Map<string, number> };
+
 function pearsonCorrelation(a: number[], b: number[]): number {
   const n = Math.min(a.length, b.length);
   if (n < 2) return 0;
@@ -79,90 +81,123 @@ export class GetCorrelationMatrixUseCase {
       await this.positionRepository.findOpenByPortfolioId(portfolioId);
 
     if (positions.length < 2) {
-      const tickers = await Promise.all(
-        positions.map(async (p) => {
-          const inst = await this.instrumentRepository.findById(p.instrumentId);
-          return inst?.ticker ?? p.instrumentId.slice(0, 8);
-        }),
-      );
-      return { tickers, matrix: positions.length === 1 ? [[1]] : [] };
+      return this.buildTrivialResult(positions.map((p) => p.instrumentId));
     }
 
-    // Fetch daily OHLCV for each instrument
-    const instrumentData: { ticker: string; returns: Map<string, number> }[] =
-      [];
-
-    for (const position of positions) {
-      const instrument = await this.instrumentRepository.findById(
-        position.instrumentId,
-      );
-      const ticker = instrument?.ticker ?? position.instrumentId.slice(0, 8);
-
-      const startDate = new Date(Date.now() - 365 * 24 * 60 * 60 * 1000);
-      const ohlcvList = await this.ohlcvRepository.findMany({
-        instrumentId: position.instrumentId,
-        timeframe: Timeframe.ONE_DAY,
-        startDate,
-        limit: 400,
-      });
-
-      const returns = new Map<string, number>();
-      for (let i = 1; i < ohlcvList.length; i++) {
-        const prev = ohlcvList[i - 1];
-        const curr = ohlcvList[i];
-        if (prev && curr && prev.close > 0) {
-          const dateKey = curr.timestamp.toISOString().split("T")[0];
-          if (dateKey) {
-            returns.set(dateKey, (curr.close - prev.close) / prev.close);
-          }
-        }
-      }
-
-      instrumentData.push({ ticker, returns });
-    }
-
-    // Align dates across all instruments
-    const firstReturns = instrumentData[0]?.returns;
-    const commonDates = firstReturns
-      ? [...firstReturns.keys()].filter((date) =>
-          instrumentData.every((d) => d.returns.has(date)),
-        )
-      : [];
-
+    const instrumentData = await this.fetchInstrumentData(positions);
+    const commonDates = this.findCommonDates(instrumentData);
+    const matrix = this.buildMatrix(instrumentData, commonDates);
     const tickers = instrumentData.map((d) => d.ticker);
-    const n = tickers.length;
+
+    return { tickers, matrix };
+  }
+
+  private async buildTrivialResult(
+    instrumentIds: string[],
+  ): Promise<CorrelationMatrix> {
+    const tickers = await Promise.all(
+      instrumentIds.map(async (id) => {
+        const inst = await this.instrumentRepository.findById(id);
+        return inst?.ticker ?? id.slice(0, 8);
+      }),
+    );
+    const matrix = tickers.length === 1 ? [[1]] : [];
+    return { tickers, matrix };
+  }
+
+  private async fetchInstrumentData(
+    positions: { instrumentId: string }[],
+  ): Promise<InstrumentReturns[]> {
+    const results: InstrumentReturns[] = [];
+    for (const position of positions) {
+      const item = await this.buildInstrumentReturns(position.instrumentId);
+      results.push(item);
+    }
+    return results;
+  }
+
+  private async buildInstrumentReturns(
+    instrumentId: string,
+  ): Promise<InstrumentReturns> {
+    const instrument = await this.instrumentRepository.findById(instrumentId);
+    const ticker = instrument?.ticker ?? instrumentId.slice(0, 8);
+
+    const startDate = new Date(Date.now() - 365 * 24 * 60 * 60 * 1000);
+    const ohlcvList = await this.ohlcvRepository.findMany({
+      instrumentId,
+      timeframe: Timeframe.ONE_DAY,
+      startDate,
+      limit: 400,
+    });
+
+    const returns = new Map<string, number>();
+    for (let i = 1; i < ohlcvList.length; i++) {
+      this.addDailyReturn(returns, ohlcvList[i - 1], ohlcvList[i]);
+    }
+
+    return { ticker, returns };
+  }
+
+  private addDailyReturn(
+    returns: Map<string, number>,
+    prev: { close: number; timestamp: Date } | undefined,
+    curr: { close: number; timestamp: Date } | undefined,
+  ): void {
+    if (!prev || !curr || prev.close <= 0) return;
+    const dateKey = curr.timestamp.toISOString().split("T")[0];
+    if (dateKey) {
+      returns.set(dateKey, (curr.close - prev.close) / prev.close);
+    }
+  }
+
+  private findCommonDates(instrumentData: InstrumentReturns[]): string[] {
+    const firstReturns = instrumentData[0]?.returns;
+    if (!firstReturns) return [];
+    return [...firstReturns.keys()].filter((date) =>
+      instrumentData.every((d) => d.returns.has(date)),
+    );
+  }
+
+  private buildMatrix(
+    instrumentData: InstrumentReturns[],
+    commonDates: string[],
+  ): number[][] {
+    const n = instrumentData.length;
     const matrix: number[][] = Array.from({ length: n }, () =>
       new Array(n).fill(0),
     );
 
     for (let i = 0; i < n; i++) {
       for (let j = 0; j < n; j++) {
-        if (i === j) {
-          const row = matrix[i];
-          if (row) row[j] = 1;
-          continue;
-        }
-        if (i > j) {
-          const rowI = matrix[i];
-          const rowJ = matrix[j];
-          if (rowI && rowJ) {
-            rowI[j] = rowJ[i] ?? 0;
-          }
-          continue;
-        }
-        const a = commonDates.map(
-          (d) => instrumentData[i]?.returns.get(d) ?? 0,
-        );
-        const b = commonDates.map(
-          (d) => instrumentData[j]?.returns.get(d) ?? 0,
-        );
-        const row = matrix[i];
-        if (row) {
-          row[j] = Number(pearsonCorrelation(a, b).toFixed(4));
-        }
+        this.fillMatrixCell(matrix, instrumentData, commonDates, i, j);
       }
     }
 
-    return { tickers, matrix };
+    return matrix;
+  }
+
+  private fillMatrixCell(
+    matrix: number[][],
+    instrumentData: InstrumentReturns[],
+    commonDates: string[],
+    i: number,
+    j: number,
+  ): void {
+    const row = matrix[i];
+    if (!row) return;
+
+    if (i === j) {
+      row[j] = 1;
+      return;
+    }
+
+    if (i > j) {
+      row[j] = matrix[j]?.[i] ?? 0;
+      return;
+    }
+
+    const a = commonDates.map((d) => instrumentData[i]?.returns.get(d) ?? 0);
+    const b = commonDates.map((d) => instrumentData[j]?.returns.get(d) ?? 0);
+    row[j] = Number(pearsonCorrelation(a, b).toFixed(4));
   }
 }

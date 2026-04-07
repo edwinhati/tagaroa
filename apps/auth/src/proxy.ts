@@ -83,6 +83,61 @@ function handleVerificationRedirects(
 }
 
 /**
+ * Handle unauthenticated user access
+ */
+function handleUnauthenticated(
+  request: NextRequest,
+  pathname: string,
+  safeRedirect: string,
+): NextResponse {
+  if (pathname === "/") {
+    return NextResponse.redirect(new URL("/sign-in", request.url));
+  }
+
+  if (isRouteProtected(pathname)) {
+    return NextResponse.redirect(
+      new URL(
+        `/sign-in?redirect=${encodeURIComponent(safeRedirect)}`,
+        request.url,
+      ),
+    );
+  }
+
+  return NextResponse.next();
+}
+
+/**
+ * Verify session with backend
+ */
+async function verifySessionWithBackend(request: NextRequest): Promise<{
+  isAuthenticated: boolean;
+  emailVerified: boolean;
+}> {
+  try {
+    const apiUrl = process.env.NEXT_PUBLIC_API_URL;
+    const res = await fetch(`${apiUrl}/api/auth/get-session`, {
+      headers: {
+        cookie: request.headers.get("cookie") ?? "",
+      },
+    });
+
+    if (res.ok) {
+      const data = await res.json();
+      if (data?.user) {
+        return {
+          isAuthenticated: true,
+          emailVerified: data.user.emailVerified ?? false,
+        };
+      }
+    }
+  } catch (error) {
+    console.error("Error verifying session with backend:", error);
+  }
+
+  return { isAuthenticated: false, emailVerified: false };
+}
+
+/**
  * Main proxy function
  */
 export async function proxy(request: NextRequest): Promise<NextResponse> {
@@ -94,80 +149,15 @@ export async function proxy(request: NextRequest): Promise<NextResponse> {
 
   const sessionCookie = getSessionCookie(request);
 
-  // Check if user is explicitly logging out
-  const isLogout = searchParams.get("logout") === "true";
-
-  // Handle public routes when no token exists
   if (!sessionCookie) {
-    // Redirect root path to sign-in
-    if (pathname === "/") {
-      return NextResponse.redirect(new URL("/sign-in", request.url));
-    }
-
-    // Redirect protected routes to sign-in with redirect parameter
-    if (isRouteProtected(pathname)) {
-      return NextResponse.redirect(
-        new URL(
-          `/sign-in?redirect=${encodeURIComponent(safeRedirect)}`,
-          request.url,
-        ),
-      );
-    }
-    return NextResponse.next();
+    return handleUnauthenticated(request, pathname, safeRedirect);
   }
 
-  // Verify session via NestJS backend — no direct DB access from the frontend
-  let emailVerified = false;
-  try {
-    const apiUrl = process.env.NEXT_PUBLIC_API_URL;
-    const res = await fetch(`${apiUrl}/api/auth/get-session`, {
-      headers: {
-        cookie: request.headers.get("cookie") ?? "",
-      },
-    });
-    if (res.ok) {
-      const data = await res.json();
-      emailVerified = data?.user?.emailVerified ?? false;
-      if (!data?.user) {
-        // No valid session returned — treat as unauthenticated
-        if (isLogout && isPublicRoute(pathname)) {
-          return NextResponse.next();
-        }
-        if (pathname === "/") {
-          return NextResponse.redirect(new URL("/sign-in", request.url));
-        }
-        if (isRouteProtected(pathname)) {
-          return NextResponse.redirect(
-            new URL(
-              `/sign-in?redirect=${encodeURIComponent(safeRedirect)}`,
-              request.url,
-            ),
-          );
-        }
-        return NextResponse.next();
-      }
-    } else {
-      // Non-OK response — treat as unauthenticated
-      if (pathname === "/") {
-        return NextResponse.redirect(new URL("/sign-in", request.url));
-      }
-      if (isRouteProtected(pathname)) {
-        return NextResponse.redirect(
-          new URL(
-            `/sign-in?redirect=${encodeURIComponent(safeRedirect)}`,
-            request.url,
-          ),
-        );
-      }
-      return NextResponse.next();
-    }
-  } catch (error) {
-    console.error("Error verifying session with backend:", error);
-    // On error, fail open for public routes, fail closed for protected routes
-    if (isRouteProtected(pathname)) {
-      return NextResponse.redirect(new URL("/sign-in", request.url));
-    }
-    return NextResponse.next();
+  const { isAuthenticated, emailVerified } =
+    await verifySessionWithBackend(request);
+
+  if (!isAuthenticated) {
+    return handleUnauthenticated(request, pathname, safeRedirect);
   }
 
   // Handle based on verification status

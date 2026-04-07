@@ -278,74 +278,6 @@ export function UserDetailSheet(props: Readonly<UserDetailSheetProps>) {
 
   const impersonateDisabled =
     isImpersonatingUser || isViewingCurrentUser || isAlreadyImpersonating;
-  const currentRoleBadge = roleBadgeConfig[roleValue] ?? roleBadgeConfig.user;
-  const RoleBadgeIcon = currentRoleBadge?.Icon;
-
-  const renderSessions = () => {
-    if (sessionsLoading) {
-      return (
-        <div className="space-y-2">
-          <Skeleton className="h-12 w-full" />
-          <Skeleton className="h-12 w-full" />
-        </div>
-      );
-    }
-    if (sessionsError) {
-      return (
-        <div className="rounded-md border border-destructive/20 bg-destructive/5 p-3 text-xs text-destructive">
-          {sessionsError}
-        </div>
-      );
-    }
-    if (sessions.length === 0) {
-      return (
-        <p className="text-xs text-muted-foreground">No active sessions.</p>
-      );
-    }
-    return (
-      <div className="space-y-3">
-        {sessions.map((session) => (
-          <div
-            key={session.id}
-            className="flex flex-col gap-2 rounded-md border bg-muted/30 p-3 text-xs"
-          >
-            <div className="flex flex-wrap items-center justify-between gap-2 font-mono">
-              <span className="truncate">
-                Token: {session.token ? truncateToken(session.token) : "-"}
-              </span>
-              <span className="text-muted-foreground">
-                {formatDateTime(session.expiresAt)}
-              </span>
-            </div>
-            <div className="flex flex-wrap items-center justify-between gap-2 text-muted-foreground">
-              <span>{session.userAgent ?? "User agent unavailable"}</span>
-              <span>IP: {session.ipAddress ?? "-"}</span>
-            </div>
-            <div className="flex items-center justify-between">
-              {session.impersonatedBy ? (
-                <Badge variant="outline" className="gap-1">
-                  <IconMasksTheater className="h-3 w-3" />
-                  Impersonated by {session.impersonatedBy}
-                </Badge>
-              ) : (
-                <span className="text-muted-foreground">Standard session</span>
-              )}
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() =>
-                  session.token && handleRevokeSession(session.token)
-                }
-                disabled={!session.token}
-              >
-                Revoke
-              </Button>
-            </div>
-          </div>
-        ))}
-      </div>
-    );
-  };
 
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
@@ -360,404 +292,65 @@ export function UserDetailSheet(props: Readonly<UserDetailSheetProps>) {
 
         {localUser ? (
           <>
-            <Card className="rounded-md bg-muted/40 px-4 text-sm">
-              <div className="flex items-start gap-3">
-                {localUser.banned ? (
-                  <IconShieldCancel className="h-5 w-5 text-destructive mt-0.5" />
-                ) : (
-                  <IconCircleCheck className="h-5 w-5 text-emerald-500 mt-0.5" />
-                )}
-
-                <div>
-                  <p className="font-medium">
-                    {localUser.banned ? "User banned" : "Active user"}
-                  </p>
-
-                  {localUser.banned && (
-                    <p className="text-xs text-muted-foreground mt-1">
-                      {localUser.banReason && (
-                        <>
-                          <span className="font-medium">Reason:</span>{" "}
-                          {localUser.banReason}.{" "}
-                        </>
-                      )}
-                      {localUser.banExpires ? (
-                        <>
-                          <span className="font-medium">Expires:</span>{" "}
-                          {formatDateTime(localUser.banExpires)}
-                        </>
-                      ) : (
-                        "No expiration date."
-                      )}
-                    </p>
-                  )}
-                </div>
-              </div>
-
-              {/* Ban Form */}
-              {showBanForm && !localUser.banned && (
-                <div className="space-y-3 rounded-md border border-destructive/40 bg-destructive/10 p-4">
-                  <div className="space-y-1.5">
-                    <Label htmlFor="ban-reason">Ban reason</Label>
-                    <Input
-                      id="ban-reason"
-                      value={banReason}
-                      onChange={(e) => setBanReason(e.target.value)}
-                      placeholder="Example: Suspicious login attempts"
-                    />
-                  </div>
-
-                  <RadioGroup
-                    className="flex flex-wrap gap-2"
-                    value={banDuration}
-                    onValueChange={(value) =>
-                      setBanDuration(value as BanDurationOption)
-                    }
-                  >
-                    <div
-                      key="permanent"
-                      className="relative flex flex-col items-start gap-4 rounded-md border border-input p-3 shadow-xs outline-none has-data-[state=checked]:border-primary/50"
-                    >
-                      <div className="flex items-center gap-2">
-                        <RadioGroupItem
-                          id="permanent"
-                          value="permanent"
-                          className="after:absolute after:inset-0"
-                        />
-                        <Label htmlFor="permanent">Permanent</Label>
-                      </div>
-                    </div>
-                    <div
-                      key="1d"
-                      className="relative flex flex-col items-start gap-4 rounded-md border border-input p-3 shadow-xs outline-none has-data-[state=checked]:border-primary/50"
-                    >
-                      <div className="flex items-center gap-2">
-                        <RadioGroupItem
-                          id="1d"
-                          value="1d"
-                          className="after:absolute after:inset-0"
-                        />
-                        <Label htmlFor="1d">24 hours</Label>
-                      </div>
-                    </div>
-                    <div
-                      key="7d"
-                      className="relative flex flex-col items-start gap-4 rounded-md border border-input p-3 shadow-xs outline-none has-data-[state=checked]:border-primary/50"
-                    >
-                      <div className="flex items-center gap-2">
-                        <RadioGroupItem
-                          id="7d"
-                          value="7d"
-                          className="after:absolute after:inset-0"
-                        />
-                        <Label htmlFor="7d">7 days</Label>
-                      </div>
-                    </div>
-                    <div
-                      key="30d"
-                      className="relative flex flex-col items-start gap-4 rounded-md border border-input p-3 shadow-xs outline-none has-data-[state=checked]:border-primary/50"
-                    >
-                      <div className="flex items-center gap-2">
-                        <RadioGroupItem
-                          id="30d"
-                          value="30d"
-                          className="after:absolute after:inset-0"
-                        />
-                        <Label htmlFor="30d">30 days</Label>
-                      </div>
-                    </div>
-                  </RadioGroup>
-
-                  <Button
-                    variant="destructive"
-                    size="sm"
-                    onClick={handleBanUser}
-                    disabled={isBanMutating}
-                    className="gap-2 w-full"
-                  >
-                    <IconShieldCancel className="h-4 w-4" />
-                    {isBanMutating ? "Processing..." : "Confirm ban"}
-                  </Button>
-                </div>
-              )}
-
-              {/* Action Buttons */}
-              <div className="flex flex-wrap gap-2">
-                {localUser.banned ? (
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={handleUnbanUser}
-                    disabled={isBanMutating}
-                  >
-                    {isBanMutating ? "Processing..." : "Undo ban"}
-                  </Button>
-                ) : (
-                  <Button
-                    variant={showBanForm ? "destructive" : "outline"}
-                    size="sm"
-                    onClick={() => setShowBanForm((prev) => !prev)}
-                    disabled={isBanMutating}
-                  >
-                    {showBanForm ? "Close" : "Ban user"}
-                  </Button>
-                )}
-              </div>
-            </Card>
+            <UserStatusCard
+              localUser={localUser}
+              showBanForm={showBanForm}
+              setShowBanForm={setShowBanForm}
+              banReason={banReason}
+              setBanReason={setBanReason}
+              banDuration={banDuration}
+              setBanDuration={setBanDuration}
+              handleBanUser={handleBanUser}
+              isBanMutating={isBanMutating}
+              handleUnbanUser={handleUnbanUser}
+            />
 
             <div className="space-y-6 pb-10">
-              <Card>
-                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                  <div>
-                    <CardTitle className="text-sm font-semibold">
-                      Basic information
-                    </CardTitle>
-                  </div>
-                  <CardAction>
-                    <Button
-                      size="sm"
-                      onClick={handleSaveProfile}
-                      disabled={isSavingProfile}
-                      className="gap-2"
-                    >
-                      <IconCircleCheck className="h-4 w-4" />
-                      {isSavingProfile ? "Saving..." : "Save changes"}
-                    </Button>
-                  </CardAction>
-                </CardHeader>
-                <CardContent className="space-y-3">
-                  <div className="space-y-1.5">
-                    <Label htmlFor="user-name">Name</Label>
-                    <Input
-                      id="user-name"
-                      value={nameInput}
-                      onChange={(event) => setNameInput(event.target.value)}
-                    />
-                  </div>
-                  <div className="space-y-1.5">
-                    <Label htmlFor="user-email">Email</Label>
-                    <Input
-                      id="user-email"
-                      type="email"
-                      value={emailInput}
-                      onChange={(event) => setEmailInput(event.target.value)}
-                    />
-                  </div>
-                </CardContent>
-                <CardFooter>
-                  <p className="text-xs text-muted-foreground">
-                    Created {formatDateTime(localUser.createdAt)} • Updated{" "}
-                    {formatDateTime(localUser.updatedAt)}
-                  </p>
-                </CardFooter>
-              </Card>
+              <BasicInfoCard
+                localUser={localUser}
+                nameInput={nameInput}
+                setNameInput={setNameInput}
+                emailInput={emailInput}
+                setEmailInput={setEmailInput}
+                handleSaveProfile={handleSaveProfile}
+                isSavingProfile={isSavingProfile}
+              />
 
-              <Card>
-                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                  <div>
-                    <CardTitle className="text-sm font-semibold">
-                      Role Management
-                    </CardTitle>
-                    <CardDescription>
-                      Change the user&apos;s role and permissions
-                    </CardDescription>
-                  </div>
-                  <CardAction>
-                    <Badge
-                      variant={currentRoleBadge?.variant ?? "secondary"}
-                      className="capitalize flex items-center gap-1"
-                    >
-                      {RoleBadgeIcon ? (
-                        <RoleBadgeIcon className="h-3 w-3" />
-                      ) : null}
-                      {roleValue}
-                    </Badge>
-                  </CardAction>
-                </CardHeader>
-                <CardContent className="space-y-3">
-                  <div className="space-y-1.5">
-                    <Label htmlFor="user-role">User Role</Label>
-                    <RadioGroup
-                      value={roleValue}
-                      onValueChange={handleChangeRole}
-                      disabled={isUpdatingRole}
-                      className="flex flex-col gap-2"
-                    >
-                      <div className="flex items-center space-x-3 rounded-lg border p-3 hover:bg-muted/50 transition-colors">
-                        <RadioGroupItem value="user" id="role-user" />
-                        <IconUser className="h-4 w-4 text-muted-foreground" />
-                        <Label
-                          htmlFor="role-user"
-                          className="flex-1 cursor-pointer"
-                        >
-                          <div>
-                            <div className="font-medium">User</div>
-                            <div className="text-xs text-muted-foreground">
-                              Standard user with basic permissions
-                            </div>
-                          </div>
-                        </Label>
-                      </div>
-                      <div className="flex items-center space-x-3 rounded-lg border p-3 hover:bg-muted/50 transition-colors">
-                        <RadioGroupItem value="admin" id="role-admin" />
-                        <IconShield className="h-4 w-4 text-muted-foreground" />
-                        <Label
-                          htmlFor="role-admin"
-                          className="flex-1 cursor-pointer"
-                        >
-                          <div>
-                            <div className="font-medium">Admin</div>
-                            <div className="text-xs text-muted-foreground">
-                              Administrator with full system access
-                            </div>
-                          </div>
-                        </Label>
-                      </div>
-                      {/* <div className="flex items-center space-x-3 rounded-lg border p-3 hover:bg-muted/50 transition-colors">
-                        <RadioGroupItem value="moderator" id="role-moderator" />
-                        <IconUserCheck className="h-4 w-4 text-muted-foreground" />
-                        <Label
-                          htmlFor="role-moderator"
-                          className="flex-1 cursor-pointer"
-                        >
-                          <div>
-                            <div className="font-medium">Moderator</div>
-                            <div className="text-xs text-muted-foreground">
-                              Moderator with limited administrative permissions
-                            </div>
-                          </div>
-                        </Label>
-                      </div> */}
-                    </RadioGroup>
-                  </div>
-                  {isUpdatingRole && (
-                    <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                      <div className="h-4 w-4 animate-spin rounded-full border-2 border-current border-t-transparent" />
-                      Updating role...
-                    </div>
-                  )}
-                </CardContent>
-                <CardFooter>
-                  <p className="text-xs text-muted-foreground">
-                    Role changes take effect immediately and will affect the
-                    user&apos;s permissions across the system.
-                  </p>
-                </CardFooter>
-              </Card>
+              <RoleManagementCard
+                roleValue={roleValue}
+                handleChangeRole={handleChangeRole}
+                isUpdatingRole={isUpdatingRole}
+              />
 
-              <Card>
-                <CardHeader>
-                  <CardTitle className="text-sm font-semibold">
-                    Impersonation
-                  </CardTitle>
-                  <CardDescription>
-                    Start a temporary session as this user. This replaces your
-                    current session until you stop impersonating or the session
-                    expires.
-                  </CardDescription>
-                </CardHeader>
-                <CardContent>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    className="gap-2"
-                    onClick={handleImpersonateUser}
-                    disabled={impersonateDisabled || !localUser}
-                  >
-                    <IconUserScan className="h-4 w-4" />
-                    {isImpersonatingUser ? "Starting..." : "Impersonate user"}
-                  </Button>
-                  {isViewingCurrentUser && (
-                    <p className="text-xs text-muted-foreground mt-2">
-                      You are already signed in as this user.
-                    </p>
-                  )}
-                  {isAlreadyImpersonating && (
-                    <p className="text-xs text-muted-foreground mt-2">
-                      Stop the current impersonation before starting a new one.
-                    </p>
-                  )}
-                </CardContent>
-              </Card>
+              <ImpersonationCard
+                localUser={localUser}
+                handleImpersonateUser={handleImpersonateUser}
+                impersonateDisabled={impersonateDisabled}
+                isImpersonatingUser={isImpersonatingUser}
+                isViewingCurrentUser={isViewingCurrentUser}
+                isAlreadyImpersonating={isAlreadyImpersonating}
+              />
 
-              <Card>
-                <CardHeader>
-                  <CardTitle className="text-sm font-semibold">
-                    Password
-                  </CardTitle>
-                </CardHeader>
-                <CardContent className="space-y-2">
-                  <Label htmlFor="user-new-password">Set a new password</Label>
-                  <div className="flex flex-col gap-2 sm:flex-row">
-                    <Input
-                      id="user-new-password"
-                      type="password"
-                      placeholder="New password"
-                      value={newPassword}
-                      onChange={(event) => setNewPassword(event.target.value)}
-                      className="sm:flex-1"
-                    />
-                    <Button
-                      type="button"
-                      onClick={handleSetPassword}
-                      disabled={isSettingPassword}
-                      className="gap-2"
-                    >
-                      <IconKey className="h-4 w-4" />
-                      {isSettingPassword ? "Saving..." : "Update password"}
-                    </Button>
-                  </div>
-                </CardContent>
-                <CardFooter>
-                  <p className="text-xs text-muted-foreground">
-                    The new password takes effect immediately and is not shared
-                    with the user automatically.
-                  </p>
-                </CardFooter>
-              </Card>
+              <PasswordCard
+                newPassword={newPassword}
+                setNewPassword={setNewPassword}
+                handleSetPassword={handleSetPassword}
+                isSettingPassword={isSettingPassword}
+              />
 
-              <Card>
-                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                  <CardTitle className="text-sm font-semibold">
-                    Active sessions
-                  </CardTitle>
-                  <CardAction>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={handleRevokeAllSessions}
-                      disabled={isRevokingAll || sessions.length === 0}
-                    >
-                      {isRevokingAll ? "Processing..." : "Revoke all"}
-                    </Button>
-                  </CardAction>
-                </CardHeader>
-                <CardContent>{renderSessions()}</CardContent>
-              </Card>
+              <ActiveSessionsCard
+                sessions={sessions}
+                sessionsLoading={sessionsLoading}
+                sessionsError={sessionsError}
+                isRevokingAll={isRevokingAll}
+                handleRevokeAllSessions={handleRevokeAllSessions}
+                handleRevokeSession={handleRevokeSession}
+              />
 
-              <Card className="border-destructive/40 bg-destructive/5">
-                <CardHeader>
-                  <CardTitle className="flex items-center gap-2 text-destructive text-sm font-semibold">
-                    <IconAlertTriangle className="h-4 w-4" />
-                    Danger zone
-                  </CardTitle>
-                  <CardDescription>
-                    Deleting a user removes all related data and cannot be
-                    undone.
-                  </CardDescription>
-                </CardHeader>
-                <CardContent>
-                  <Button
-                    variant="destructive"
-                    className="gap-2"
-                    onClick={handleRemoveUser}
-                    disabled={isRemovingUser}
-                  >
-                    <IconTrash className="h-4 w-4" />
-                    {isRemovingUser ? "Deleting..." : "Delete user"}
-                  </Button>
-                </CardContent>
-              </Card>
+              <DangerZoneCard
+                handleRemoveUser={handleRemoveUser}
+                isRemovingUser={isRemovingUser}
+              />
             </div>
           </>
         ) : (
@@ -1223,4 +816,596 @@ function useUserDetailActions({
     handleSetPassword,
     handleRemoveUser,
   };
+}
+
+function UserSessionsList({
+  sessions,
+  sessionsLoading,
+  sessionsError,
+  onRevokeSession,
+}: Readonly<{
+  sessions: SessionWithImpersonatedBy[];
+  sessionsLoading: boolean;
+  sessionsError: string | null;
+  onRevokeSession: (token: string) => void;
+}>) {
+  if (sessionsLoading) {
+    return (
+      <div className="space-y-2">
+        <Skeleton className="h-12 w-full" />
+        <Skeleton className="h-12 w-full" />
+      </div>
+    );
+  }
+  if (sessionsError) {
+    return (
+      <div className="rounded-md border border-destructive/20 bg-destructive/5 p-3 text-xs text-destructive">
+        {sessionsError}
+      </div>
+    );
+  }
+  if (sessions.length === 0) {
+    return <p className="text-xs text-muted-foreground">No active sessions.</p>;
+  }
+  return (
+    <div className="space-y-3">
+      {sessions.map((session) => (
+        <div
+          key={session.id}
+          className="flex flex-col gap-2 rounded-md border bg-muted/30 p-3 text-xs"
+        >
+          <div className="flex flex-wrap items-center justify-between gap-2 font-mono">
+            <span className="truncate">
+              Token: {session.token ? truncateToken(session.token) : "-"}
+            </span>
+            <span className="text-muted-foreground">
+              {formatDateTime(session.expiresAt)}
+            </span>
+          </div>
+          <div className="flex flex-wrap items-center justify-between gap-2 text-muted-foreground">
+            <span>{session.userAgent ?? "User agent unavailable"}</span>
+            <span>IP: {session.ipAddress ?? "-"}</span>
+          </div>
+          <div className="flex items-center justify-between">
+            {session.impersonatedBy ? (
+              <Badge variant="outline" className="gap-1">
+                <IconMasksTheater className="h-3 w-3" />
+                Impersonated by {session.impersonatedBy}
+              </Badge>
+            ) : (
+              <span className="text-muted-foreground">Standard session</span>
+            )}
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => session.token && onRevokeSession(session.token)}
+              disabled={!session.token}
+            >
+              Revoke
+            </Button>
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+function UserBanForm({
+  banReason,
+  setBanReason,
+  banDuration,
+  setBanDuration,
+  onBanUser,
+  isBanMutating,
+}: Readonly<{
+  banReason: string;
+  setBanReason: (reason: string) => void;
+  banDuration: BanDurationOption;
+  setBanDuration: (duration: BanDurationOption) => void;
+  onBanUser: () => void;
+  isBanMutating: boolean;
+}>) {
+  return (
+    <div className="space-y-3 rounded-md border border-destructive/40 bg-destructive/10 p-4">
+      <div className="space-y-1.5">
+        <Label htmlFor="ban-reason">Ban reason</Label>
+        <Input
+          id="ban-reason"
+          value={banReason}
+          onChange={(e) => setBanReason(e.target.value)}
+          placeholder="Example: Suspicious login attempts"
+        />
+      </div>
+
+      <RadioGroup
+        className="flex flex-wrap gap-2"
+        value={banDuration}
+        onValueChange={(value) => setBanDuration(value as BanDurationOption)}
+      >
+        <div
+          key="permanent"
+          className="relative flex flex-col items-start gap-4 rounded-md border border-input p-3 shadow-xs outline-none has-data-[state=checked]:border-primary/50"
+        >
+          <div className="flex items-center gap-2">
+            <RadioGroupItem
+              id="permanent"
+              value="permanent"
+              className="after:absolute after:inset-0"
+            />
+            <Label htmlFor="permanent">Permanent</Label>
+          </div>
+        </div>
+        <div
+          key="1d"
+          className="relative flex flex-col items-start gap-4 rounded-md border border-input p-3 shadow-xs outline-none has-data-[state=checked]:border-primary/50"
+        >
+          <div className="flex items-center gap-2">
+            <RadioGroupItem
+              id="1d"
+              value="1d"
+              className="after:absolute after:inset-0"
+            />
+            <Label htmlFor="1d">24 hours</Label>
+          </div>
+        </div>
+        <div
+          key="7d"
+          className="relative flex flex-col items-start gap-4 rounded-md border border-input p-3 shadow-xs outline-none has-data-[state=checked]:border-primary/50"
+        >
+          <div className="flex items-center gap-2">
+            <RadioGroupItem
+              id="7d"
+              value="7d"
+              className="after:absolute after:inset-0"
+            />
+            <Label htmlFor="7d">7 days</Label>
+          </div>
+        </div>
+        <div
+          key="30d"
+          className="relative flex flex-col items-start gap-4 rounded-md border border-input p-3 shadow-xs outline-none has-data-[state=checked]:border-primary/50"
+        >
+          <div className="flex items-center gap-2">
+            <RadioGroupItem
+              id="30d"
+              value="30d"
+              className="after:absolute after:inset-0"
+            />
+            <Label htmlFor="30d">30 days</Label>
+          </div>
+        </div>
+      </RadioGroup>
+
+      <Button
+        variant="destructive"
+        size="sm"
+        onClick={onBanUser}
+        disabled={isBanMutating}
+        className="gap-2 w-full"
+      >
+        <IconShieldCancel className="h-4 w-4" />
+        {isBanMutating ? "Processing..." : "Confirm ban"}
+      </Button>
+    </div>
+  );
+}
+
+function UserStatusCard({
+  localUser,
+  showBanForm,
+  setShowBanForm,
+  banReason,
+  setBanReason,
+  banDuration,
+  setBanDuration,
+  handleBanUser,
+  isBanMutating,
+  handleUnbanUser,
+}: Readonly<{
+  localUser: UserWithRole;
+  showBanForm: boolean;
+  setShowBanForm: React.Dispatch<React.SetStateAction<boolean>>;
+  banReason: string;
+  setBanReason: React.Dispatch<React.SetStateAction<string>>;
+  banDuration: BanDurationOption;
+  setBanDuration: React.Dispatch<React.SetStateAction<BanDurationOption>>;
+  handleBanUser: () => void;
+  isBanMutating: boolean;
+  handleUnbanUser: () => void;
+}>) {
+  return (
+    <Card className="rounded-md bg-muted/40 px-4 text-sm">
+      <div className="flex items-start gap-3">
+        {localUser.banned ? (
+          <IconShieldCancel className="h-5 w-5 text-destructive mt-0.5" />
+        ) : (
+          <IconCircleCheck className="h-5 w-5 text-emerald-500 mt-0.5" />
+        )}
+
+        <div>
+          <p className="font-medium">
+            {localUser.banned ? "User banned" : "Active user"}
+          </p>
+
+          {localUser.banned && (
+            <p className="text-xs text-muted-foreground mt-1">
+              {localUser.banReason && (
+                <>
+                  <span className="font-medium">Reason:</span>{" "}
+                  {localUser.banReason}.{" "}
+                </>
+              )}
+              {localUser.banExpires ? (
+                <>
+                  <span className="font-medium">Expires:</span>{" "}
+                  {formatDateTime(localUser.banExpires)}
+                </>
+              ) : (
+                "No expiration date."
+              )}
+            </p>
+          )}
+        </div>
+      </div>
+
+      {/* Ban Form */}
+      {showBanForm && !localUser.banned && (
+        <UserBanForm
+          banReason={banReason}
+          setBanReason={setBanReason}
+          banDuration={banDuration}
+          setBanDuration={setBanDuration}
+          onBanUser={handleBanUser}
+          isBanMutating={isBanMutating}
+        />
+      )}
+
+      {/* Action Buttons */}
+      <div className="flex flex-wrap gap-2">
+        {localUser.banned ? (
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={handleUnbanUser}
+            disabled={isBanMutating}
+          >
+            {isBanMutating ? "Processing..." : "Undo ban"}
+          </Button>
+        ) : (
+          <Button
+            variant={showBanForm ? "destructive" : "outline"}
+            size="sm"
+            onClick={() => setShowBanForm((prev) => !prev)}
+            disabled={isBanMutating}
+          >
+            {showBanForm ? "Close" : "Ban user"}
+          </Button>
+        )}
+      </div>
+    </Card>
+  );
+}
+
+function BasicInfoCard({
+  localUser,
+  nameInput,
+  setNameInput,
+  emailInput,
+  setEmailInput,
+  handleSaveProfile,
+  isSavingProfile,
+}: Readonly<{
+  localUser: UserWithRole;
+  nameInput: string;
+  setNameInput: React.Dispatch<React.SetStateAction<string>>;
+  emailInput: string;
+  setEmailInput: React.Dispatch<React.SetStateAction<string>>;
+  handleSaveProfile: () => void;
+  isSavingProfile: boolean;
+}>) {
+  return (
+    <Card>
+      <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+        <div>
+          <CardTitle className="text-sm font-semibold">
+            Basic information
+          </CardTitle>
+        </div>
+        <CardAction>
+          <Button
+            size="sm"
+            onClick={handleSaveProfile}
+            disabled={isSavingProfile}
+            className="gap-2"
+          >
+            <IconCircleCheck className="h-4 w-4" />
+            {isSavingProfile ? "Saving..." : "Save changes"}
+          </Button>
+        </CardAction>
+      </CardHeader>
+      <CardContent className="space-y-3">
+        <div className="space-y-1.5">
+          <Label htmlFor="user-name">Name</Label>
+          <Input
+            id="user-name"
+            value={nameInput}
+            onChange={(event) => setNameInput(event.target.value)}
+          />
+        </div>
+        <div className="space-y-1.5">
+          <Label htmlFor="user-email">Email</Label>
+          <Input
+            id="user-email"
+            type="email"
+            value={emailInput}
+            onChange={(event) => setEmailInput(event.target.value)}
+          />
+        </div>
+      </CardContent>
+      <CardFooter>
+        <p className="text-xs text-muted-foreground">
+          Created {formatDateTime(localUser.createdAt)} • Updated{" "}
+          {formatDateTime(localUser.updatedAt)}
+        </p>
+      </CardFooter>
+    </Card>
+  );
+}
+
+function RoleManagementCard({
+  roleValue,
+  handleChangeRole,
+  isUpdatingRole,
+}: Readonly<{
+  roleValue: string;
+  handleChangeRole: (value: string) => void;
+  isUpdatingRole: boolean;
+}>) {
+  const currentRoleBadge = roleBadgeConfig[roleValue] ?? roleBadgeConfig.user;
+  const RoleBadgeIcon = currentRoleBadge?.Icon;
+
+  return (
+    <Card>
+      <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+        <div>
+          <CardTitle className="text-sm font-semibold">
+            Role Management
+          </CardTitle>
+          <CardDescription>
+            Change the user&apos;s role and permissions
+          </CardDescription>
+        </div>
+        <CardAction>
+          <Badge
+            variant={currentRoleBadge?.variant ?? "secondary"}
+            className="capitalize flex items-center gap-1"
+          >
+            {RoleBadgeIcon ? <RoleBadgeIcon className="h-3 w-3" /> : null}
+            {roleValue}
+          </Badge>
+        </CardAction>
+      </CardHeader>
+      <CardContent className="space-y-3">
+        <div className="space-y-1.5">
+          <Label htmlFor="user-role">User Role</Label>
+          <RadioGroup
+            value={roleValue}
+            onValueChange={handleChangeRole}
+            disabled={isUpdatingRole}
+            className="flex flex-col gap-2"
+          >
+            <div className="flex items-center space-x-3 rounded-lg border p-3 hover:bg-muted/50 transition-colors">
+              <RadioGroupItem value="user" id="role-user" />
+              <IconUser className="h-4 w-4 text-muted-foreground" />
+              <Label htmlFor="role-user" className="flex-1 cursor-pointer">
+                <div>
+                  <div className="font-medium">User</div>
+                  <div className="text-xs text-muted-foreground">
+                    Standard user with basic permissions
+                  </div>
+                </div>
+              </Label>
+            </div>
+            <div className="flex items-center space-x-3 rounded-lg border p-3 hover:bg-muted/50 transition-colors">
+              <RadioGroupItem value="admin" id="role-admin" />
+              <IconShield className="h-4 w-4 text-muted-foreground" />
+              <Label htmlFor="role-admin" className="flex-1 cursor-pointer">
+                <div>
+                  <div className="font-medium">Admin</div>
+                  <div className="text-xs text-muted-foreground">
+                    Administrator with full system access
+                  </div>
+                </div>
+              </Label>
+            </div>
+          </RadioGroup>
+        </div>
+        {isUpdatingRole && (
+          <div className="flex items-center gap-2 text-sm text-muted-foreground">
+            <div className="h-4 w-4 animate-spin rounded-full border-2 border-current border-t-transparent" />
+            Updating role...
+          </div>
+        )}
+      </CardContent>
+      <CardFooter>
+        <p className="text-xs text-muted-foreground">
+          Role changes take effect immediately and will affect the user&apos;s
+          permissions across the system.
+        </p>
+      </CardFooter>
+    </Card>
+  );
+}
+
+function ImpersonationCard({
+  localUser,
+  handleImpersonateUser,
+  impersonateDisabled,
+  isImpersonatingUser,
+  isViewingCurrentUser,
+  isAlreadyImpersonating,
+}: Readonly<{
+  localUser: UserWithRole;
+  handleImpersonateUser: () => void;
+  impersonateDisabled: boolean;
+  isImpersonatingUser: boolean;
+  isViewingCurrentUser: boolean;
+  isAlreadyImpersonating: boolean;
+}>) {
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle className="text-sm font-semibold">Impersonation</CardTitle>
+        <CardDescription>
+          Start a temporary session as this user. This replaces your current
+          session until you stop impersonating or the session expires.
+        </CardDescription>
+      </CardHeader>
+      <CardContent>
+        <Button
+          variant="outline"
+          size="sm"
+          className="gap-2"
+          onClick={handleImpersonateUser}
+          disabled={impersonateDisabled || !localUser}
+        >
+          <IconUserScan className="h-4 w-4" />
+          {isImpersonatingUser ? "Starting..." : "Impersonate user"}
+        </Button>
+        {isViewingCurrentUser && (
+          <p className="text-xs text-muted-foreground mt-2">
+            You are already signed in as this user.
+          </p>
+        )}
+        {isAlreadyImpersonating && (
+          <p className="text-xs text-muted-foreground mt-2">
+            Stop the current impersonation before starting a new one.
+          </p>
+        )}
+      </CardContent>
+    </Card>
+  );
+}
+
+function PasswordCard({
+  newPassword,
+  setNewPassword,
+  handleSetPassword,
+  isSettingPassword,
+}: Readonly<{
+  newPassword: string;
+  setNewPassword: React.Dispatch<React.SetStateAction<string>>;
+  handleSetPassword: () => void;
+  isSettingPassword: boolean;
+}>) {
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle className="text-sm font-semibold">Password</CardTitle>
+      </CardHeader>
+      <CardContent className="space-y-2">
+        <Label htmlFor="user-new-password">Set a new password</Label>
+        <div className="flex flex-col gap-2 sm:flex-row">
+          <Input
+            id="user-new-password"
+            type="password"
+            placeholder="New password"
+            value={newPassword}
+            onChange={(event) => setNewPassword(event.target.value)}
+            className="sm:flex-1"
+          />
+          <Button
+            type="button"
+            onClick={handleSetPassword}
+            disabled={isSettingPassword}
+            className="gap-2"
+          >
+            <IconKey className="h-4 w-4" />
+            {isSettingPassword ? "Saving..." : "Update password"}
+          </Button>
+        </div>
+      </CardContent>
+      <CardFooter>
+        <p className="text-xs text-muted-foreground">
+          The new password takes effect immediately and is not shared with the
+          user automatically.
+        </p>
+      </CardFooter>
+    </Card>
+  );
+}
+
+function ActiveSessionsCard({
+  sessions,
+  sessionsLoading,
+  sessionsError,
+  isRevokingAll,
+  handleRevokeAllSessions,
+  handleRevokeSession,
+}: Readonly<{
+  sessions: SessionWithImpersonatedBy[];
+  sessionsLoading: boolean;
+  sessionsError: string | null;
+  isRevokingAll: boolean;
+  handleRevokeAllSessions: () => void;
+  handleRevokeSession: (token: string | null) => void;
+}>) {
+  return (
+    <Card>
+      <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+        <CardTitle className="text-sm font-semibold">Active sessions</CardTitle>
+        <CardAction>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={handleRevokeAllSessions}
+            disabled={isRevokingAll || sessions.length === 0}
+          >
+            {isRevokingAll ? "Processing..." : "Revoke all"}
+          </Button>
+        </CardAction>
+      </CardHeader>
+      <CardContent>
+        <UserSessionsList
+          sessions={sessions}
+          sessionsLoading={sessionsLoading}
+          sessionsError={sessionsError}
+          onRevokeSession={(token) => handleRevokeSession(token)}
+        />
+      </CardContent>
+    </Card>
+  );
+}
+
+function DangerZoneCard({
+  handleRemoveUser,
+  isRemovingUser,
+}: Readonly<{
+  handleRemoveUser: () => void;
+  isRemovingUser: boolean;
+}>) {
+  return (
+    <Card className="border-destructive/40 bg-destructive/5">
+      <CardHeader>
+        <CardTitle className="flex items-center gap-2 text-destructive text-sm font-semibold">
+          <IconAlertTriangle className="h-4 w-4" />
+          Danger zone
+        </CardTitle>
+        <CardDescription>
+          Deleting a user removes all related data and cannot be undone.
+        </CardDescription>
+      </CardHeader>
+      <CardContent>
+        <Button
+          variant="destructive"
+          className="gap-2"
+          onClick={handleRemoveUser}
+          disabled={isRemovingUser}
+        >
+          <IconTrash className="h-4 w-4" />
+          {isRemovingUser ? "Deleting..." : "Delete user"}
+        </Button>
+      </CardContent>
+    </Card>
+  );
 }

@@ -41,6 +41,10 @@ export class DrizzleTransactionRepository implements ITransactionRepository {
     private readonly db: BunSQLDatabase,
   ) {}
 
+  private toDateStr(date: Date): string | undefined {
+    return date.toISOString().split("T")[0];
+  }
+
   private buildWhereConditions(
     userId: string,
     filters?: TransactionFilterParams,
@@ -70,18 +74,14 @@ export class DrizzleTransactionRepository implements ITransactionRepository {
       conditions.push(inArray(transactions.currency, filters.currencies));
     }
 
-    if (filters?.startDate) {
-      const dateStr = filters.startDate.toISOString().split("T")[0];
-      if (dateStr) {
-        conditions.push(gte(transactions.date, dateStr));
-      }
+    const startStr = filters?.startDate && this.toDateStr(filters.startDate);
+    if (startStr) {
+      conditions.push(gte(transactions.date, startStr));
     }
 
-    if (filters?.endDate) {
-      const dateStr = filters.endDate.toISOString().split("T")[0];
-      if (dateStr) {
-        conditions.push(lte(transactions.date, dateStr));
-      }
+    const endStr = filters?.endDate && this.toDateStr(filters.endDate);
+    if (endStr) {
+      conditions.push(lte(transactions.date, endStr));
     }
 
     const whereCondition = and(...conditions);
@@ -373,14 +373,16 @@ export class DrizzleTransactionRepository implements ITransactionRepository {
     endDate: Date,
     granularity: "day" | "week" | "month" | "year",
   ): Promise<{ period: string; income: number; expenses: number }[]> {
-    const truncFn =
-      granularity === "week"
-        ? sql`to_char(date_trunc('week', ${transactions.date}::timestamp), 'IYYY-"W"IW')`
-        : granularity === "day"
-          ? sql`to_char(${transactions.date}::timestamp, 'YYYY-MM-DD')`
-          : granularity === "year"
-            ? sql`to_char(${transactions.date}::timestamp, 'YYYY')`
-            : sql`to_char(${transactions.date}::timestamp, 'YYYY-MM')`;
+    let truncFn: ReturnType<typeof sql>;
+    if (granularity === "week") {
+      truncFn = sql`to_char(date_trunc('week', ${transactions.date}::timestamp), 'IYYY-"W"IW')`;
+    } else if (granularity === "day") {
+      truncFn = sql`to_char(${transactions.date}::timestamp, 'YYYY-MM-DD')`;
+    } else if (granularity === "year") {
+      truncFn = sql`to_char(${transactions.date}::timestamp, 'YYYY')`;
+    } else {
+      truncFn = sql`to_char(${transactions.date}::timestamp, 'YYYY-MM')`;
+    }
 
     const startStr = startDate.toISOString().split("T")[0] as string;
     const endStr = endDate.toISOString().split("T")[0] as string;

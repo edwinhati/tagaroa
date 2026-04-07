@@ -41,6 +41,32 @@ const mapTransaction = (transaction: TransactionResponse): Transaction => ({
     : undefined,
 });
 
+const formatDateForApi = (date: Date): string => {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
+};
+
+const getFilterParamName = (key: string): string => {
+  if (key === "account") return "account_id";
+  if (key === "category") return "budget_item_id";
+  return key; // type and currency use same name
+};
+
+const applyFilters = (
+  searchParams: URLSearchParams,
+  filters?: Record<string, string[]>,
+) => {
+  if (!filters) return;
+  for (const [key, values] of Object.entries(filters)) {
+    if (values.length > 0) {
+      // Join multiple values with comma for multi-select support
+      searchParams.append(getFilterParamName(key), values.join(","));
+    }
+  }
+};
+
 // Fetch all transactions with pagination
 const fetchTransactions = async (params?: {
   page?: number;
@@ -57,40 +83,16 @@ const fetchTransactions = async (params?: {
   if (params?.search) searchParams.append("search", params.search);
 
   // Add date range filters
+  // Use local date string to avoid timezone offsets
   if (params?.startDate) {
-    // Use local date string to avoid timezone offsets
-    const year = params.startDate.getFullYear();
-    const month = String(params.startDate.getMonth() + 1).padStart(2, "0");
-    const day = String(params.startDate.getDate()).padStart(2, "0");
-    const dateStr = `${year}-${month}-${day}`;
-    searchParams.append("start_date", dateStr);
+    searchParams.append("start_date", formatDateForApi(params.startDate));
   }
   if (params?.endDate) {
-    // Use local date string to avoid timezone offsets
-    const year = params.endDate.getFullYear();
-    const month = String(params.endDate.getMonth() + 1).padStart(2, "0");
-    const day = String(params.endDate.getDate()).padStart(2, "0");
-    const dateStr = `${year}-${month}-${day}`;
-    searchParams.append("end_date", dateStr);
+    searchParams.append("end_date", formatDateForApi(params.endDate));
   }
 
   // Add dynamic filters - support comma-separated values for multi-select
-  if (params?.filters) {
-    for (const [key, values] of Object.entries(params.filters)) {
-      if (values.length > 0) {
-        // Map frontend filter keys to backend parameter names
-        const paramName =
-          key === "account"
-            ? "account_id"
-            : key === "category"
-              ? "budget_item_id"
-              : key; // type and currency use same name
-
-        // Join multiple values with comma for multi-select support
-        searchParams.append(paramName, values.join(","));
-      }
-    }
-  }
+  applyFilters(searchParams, params?.filters);
 
   const queryString = searchParams.toString();
   const url = queryString ? `/transactions?${queryString}` : "/transactions";
@@ -196,7 +198,7 @@ export const transactionQueryOptions = (params?: {
   });
 };
 
-export const transactionMutationOptions = () => {
+export const useTransactionMutationOptions = () => {
   const queryClient = useQueryClient();
 
   return mutationOptions({
@@ -207,7 +209,7 @@ export const transactionMutationOptions = () => {
   });
 };
 
-export const transactionDeleteMutationOptions = () => {
+export const useTransactionDeleteMutationOptions = () => {
   const queryClient = useQueryClient();
 
   return mutationOptions({
