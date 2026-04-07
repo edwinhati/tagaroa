@@ -7,6 +7,7 @@ import { DataTableExportButton } from "@repo/common/components/data-table-export
 import { DataTableMultiSelectFilter } from "@repo/common/components/data-table-multi-select-filter";
 import { DataTablePagination } from "@repo/common/components/data-table-pagination";
 import { ServerSearchInput } from "@repo/common/components/data-table-search-input";
+import { DataTableSkeleton } from "@repo/common/components/data-table-skeleton";
 import { DataTableSortableHeader } from "@repo/common/components/data-table-sortable-header";
 import { Loading } from "@repo/common/components/loading";
 import { exportToCSV } from "@repo/common/lib/csv-export";
@@ -17,7 +18,7 @@ import {
   useLiabilityDeleteMutationOptions,
   useLiabilityMutationOptions,
 } from "@repo/common/lib/query/liability-query";
-import { resolveColumnKey } from "@repo/common/lib/resolve-column-key";
+
 import type {
   Liability,
   PaginatedLiabilitiesResult,
@@ -42,12 +43,11 @@ import {
   EmptyHeader,
   EmptyTitle,
 } from "@repo/ui/components/empty";
-import { Skeleton } from "@repo/ui/components/skeleton";
+
 import {
   Table,
   TableBody,
   TableCell,
-  TableHead,
   TableHeader,
   TableRow,
 } from "@repo/ui/components/table";
@@ -317,15 +317,6 @@ function LiabilityDataTableContent() {
   );
 
   const paginationInfo = stableData?.pagination;
-  const showLoadingState = isInitialLoading;
-  const skeletonRowKeys = useMemo(
-    () =>
-      Array.from({ length: pagination.pageSize }, (_, index) => {
-        return `liabilities-loading-${pagination.pageIndex}-${index}`;
-      }),
-    [pagination.pageIndex, pagination.pageSize],
-  );
-
   const hasActiveFilters = searchQuery.length > 0 || typeFilter.length > 0;
 
   const typeFilterOptions = useMemo(
@@ -426,7 +417,7 @@ function LiabilityDataTableContent() {
   }
 
   if (isInitialLoading) {
-    return <LiabilityTableSkeleton />;
+    return <DataTableSkeleton columnCount={columns.length} />;
   }
 
   return (
@@ -512,25 +503,6 @@ function LiabilityDataTableContent() {
           </TableHeader>
           <TableBody>
             {(() => {
-              if (showLoadingState) {
-                return skeletonRowKeys.map((rowKey) => (
-                  <TableRow key={rowKey} className="pointer-events-none">
-                    {columns.map((column, cellIndex) => {
-                      const columnKey = resolveColumnKey(column, cellIndex);
-                      return (
-                        <TableCell key={`${columnKey}-${rowKey}`}>
-                          <Skeleton
-                            className={
-                              cellIndex === 0 ? "h-4 w-4 rounded" : "h-5 w-full"
-                            }
-                          />
-                        </TableCell>
-                      );
-                    })}
-                  </TableRow>
-                ));
-              }
-
               if (hasRows) {
                 return table.getRowModel().rows.map((row) => (
                   <TableRow
@@ -714,52 +686,6 @@ function RowActions({
         open={editDialogOpen}
         onOpenChange={setEditDialogOpen}
       />
-    </div>
-  );
-}
-
-function LiabilityTableSkeleton() {
-  return (
-    <div className="space-y-4">
-      <div className="flex items-center justify-between">
-        <div className="flex flex-1 items-center space-x-2">
-          <Skeleton className="h-8 w-[250px]" />
-          <Skeleton className="h-8 w-[100px]" />
-          <Skeleton className="h-8 w-[100px]" />
-        </div>
-        <div className="flex items-center space-x-2">
-          <Skeleton className="h-8 w-[100px]" />
-          <Skeleton className="h-8 w-[120px]" />
-        </div>
-      </div>
-      <div className="rounded-md border">
-        <Table>
-          <TableHeader>
-            <TableRow>
-              {["select", "name", "type", "amount", "status", "actions"].map(
-                (col) => (
-                  <TableHead key={`header-${col}`}>
-                    <Skeleton className="h-4 w-full" />
-                  </TableHead>
-                ),
-              )}
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {Array.from({ length: 5 }, (_, i) => `skeleton-${i}`).map((id) => (
-              <TableRow key={id}>
-                {["select", "name", "type", "amount", "status", "actions"].map(
-                  (col) => (
-                    <TableCell key={`${id}-${col}`}>
-                      <Skeleton className="h-4 w-full" />
-                    </TableCell>
-                  ),
-                )}
-              </TableRow>
-            ))}
-          </TableBody>
-        </Table>
-      </div>
     </div>
   );
 }

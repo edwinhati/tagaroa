@@ -47,39 +47,26 @@ async function apiRequest<T = unknown>(
   return handleResponse<T>(response, unwrapData);
 }
 
-export const financeApi = {
-  get: <T>(path: string, init: ApiRequestInit = {}) =>
-    apiRequest<T>("finance", path, { method: "GET", ...init }),
-  post: <T>(path: string, json?: unknown, init: ApiRequestInit = {}) =>
-    apiRequest<T>("finance", path, { method: "POST", json, ...init }),
-  put: <T>(path: string, json?: unknown, init: ApiRequestInit = {}) =>
-    apiRequest<T>("finance", path, { method: "PUT", json, ...init }),
-  patch: <T>(path: string, json?: unknown, init: ApiRequestInit = {}) =>
-    apiRequest<T>("finance", path, { method: "PATCH", json, ...init }),
-  delete: <T>(path: string, init: ApiRequestInit = {}) =>
-    apiRequest<T>("finance", path, { method: "DELETE", ...init }),
-};
+function createApiClient(service: Service) {
+  return {
+    get: <T>(path: string, init: ApiRequestInit = {}) =>
+      apiRequest<T>(service, path, { method: "GET", ...init }),
+    post: <T>(path: string, json?: unknown, init: ApiRequestInit = {}) =>
+      apiRequest<T>(service, path, { method: "POST", json, ...init }),
+    put: <T>(path: string, json?: unknown, init: ApiRequestInit = {}) =>
+      apiRequest<T>(service, path, { method: "PUT", json, ...init }),
+    patch: <T>(path: string, json?: unknown, init: ApiRequestInit = {}) =>
+      apiRequest<T>(service, path, { method: "PATCH", json, ...init }),
+    delete: <T>(path: string, init: ApiRequestInit = {}) =>
+      apiRequest<T>(service, path, { method: "DELETE", ...init }),
+  };
+}
 
-export const investmentApi = {
-  get: <T>(path: string, init: ApiRequestInit = {}) =>
-    apiRequest<T>("investment", path, { method: "GET", ...init }),
-  post: <T>(path: string, json?: unknown, init: ApiRequestInit = {}) =>
-    apiRequest<T>("investment", path, { method: "POST", json, ...init }),
-  put: <T>(path: string, json?: unknown, init: ApiRequestInit = {}) =>
-    apiRequest<T>("investment", path, { method: "PUT", json, ...init }),
-  patch: <T>(path: string, json?: unknown, init: ApiRequestInit = {}) =>
-    apiRequest<T>("investment", path, { method: "PATCH", json, ...init }),
-  delete: <T>(path: string, init: ApiRequestInit = {}) =>
-    apiRequest<T>("investment", path, { method: "DELETE", ...init }),
-};
+export const financeApi = createApiClient("finance");
+export const investmentApi = createApiClient("investment");
 
 export const storageApi = {
-  get: <T>(path: string, init: ApiRequestInit = {}) =>
-    apiRequest<T>("storage", path, { method: "GET", ...init }),
-  delete: <T>(path: string, init: ApiRequestInit = {}) =>
-    apiRequest<T>("storage", path, { method: "DELETE", ...init }),
-  post: <T>(path: string, json?: unknown, init: ApiRequestInit = {}) =>
-    apiRequest<T>("storage", path, { method: "POST", json, ...init }),
+  ...createApiClient("storage"),
   upload: <T>(file: File, init: ApiRequestInit = {}) => {
     const formData = new FormData();
     formData.append("file", file);

@@ -6,6 +6,7 @@ import { DataTableExportButton } from "@repo/common/components/data-table-export
 import { DataTableMultiSelectFilter } from "@repo/common/components/data-table-multi-select-filter";
 import { DataTablePagination } from "@repo/common/components/data-table-pagination";
 import { ServerSearchInput } from "@repo/common/components/data-table-search-input";
+import { DataTableSkeleton } from "@repo/common/components/data-table-skeleton";
 import { DataTableSortableHeader } from "@repo/common/components/data-table-sortable-header";
 import { Loading } from "@repo/common/components/loading";
 import { exportToCSV } from "@repo/common/lib/csv-export";
@@ -14,7 +15,7 @@ import {
   exportAccountsQueryOptions,
   useAccountDeleteMutationOptions,
 } from "@repo/common/lib/query/account-query";
-import { resolveColumnKey } from "@repo/common/lib/resolve-column-key";
+
 import type {
   Account,
   AccountCategory,
@@ -40,12 +41,11 @@ import {
   EmptyMedia,
   EmptyTitle,
 } from "@repo/ui/components/empty";
-import { Skeleton } from "@repo/ui/components/skeleton";
+
 import {
   Table,
   TableBody,
   TableCell,
-  TableHead,
   TableHeader,
   TableRow,
 } from "@repo/ui/components/table";
@@ -251,15 +251,6 @@ function AccountDataTableContent() {
     () => stableData?.aggregations ?? {},
     [stableData?.aggregations],
   );
-  const showLoadingState = isInitialLoading;
-  const skeletonRowKeys = useMemo(
-    () =>
-      Array.from({ length: pagination.pageSize }, (_, index) => {
-        return `accounts-loading-${pagination.pageIndex}-${index}`;
-      }),
-    [pagination.pageIndex, pagination.pageSize],
-  );
-
   // Check if there are any active filters or search
   const hasActiveFilters =
     Object.keys(serverFilters).length > 0 || searchQuery.length > 0;
@@ -419,7 +410,7 @@ function AccountDataTableContent() {
 
   // Show initial loading state only on first load
   if (isInitialLoading) {
-    return <AccountTableSkeleton />;
+    return <DataTableSkeleton columnCount={columns.length} />;
   }
 
   return (
@@ -481,25 +472,6 @@ function AccountDataTableContent() {
           </TableHeader>
           <TableBody>
             {(() => {
-              if (showLoadingState) {
-                return skeletonRowKeys.map((rowKey) => (
-                  <TableRow key={rowKey} className="pointer-events-none">
-                    {columns.map((column, cellIndex) => {
-                      const columnKey = resolveColumnKey(column, cellIndex);
-                      return (
-                        <TableCell key={`${columnKey}-${rowKey}`}>
-                          <Skeleton
-                            className={
-                              cellIndex === 0 ? "h-4 w-4 rounded" : "h-5 w-full"
-                            }
-                          />
-                        </TableCell>
-                      );
-                    })}
-                  </TableRow>
-                ));
-              }
-
               if (hasRows) {
                 return table.getRowModel().rows.map((row) => (
                   <TableRow
@@ -632,62 +604,6 @@ function RowActions({ row, deleteAccount }: RowActionsProps) {
           </DropdownMenuItem>
         </DropdownMenuContent>
       </DropdownMenu>
-    </div>
-  );
-}
-
-function AccountTableSkeleton() {
-  return (
-    <div className="space-y-4">
-      <div className="flex items-center justify-between">
-        <div className="flex flex-1 items-center space-x-2">
-          <Skeleton className="h-8 w-[250px]" />
-          <Skeleton className="h-8 w-[100px]" />
-          <Skeleton className="h-8 w-[100px]" />
-        </div>
-        <div className="flex items-center space-x-2">
-          <Skeleton className="h-8 w-[100px]" />
-          <Skeleton className="h-8 w-[120px]" />
-        </div>
-      </div>
-      <div className="rounded-md border">
-        <Table>
-          <TableHeader>
-            <TableRow>
-              {[
-                "name",
-                "type",
-                "currency",
-                "balance",
-                "created",
-                "actions",
-              ].map((col) => (
-                <TableHead key={`header-${col}`}>
-                  <Skeleton className="h-4 w-full" />
-                </TableHead>
-              ))}
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {Array.from({ length: 5 }, (_, i) => `skeleton-${i}`).map((id) => (
-              <TableRow key={id}>
-                {[
-                  "name",
-                  "type",
-                  "currency",
-                  "balance",
-                  "created",
-                  "actions",
-                ].map((col) => (
-                  <TableCell key={`${id}-${col}`}>
-                    <Skeleton className="h-4 w-full" />
-                  </TableCell>
-                ))}
-              </TableRow>
-            ))}
-          </TableBody>
-        </Table>
-      </div>
     </div>
   );
 }

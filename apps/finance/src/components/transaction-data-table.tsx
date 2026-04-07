@@ -5,6 +5,7 @@ import { DataTableEmptyState } from "@repo/common/components/data-table-empty-st
 import { DataTableMultiSelectFilter } from "@repo/common/components/data-table-multi-select-filter";
 import { DataTablePagination } from "@repo/common/components/data-table-pagination";
 import { ServerSearchInput } from "@repo/common/components/data-table-search-input";
+import { DataTableSkeleton } from "@repo/common/components/data-table-skeleton";
 import { DataTableSortableHeader } from "@repo/common/components/data-table-sortable-header";
 import { Loading } from "@repo/common/components/loading";
 import { useDebounce } from "@repo/common/hooks/use-debounce";
@@ -37,12 +38,11 @@ import {
   EmptyHeader,
   EmptyTitle,
 } from "@repo/ui/components/empty";
-import { Skeleton } from "@repo/ui/components/skeleton";
+
 import {
   Table,
   TableBody,
   TableCell,
-  TableHead,
   TableHeader,
   TableRow,
 } from "@repo/ui/components/table";
@@ -81,90 +81,6 @@ type TransactionWithRelations = Transaction & {
     category: string;
   };
 };
-
-// Skeleton
-
-function TransactionTableSkeleton() {
-  const headerKeys = Array.from(
-    { length: 9 },
-    (_, i) => `transaction-header-${i}`,
-  );
-  const rowKeys = Array.from(
-    { length: 5 },
-    (_, i) => `transaction-skeleton-row-${i}`,
-  );
-  const cellKeys = Array.from(
-    { length: 9 },
-    (_, j) => `transaction-skeleton-cell-${j}`,
-  );
-
-  return (
-    <div className="space-y-4">
-      <div className="flex items-center justify-between">
-        <div className="flex flex-1 items-center space-x-2">
-          <Skeleton className="h-8 w-[250px]" />
-          <Skeleton className="h-8 w-[100px]" />
-          <Skeleton className="h-8 w-[100px]" />
-        </div>
-        <div className="flex items-center space-x-2">
-          <Skeleton className="h-8 w-[100px]" />
-          <Skeleton className="h-8 w-[120px]" />
-        </div>
-      </div>
-      <div className="rounded-md border">
-        <Table>
-          <TableHeader>
-            <TableRow>
-              {headerKeys.map((headerKey) => (
-                <TableHead key={headerKey}>
-                  <Skeleton className="h-4 w-full" />
-                </TableHead>
-              ))}
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {rowKeys.map((rowKey) => (
-              <TableRow key={rowKey}>
-                {cellKeys.map((cellKey) => (
-                  <TableCell key={`${rowKey}-${cellKey}`}>
-                    <Skeleton className="h-4 w-full" />
-                  </TableCell>
-                ))}
-              </TableRow>
-            ))}
-          </TableBody>
-        </Table>
-      </div>
-    </div>
-  );
-}
-
-function TransactionTableSkeletonRows() {
-  const skeletonRows = Array.from(
-    { length: 5 },
-    (_, i) => `transaction-skeleton-row-${i}`,
-  );
-  const skeletonCells = Array.from(
-    { length: 9 },
-    (_, j) => `transaction-skeleton-cell-${j}`,
-  );
-
-  return (
-    <>
-      {skeletonRows.map((rowKey) => (
-        <TableRow key={rowKey} className="pointer-events-none">
-          {skeletonCells.map((cellKey, j) => (
-            <TableCell key={`${rowKey}-${cellKey}`}>
-              <Skeleton
-                className={j === 0 ? "h-4 w-4 rounded" : "h-5 w-full"}
-              />
-            </TableCell>
-          ))}
-        </TableRow>
-      ))}
-    </>
-  );
-}
 
 // Row Actions
 
@@ -651,7 +567,7 @@ function TransactionDataTableContent() {
   }
 
   if (isInitialLoading) {
-    return <TransactionTableSkeleton />;
+    return <DataTableSkeleton columnCount={columns.length} />;
   }
 
   const hasRows = table.getRowModel().rows.length > 0;
@@ -690,7 +606,6 @@ function TransactionDataTableContent() {
           </TableHeader>
           <TableBody>
             {(() => {
-              if (isInitialLoading) return <TransactionTableSkeletonRows />;
               if (hasRows) {
                 return table.getRowModel().rows.map((row) => (
                   <TableRow
