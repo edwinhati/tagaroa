@@ -667,10 +667,10 @@ function AssetInfoPanel({ instrument }: { readonly instrument: Instrument }) {
   const queryClient = useQueryClient();
 
   // Fetch 1Y candles for metric computation (deduped with chart's queries)
-  const endDateStr = new Date().toISOString().split("T")[0] as string;
+  const endDateStr = new Date().toISOString().substring(0, 10);
   const oneYearAgo = new Date();
   oneYearAgo.setDate(oneYearAgo.getDate() - 365);
-  const startDateStr = oneYearAgo.toISOString().split("T")[0] as string;
+  const startDateStr = oneYearAgo.toISOString().substring(0, 10);
 
   const { data: candles = [] } = useQuery(
     ohlcvQueryOptions({
@@ -692,7 +692,7 @@ function AssetInfoPanel({ instrument }: { readonly instrument: Instrument }) {
   });
 
   const points: CandlePoint[] = candles.map((c) => ({
-    date: new Date(c.timestamp).toISOString().split("T")[0] as string,
+    date: new Date(c.timestamp).toISOString().substring(0, 10),
     open: c.open,
     high: c.high,
     low: c.low,
@@ -1040,8 +1040,8 @@ function OhlcvChart({
   const endDate = new Date();
   const startDate = new Date();
   startDate.setDate(startDate.getDate() - rangeDays);
-  const startDateStr = startDate.toISOString().split("T")[0] as string;
-  const endDateStr = endDate.toISOString().split("T")[0] as string;
+  const startDateStr = startDate.toISOString().substring(0, 10);
+  const endDateStr = endDate.toISOString().substring(0, 10);
 
   const { data: candles = [], isLoading } = useQuery(
     ohlcvQueryOptions({

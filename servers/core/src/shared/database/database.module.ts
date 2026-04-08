@@ -17,9 +17,7 @@ export class DatabaseModule implements OnModuleDestroy {
   async onModuleDestroy() {
     const db = getDatabase() as unknown as BunSQLDatabase | null;
     if (db && "$client" in db) {
-      const client = (
-        db as BunSQLDatabase & { $client: { close: () => Promise<void> } }
-      ).$client;
+      const client = db.$client as { close?: () => Promise<void> } | undefined;
       if (client && typeof client.close === "function") {
         await client.close();
       }

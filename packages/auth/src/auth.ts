@@ -14,6 +14,7 @@ import { db } from "./drizzle";
 const MAX_SESSIONS_PER_USER = 3;
 
 export const auth = betterAuth({
+  appName: "Tagaroa",
   baseURL: process.env.BASE_URL,
   database: drizzleAdapter(db, {
     provider: "pg",
@@ -38,6 +39,7 @@ export const auth = betterAuth({
   session: {
     cookieCache: {
       enabled: true,
+      strategy: "jwe",
       maxAge: 5 * 60, // 5 min — verifies from signed cookie, no DB call
     },
   },
@@ -73,5 +75,8 @@ export const auth = betterAuth({
         ...args,
       );
     },
+  },
+  experimental: {
+    joins: true,
   },
 });
