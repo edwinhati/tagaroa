@@ -19,7 +19,9 @@ type DataTableDeleteDialogProps = Readonly<{
   itemName: string;
   itemType: string;
   onConfirm: () => void | Promise<void>;
-  trigger: React.ReactNode;
+  trigger?: React.ReactNode;
+  open?: boolean;
+  onOpenChange?: (open: boolean) => void;
 }>;
 
 /**
@@ -30,15 +32,28 @@ export function DataTableDeleteDialog({
   itemType,
   onConfirm,
   trigger,
+  open: controlledOpen,
+  onOpenChange: controlledOnOpenChange,
 }: DataTableDeleteDialogProps) {
-  const [open, setOpen] = useState(false);
+  const [internalOpen, setInternalOpen] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
+
+  const isControlled = controlledOpen !== undefined;
+  const open = isControlled ? controlledOpen : internalOpen;
+
+  const handleOpenChange = (newOpen: boolean) => {
+    if (controlledOnOpenChange) {
+      controlledOnOpenChange(newOpen);
+    } else {
+      setInternalOpen(newOpen);
+    }
+  };
 
   const handleConfirm = async () => {
     try {
       setIsSubmitting(true);
       await onConfirm();
-      setOpen(false);
+      handleOpenChange(false);
     } finally {
       setIsSubmitting(false);
     }
@@ -47,12 +62,14 @@ export function DataTableDeleteDialog({
   return (
     <AlertDialog
       open={open}
-      onOpenChange={(value) => !isSubmitting && setOpen(value)}
+      onOpenChange={(value) => !isSubmitting && handleOpenChange(value)}
     >
-      <AlertDialogTrigger
-        render={trigger as React.ReactElement}
-        nativeButton={false}
-      />
+      {trigger && (
+        <AlertDialogTrigger
+          render={trigger as React.ReactElement}
+          nativeButton={false}
+        />
+      )}
       <AlertDialogContent>
         <div className="flex flex-col gap-2 max-sm:items-center sm:flex-row sm:gap-4">
           <div

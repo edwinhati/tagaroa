@@ -15,7 +15,7 @@ export const envSchema = z.object({
   S3_ACCESS_KEY_ID: z.string().default(""),
   S3_SECRET_ACCESS_KEY: z.string().default(""),
   CLOUDFLARE_ACCOUNT_ID: z.string().optional(),
-  BASE_URL: z.url().default("http://localhost:8080"),
+  BASE_URL: z.url().default(""),
   GOOGLE_CLIENT_ID: z.string().optional(),
   GOOGLE_CLIENT_SECRET: z.string().optional(),
   TRUSTED_ORIGINS: z

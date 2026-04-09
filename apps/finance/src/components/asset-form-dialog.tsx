@@ -45,13 +45,31 @@ import { toast } from "sonner";
 type AssetFormDialogProps = Readonly<{
   initialData?: Asset;
   trigger?: React.ReactElement;
+  open?: boolean;
+  onOpenChange?: (open: boolean) => void;
 }>;
 
 export function AssetFormDialog({
   initialData,
   trigger,
+  open: controlledOpen,
+  onOpenChange: controlledOnOpenChange,
 }: AssetFormDialogProps) {
-  const [open, setOpen] = useState(false);
+  const [internalOpen, setInternalOpen] = useState(false);
+
+  const isControlled = controlledOpen !== undefined;
+  const open = isControlled ? controlledOpen : internalOpen;
+
+  const handleOpenChange = (newOpen: boolean) => {
+    if (!newOpen) {
+      form.reset();
+    }
+    if (controlledOnOpenChange) {
+      controlledOnOpenChange(newOpen);
+    } else {
+      setInternalOpen(newOpen);
+    }
+  };
 
   const form = useForm<Asset>({
     resolver: zodResolver(assetSchema),
@@ -83,20 +101,13 @@ export function AssetFormDialog({
   });
   const selectedType = useWatch({ control: form.control, name: "type" });
 
-  const handleOpenChange = (newOpen: boolean) => {
-    if (!newOpen) {
-      form.reset();
-    }
-    setOpen(newOpen);
-  };
-
   const assetMutationOpts = useAssetMutationOptions();
   const { mutate, isPending } = useMutation({
     ...assetMutationOpts,
     onSuccess: () => {
       toast.success(initialData ? "Asset updated" : "Asset created");
       form.reset();
-      setOpen(false);
+      handleOpenChange(false);
     },
     onError: (err) => {
       toast.error("Failed to save asset", {
@@ -132,10 +143,11 @@ export function AssetFormDialog({
 
   return (
     <Dialog open={open} onOpenChange={handleOpenChange}>
-      <DialogTrigger
-        nativeButton={true}
-        render={
-          trigger ?? (
+      {trigger && <DialogTrigger nativeButton={true} render={trigger} />}
+      {!trigger && !isControlled && (
+        <DialogTrigger
+          nativeButton={true}
+          render={
             <Button className="ml-auto" size="sm">
               <IconPlus
                 className="-ms-1 opacity-60"
@@ -144,9 +156,9 @@ export function AssetFormDialog({
               />
               Add asset
             </Button>
-          )
-        }
-      />
+          }
+        />
+      )}
       <DialogContent className="!max-w-2xl !w-full max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>
@@ -376,7 +388,7 @@ export function AssetFormDialog({
             <Button
               type="button"
               variant="outline"
-              onClick={() => setOpen(false)}
+              onClick={() => handleOpenChange(false)}
               className="flex-1"
             >
               Cancel

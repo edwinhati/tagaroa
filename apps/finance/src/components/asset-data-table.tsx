@@ -534,8 +534,23 @@ type RowActionsProps = Readonly<{
 }>;
 
 function RowActions({ row, mutateAsset, deleteAsset }: RowActionsProps) {
+  const [showEditDialog, setShowEditDialog] = useState(false);
+  const [showDeleteDialog, setShowDeleteDialog] = useState(false);
+
   return (
     <div className="flex justify-end">
+      <AssetFormDialog
+        initialData={row.original}
+        open={showEditDialog}
+        onOpenChange={setShowEditDialog}
+      />
+      <DataTableDeleteDialog
+        itemName={row.original.name}
+        itemType="Asset"
+        onConfirm={() => deleteAsset(row.original.id as string)}
+        open={showDeleteDialog}
+        onOpenChange={setShowDeleteDialog}
+      />
       <DropdownMenu>
         <DropdownMenuTrigger
           render={
@@ -551,18 +566,12 @@ function RowActions({ row, mutateAsset, deleteAsset }: RowActionsProps) {
         />
         <DropdownMenuContent align="end">
           <DropdownMenuGroup>
-            <AssetFormDialog
-              initialData={row.original}
-              trigger={
-                <DropdownMenuItem onSelect={(e) => e.preventDefault()}>
-                  <span>Edit</span>
-                  <DropdownMenuShortcut>⌘E</DropdownMenuShortcut>
-                </DropdownMenuItem>
-              }
-            />
+            <DropdownMenuItem onClick={() => setShowEditDialog(true)}>
+              <span>Edit</span>
+              <DropdownMenuShortcut>⌘E</DropdownMenuShortcut>
+            </DropdownMenuItem>
             <DropdownMenuItem
-              onSelect={(e) => {
-                e.preventDefault();
+              onClick={() => {
                 const a = row.original;
                 mutateAsset({
                   name: `${a.name} (Copy)`,
@@ -580,20 +589,13 @@ function RowActions({ row, mutateAsset, deleteAsset }: RowActionsProps) {
             </DropdownMenuItem>
           </DropdownMenuGroup>
           <DropdownMenuSeparator />
-          <DataTableDeleteDialog
-            itemName={row.original.name}
-            itemType="Asset"
-            onConfirm={() => deleteAsset(row.original.id as string)}
-            trigger={
-              <DropdownMenuItem
-                onSelect={(e) => e.preventDefault()}
-                className="text-destructive focus:text-destructive"
-              >
-                <span>Delete</span>
-                <DropdownMenuShortcut>⌘⌫</DropdownMenuShortcut>
-              </DropdownMenuItem>
-            }
-          />
+          <DropdownMenuItem
+            onClick={() => setShowDeleteDialog(true)}
+            className="text-destructive focus:text-destructive"
+          >
+            <span>Delete</span>
+            <DropdownMenuShortcut>⌘⌫</DropdownMenuShortcut>
+          </DropdownMenuItem>
         </DropdownMenuContent>
       </DropdownMenu>
     </div>

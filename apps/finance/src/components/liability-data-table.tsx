@@ -595,6 +595,7 @@ function RowActions({
   deleteLiability,
 }: RowActionsProps) {
   const [editDialogOpen, setEditDialogOpen] = useState(false);
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
 
   const handleMarkAsPaid = () => {
     mutateLiability({
@@ -619,6 +620,18 @@ function RowActions({
 
   return (
     <div className="flex justify-end">
+      <LiabilityFormDialog
+        initialData={row.original}
+        open={editDialogOpen}
+        onOpenChange={setEditDialogOpen}
+      />
+      <DataTableDeleteDialog
+        itemName={row.original.name}
+        itemType="Liability"
+        onConfirm={() => deleteLiability(row.original.id as string)}
+        open={deleteDialogOpen}
+        onOpenChange={setDeleteDialogOpen}
+      />
       <DropdownMenu>
         <DropdownMenuTrigger
           render={
@@ -635,8 +648,7 @@ function RowActions({
         <DropdownMenuContent align="end">
           <DropdownMenuGroup>
             <DropdownMenuItem
-              onSelect={(e) => {
-                e.preventDefault();
+              onClick={() => {
                 setEditDialogOpen(true);
               }}
             >
@@ -644,8 +656,7 @@ function RowActions({
               <DropdownMenuShortcut>⌘E</DropdownMenuShortcut>
             </DropdownMenuItem>
             <DropdownMenuItem
-              onSelect={(e) => {
-                e.preventDefault();
+              onClick={() => {
                 handleDuplicate();
               }}
             >
@@ -654,8 +665,7 @@ function RowActions({
             </DropdownMenuItem>
             {!row.original.paidAt && (
               <DropdownMenuItem
-                onSelect={(e) => {
-                  e.preventDefault();
+                onClick={() => {
                   handleMarkAsPaid();
                 }}
               >
@@ -665,27 +675,15 @@ function RowActions({
             )}
           </DropdownMenuGroup>
           <DropdownMenuSeparator />
-          <DataTableDeleteDialog
-            itemName={row.original.name}
-            itemType="Liability"
-            onConfirm={() => deleteLiability(row.original.id as string)}
-            trigger={
-              <DropdownMenuItem
-                onSelect={(e) => e.preventDefault()}
-                className="text-destructive focus:text-destructive"
-              >
-                <span>Delete</span>
-                <DropdownMenuShortcut>⌘⌫</DropdownMenuShortcut>
-              </DropdownMenuItem>
-            }
-          />
+          <DropdownMenuItem
+            onClick={() => setDeleteDialogOpen(true)}
+            className="text-destructive focus:text-destructive"
+          >
+            <span>Delete</span>
+            <DropdownMenuShortcut>⌘⌫</DropdownMenuShortcut>
+          </DropdownMenuItem>
         </DropdownMenuContent>
       </DropdownMenu>
-      <LiabilityFormDialog
-        initialData={row.original}
-        open={editDialogOpen}
-        onOpenChange={setEditDialogOpen}
-      />
     </div>
   );
 }

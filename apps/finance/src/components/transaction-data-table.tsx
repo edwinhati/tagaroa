@@ -114,15 +114,14 @@ function RowActions({ row, deleteTransaction }: RowActionsProps) {
         />
         <DropdownMenuContent align="end">
           <DropdownMenuGroup>
-            <DropdownMenuItem onSelect={() => setShowEditDialog(true)}>
+            <DropdownMenuItem onClick={() => setShowEditDialog(true)}>
               <span>Edit</span>
               <DropdownMenuShortcut>⌘E</DropdownMenuShortcut>
             </DropdownMenuItem>
           </DropdownMenuGroup>
           <DropdownMenuSeparator />
           <DropdownMenuItem
-            onSelect={(e) => {
-              e.preventDefault();
+            onClick={(e) => {
               deleteTransaction(row.original.id as string);
             }}
             className="text-destructive focus:text-destructive"

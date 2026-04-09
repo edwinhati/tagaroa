@@ -1,5 +1,6 @@
 import { SQL } from "bun";
 import { drizzle } from "drizzle-orm/bun-sql";
+import * as schema from "./db";
 
 const databaseUrl = process.env.DATABASE_URL;
 const isTest =
@@ -16,7 +17,7 @@ const getDatabase = (): ReturnType<typeof drizzle> => {
     if (!databaseUrl) {
       return {} as ReturnType<typeof drizzle>;
     }
-    dbInstance = drizzle({ client: new SQL(databaseUrl) });
+    dbInstance = drizzle({ client: new SQL(databaseUrl), schema });
   }
   return dbInstance;
 };

@@ -33,7 +33,9 @@ export class S3ClientService {
 
     // Provider-specific configuration
     if (provider === "minio") {
-      config.endpoint = process.env.S3_ENDPOINT || "http://localhost:9000";
+      config.endpoint = process.env.S3_ENDPOINT || "";
+    } else if (provider === "aws") {
+      config.endpoint = process.env.S3_ENDPOINT;
     } else if (provider === "r2") {
       config.accountId = process.env.CLOUDFLARE_ACCOUNT_ID || "";
       config.endpoint = `https://${config.accountId}.r2.cloudflarestorage.com`;
@@ -85,8 +87,8 @@ export class S3ClientService {
       a.localeCompare(b),
     );
     const canonicalHeaders = sortedHeaderKeys
-      .map((key) => `${key}:${headers[key]}`)
-      .join("\n");
+      .map((key) => `${key}:${headers[key]}\n`)
+      .join("");
     const signedHeaders = sortedHeaderKeys.join(";");
 
     // Create canonical request
@@ -117,7 +119,6 @@ export class S3ClientService {
       canonicalRequestHash,
     ].join("\n");
 
-    // Calculate signature using HMAC chain
     const kDate = new Bun.CryptoHasher("sha256", `AWS4${secretAccessKey}`)
       .update(dateStamp)
       .digest();

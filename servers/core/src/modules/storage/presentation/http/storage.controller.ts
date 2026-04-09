@@ -35,13 +35,10 @@ export class StorageController {
   ) {}
 
   private getDownloadUrl(fileId: string): string {
-    const baseUrl = this.configService.get<string>(
-      "BASE_URL",
-      "http://localhost",
-    );
+    const baseUrl = this.configService.get<string>("BASE_URL", "");
     const port = this.configService.get<number>("PORT", 8081);
 
-    // Check if BASE_URL already includes a port (e.g., http://localhost:8080)
+    // Check if BASE_URL already includes a port
     const hasPort = /:\d+$/.test(baseUrl);
     return hasPort
       ? `${baseUrl}/api/storage/${fileId}/download`
