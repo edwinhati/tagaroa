@@ -1,5 +1,5 @@
 import * as Sentry from "@sentry/nextjs";
-import { getSentryConfig, validateSentryConfig } from "../config.js";
+import { getSentryConfig, validateSentryConfig } from "../config";
 
 export function initSentryClient(): void {
   const config = getSentryConfig();

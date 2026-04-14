@@ -1,5 +1,5 @@
 import * as Sentry from "@sentry/nextjs";
-import { getSentryConfig, validateSentryConfig } from "../config.js";
+import { getSentryConfig, validateSentryConfig } from "../config";
 
 /**
  * Initialize Sentry for server-side (Node.js runtime)
