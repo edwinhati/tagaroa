@@ -180,7 +180,7 @@ export const useAccountDeleteMutationOptions = () => {
       // Return a context object with the snapshotted value
       return { previousAccounts };
     },
-    onError: (_err, _deletedId, context) => {
+    onError: (_err, _vars, context) => {
       // If the mutation fails, use the context returned from onMutate to roll back
       if (context?.previousAccounts) {
         queryClient.setQueryData(["accounts"], context.previousAccounts);

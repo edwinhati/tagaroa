@@ -93,7 +93,7 @@ export class Position {
     );
   }
 
-  close(_closePrice: number): Position {
+  close(_price: number): Position {
     if (!this.isOpen()) {
       throw new Error("Position is already closed");
     }

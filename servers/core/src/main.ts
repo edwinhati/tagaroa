@@ -1,3 +1,5 @@
+import "./instrument";
+
 import { ConfigService } from "@nestjs/config";
 import { NestFactory } from "@nestjs/core";
 import { DocumentBuilder, SwaggerModule } from "@nestjs/swagger";
@@ -6,6 +8,7 @@ import helmet from "helmet";
 import { AppModule } from "./app.module";
 import { auth } from "./modules/auth/auth";
 import { FinanceModule } from "./modules/finance/finance.module";
+import { OpenTelemetryService } from "./modules/observability/infrastructure/opentelemetry.service";
 import { StorageModule } from "./modules/storage/storage.module";
 import type { AppConfig } from "./shared/config/env.validation";
 import { ZodValidationPipe } from "./shared/pipes/zod-validation.pipe";
@@ -13,6 +16,10 @@ import { ZodValidationPipe } from "./shared/pipes/zod-validation.pipe";
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
   const configService = app.get(ConfigService<AppConfig, true>);
+
+  const otelService = app.get(OpenTelemetryService);
+  await otelService.initialize();
+
   const isDevelopment = process.env.NODE_ENV === "development";
 
   app.setGlobalPrefix("api");

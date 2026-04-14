@@ -33,6 +33,22 @@ export const envSchema = z.object({
   HEALTH_MEMORY_HEAP_THRESHOLD_MB: z.coerce.number().default(512),
   HEALTH_MEMORY_RSS_THRESHOLD_MB: z.coerce.number().default(1024),
   HEALTH_DISK_THRESHOLD_PERCENT: z.coerce.number().min(0).max(1).default(0.8),
+  // Sentry configuration
+  SENTRY_DSN: z.url().optional(),
+  SENTRY_TRACES_SAMPLE_RATE: z.coerce.number().min(0).max(1).default(1),
+  SENTRY_ENVIRONMENT: z.string().optional(),
+  SENTRY_ENABLED: z
+    .enum(["true", "false"])
+    .default("false")
+    .transform((v) => v === "true"),
+
+  // OpenTelemetry configuration
+  OTEL_ENABLED: z
+    .enum(["true", "false"])
+    .default("false")
+    .transform((v) => v === "true"),
+  OTEL_EXPORTER_OTLP_ENDPOINT: z.url().optional(),
+  OTEL_SERVICE_NAME: z.string().default("tagaroa-core"),
 });
 
 export type AppConfig = z.infer<typeof envSchema>;

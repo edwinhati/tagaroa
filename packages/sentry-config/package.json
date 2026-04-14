@@ -1,0 +1,37 @@
+{
+  "name": "@repo/sentry-config",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "check-types": "tsc --noEmit",
+    "lint": "biome check"
+  },
+  "exports": {
+    ".": {
+      "import": "./src/index.ts"
+    },
+    "./nextjs": {
+      "import": "./src/nextjs/index.ts"
+    },
+    "./nextjs/client": {
+      "import": "./src/nextjs/client.ts"
+    },
+    "./nextjs/server": {
+      "import": "./src/nextjs/server.ts"
+    },
+    "./nextjs/edge": {
+      "import": "./src/nextjs/edge.ts"
+    }
+  },
+  "dependencies": {
+    "@sentry/nextjs": "^10.48.0"
+  },
+  "devDependencies": {
+    "@biomejs/biome": "2.4.11",
+    "@repo/typescript-config": "*",
+    "@types/node": "^25.6.0",
+    "next": "^16.2.2",
+    "typescript": "^6.0.2"
+  }
+}

@@ -12,18 +12,20 @@
   },
   "dependencies": {
     "@repo/common": "*",
+    "@repo/sentry-config": "*",
     "@repo/ui": "*",
+    "@sentry/nextjs": "^10.48.0",
     "@tabler/icons-react": "^3.41.1",
-    "next": "^16.2.2",
-    "react": "^19.2.4",
-    "react-dom": "^19.2.4"
+    "next": "^16.2.3",
+    "react": "^19.2.5",
+    "react-dom": "^19.2.5"
   },
   "devDependencies": {
-    "@biomejs/biome": "2.4.10",
-    "@next/bundle-analyzer": "^16.2.2",
+    "@biomejs/biome": "2.4.11",
+    "@next/bundle-analyzer": "^16.2.3",
     "@repo/typescript-config": "*",
     "@tailwindcss/postcss": "^4.2.2",
-    "@types/node": "^25.5.0",
+    "@types/node": "^25.6.0",
     "@types/react": "19.2.14",
     "@types/react-dom": "19.2.3",
     "tailwindcss": "^4.2.2",
