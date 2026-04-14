@@ -35,7 +35,7 @@ export const envSchema = z.object({
   HEALTH_DISK_THRESHOLD_PERCENT: z.coerce.number().min(0).max(1).default(0.8),
   // Sentry configuration
   SENTRY_DSN: z.url().optional(),
-  SENTRY_TRACES_SAMPLE_RATE: z.coerce.number().min(0).max(1).default(1.0),
+  SENTRY_TRACES_SAMPLE_RATE: z.coerce.number().min(0).max(1).default(1),
   SENTRY_ENVIRONMENT: z.string().optional(),
   SENTRY_ENABLED: z
     .enum(["true", "false"])
