@@ -121,7 +121,7 @@ function RowActions({ row, deleteTransaction }: RowActionsProps) {
           </DropdownMenuGroup>
           <DropdownMenuSeparator />
           <DropdownMenuItem
-            onClick={(e) => {
+            onClick={() => {
               deleteTransaction(row.original.id as string);
             }}
             className="text-destructive focus:text-destructive"

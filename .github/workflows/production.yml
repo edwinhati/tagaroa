@@ -144,16 +144,21 @@ jobs:
         include:
           - component: web-app
             dockerfile: apps/web/Dockerfile
+            sentry_dsn: ${{ vars.WEB_APP_SENTRY_DSN }}
           - component: auth-app
             dockerfile: apps/auth/Dockerfile
+            sentry_dsn: ${{ vars.AUTH_APP_SENTRY_DSN }}
           - component: admin-app
             dockerfile: apps/admin/Dockerfile
+            sentry_dsn: ${{ vars.ADMIN_APP_SENTRY_DSN }}
           - component: finance-app
             dockerfile: apps/finance/Dockerfile
+            sentry_dsn: ${{ vars.FINANCE_APP_SENTRY_DSN }}
           - component: core-service
             dockerfile: servers/core/Dockerfile
           - component: investment-app
             dockerfile: apps/investment/Dockerfile
+            sentry_dsn: ${{ vars.INVESTMENT_APP_SENTRY_DSN }}
     steps:
       - uses: actions/checkout@v4
 
@@ -190,6 +195,8 @@ jobs:
             NEXT_PUBLIC_DASHBOARD_APP_URL=${{ vars.NEXT_PUBLIC_DASHBOARD_APP_URL }}
             NEXT_PUBLIC_MAIN_APP_URL=${{ vars.NEXT_PUBLIC_MAIN_APP_URL }}
             NEXT_PUBLIC_ALLOWED_REDIRECT_ORIGINS=${{ vars.NEXT_PUBLIC_ALLOWED_REDIRECT_ORIGINS }}
+            NEXT_PUBLIC_SENTRY_DSN=${{ matrix.sentry_dsn }}
+            NEXT_PUBLIC_SENTRY_TRACES_SAMPLE_RATE=${{ vars.NEXT_PUBLIC_SENTRY_TRACES_SAMPLE_RATE }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
           platforms: linux/amd64

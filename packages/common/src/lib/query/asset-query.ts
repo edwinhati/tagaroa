@@ -138,7 +138,7 @@ export const useAssetDeleteMutationOptions = () => {
       // Return context with previous value
       return { previous };
     },
-    onError: (_err, _id, context) => {
+    onError: (_err, _vars, context) => {
       // Rollback to previous value
       if (context?.previous) {
         queryClient.setQueryData(["assets"], context.previous);

@@ -593,7 +593,7 @@ function RowActions({ row, deleteAccount }: RowActionsProps) {
           </DropdownMenuGroup>
           <DropdownMenuSeparator />
           <DropdownMenuItem
-            onClick={(e) => {
+            onClick={() => {
               deleteAccount(row.original.id as string);
             }}
             className="text-destructive focus:text-destructive"

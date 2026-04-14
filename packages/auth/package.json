@@ -10,14 +10,14 @@
     ".": "./src/index.ts"
   },
   "dependencies": {
-    "@better-auth/infra": "^0.1.14",
-    "better-auth": "^1.6.0",
+    "@better-auth/infra": "^0.2.0",
+    "better-auth": "^1.6.2",
     "drizzle-orm": "^0.45.2",
     "zod": "^4.3.6"
   },
   "devDependencies": {
     "@repo/typescript-config": "*",
-    "@biomejs/biome": "2.4.10",
+    "@biomejs/biome": "2.4.11",
     "@types/node": "^25.5.0",
     "typescript": "^6.0.2"
   }

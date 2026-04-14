@@ -1,4 +1,5 @@
 import withBundleAnalyzer from "@next/bundle-analyzer";
+import { withSentryConfig } from "@sentry/nextjs";
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
@@ -6,11 +7,15 @@ const nextConfig: NextConfig = {
   transpilePackages: ["@repo/ui", "@repo/common"],
 };
 
-export default function getNextConfig(): NextConfig {
-  if (process.env.ANALYZE === "true") {
-    return withBundleAnalyzer({
-      enabled: true,
-    })(nextConfig);
-  }
-  return nextConfig;
-}
+export default withSentryConfig(
+  process.env.ANALYZE === "true"
+    ? withBundleAnalyzer({ enabled: true })(nextConfig)
+    : nextConfig,
+  {
+    silent: true,
+    sourcemaps: {
+      disable: true,
+    },
+    tunnelRoute: process.env.NODE_ENV === "production" ? "/api/e" : undefined,
+  },
+);

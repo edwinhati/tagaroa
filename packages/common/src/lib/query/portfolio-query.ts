@@ -380,7 +380,7 @@ export const useDeletePortfolioMutationOptions = () => {
       );
       return { previous };
     },
-    onError: (_err, _id, context) => {
+    onError: (_err, _vars, context) => {
       if (context?.previous) {
         queryClient.setQueryData(["portfolios"], context.previous);
       }
