@@ -3,7 +3,7 @@
  * Centralizes DSN, environment, and sampling configuration
  */
 
-export interface SentryConfig {
+interface SentryConfig {
   dsn: string | undefined;
   environment: string;
   tracesSampleRate: number;

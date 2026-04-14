@@ -1,6 +1,6 @@
 import { type NextRequest, NextResponse } from "next/server";
 
-export function extractDsnFromEnvelope(
+function extractDsnFromEnvelope(
   envelope: string,
 ): { host: string; projectId: string } | null {
   const firstLine = envelope.split("\n")[0];
