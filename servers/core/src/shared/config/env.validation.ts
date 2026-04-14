@@ -41,13 +41,7 @@ export const envSchema = z.object({
     .enum(["true", "false"])
     .default("false")
     .transform((v) => v === "true"),
-  // Profiling configuration (Bun native)
-  PROFILING_ENABLED: z
-    .enum(["true", "false"])
-    .default("false")
-    .transform((v) => v === "true"),
-  PROFILING_INTERVAL_MS: z.coerce.number().default(5000),
-  PROFILING_MAX_SAMPLES: z.coerce.number().default(1000),
+
   // OpenTelemetry configuration
   OTEL_ENABLED: z
     .enum(["true", "false"])

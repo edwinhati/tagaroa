@@ -1,6 +1,5 @@
 import { Module, Provider } from "@nestjs/common";
 import { MonitoringService } from "./application/monitoring.service";
-import { BunProfilingService } from "./application/profiling.service";
 import { MONITORING_SERVICE } from "./domain/monitoring-service.interface";
 import { OpenTelemetryService } from "./infrastructure/opentelemetry.service";
 import { SentryMonitoringService } from "./infrastructure/sentry-monitoring.service";
@@ -14,14 +13,8 @@ const monitoringServiceProvider: Provider = {
   providers: [
     monitoringServiceProvider,
     MonitoringService,
-    BunProfilingService,
     OpenTelemetryService,
   ],
-  exports: [
-    MONITORING_SERVICE,
-    MonitoringService,
-    BunProfilingService,
-    OpenTelemetryService,
-  ],
+  exports: [MONITORING_SERVICE, MonitoringService, OpenTelemetryService],
 })
 export class ObservabilityModule {}

@@ -8,7 +8,6 @@ import helmet from "helmet";
 import { AppModule } from "./app.module";
 import { auth } from "./modules/auth/auth";
 import { FinanceModule } from "./modules/finance/finance.module";
-import { BunProfilingService } from "./modules/observability/application/profiling.service";
 import { OpenTelemetryService } from "./modules/observability/infrastructure/opentelemetry.service";
 import { StorageModule } from "./modules/storage/storage.module";
 import type { AppConfig } from "./shared/config/env.validation";
@@ -21,8 +20,6 @@ async function bootstrap() {
   const otelService = app.get(OpenTelemetryService);
   await otelService.initialize();
 
-  const profilingService = app.get(BunProfilingService);
-  profilingService.startProfiling();
   const isDevelopment = process.env.NODE_ENV === "development";
 
   app.setGlobalPrefix("api");

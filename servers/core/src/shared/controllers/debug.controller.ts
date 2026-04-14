@@ -1,17 +1,13 @@
-import { Controller, Get, Post, UseGuards } from "@nestjs/common";
+import { Controller, Get, UseGuards } from "@nestjs/common";
 import { AllowAnonymous } from "@thallesp/nestjs-better-auth";
 import { MonitoringService } from "../../modules/observability/application/monitoring.service";
-import { BunProfilingService } from "../../modules/observability/application/profiling.service";
 import { DevelopmentGuard } from "../guards/development.guard";
 
 @Controller("debug")
 @AllowAnonymous()
 @UseGuards(DevelopmentGuard)
 export class DebugController {
-  constructor(
-    private readonly monitoring: MonitoringService,
-    private readonly profiling: BunProfilingService,
-  ) {}
+  constructor(private readonly monitoring: MonitoringService) {}
 
   @Get("sentry-error")
   triggerError(): string {
@@ -69,32 +65,5 @@ export class DebugController {
     });
 
     return { message: "Messages sent to Sentry" };
-  }
-
-  @Post("profiling/start")
-  startProfiling(): { message: string } {
-    this.profiling.startProfiling();
-    return { message: "Profiling started" };
-  }
-
-  @Post("profiling/stop")
-  stopProfiling(): { message: string } {
-    this.profiling.stopProfiling();
-    return { message: "Profiling stopped" };
-  }
-
-  @Get("profiling/stats")
-  getProfilingStats(): ReturnType<BunProfilingService["getStats"]> {
-    return this.profiling.getStats();
-  }
-
-  @Get("profiling/report")
-  getProfilingReport(): string {
-    return this.profiling.generateReport();
-  }
-
-  @Get("profiling/export")
-  exportProfilingData(): string {
-    return this.profiling.exportToJSON();
   }
 }
