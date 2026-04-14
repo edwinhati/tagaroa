@@ -1,11 +1,7 @@
-# @repo/playwright-config
+# @repo/sentry-config
 
-## 0.3.0
+## 0.2.0
 
 ### Minor Changes
 
 - 7fd6170: Add Sentry error tracking and session replay to all apps
-
-## 0.2.0
-
-## 0.1.9
