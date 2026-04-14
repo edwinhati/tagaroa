@@ -1,5 +1,18 @@
 # finance
 
+## 0.3.0
+
+### Minor Changes
+
+- 7fd6170: Add Sentry error tracking and session replay to all apps
+
+### Patch Changes
+
+- Updated dependencies [7fd6170]
+  - @repo/ui@0.3.0
+  - @repo/common@0.3.0
+  - @repo/sentry-config@0.2.0
+
 ## 0.2.0
 
 ### Patch Changes
