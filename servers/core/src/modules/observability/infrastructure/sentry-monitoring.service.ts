@@ -34,7 +34,11 @@ export class SentryMonitoringService implements IMonitoringService {
         ) {
           attributes[key] = value;
         } else if (value !== null && value !== undefined) {
-          attributes[key] = String(value);
+          attributes[key] =
+            typeof value.toString === "function" &&
+            value.toString !== Object.prototype.toString
+              ? value.toString()
+              : JSON.stringify(value);
         }
       }
     }
