@@ -30,6 +30,8 @@ jobs:
           bun-version: ${{ env.BUN_VERSION }}
       - run: bun install
       - id: detect
+        env:
+          BASE_REF: ${{ github.event.pull_request.base.ref }}
         run: bash .github/scripts/detect-changed-apps.sh >> $GITHUB_OUTPUT
 
   build:

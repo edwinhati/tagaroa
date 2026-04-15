@@ -35,7 +35,7 @@ declare -A PKG_TO_SENTRY_DSN=(
 
 # Determine base branch for comparison
 if [ "${GITHUB_EVENT_NAME:-}" = "pull_request" ]; then
-  BASE_BRANCH="origin/${{ github.event.pull_request.base.ref }}"
+  BASE_BRANCH="origin/${BASE_REF}"
 else
   BASE_BRANCH="origin/main"
 fi
