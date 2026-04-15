@@ -1,4 +1,3 @@
-import { Inject, Injectable } from "@nestjs/common";
 import {
   and,
   avg,
@@ -14,8 +13,7 @@ import {
   sql,
   sum,
 } from "drizzle-orm";
-import type { BunSQLDatabase } from "drizzle-orm/bun-sql";
-import { DRIZZLE } from "../../../../../../shared/database/database.constants";
+import { DrizzleBaseRepository } from "../../../../../../shared/database/drizzle-base.repository";
 import { ConcurrentModificationException } from "../../../../../../shared/exceptions/domain.exception";
 import type {
   AggregationBucket,
@@ -29,13 +27,10 @@ import type {
 import { LiabilityMapper } from "../mappers/liability.mapper";
 import { liabilities } from "../schemas/liability.schema";
 
-@Injectable()
-export class DrizzleLiabilityRepository implements ILiabilityRepository {
-  constructor(
-    @Inject(DRIZZLE)
-    private readonly db: BunSQLDatabase,
-  ) {}
-
+export class DrizzleLiabilityRepository
+  extends DrizzleBaseRepository
+  implements ILiabilityRepository
+{
   private buildWhereConditions(
     userId: string,
     filters?: LiabilityFilterParams,
@@ -45,7 +40,6 @@ export class DrizzleLiabilityRepository implements ILiabilityRepository {
       isNull(liabilities.deletedAt),
     ];
 
-    // Only include unpaid liabilities by default
     if (!filters?.includePaid) {
       conditions.push(isNull(liabilities.paidAt));
     }
@@ -77,7 +71,7 @@ export class DrizzleLiabilityRepository implements ILiabilityRepository {
   }
 
   async findById(id: string): Promise<Liability | null> {
-    const [row] = await this.db
+    const [row] = await this.getDb()
       .select()
       .from(liabilities)
       .where(and(eq(liabilities.id, id), isNull(liabilities.deletedAt)))
@@ -89,7 +83,7 @@ export class DrizzleLiabilityRepository implements ILiabilityRepository {
   async findByIds(ids: string[]): Promise<Liability[]> {
     if (ids.length === 0) return [];
 
-    const rows = await this.db
+    const rows = await this.getDb()
       .select()
       .from(liabilities)
       .where(and(inArray(liabilities.id, ids), isNull(liabilities.deletedAt)));
@@ -98,7 +92,7 @@ export class DrizzleLiabilityRepository implements ILiabilityRepository {
   }
 
   async findByUserId(userId: string): Promise<Liability[]> {
-    const rows = await this.db
+    const rows = await this.getDb()
       .select()
       .from(liabilities)
       .where(
@@ -120,13 +114,13 @@ export class DrizzleLiabilityRepository implements ILiabilityRepository {
   ): Promise<PaginatedResult<Liability>> {
     const where = this.buildWhereConditions(userId, filters);
     const [rows, countResult] = await Promise.all([
-      this.db
+      this.getDb()
         .select()
         .from(liabilities)
         .where(where)
         .limit(limit)
         .offset(offset),
-      this.db.select({ total: count() }).from(liabilities).where(where),
+      this.getDb().select({ total: count() }).from(liabilities).where(where),
     ]);
     const total = countResult[0]?.total ?? 0;
 
@@ -142,7 +136,7 @@ export class DrizzleLiabilityRepository implements ILiabilityRepository {
   ): Promise<AggregationBucket[]> {
     const { types: _, ...filtersWithoutType } = filters ?? {};
     const where = this.buildWhereConditions(userId, filtersWithoutType);
-    const rows = await this.db
+    const rows = await this.getDb()
       .select({
         key: liabilities.type,
         count: count(),
@@ -172,7 +166,7 @@ export class DrizzleLiabilityRepository implements ILiabilityRepository {
   ): Promise<AggregationBucket[]> {
     const { currencies: _, ...filtersWithoutCurrency } = filters ?? {};
     const where = this.buildWhereConditions(userId, filtersWithoutCurrency);
-    const rows = await this.db
+    const rows = await this.getDb()
       .select({
         key: liabilities.currency,
         count: count(),
@@ -200,7 +194,7 @@ export class DrizzleLiabilityRepository implements ILiabilityRepository {
     const conditions: SQL[] = [
       eq(liabilities.userId, userId),
       isNull(liabilities.deletedAt),
-      isNull(liabilities.paidAt), // Only unpaid liabilities
+      isNull(liabilities.paidAt),
     ];
 
     if (currency) {
@@ -212,7 +206,7 @@ export class DrizzleLiabilityRepository implements ILiabilityRepository {
       throw new Error("Failed to build where conditions");
     }
 
-    const [result] = await this.db
+    const [result] = await this.getDb()
       .select({ total: sum(liabilities.amount) })
       .from(liabilities)
       .where(whereCondition);
@@ -221,7 +215,7 @@ export class DrizzleLiabilityRepository implements ILiabilityRepository {
   }
 
   async create(liability: Liability): Promise<Liability> {
-    const [row] = await this.db
+    const [row] = await this.getDb()
       .insert(liabilities)
       .values(LiabilityMapper.toPersistence(liability))
       .returning();
@@ -234,7 +228,7 @@ export class DrizzleLiabilityRepository implements ILiabilityRepository {
 
   async update(liability: Liability): Promise<Liability> {
     const data = LiabilityMapper.toPersistence(liability);
-    const [row] = await this.db
+    const [row] = await this.getDb()
       .update(liabilities)
       .set({ ...data, version: (liability.version ?? 0) + 1 })
       .where(
@@ -253,7 +247,7 @@ export class DrizzleLiabilityRepository implements ILiabilityRepository {
   }
 
   async delete(id: string): Promise<void> {
-    await this.db
+    await this.getDb()
       .update(liabilities)
       .set({ deletedAt: new Date() })
       .where(eq(liabilities.id, id));

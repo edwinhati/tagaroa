@@ -25,6 +25,7 @@ import {
   TRANSACTION_REPOSITORY,
 } from "../../domain/repositories/transaction.repository.interface";
 import type { UpdateTransactionDto } from "../dtos/update-transaction.dto";
+import { UnitOfWork } from "../services/unit-of-work.service";
 import { normalizeBudgetItemId } from "../utils/transaction-budget-item.util";
 import { normalizeTransactionDate } from "../utils/transaction-date.util";
 
@@ -40,6 +41,7 @@ export class UpdateTransactionUseCase {
     @Inject(BUDGET_REPOSITORY)
     private readonly budgetRepository: IBudgetRepository,
     private readonly eventEmitter: EventEmitter2,
+    private readonly unitOfWork: UnitOfWork,
   ) {}
 
   async execute(
@@ -47,59 +49,62 @@ export class UpdateTransactionUseCase {
     id: string,
     dto: UpdateTransactionDto,
   ): Promise<Transaction> {
-    const budgetItemId = normalizeBudgetItemId(dto.budgetItemId);
-    const existing = await this.transactionRepository.findById(id);
+    return this.unitOfWork.execute(async () => {
+      const budgetItemId = normalizeBudgetItemId(dto.budgetItemId);
+      const existing = await this.transactionRepository.findById(id);
 
-    if (!existing) {
-      throw new TransactionNotFoundException(id);
-    }
-    if (existing.userId !== userId) {
-      throw new TransactionAccessDeniedException();
-    }
+      if (!existing) {
+        throw new TransactionNotFoundException(id);
+      }
+      if (existing.userId !== userId) {
+        throw new TransactionAccessDeniedException();
+      }
 
-    await this.validateAccountChange(userId, dto, existing.accountId);
-    await this.validateBudgetItemChange(
-      userId,
-      budgetItemId,
-      existing.budgetItemId,
-    );
-
-    const updated = new Transaction(
-      existing.id,
-      dto.amount ?? existing.amount,
-      dto.date ? normalizeTransactionDate(dto.date) : existing.date,
-      dto.notes ?? existing.notes,
-      dto.currency ?? existing.currency,
-      dto.type ?? existing.type,
-      dto.files ?? existing.files,
-      existing.userId,
-      dto.accountId ?? existing.accountId,
-      budgetItemId ?? existing.budgetItemId,
-      existing.deletedAt,
-      existing.createdAt,
-      new Date(),
-      existing.version + 1,
-    );
-
-    const updatedTransaction = await this.transactionRepository.update(updated);
-
-    this.eventEmitter.emit(
-      "transaction.updated",
-      new TransactionUpdatedEvent(
-        updatedTransaction.id,
+      await this.validateAccountChange(userId, dto, existing.accountId);
+      await this.validateBudgetItemChange(
         userId,
-        existing.accountId,
+        budgetItemId,
         existing.budgetItemId,
-        existing.amount,
-        existing.type,
-        updatedTransaction.accountId,
-        updatedTransaction.budgetItemId,
-        updatedTransaction.amount,
-        updatedTransaction.type,
-      ),
-    );
+      );
 
-    return updatedTransaction;
+      const updated = new Transaction(
+        existing.id,
+        dto.amount ?? existing.amount,
+        dto.date ? normalizeTransactionDate(dto.date) : existing.date,
+        dto.notes ?? existing.notes,
+        dto.currency ?? existing.currency,
+        dto.type ?? existing.type,
+        dto.files ?? existing.files,
+        existing.userId,
+        dto.accountId ?? existing.accountId,
+        budgetItemId ?? existing.budgetItemId,
+        existing.deletedAt,
+        existing.createdAt,
+        new Date(),
+        existing.version + 1,
+      );
+
+      const updatedTransaction =
+        await this.transactionRepository.update(updated);
+
+      this.eventEmitter.emit(
+        "transaction.updated",
+        new TransactionUpdatedEvent(
+          updatedTransaction.id,
+          userId,
+          existing.accountId,
+          existing.budgetItemId,
+          existing.amount,
+          existing.type,
+          updatedTransaction.accountId,
+          updatedTransaction.budgetItemId,
+          updatedTransaction.amount,
+          updatedTransaction.type,
+        ),
+      );
+
+      return updatedTransaction;
+    });
   }
 
   private async validateAccountChange(

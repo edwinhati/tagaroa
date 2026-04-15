@@ -1,6 +1,7 @@
 import { Module } from "@nestjs/common";
 import { AccountBalanceEventHandler } from "./application/event-handlers/account-balance.event-handler";
 import { BudgetItemSpentEventHandler } from "./application/event-handlers/budget-item-spent.event-handler";
+import { UnitOfWork } from "./application/services/unit-of-work.service";
 import { CreateAccountUseCase } from "./application/use-cases/create-account.use-case";
 import { CreateAssetUseCase } from "./application/use-cases/create-asset.use-case";
 import { CreateBudgetUseCase } from "./application/use-cases/create-budget.use-case";
@@ -130,6 +131,7 @@ import { TransactionController } from "./presentation/http/transaction.controlle
     GetLiabilityUseCase,
     UpdateLiabilityUseCase,
     DeleteLiabilityUseCase,
+    UnitOfWork,
   ],
 })
 export class FinanceModule {}
