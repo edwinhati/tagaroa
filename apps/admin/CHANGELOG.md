@@ -1,5 +1,17 @@
 # admin
 
+## 0.4.0
+
+### Minor Changes
+
+- 24cc06e: ## CI/CD Improvements
+
+  ### Workflow Enhancements
+
+  - Add knip to build matrix in development, staging, and production workflows
+  - Change changeset version commit message from `chore: version packages` to `ci: version bump`
+  - Configure releases branch to `releases/main` for cleaner release history
+
 ## 0.3.1
 
 ### Patch Changes
