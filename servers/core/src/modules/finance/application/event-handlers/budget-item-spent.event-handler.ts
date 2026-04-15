@@ -19,9 +19,7 @@ export class BudgetItemSpentEventHandler {
 
   @OnEvent("transaction.created")
   async handleCreated(event: TransactionCreatedEvent): Promise<void> {
-    if (event.budgetItemId) {
-      await this.recalculateSpent(event.budgetItemId);
-    }
+    await this.recalculateSpentIfPresent(event.budgetItemId);
   }
 
   @OnEvent("transaction.updated")
@@ -34,15 +32,19 @@ export class BudgetItemSpentEventHandler {
       await this.recalculateSpent(event.previousBudgetItemId);
     }
     // Recalculate new budget item
-    if (event.newBudgetItemId) {
-      await this.recalculateSpent(event.newBudgetItemId);
-    }
+    await this.recalculateSpentIfPresent(event.newBudgetItemId);
   }
 
   @OnEvent("transaction.deleted")
   async handleDeleted(event: TransactionDeletedEvent): Promise<void> {
-    if (event.budgetItemId) {
-      await this.recalculateSpent(event.budgetItemId);
+    await this.recalculateSpentIfPresent(event.budgetItemId);
+  }
+
+  private async recalculateSpentIfPresent(
+    budgetItemId: string | undefined | null,
+  ): Promise<void> {
+    if (budgetItemId) {
+      await this.recalculateSpent(budgetItemId);
     }
   }
 

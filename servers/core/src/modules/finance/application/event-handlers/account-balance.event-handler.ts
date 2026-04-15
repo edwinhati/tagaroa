@@ -57,14 +57,9 @@ export class AccountBalanceEventHandler {
     const account = await this.accountRepo.findById(accountId);
     if (!account) return;
 
+    const effectiveAmount = type === "INCOME" ? amount : -amount;
     const newBalance =
-      type === "INCOME"
-        ? isAdd
-          ? account.balance + amount
-          : account.balance - amount
-        : isAdd
-          ? account.balance - amount
-          : account.balance + amount;
+      account.balance + (isAdd ? effectiveAmount : -effectiveAmount);
 
     const updated = account.withUpdatedBalance(newBalance);
     await this.accountRepo.update(updated);
