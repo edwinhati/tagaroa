@@ -1,3 +1,4 @@
 {
-  "ignoreDependencies": ["@tailwindcss/postcss", "tailwindcss"]
+  "ignoreDependencies": ["@tailwindcss/postcss", "tailwindcss"],
+  "include": ["dependencies", "devDependencies", "unlisted", "files"]
 }
