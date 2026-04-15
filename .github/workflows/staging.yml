@@ -64,7 +64,12 @@ jobs:
       - run: bun install
 
       - name: Run ${{ matrix.task }}
-        run: bun turbo run ${{ matrix.task }} --filter="...[origin/main]"
+        run: |
+          if [ "${{ matrix.task }}" = "knip" ]; then
+            bunx knip
+          else
+            bun turbo run ${{ matrix.task }} --filter="...[origin/main]"
+          fi
 
   test:
     name: Test
