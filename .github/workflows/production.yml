@@ -7,7 +7,7 @@ on:
 
 env:
   REGISTRY: registry.gitlab.com/tagaroa
-  BUN_VERSION: "1.3.11"
+  BUN_VERSION: "1.3.12"
   ENVIRONMENT: production
   NEXT_TELEMETRY_DISABLED: 1
 
@@ -106,7 +106,7 @@ jobs:
           version: bun run version
           title: "ci: version bump"
           commit: "ci: version bump"
-          branch: releases/main
+          branch: main
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
