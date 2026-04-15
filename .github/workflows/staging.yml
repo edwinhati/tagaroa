@@ -43,6 +43,8 @@ jobs:
         task: [build, lint, check-types]
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
       - uses: oven-sh/setup-bun@v2
         with:
@@ -61,13 +63,15 @@ jobs:
 
       - name: Run ${{ matrix.task }}
         run: bun turbo run ${{ matrix.task }} --filter="...[origin/main]"
-            
+
   test:
     name: Test
     runs-on: ubuntu-latest
     needs: build
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
       - uses: oven-sh/setup-bun@v2
         with:
