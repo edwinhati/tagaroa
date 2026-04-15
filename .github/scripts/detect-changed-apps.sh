@@ -1,0 +1,130 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+REPO_ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)"
+cd "$REPO_ROOT"
+
+# Package name → Component name mapping
+declare -A PKG_TO_COMPONENT=(
+  ["finance"]="finance-app"
+  ["auth"]="auth-app"
+  ["web"]="web-app"
+  ["admin"]="admin-app"
+  ["investment"]="investment-app"
+  ["core-service"]="core-service"
+)
+
+declare -A PKG_TO_DOCKERFILE=(
+  ["finance"]="apps/finance/Dockerfile"
+  ["auth"]="apps/auth/Dockerfile"
+  ["web"]="apps/web/Dockerfile"
+  ["admin"]="apps/admin/Dockerfile"
+  ["investment"]="apps/investment/Dockerfile"
+  ["core-service"]="servers/core/Dockerfile"
+)
+
+declare -A PKG_TO_SENTRY_DSN=(
+  ["finance"]="${FINANCE_APP_SENTRY_DSN:-}"
+  ["auth"]="${AUTH_APP_SENTRY_DSN:-}"
+  ["web"]="${WEB_APP_SENTRY_DSN:-}"
+  ["admin"]="${ADMIN_APP_SENTRY_DSN:-}"
+  ["investment"]="${INVESTMENT_APP_SENTRY_DSN:-}"
+  ["core-service"]="${CORE_SERVICE_SENTRY_DSN:-}"
+)
+
+# Determine base branch for comparison
+if [ "${GITHUB_EVENT_NAME:-}" = "pull_request" ]; then
+  BASE_BRANCH="origin/${BASE_REF}"
+else
+  BASE_BRANCH="origin/main"
+fi
+
+echo "Detecting changed apps compared to: $BASE_BRANCH" >&2
+
+# Get changed packages using turbo --filter
+# --filter=...[BASE] means: package + dependents that changed since BASE
+TURBO_OUTPUT=$(bun turbo run build --filter="...[$BASE_BRANCH]" --dry=json 2>/dev/null || echo '{"packages":[]}')
+echo "Turbo output: $TURBO_OUTPUT" >&2
+
+PACKAGES=$(echo "$TURBO_OUTPUT" | jq -r '.packages[]' 2>/dev/null || echo "")
+
+if [ -z "$PACKAGES" ]; then
+  echo "No changed packages detected or turbo failed, falling back to all apps" >&2
+  # Fall back to all deployable components
+  ALL_COMPONENTS="finance-app auth-app web-app admin-app investment-app core-service"
+  INCLUDE_JSON="{\"include\":["
+  first=true
+  for comp in $ALL_COMPONENTS; do
+    case "$comp" in
+      finance-app) DOCKERFILE="apps/finance/Dockerfile" SENTRY_DSN="${FINANCE_APP_SENTRY_DSN:-}" ;;
+      auth-app) DOCKERFILE="apps/auth/Dockerfile" SENTRY_DSN="${AUTH_APP_SENTRY_DSN:-}" ;;
+      web-app) DOCKERFILE="apps/web/Dockerfile" SENTRY_DSN="${WEB_APP_SENTRY_DSN:-}" ;;
+      admin-app) DOCKERFILE="apps/admin/Dockerfile" SENTRY_DSN="${ADMIN_APP_SENTRY_DSN:-}" ;;
+      investment-app) DOCKERFILE="apps/investment/Dockerfile" SENTRY_DSN="${INVESTMENT_APP_SENTRY_DSN:-}" ;;
+      core-service) DOCKERFILE="servers/core/Dockerfile" SENTRY_DSN="${CORE_SERVICE_SENTRY_DSN:-}" ;;
+    esac
+    if [ "$first" = true ]; then
+      first=false
+    else
+      INCLUDE_JSON+=","
+    fi
+    INCLUDE_JSON+="{\"component\":\"$comp\",\"dockerfile\":\"$DOCKERFILE\",\"sentry_dsn\":\"$SENTRY_DSN\"}"
+  done
+  INCLUDE_JSON+="]}"
+  echo "matrix=$INCLUDE_JSON"
+  echo "fallback=true"
+  exit 0
+fi
+
+# Build matrix from changed packages
+INCLUDE_JSON="{\"include\":["
+first=true
+for pkg in $PACKAGES; do
+  COMP="${PKG_TO_COMPONENT[$pkg]:-}"
+  DOCKERFILE="${PKG_TO_DOCKERFILE[$pkg]:-}"
+  SENTRY_DSN="${PKG_TO_SENTRY_DSN[$pkg]:-}"
+
+  if [ -z "$COMP" ] || [ -z "$DOCKERFILE" ]; then
+    continue
+  fi
+
+  if [ "$first" = true ]; then
+    first=false
+  else
+    INCLUDE_JSON+=","
+  fi
+
+  INCLUDE_JSON+="{\"component\":\"$COMP\",\"dockerfile\":\"$DOCKERFILE\",\"sentry_dsn\":\"$SENTRY_DSN\"}"
+  echo "Changed: $pkg → $COMP" >&2
+done
+
+INCLUDE_JSON+="]}"
+
+if [ "$first" = true ]; then
+  echo "No deployable components changed, using all apps" >&2
+  # Recursive call with fallback
+  ALL_COMPONENTS="finance-app auth-app web-app admin-app investment-app core-service"
+  INCLUDE_JSON="{\"include\":["
+  first=true
+  for comp in $ALL_COMPONENTS; do
+    case "$comp" in
+      finance-app) DOCKERFILE="apps/finance/Dockerfile" SENTRY_DSN="${FINANCE_APP_SENTRY_DSN:-}" ;;
+      auth-app) DOCKERFILE="apps/auth/Dockerfile" SENTRY_DSN="${AUTH_APP_SENTRY_DSN:-}" ;;
+      web-app) DOCKERFILE="apps/web/Dockerfile" SENTRY_DSN="${WEB_APP_SENTRY_DSN:-}" ;;
+      admin-app) DOCKERFILE="apps/admin/Dockerfile" SENTRY_DSN="${ADMIN_APP_SENTRY_DSN:-}" ;;
+      investment-app) DOCKERFILE="apps/investment/Dockerfile" SENTRY_DSN="${INVESTMENT_APP_SENTRY_DSN:-}" ;;
+      core-service) DOCKERFILE="servers/core/Dockerfile" SENTRY_DSN="${CORE_SERVICE_SENTRY_DSN:-}" ;;
+    esac
+    if [ "$first" = true ]; then
+      first=false
+    else
+      INCLUDE_JSON+=","
+    fi
+    INCLUDE_JSON+="{\"component\":\"$comp\",\"dockerfile\":\"$DOCKERFILE\",\"sentry_dsn\":\"$SENTRY_DSN\"}"
+  done
+  INCLUDE_JSON+="]}"
+fi
+
+echo "matrix=$INCLUDE_JSON"
+echo "fallback=false"
