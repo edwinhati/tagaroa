@@ -113,6 +113,7 @@ jobs:
       - id: tag_release
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          COMMIT_MESSAGE: ${{ github.event.head_commit.message }}
           FINANCE_APP_SENTRY_DSN: ${{ secrets.FINANCE_APP_SENTRY_DSN }}
           AUTH_APP_SENTRY_DSN: ${{ secrets.AUTH_APP_SENTRY_DSN }}
           WEB_APP_SENTRY_DSN: ${{ secrets.WEB_APP_SENTRY_DSN }}
@@ -120,7 +121,7 @@ jobs:
           INVESTMENT_APP_SENTRY_DSN: ${{ secrets.INVESTMENT_APP_SENTRY_DSN }}
           CORE_SERVICE_SENTRY_DSN: ${{ secrets.CORE_SERVICE_SENTRY_DSN }}
         run: |
-          if [[ "${{ github.event.head_commit.message }}" == "ci: version bump"* ]]; then
+          if [[ "$COMMIT_MESSAGE" == "ci: version bump"* ]]; then
             bash .github/scripts/detect-version-bumps.sh
           else
             echo "released=false"
