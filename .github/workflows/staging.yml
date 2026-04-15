@@ -42,7 +42,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        task: [build, lint, check-types]
+        task: [build, lint, check-types, knip]
     steps:
       - uses: actions/checkout@v4
         with:

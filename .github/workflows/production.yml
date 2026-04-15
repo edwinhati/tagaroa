@@ -18,7 +18,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        task: [build, lint, check-types]
+        task: [build, lint, check-types, knip]
     steps:
       - uses: actions/checkout@v4
 
@@ -99,13 +99,14 @@ jobs:
       - uses: changesets/action@v1
         with:
           version: bun run version
-          title: "chore: version packages"
-          commit: "chore: version packages"
+          title: "ci: version bump"
+          commit: "ci: version bump"
+          branch: releases/main
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       - id: tag_release
-        if: "startsWith(github.event.head_commit.message, 'chore: version packages')"
+        if: "startsWith(github.event.head_commit.message, 'ci: version bump')"
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
