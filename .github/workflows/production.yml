@@ -122,11 +122,11 @@ jobs:
           CORE_SERVICE_SENTRY_DSN: ${{ secrets.CORE_SERVICE_SENTRY_DSN }}
         run: |
           if [[ "$COMMIT_MESSAGE" == "ci: version bump"* ]]; then
-            bash .github/scripts/detect-version-bumps.sh
+            bash .github/scripts/detect-version-bumps.sh >> $GITHUB_OUTPUT
           else
-            echo "released=false"
-            echo "version="
-            echo 'apps={"include":[]}'
+            echo "released=false" >> $GITHUB_OUTPUT
+            echo "version=" >> $GITHUB_OUTPUT
+            echo 'apps={"include":[]}' >> $GITHUB_OUTPUT
           fi
 
   deploy:
