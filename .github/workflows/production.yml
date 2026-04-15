@@ -75,6 +75,7 @@ jobs:
     outputs:
       released: ${{ steps.tag_release.outputs.released }}
       version: ${{ steps.tag_release.outputs.version }}
+      apps: ${{ steps.tag_release.outputs.apps }}
     steps:
       - uses: actions/checkout@v4
         with:
@@ -108,28 +109,7 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          VERSION=$(node -p "require('./apps/finance/package.json').version")
-          TAG="v${VERSION}"
-          echo "version=${VERSION}" >> $GITHUB_OUTPUT
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          
-          if git ls-remote --tags origin | grep -q "refs/tags/${TAG}$"; then
-            echo "Tag ${TAG} already exists."
-          else
-            git tag -a "${TAG}" -m "Release ${TAG}"
-            git push origin "${TAG}"
-          fi
-          
-          if gh release view "${TAG}" >/dev/null 2>&1; then
-            echo "Release ${TAG} already exists."
-          else
-            gh release create "${TAG}" \
-              --title "${TAG}" \
-              --generate-notes
-          fi
-          
-          echo "released=true" >> $GITHUB_OUTPUT
+          bash .github/scripts/detect-version-bumps.sh
 
   deploy:
     name: Deploy (${{ matrix.component }})
@@ -141,24 +121,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        include:
-          - component: web-app
-            dockerfile: apps/web/Dockerfile
-            sentry_dsn: ${{ vars.WEB_APP_SENTRY_DSN }}
-          - component: auth-app
-            dockerfile: apps/auth/Dockerfile
-            sentry_dsn: ${{ vars.AUTH_APP_SENTRY_DSN }}
-          - component: admin-app
-            dockerfile: apps/admin/Dockerfile
-            sentry_dsn: ${{ vars.ADMIN_APP_SENTRY_DSN }}
-          - component: finance-app
-            dockerfile: apps/finance/Dockerfile
-            sentry_dsn: ${{ vars.FINANCE_APP_SENTRY_DSN }}
-          - component: core-service
-            dockerfile: servers/core/Dockerfile
-          - component: investment-app
-            dockerfile: apps/investment/Dockerfile
-            sentry_dsn: ${{ vars.INVESTMENT_APP_SENTRY_DSN }}
+        include: ${{ fromJson(needs.release.outputs.apps) }}
     steps:
       - uses: actions/checkout@v4
 
@@ -166,10 +129,9 @@ jobs:
 
       - name: Generate image tags
         id: meta
-        env:
-          VERSION: ${{ needs.release.outputs.version }}
         run: |
           COMPONENT="${{ matrix.component }}"
+          VERSION="${{ matrix.version }}"
           TAGS="${{ env.REGISTRY }}/${COMPONENT}:${VERSION}"
           TAGS="${TAGS},${{ env.REGISTRY }}/${COMPONENT}:latest"
           TAGS="${TAGS},${{ env.REGISTRY }}/${COMPONENT}:${GITHUB_SHA::8}"
@@ -200,3 +162,14 @@ jobs:
           cache-from: type=gha
           cache-to: type=gha,mode=max
           platforms: linux/amd64
+
+      - name: Create Sentry Release
+        uses: getsentry/action-release@v3
+        env:
+          SENTRY_AUTH_TOKEN: ${{ secrets.SENTRY_AUTH_TOKEN }}
+          SENTRY_ORG: ${{ secrets.SENTRY_ORG }}
+        with:
+          environment: production
+          release: ${{ matrix.version }}
+          set_commits: auto
+          projects: ${{ matrix.sentry_project }}

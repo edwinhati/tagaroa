@@ -2,23 +2,17 @@
   "$schema": "https://unpkg.com/@changesets/config@3.0.0/schema.json",
   "changelog": "@changesets/cli/changelog",
   "commit": false,
-  "fixed": [
-    [
-      "web",
-      "auth",
-      "admin",
-      "finance",
-      "investment",
-      "core-service",
-      "@repo/ui",
-      "@repo/common",
-      "@repo/playwright-config",
-      "@repo/typescript-config"
-    ]
-  ],
+  "fixed": [],
   "linked": [],
   "access": "restricted",
   "baseBranch": "main",
   "updateInternalDependencies": "patch",
-  "ignore": []
+  "ignore": [
+    "@repo/typescript-config",
+    "@repo/playwright-config",
+    "@repo/common",
+    "@repo/ui",
+    "@repo/auth",
+    "@repo/sentry-config"
+  ]
 }

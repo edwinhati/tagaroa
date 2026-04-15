@@ -1,7 +1,7 @@
 {
   "name": "tagaroa",
   "devDependencies": {
-    "@biomejs/biome": "^2.4.11",
+    "@biomejs/biome": "^2.4.12",
     "@changesets/cli": "^2.29.0",
     "lefthook": "^2.1.5",
     "turbo": "^2.9.6",
