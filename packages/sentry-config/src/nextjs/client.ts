@@ -19,6 +19,10 @@ export function initSentryClient(): void {
     tracesSampleRate: config.tracesSampleRate,
     debug: config.debug,
     sendDefaultPii: true,
+    enableLogs: true,
+    integrations: [
+      Sentry.consoleLoggingIntegration({ levels: ["log", "warn", "error"] }),
+    ],
     replaysSessionSampleRate: 0.1,
     replaysOnErrorSampleRate: 1,
     beforeSend(event) {

@@ -36,15 +36,10 @@ export function initSentryServer(): void {
     tracesSampleRate: config.tracesSampleRate,
     debug: config.debug,
     sendDefaultPii: true,
-    // includeLocalVariables uses node:inspector which isn't implemented in Bun
-    includeLocalVariables: !isBun,
-    // Remove LocalVariablesAsync integration in Bun (it uses node:inspector)
-    integrations: isBun
-      ? (integrations) =>
-          integrations.filter(
-            (integration) => integration.name !== "LocalVariablesAsync",
-          )
-      : undefined,
+    enableLogs: true,
+    integrations: [
+      Sentry.consoleLoggingIntegration({ levels: ["log", "warn", "error"] }),
+    ],
 
     beforeSend(event) {
       if (config.debug) {
