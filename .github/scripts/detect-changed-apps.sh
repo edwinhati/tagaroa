@@ -24,6 +24,15 @@ declare -A PKG_TO_DOCKERFILE=(
   ["core-service"]="servers/core/Dockerfile"
 )
 
+declare -A PKG_TO_SENTRY_DSN=(
+  ["finance"]="${FINANCE_APP_SENTRY_DSN:-}"
+  ["auth"]="${AUTH_APP_SENTRY_DSN:-}"
+  ["web"]="${WEB_APP_SENTRY_DSN:-}"
+  ["admin"]="${ADMIN_APP_SENTRY_DSN:-}"
+  ["investment"]="${INVESTMENT_APP_SENTRY_DSN:-}"
+  ["core-service"]="${CORE_SERVICE_SENTRY_DSN:-}"
+)
+
 # Determine base branch for comparison
 if [ "${GITHUB_EVENT_NAME:-}" = "pull_request" ]; then
   BASE_BRANCH="origin/${{ github.event.pull_request.base.ref }}"
@@ -48,19 +57,19 @@ if [ -z "$PACKAGES" ]; then
   first=true
   for comp in $ALL_COMPONENTS; do
     case "$comp" in
-      finance-app) DOCKERFILE="apps/finance/Dockerfile" ;;
-      auth-app) DOCKERFILE="apps/auth/Dockerfile" ;;
-      web-app) DOCKERFILE="apps/web/Dockerfile" ;;
-      admin-app) DOCKERFILE="apps/admin/Dockerfile" ;;
-      investment-app) DOCKERFILE="apps/investment/Dockerfile" ;;
-      core-service) DOCKERFILE="servers/core/Dockerfile" ;;
+      finance-app) DOCKERFILE="apps/finance/Dockerfile" SENTRY_DSN="${FINANCE_APP_SENTRY_DSN:-}" ;;
+      auth-app) DOCKERFILE="apps/auth/Dockerfile" SENTRY_DSN="${AUTH_APP_SENTRY_DSN:-}" ;;
+      web-app) DOCKERFILE="apps/web/Dockerfile" SENTRY_DSN="${WEB_APP_SENTRY_DSN:-}" ;;
+      admin-app) DOCKERFILE="apps/admin/Dockerfile" SENTRY_DSN="${ADMIN_APP_SENTRY_DSN:-}" ;;
+      investment-app) DOCKERFILE="apps/investment/Dockerfile" SENTRY_DSN="${INVESTMENT_APP_SENTRY_DSN:-}" ;;
+      core-service) DOCKERFILE="servers/core/Dockerfile" SENTRY_DSN="${CORE_SERVICE_SENTRY_DSN:-}" ;;
     esac
     if [ "$first" = true ]; then
       first=false
     else
       INCLUDE_JSON+=","
     fi
-    INCLUDE_JSON+="{\"component\":\"$comp\",\"dockerfile\":\"$DOCKERFILE\"}"
+    INCLUDE_JSON+="{\"component\":\"$comp\",\"dockerfile\":\"$DOCKERFILE\",\"sentry_dsn\":\"$SENTRY_DSN\"}"
   done
   INCLUDE_JSON+="]}"
   echo "matrix=$INCLUDE_JSON"
@@ -74,18 +83,19 @@ first=true
 for pkg in $PACKAGES; do
   COMP="${PKG_TO_COMPONENT[$pkg]:-}"
   DOCKERFILE="${PKG_TO_DOCKERFILE[$pkg]:-}"
-  
+  SENTRY_DSN="${PKG_TO_SENTRY_DSN[$pkg]:-}"
+
   if [ -z "$COMP" ] || [ -z "$DOCKERFILE" ]; then
     continue
   fi
-  
+
   if [ "$first" = true ]; then
     first=false
   else
     INCLUDE_JSON+=","
   fi
-  
-  INCLUDE_JSON+="{\"component\":\"$COMP\",\"dockerfile\":\"$DOCKERFILE\"}"
+
+  INCLUDE_JSON+="{\"component\":\"$COMP\",\"dockerfile\":\"$DOCKERFILE\",\"sentry_dsn\":\"$SENTRY_DSN\"}"
   echo "Changed: $pkg → $COMP" >&2
 done
 
@@ -99,19 +109,19 @@ if [ "$first" = true ]; then
   first=true
   for comp in $ALL_COMPONENTS; do
     case "$comp" in
-      finance-app) DOCKERFILE="apps/finance/Dockerfile" ;;
-      auth-app) DOCKERFILE="apps/auth/Dockerfile" ;;
-      web-app) DOCKERFILE="apps/web/Dockerfile" ;;
-      admin-app) DOCKERFILE="apps/admin/Dockerfile" ;;
-      investment-app) DOCKERFILE="apps/investment/Dockerfile" ;;
-      core-service) DOCKERFILE="servers/core/Dockerfile" ;;
+      finance-app) DOCKERFILE="apps/finance/Dockerfile" SENTRY_DSN="${FINANCE_APP_SENTRY_DSN:-}" ;;
+      auth-app) DOCKERFILE="apps/auth/Dockerfile" SENTRY_DSN="${AUTH_APP_SENTRY_DSN:-}" ;;
+      web-app) DOCKERFILE="apps/web/Dockerfile" SENTRY_DSN="${WEB_APP_SENTRY_DSN:-}" ;;
+      admin-app) DOCKERFILE="apps/admin/Dockerfile" SENTRY_DSN="${ADMIN_APP_SENTRY_DSN:-}" ;;
+      investment-app) DOCKERFILE="apps/investment/Dockerfile" SENTRY_DSN="${INVESTMENT_APP_SENTRY_DSN:-}" ;;
+      core-service) DOCKERFILE="servers/core/Dockerfile" SENTRY_DSN="${CORE_SERVICE_SENTRY_DSN:-}" ;;
     esac
     if [ "$first" = true ]; then
       first=false
     else
       INCLUDE_JSON+=","
     fi
-    INCLUDE_JSON+="{\"component\":\"$comp\",\"dockerfile\":\"$DOCKERFILE\"}"
+    INCLUDE_JSON+="{\"component\":\"$comp\",\"dockerfile\":\"$DOCKERFILE\",\"sentry_dsn\":\"$SENTRY_DSN\"}"
   done
   INCLUDE_JSON+="]}"
 fi
