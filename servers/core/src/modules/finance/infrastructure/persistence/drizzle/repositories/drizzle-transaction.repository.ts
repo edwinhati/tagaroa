@@ -1,4 +1,3 @@
-import { Inject, Injectable } from "@nestjs/common";
 import {
   and,
   asc,
@@ -18,8 +17,7 @@ import {
   sql,
   sum,
 } from "drizzle-orm";
-import type { BunSQLDatabase } from "drizzle-orm/bun-sql";
-import { DRIZZLE } from "../../../../../../shared/database/database.constants";
+import { DrizzleBaseRepository } from "../../../../../../shared/database/drizzle-base.repository";
 import type {
   AggregationBucket,
   PaginatedResult,
@@ -34,13 +32,10 @@ import { accounts } from "../schemas/account.schema";
 import { budgetItems } from "../schemas/budget-item.schema";
 import { transactions } from "../schemas/transaction.schema";
 
-@Injectable()
-export class DrizzleTransactionRepository implements ITransactionRepository {
-  constructor(
-    @Inject(DRIZZLE)
-    private readonly db: BunSQLDatabase,
-  ) {}
-
+export class DrizzleTransactionRepository
+  extends DrizzleBaseRepository
+  implements ITransactionRepository
+{
   private toDateStr(date: Date): string | undefined {
     return date.toISOString().split("T")[0];
   }
@@ -92,7 +87,7 @@ export class DrizzleTransactionRepository implements ITransactionRepository {
   }
 
   async findById(id: string): Promise<Transaction | null> {
-    const [row] = await this.db
+    const [row] = await this.getDb()
       .select()
       .from(transactions)
       .where(eq(transactions.id, id))
@@ -102,7 +97,7 @@ export class DrizzleTransactionRepository implements ITransactionRepository {
   }
 
   async findByUserId(userId: string): Promise<Transaction[]> {
-    const rows = await this.db
+    const rows = await this.getDb()
       .select()
       .from(transactions)
       .where(
@@ -113,7 +108,7 @@ export class DrizzleTransactionRepository implements ITransactionRepository {
   }
 
   async findByAccountId(accountId: string): Promise<Transaction[]> {
-    const rows = await this.db
+    const rows = await this.getDb()
       .select()
       .from(transactions)
       .where(eq(transactions.accountId, accountId));
@@ -122,7 +117,7 @@ export class DrizzleTransactionRepository implements ITransactionRepository {
   }
 
   async findByBudgetItemId(budgetItemId: string): Promise<Transaction[]> {
-    const rows = await this.db
+    const rows = await this.getDb()
       .select()
       .from(transactions)
       .where(
@@ -136,7 +131,7 @@ export class DrizzleTransactionRepository implements ITransactionRepository {
   }
 
   async create(transaction: Transaction): Promise<Transaction> {
-    const [row] = await this.db
+    const [row] = await this.getDb()
       .insert(transactions)
       .values(TransactionMapper.toPersistence(transaction))
       .returning();
@@ -149,7 +144,7 @@ export class DrizzleTransactionRepository implements ITransactionRepository {
   }
 
   async update(transaction: Transaction): Promise<Transaction> {
-    const [row] = await this.db
+    const [row] = await this.getDb()
       .update(transactions)
       .set(TransactionMapper.toPersistence(transaction))
       .where(eq(transactions.id, transaction.id))
@@ -163,7 +158,7 @@ export class DrizzleTransactionRepository implements ITransactionRepository {
   }
 
   async delete(id: string): Promise<void> {
-    await this.db
+    await this.getDb()
       .update(transactions)
       .set({ deletedAt: new Date() })
       .where(eq(transactions.id, id));
@@ -183,7 +178,7 @@ export class DrizzleTransactionRepository implements ITransactionRepository {
     const withValidAccount = and(
       where,
       exists(
-        this.db
+        this.getDb()
           .select({ one: sql`1` })
           .from(accounts)
           .where(
@@ -195,7 +190,7 @@ export class DrizzleTransactionRepository implements ITransactionRepository {
       ),
     );
 
-    const query = this.db
+    const query = this.getDb()
       .select()
       .from(transactions)
       .where(withValidAccount)
@@ -224,7 +219,7 @@ export class DrizzleTransactionRepository implements ITransactionRepository {
     }
 
     const [[totalRow], rows] = await Promise.all([
-      this.db
+      this.getDb()
         .select({ count: sql<number>`count(*)` })
         .from(transactions)
         .where(withValidAccount),
@@ -246,7 +241,7 @@ export class DrizzleTransactionRepository implements ITransactionRepository {
     const { types: _, ...filtersWithoutType } = filters ?? {};
     const where = this.buildWhereConditions(userId, filtersWithoutType);
 
-    const rows = await this.db
+    const rows = await this.getDb()
       .select({
         key: transactions.type,
         count: count(),
@@ -276,7 +271,7 @@ export class DrizzleTransactionRepository implements ITransactionRepository {
   ): Promise<AggregationBucket[]> {
     const where = this.buildWhereConditions(userId, filters);
 
-    const rows = await this.db
+    const rows = await this.getDb()
       .select({
         key: transactions.currency,
         count: count(),
@@ -308,7 +303,7 @@ export class DrizzleTransactionRepository implements ITransactionRepository {
     const { accountIds: _, ...filtersWithoutAccount } = filters ?? {};
     const where = this.buildWhereConditions(userId, filtersWithoutAccount);
 
-    const rows = await this.db
+    const rows = await this.getDb()
       .select({
         id: accounts.id,
         key: accounts.name,
@@ -342,7 +337,7 @@ export class DrizzleTransactionRepository implements ITransactionRepository {
     const { budgetItems: _, ...filtersWithoutBudgetItems } = filters ?? {};
     const where = this.buildWhereConditions(userId, filtersWithoutBudgetItems);
 
-    const rows = await this.db
+    const rows = await this.getDb()
       .select({
         key: budgetItems.category,
         count: count(),
@@ -387,7 +382,7 @@ export class DrizzleTransactionRepository implements ITransactionRepository {
     const startStr = startDate.toISOString().split("T")[0] as string;
     const endStr = endDate.toISOString().split("T")[0] as string;
 
-    const rows = await this.db
+    const rows = await this.getDb()
       .select({
         period: truncFn.as("period"),
         income:

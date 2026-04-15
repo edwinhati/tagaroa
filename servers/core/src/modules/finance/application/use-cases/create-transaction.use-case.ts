@@ -28,6 +28,7 @@ import {
 } from "../../domain/repositories/transaction.repository.interface";
 import type { Currency } from "../../domain/value-objects/currency";
 import type { CreateTransactionDto } from "../dtos/create-transaction.dto";
+import { UnitOfWork } from "../services/unit-of-work.service";
 import { normalizeBudgetItemId } from "../utils/transaction-budget-item.util";
 import { normalizeTransactionDate } from "../utils/transaction-date.util";
 
@@ -45,86 +46,92 @@ export class CreateTransactionUseCase {
     @Inject(LIABILITY_REPOSITORY)
     private readonly liabilityRepository: ILiabilityRepository,
     private readonly eventEmitter: EventEmitter2,
+    private readonly unitOfWork: UnitOfWork,
   ) {}
 
   async execute(
     userId: string,
     dto: CreateTransactionDto,
   ): Promise<Transaction> {
-    const budgetItemId = normalizeBudgetItemId(dto.budgetItemId);
+    return this.unitOfWork.execute(async () => {
+      const budgetItemId = normalizeBudgetItemId(dto.budgetItemId);
 
-    const account = await this.accountRepository.findById(dto.accountId);
-    if (account?.userId !== userId) {
-      throw new AccountNotFoundException(dto.accountId);
-    }
-
-    if (budgetItemId) {
-      const budgetItem = await this.budgetItemRepository.findById(budgetItemId);
-      if (!budgetItem) {
-        throw new BudgetItemNotFoundException(budgetItemId);
+      const account = await this.accountRepository.findById(dto.accountId);
+      if (account?.userId !== userId) {
+        throw new AccountNotFoundException(dto.accountId);
       }
 
-      const budget = await this.budgetRepository.findById(budgetItem.budgetId);
-      if (budget?.userId !== userId) {
-        throw new TransactionAccessDeniedException();
+      if (budgetItemId) {
+        const budgetItem =
+          await this.budgetItemRepository.findById(budgetItemId);
+        if (!budgetItem) {
+          throw new BudgetItemNotFoundException(budgetItemId);
+        }
+
+        const budget = await this.budgetRepository.findById(
+          budgetItem.budgetId,
+        );
+        if (budget?.userId !== userId) {
+          throw new TransactionAccessDeniedException();
+        }
       }
-    }
 
-    const isLiabilityAccount = account.isLiability();
-    const hasInstallment =
-      dto.installment !== undefined && dto.installment !== null;
+      const isLiabilityAccount = account.isLiability();
+      const hasInstallment =
+        dto.installment !== undefined && dto.installment !== null;
 
-    if (hasInstallment && !isLiabilityAccount) {
-      throw new Error(
-        "Installments are only available for liability accounts (credit cards, pay-later)",
-      );
-    }
+      if (hasInstallment && !isLiabilityAccount) {
+        throw new Error(
+          "Installments are only available for liability accounts (credit cards, pay-later)",
+        );
+      }
 
-    const transaction = new Transaction(
-      crypto.randomUUID(),
-      dto.amount,
-      normalizeTransactionDate(dto.date),
-      dto.notes ?? null,
-      dto.currency,
-      dto.type,
-      dto.files ?? null,
-      userId,
-      dto.accountId,
-      budgetItemId ?? null,
-      null,
-      new Date(),
-      new Date(),
-      1,
-      dto.installment ?? null,
-    );
-
-    const createdTransaction =
-      await this.transactionRepository.create(transaction);
-
-    if (hasInstallment && isLiabilityAccount && dto.installment) {
-      await this.createInstallmentLiabilities(
+      const transaction = new Transaction(
+        crypto.randomUUID(),
+        dto.amount,
+        normalizeTransactionDate(dto.date),
+        dto.notes ?? null,
+        dto.currency,
+        dto.type,
+        dto.files ?? null,
         userId,
-        createdTransaction,
-        dto.installment,
-        account.currency,
+        dto.accountId,
+        budgetItemId ?? null,
+        null,
+        new Date(),
+        new Date(),
+        1,
+        dto.installment ?? null,
       );
-    }
 
-    this.eventEmitter.emit(
-      "transaction.created",
-      new TransactionCreatedEvent(
-        createdTransaction.id,
-        userId,
-        createdTransaction.accountId,
-        createdTransaction.budgetItemId,
-        createdTransaction.amount,
-        createdTransaction.type,
-        createdTransaction.currency,
-        createdTransaction.installment,
-      ),
-    );
+      const createdTransaction =
+        await this.transactionRepository.create(transaction);
 
-    return createdTransaction;
+      if (hasInstallment && isLiabilityAccount && dto.installment) {
+        await this.createInstallmentLiabilities(
+          userId,
+          createdTransaction,
+          dto.installment,
+          account.currency,
+        );
+      }
+
+      this.eventEmitter.emit(
+        "transaction.created",
+        new TransactionCreatedEvent(
+          createdTransaction.id,
+          userId,
+          createdTransaction.accountId,
+          createdTransaction.budgetItemId,
+          createdTransaction.amount,
+          createdTransaction.type,
+          createdTransaction.currency,
+          createdTransaction.installment,
+        ),
+      );
+
+      return createdTransaction;
+    });
   }
 
   private async createInstallmentLiabilities(

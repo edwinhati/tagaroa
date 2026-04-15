@@ -1,7 +1,5 @@
-import { Inject, Injectable } from "@nestjs/common";
 import { and, count, eq, isNull } from "drizzle-orm";
-import type { BunSQLDatabase } from "drizzle-orm/bun-sql";
-import { DRIZZLE } from "../../../../../../shared/database/database.constants";
+import { DrizzleBaseRepository } from "../../../../../../shared/database/drizzle-base.repository";
 import { ConcurrentModificationException } from "../../../../../../shared/exceptions/domain.exception";
 import type { PaginatedResult } from "../../../../../../shared/types/pagination";
 import type { Budget } from "../../../../domain/entities/budget.entity";
@@ -9,15 +7,12 @@ import type { IBudgetRepository } from "../../../../domain/repositories/budget.r
 import { BudgetMapper } from "../mappers/budget.mapper";
 import { budgets } from "../schemas/budget.schema";
 
-@Injectable()
-export class DrizzleBudgetRepository implements IBudgetRepository {
-  constructor(
-    @Inject(DRIZZLE)
-    private readonly db: BunSQLDatabase,
-  ) {}
-
+export class DrizzleBudgetRepository
+  extends DrizzleBaseRepository
+  implements IBudgetRepository
+{
   async findById(id: string): Promise<Budget | null> {
-    const [row] = await this.db
+    const [row] = await this.getDb()
       .select()
       .from(budgets)
       .where(and(eq(budgets.id, id), isNull(budgets.deletedAt)))
@@ -27,7 +22,7 @@ export class DrizzleBudgetRepository implements IBudgetRepository {
   }
 
   async findByUserId(userId: string): Promise<Budget[]> {
-    const rows = await this.db
+    const rows = await this.getDb()
       .select()
       .from(budgets)
       .where(and(eq(budgets.userId, userId), isNull(budgets.deletedAt)));
@@ -42,8 +37,13 @@ export class DrizzleBudgetRepository implements IBudgetRepository {
   ): Promise<PaginatedResult<Budget>> {
     const where = and(eq(budgets.userId, userId), isNull(budgets.deletedAt));
     const [rows, countResult] = await Promise.all([
-      this.db.select().from(budgets).where(where).limit(limit).offset(offset),
-      this.db.select({ total: count() }).from(budgets).where(where),
+      this.getDb()
+        .select()
+        .from(budgets)
+        .where(where)
+        .limit(limit)
+        .offset(offset),
+      this.getDb().select({ total: count() }).from(budgets).where(where),
     ]);
     const total = countResult[0]?.total ?? 0;
 
@@ -58,7 +58,7 @@ export class DrizzleBudgetRepository implements IBudgetRepository {
     month: number,
     year: number,
   ): Promise<Budget | null> {
-    const [row] = await this.db
+    const [row] = await this.getDb()
       .select()
       .from(budgets)
       .where(
@@ -75,7 +75,7 @@ export class DrizzleBudgetRepository implements IBudgetRepository {
   }
 
   async create(budget: Budget): Promise<Budget> {
-    const [row] = await this.db
+    const [row] = await this.getDb()
       .insert(budgets)
       .values(BudgetMapper.toPersistence(budget))
       .returning();
@@ -88,7 +88,7 @@ export class DrizzleBudgetRepository implements IBudgetRepository {
 
   async update(budget: Budget): Promise<Budget> {
     const data = BudgetMapper.toPersistence(budget);
-    const [row] = await this.db
+    const [row] = await this.getDb()
       .update(budgets)
       .set({ ...data, version: (budget.version ?? 0) + 1 })
       .where(
@@ -104,7 +104,7 @@ export class DrizzleBudgetRepository implements IBudgetRepository {
   }
 
   async delete(id: string): Promise<void> {
-    await this.db
+    await this.getDb()
       .update(budgets)
       .set({ deletedAt: new Date() })
       .where(eq(budgets.id, id));

@@ -1,21 +1,16 @@
-import { Inject, Injectable } from "@nestjs/common";
 import { and, eq, inArray, isNull } from "drizzle-orm";
-import type { BunSQLDatabase } from "drizzle-orm/bun-sql";
-import { DRIZZLE } from "../../../../../../shared/database/database.constants";
+import { DrizzleBaseRepository } from "../../../../../../shared/database/drizzle-base.repository";
 import type { BudgetItem } from "../../../../domain/entities/budget-item.entity";
 import type { IBudgetItemRepository } from "../../../../domain/repositories/budget-item.repository.interface";
 import { BudgetItemMapper } from "../mappers/budget-item.mapper";
 import { budgetItems } from "../schemas/budget-item.schema";
 
-@Injectable()
-export class DrizzleBudgetItemRepository implements IBudgetItemRepository {
-  constructor(
-    @Inject(DRIZZLE)
-    private readonly db: BunSQLDatabase,
-  ) {}
-
+export class DrizzleBudgetItemRepository
+  extends DrizzleBaseRepository
+  implements IBudgetItemRepository
+{
   async findById(id: string): Promise<BudgetItem | null> {
-    const [row] = await this.db
+    const [row] = await this.getDb()
       .select()
       .from(budgetItems)
       .where(and(eq(budgetItems.id, id), isNull(budgetItems.deletedAt)))
@@ -27,7 +22,7 @@ export class DrizzleBudgetItemRepository implements IBudgetItemRepository {
   async findByIds(ids: string[]): Promise<BudgetItem[]> {
     if (ids.length === 0) return [];
 
-    const rows = await this.db
+    const rows = await this.getDb()
       .select()
       .from(budgetItems)
       .where(and(inArray(budgetItems.id, ids), isNull(budgetItems.deletedAt)));
@@ -36,7 +31,7 @@ export class DrizzleBudgetItemRepository implements IBudgetItemRepository {
   }
 
   async findByBudgetId(budgetId: string): Promise<BudgetItem[]> {
-    const rows = await this.db
+    const rows = await this.getDb()
       .select()
       .from(budgetItems)
       .where(
@@ -49,7 +44,7 @@ export class DrizzleBudgetItemRepository implements IBudgetItemRepository {
   async findByBudgetIds(budgetIds: string[]): Promise<BudgetItem[]> {
     if (budgetIds.length === 0) return [];
 
-    const rows = await this.db
+    const rows = await this.getDb()
       .select()
       .from(budgetItems)
       .where(
@@ -63,7 +58,7 @@ export class DrizzleBudgetItemRepository implements IBudgetItemRepository {
   }
 
   async create(budgetItem: BudgetItem): Promise<BudgetItem> {
-    const [row] = await this.db
+    const [row] = await this.getDb()
       .insert(budgetItems)
       .values(BudgetItemMapper.toPersistence(budgetItem))
       .returning();
@@ -77,7 +72,7 @@ export class DrizzleBudgetItemRepository implements IBudgetItemRepository {
   async createMany(items: BudgetItem[]): Promise<BudgetItem[]> {
     if (items.length === 0) return [];
 
-    const rows = await this.db
+    const rows = await this.getDb()
       .insert(budgetItems)
       .values(items.map(BudgetItemMapper.toPersistence))
       .returning();
@@ -86,7 +81,7 @@ export class DrizzleBudgetItemRepository implements IBudgetItemRepository {
   }
 
   async update(budgetItem: BudgetItem): Promise<BudgetItem> {
-    const [row] = await this.db
+    const [row] = await this.getDb()
       .update(budgetItems)
       .set(BudgetItemMapper.toPersistence(budgetItem))
       .where(eq(budgetItems.id, budgetItem.id))
@@ -99,14 +94,14 @@ export class DrizzleBudgetItemRepository implements IBudgetItemRepository {
   }
 
   async delete(id: string): Promise<void> {
-    await this.db
+    await this.getDb()
       .update(budgetItems)
       .set({ deletedAt: new Date() })
       .where(eq(budgetItems.id, id));
   }
 
   async deleteByBudgetId(budgetId: string): Promise<void> {
-    await this.db
+    await this.getDb()
       .update(budgetItems)
       .set({ deletedAt: new Date() })
       .where(eq(budgetItems.budgetId, budgetId));

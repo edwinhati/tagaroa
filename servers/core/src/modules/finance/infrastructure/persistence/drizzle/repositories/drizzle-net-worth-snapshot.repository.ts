@@ -1,23 +1,16 @@
-import { Inject, Injectable } from "@nestjs/common";
 import { and, asc, between, desc, eq } from "drizzle-orm";
-import type { BunSQLDatabase } from "drizzle-orm/bun-sql";
-import { DRIZZLE } from "../../../../../../shared/database/database.constants";
+import { DrizzleBaseRepository } from "../../../../../../shared/database/drizzle-base.repository";
 import type { NetWorthSnapshot } from "../../../../domain/entities/net-worth-snapshot.entity";
 import type { INetWorthSnapshotRepository } from "../../../../domain/repositories/net-worth-snapshot.repository.interface";
 import { NetWorthSnapshotMapper } from "../mappers/net-worth-snapshot.mapper";
 import { netWorthSnapshots } from "../schemas/net-worth-snapshot.schema";
 
-@Injectable()
 export class DrizzleNetWorthSnapshotRepository
+  extends DrizzleBaseRepository
   implements INetWorthSnapshotRepository
 {
-  constructor(
-    @Inject(DRIZZLE)
-    private readonly db: BunSQLDatabase,
-  ) {}
-
   async findByUserId(userId: string): Promise<NetWorthSnapshot[]> {
-    const rows = await this.db
+    const rows = await this.getDb()
       .select()
       .from(netWorthSnapshots)
       .where(eq(netWorthSnapshots.userId, userId))
@@ -34,7 +27,7 @@ export class DrizzleNetWorthSnapshotRepository
     const startDateStr = startDate.toISOString().slice(0, 10);
     const endDateStr = endDate.toISOString().slice(0, 10);
 
-    const rows = await this.db
+    const rows = await this.getDb()
       .select()
       .from(netWorthSnapshots)
       .where(
@@ -49,7 +42,7 @@ export class DrizzleNetWorthSnapshotRepository
   }
 
   async findLatestByUserId(userId: string): Promise<NetWorthSnapshot | null> {
-    const [row] = await this.db
+    const [row] = await this.getDb()
       .select()
       .from(netWorthSnapshots)
       .where(eq(netWorthSnapshots.userId, userId))
@@ -60,7 +53,7 @@ export class DrizzleNetWorthSnapshotRepository
   }
 
   async create(snapshot: NetWorthSnapshot): Promise<NetWorthSnapshot> {
-    const [row] = await this.db
+    const [row] = await this.getDb()
       .insert(netWorthSnapshots)
       .values(NetWorthSnapshotMapper.toPersistence(snapshot))
       .returning();
@@ -72,7 +65,7 @@ export class DrizzleNetWorthSnapshotRepository
   }
 
   async deleteByUserId(userId: string): Promise<void> {
-    await this.db
+    await this.getDb()
       .delete(netWorthSnapshots)
       .where(eq(netWorthSnapshots.userId, userId));
   }

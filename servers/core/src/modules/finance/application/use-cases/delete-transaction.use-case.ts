@@ -9,6 +9,7 @@ import {
   type ITransactionRepository,
   TRANSACTION_REPOSITORY,
 } from "../../domain/repositories/transaction.repository.interface";
+import { UnitOfWork } from "../services/unit-of-work.service";
 
 @Injectable()
 export class DeleteTransactionUseCase {
@@ -16,30 +17,33 @@ export class DeleteTransactionUseCase {
     @Inject(TRANSACTION_REPOSITORY)
     private readonly transactionRepository: ITransactionRepository,
     private readonly eventEmitter: EventEmitter2,
+    private readonly unitOfWork: UnitOfWork,
   ) {}
 
   async execute(userId: string, id: string): Promise<void> {
-    const existing = await this.transactionRepository.findById(id);
+    return this.unitOfWork.execute(async () => {
+      const existing = await this.transactionRepository.findById(id);
 
-    if (!existing) {
-      throw new TransactionNotFoundException(id);
-    }
-    if (existing.userId !== userId) {
-      throw new TransactionAccessDeniedException();
-    }
+      if (!existing) {
+        throw new TransactionNotFoundException(id);
+      }
+      if (existing.userId !== userId) {
+        throw new TransactionAccessDeniedException();
+      }
 
-    await this.transactionRepository.delete(id);
+      await this.transactionRepository.delete(id);
 
-    this.eventEmitter.emit(
-      "transaction.deleted",
-      new TransactionDeletedEvent(
-        existing.id,
-        userId,
-        existing.accountId,
-        existing.budgetItemId,
-        existing.amount,
-        existing.type,
-      ),
-    );
+      this.eventEmitter.emit(
+        "transaction.deleted",
+        new TransactionDeletedEvent(
+          existing.id,
+          userId,
+          existing.accountId,
+          existing.budgetItemId,
+          existing.amount,
+          existing.type,
+        ),
+      );
+    });
   }
 }

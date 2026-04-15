@@ -1,4 +1,4 @@
-import { Inject, Injectable } from "@nestjs/common";
+import { Injectable } from "@nestjs/common";
 import {
   and,
   avg,
@@ -14,8 +14,7 @@ import {
   sql,
   sum,
 } from "drizzle-orm";
-import type { BunSQLDatabase } from "drizzle-orm/bun-sql";
-import { DRIZZLE } from "../../../../../../shared/database/database.constants";
+import { DrizzleBaseRepository } from "../../../../../../shared/database/drizzle-base.repository";
 import { ConcurrentModificationException } from "../../../../../../shared/exceptions/domain.exception";
 import type {
   AggregationBucket,
@@ -31,12 +30,10 @@ import { AccountMapper } from "../mappers/account.mapper";
 import { accounts } from "../schemas/account.schema";
 
 @Injectable()
-export class DrizzleAccountRepository implements IAccountRepository {
-  constructor(
-    @Inject(DRIZZLE)
-    private readonly db: BunSQLDatabase,
-  ) {}
-
+export class DrizzleAccountRepository
+  extends DrizzleBaseRepository
+  implements IAccountRepository
+{
   private buildWhereConditions(
     userId: string,
     filters?: AccountFilterParams,
@@ -73,7 +70,7 @@ export class DrizzleAccountRepository implements IAccountRepository {
   }
 
   async findById(id: string): Promise<Account | null> {
-    const [row] = await this.db
+    const [row] = await this.getDb()
       .select()
       .from(accounts)
       .where(and(eq(accounts.id, id), isNull(accounts.deletedAt)))
@@ -85,7 +82,7 @@ export class DrizzleAccountRepository implements IAccountRepository {
   async findByIds(ids: string[]): Promise<Account[]> {
     if (ids.length === 0) return [];
 
-    const rows = await this.db
+    const rows = await this.getDb()
       .select()
       .from(accounts)
       .where(and(inArray(accounts.id, ids), isNull(accounts.deletedAt)));
@@ -94,7 +91,7 @@ export class DrizzleAccountRepository implements IAccountRepository {
   }
 
   async findByUserId(userId: string): Promise<Account[]> {
-    const rows = await this.db
+    const rows = await this.getDb()
       .select()
       .from(accounts)
       .where(and(eq(accounts.userId, userId), isNull(accounts.deletedAt)));
@@ -110,8 +107,13 @@ export class DrizzleAccountRepository implements IAccountRepository {
   ): Promise<PaginatedResult<Account>> {
     const where = this.buildWhereConditions(userId, filters);
     const [rows, countResult] = await Promise.all([
-      this.db.select().from(accounts).where(where).limit(limit).offset(offset),
-      this.db.select({ total: count() }).from(accounts).where(where),
+      this.getDb()
+        .select()
+        .from(accounts)
+        .where(where)
+        .limit(limit)
+        .offset(offset),
+      this.getDb().select({ total: count() }).from(accounts).where(where),
     ]);
     const total = countResult[0]?.total ?? 0;
 
@@ -134,7 +136,7 @@ export class DrizzleAccountRepository implements IAccountRepository {
       userId,
       filtersWithoutTypeAndCategory,
     );
-    const rows = await this.db
+    const rows = await this.getDb()
       .select({
         key: accounts.type,
         count: count(),
@@ -163,7 +165,7 @@ export class DrizzleAccountRepository implements IAccountRepository {
     filters?: Omit<AccountFilterParams, "categories">,
   ): Promise<CategoryAggregationResult[]> {
     const where = this.buildWhereConditions(userId, filters);
-    const rows = await this.db
+    const rows = await this.getDb()
       .select({
         category: accounts.category,
         count: count(),
@@ -181,7 +183,7 @@ export class DrizzleAccountRepository implements IAccountRepository {
   }
 
   async create(account: Account): Promise<Account> {
-    const [row] = await this.db
+    const [row] = await this.getDb()
       .insert(accounts)
       .values(AccountMapper.toPersistence(account))
       .returning();
@@ -194,7 +196,7 @@ export class DrizzleAccountRepository implements IAccountRepository {
 
   async update(account: Account): Promise<Account> {
     const data = AccountMapper.toPersistence(account);
-    const [row] = await this.db
+    const [row] = await this.getDb()
       .update(accounts)
       .set({ ...data, version: (account.version ?? 0) + 1 })
       .where(
@@ -210,7 +212,7 @@ export class DrizzleAccountRepository implements IAccountRepository {
   }
 
   async delete(id: string): Promise<void> {
-    await this.db
+    await this.getDb()
       .update(accounts)
       .set({ deletedAt: new Date() })
       .where(eq(accounts.id, id));

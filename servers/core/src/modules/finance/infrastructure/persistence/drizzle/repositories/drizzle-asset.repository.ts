@@ -1,4 +1,3 @@
-import { Inject, Injectable } from "@nestjs/common";
 import {
   and,
   avg,
@@ -14,8 +13,7 @@ import {
   sql,
   sum,
 } from "drizzle-orm";
-import type { BunSQLDatabase } from "drizzle-orm/bun-sql";
-import { DRIZZLE } from "../../../../../../shared/database/database.constants";
+import { DrizzleBaseRepository } from "../../../../../../shared/database/drizzle-base.repository";
 import { ConcurrentModificationException } from "../../../../../../shared/exceptions/domain.exception";
 import type {
   AggregationBucket,
@@ -29,13 +27,10 @@ import type {
 import { AssetMapper } from "../mappers/asset.mapper";
 import { assets } from "../schemas/asset.schema";
 
-@Injectable()
-export class DrizzleAssetRepository implements IAssetRepository {
-  constructor(
-    @Inject(DRIZZLE)
-    private readonly db: BunSQLDatabase,
-  ) {}
-
+export class DrizzleAssetRepository
+  extends DrizzleBaseRepository
+  implements IAssetRepository
+{
   private buildWhereConditions(
     userId: string,
     filters?: AssetFilterParams,
@@ -73,7 +68,7 @@ export class DrizzleAssetRepository implements IAssetRepository {
   }
 
   async findById(id: string): Promise<Asset | null> {
-    const [row] = await this.db
+    const [row] = await this.getDb()
       .select()
       .from(assets)
       .where(and(eq(assets.id, id), isNull(assets.deletedAt)))
@@ -85,7 +80,7 @@ export class DrizzleAssetRepository implements IAssetRepository {
   async findByIds(ids: string[]): Promise<Asset[]> {
     if (ids.length === 0) return [];
 
-    const rows = await this.db
+    const rows = await this.getDb()
       .select()
       .from(assets)
       .where(and(inArray(assets.id, ids), isNull(assets.deletedAt)));
@@ -94,7 +89,7 @@ export class DrizzleAssetRepository implements IAssetRepository {
   }
 
   async findByUserId(userId: string): Promise<Asset[]> {
-    const rows = await this.db
+    const rows = await this.getDb()
       .select()
       .from(assets)
       .where(and(eq(assets.userId, userId), isNull(assets.deletedAt)));
@@ -110,8 +105,13 @@ export class DrizzleAssetRepository implements IAssetRepository {
   ): Promise<PaginatedResult<Asset>> {
     const where = this.buildWhereConditions(userId, filters);
     const [rows, countResult] = await Promise.all([
-      this.db.select().from(assets).where(where).limit(limit).offset(offset),
-      this.db.select({ total: count() }).from(assets).where(where),
+      this.getDb()
+        .select()
+        .from(assets)
+        .where(where)
+        .limit(limit)
+        .offset(offset),
+      this.getDb().select({ total: count() }).from(assets).where(where),
     ]);
     const total = countResult[0]?.total ?? 0;
 
@@ -127,7 +127,7 @@ export class DrizzleAssetRepository implements IAssetRepository {
   ): Promise<AggregationBucket[]> {
     const { types: _, ...filtersWithoutType } = filters ?? {};
     const where = this.buildWhereConditions(userId, filtersWithoutType);
-    const rows = await this.db
+    const rows = await this.getDb()
       .select({
         key: assets.type,
         count: count(),
@@ -157,7 +157,7 @@ export class DrizzleAssetRepository implements IAssetRepository {
   ): Promise<AggregationBucket[]> {
     const { currencies: _, ...filtersWithoutCurrency } = filters ?? {};
     const where = this.buildWhereConditions(userId, filtersWithoutCurrency);
-    const rows = await this.db
+    const rows = await this.getDb()
       .select({
         key: assets.currency,
         count: count(),
@@ -196,7 +196,7 @@ export class DrizzleAssetRepository implements IAssetRepository {
       throw new Error("Failed to build where conditions");
     }
 
-    const [result] = await this.db
+    const [result] = await this.getDb()
       .select({ total: sum(assets.value) })
       .from(assets)
       .where(whereCondition);
@@ -205,7 +205,7 @@ export class DrizzleAssetRepository implements IAssetRepository {
   }
 
   async create(asset: Asset): Promise<Asset> {
-    const [row] = await this.db
+    const [row] = await this.getDb()
       .insert(assets)
       .values(AssetMapper.toPersistence(asset))
       .returning();
@@ -218,7 +218,7 @@ export class DrizzleAssetRepository implements IAssetRepository {
 
   async update(asset: Asset): Promise<Asset> {
     const data = AssetMapper.toPersistence(asset);
-    const [row] = await this.db
+    const [row] = await this.getDb()
       .update(assets)
       .set({ ...data, version: (asset.version ?? 0) + 1 })
       .where(and(eq(assets.id, asset.id), eq(assets.version, asset.version)))
@@ -232,7 +232,7 @@ export class DrizzleAssetRepository implements IAssetRepository {
   }
 
   async delete(id: string): Promise<void> {
-    await this.db
+    await this.getDb()
       .update(assets)
       .set({ deletedAt: new Date() })
       .where(eq(assets.id, id));
