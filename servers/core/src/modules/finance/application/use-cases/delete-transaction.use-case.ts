@@ -1,4 +1,6 @@
 import { Inject, Injectable } from "@nestjs/common";
+import { EventEmitter2 } from "@nestjs/event-emitter";
+import { TransactionDeletedEvent } from "../../domain/events/transaction-deleted.event";
 import {
   TransactionAccessDeniedException,
   TransactionNotFoundException,
@@ -7,14 +9,13 @@ import {
   type ITransactionRepository,
   TRANSACTION_REPOSITORY,
 } from "../../domain/repositories/transaction.repository.interface";
-import { TransactionSideEffectsService } from "../services/transaction-side-effects.service";
 
 @Injectable()
 export class DeleteTransactionUseCase {
   constructor(
     @Inject(TRANSACTION_REPOSITORY)
     private readonly transactionRepository: ITransactionRepository,
-    private readonly sideEffectsService: TransactionSideEffectsService,
+    private readonly eventEmitter: EventEmitter2,
   ) {}
 
   async execute(userId: string, id: string): Promise<void> {
@@ -27,24 +28,18 @@ export class DeleteTransactionUseCase {
       throw new TransactionAccessDeniedException();
     }
 
-    const budgetItemId = existing.budgetItemId;
-    const accountId = existing.accountId;
-    const amount = existing.amount;
-    const type = existing.type;
-
     await this.transactionRepository.delete(id);
 
-    // Update budget item spent field
-    if (budgetItemId) {
-      await this.sideEffectsService.recalculateSpent(budgetItemId);
-    }
-
-    // Update account balance (remove transaction)
-    await this.sideEffectsService.updateAccountBalance(
-      accountId,
-      amount,
-      type,
-      false, // isAdd = false
+    this.eventEmitter.emit(
+      "transaction.deleted",
+      new TransactionDeletedEvent(
+        existing.id,
+        userId,
+        existing.accountId,
+        existing.budgetItemId,
+        existing.amount,
+        existing.type,
+      ),
     );
   }
 }

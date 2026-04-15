@@ -1,5 +1,6 @@
 import { Module } from "@nestjs/common";
-import { TransactionSideEffectsService } from "./application/services/transaction-side-effects.service";
+import { AccountBalanceEventHandler } from "./application/event-handlers/account-balance.event-handler";
+import { BudgetItemSpentEventHandler } from "./application/event-handlers/budget-item-spent.event-handler";
 import { CreateAccountUseCase } from "./application/use-cases/create-account.use-case";
 import { CreateAssetUseCase } from "./application/use-cases/create-asset.use-case";
 import { CreateBudgetUseCase } from "./application/use-cases/create-budget.use-case";
@@ -104,7 +105,8 @@ import { TransactionController } from "./presentation/http/transaction.controlle
     UpdateBudgetUseCase,
     UpdateBudgetItemUseCase,
     DeleteBudgetUseCase,
-    TransactionSideEffectsService,
+    AccountBalanceEventHandler,
+    BudgetItemSpentEventHandler,
     CreateTransactionUseCase,
     GetTransactionUseCase,
     GetTransactionsUseCase,

@@ -5,6 +5,7 @@ import {
 } from "@nestjs/common";
 import { ConfigModule } from "@nestjs/config";
 import { APP_FILTER, APP_INTERCEPTOR } from "@nestjs/core";
+import { EventEmitterModule } from "@nestjs/event-emitter";
 import { SentryModule } from "@sentry/nestjs/setup";
 import { AuthModule } from "./modules/auth/auth.module";
 import { FinanceModule } from "./modules/finance/finance.module";
@@ -23,6 +24,12 @@ import { RequestIdMiddleware } from "./shared/middleware/request-id.middleware";
 
 @Module({
   imports: [
+    EventEmitterModule.forRoot({
+      wildcard: false,
+      delimiter: ".",
+      newListener: false,
+      maxListeners: 10,
+    }),
     ConfigModule.forRoot({
       isGlobal: true,
       validate: (env) => envSchema.parse(env),

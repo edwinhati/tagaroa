@@ -1,5 +1,7 @@
 import { Inject, Injectable } from "@nestjs/common";
+import { EventEmitter2 } from "@nestjs/event-emitter";
 import { Transaction } from "../../domain/entities/transaction.entity";
+import { TransactionUpdatedEvent } from "../../domain/events/transaction-updated.event";
 import { AccountNotFoundException } from "../../domain/exceptions/account.exceptions";
 import { BudgetItemNotFoundException } from "../../domain/exceptions/budget.exceptions";
 import {
@@ -23,14 +25,12 @@ import {
   TRANSACTION_REPOSITORY,
 } from "../../domain/repositories/transaction.repository.interface";
 import type { UpdateTransactionDto } from "../dtos/update-transaction.dto";
-import { TransactionSideEffectsService } from "../services/transaction-side-effects.service";
 import { normalizeBudgetItemId } from "../utils/transaction-budget-item.util";
 import { normalizeTransactionDate } from "../utils/transaction-date.util";
 
 @Injectable()
 export class UpdateTransactionUseCase {
   constructor(
-    private readonly sideEffectsService: TransactionSideEffectsService,
     @Inject(TRANSACTION_REPOSITORY)
     private readonly transactionRepository: ITransactionRepository,
     @Inject(ACCOUNT_REPOSITORY)
@@ -39,6 +39,7 @@ export class UpdateTransactionUseCase {
     private readonly budgetItemRepository: IBudgetItemRepository,
     @Inject(BUDGET_REPOSITORY)
     private readonly budgetRepository: IBudgetRepository,
+    private readonly eventEmitter: EventEmitter2,
   ) {}
 
   async execute(
@@ -82,8 +83,21 @@ export class UpdateTransactionUseCase {
 
     const updatedTransaction = await this.transactionRepository.update(updated);
 
-    await this.applyBudgetSideEffects(existing, updatedTransaction, dto);
-    await this.applyAccountSideEffects(existing, updatedTransaction, dto);
+    this.eventEmitter.emit(
+      "transaction.updated",
+      new TransactionUpdatedEvent(
+        updatedTransaction.id,
+        userId,
+        existing.accountId,
+        existing.budgetItemId,
+        existing.amount,
+        existing.type,
+        updatedTransaction.accountId,
+        updatedTransaction.budgetItemId,
+        updatedTransaction.amount,
+        updatedTransaction.type,
+      ),
+    );
 
     return updatedTransaction;
   }
@@ -118,48 +132,6 @@ export class UpdateTransactionUseCase {
     const budget = await this.budgetRepository.findById(budgetItem.budgetId);
     if (budget?.userId !== userId) {
       throw new TransactionAccessDeniedException();
-    }
-  }
-
-  private async applyBudgetSideEffects(
-    existing: Transaction,
-    updated: Transaction,
-    dto: UpdateTransactionDto,
-  ): Promise<void> {
-    if (existing.budgetItemId !== updated.budgetItemId) {
-      if (existing.budgetItemId) {
-        await this.sideEffectsService.recalculateSpent(existing.budgetItemId);
-      }
-      if (updated.budgetItemId) {
-        await this.sideEffectsService.recalculateSpent(updated.budgetItemId);
-      }
-    } else if (updated.budgetItemId && dto.amount !== undefined) {
-      await this.sideEffectsService.recalculateSpent(updated.budgetItemId);
-    }
-  }
-
-  private async applyAccountSideEffects(
-    existing: Transaction,
-    updated: Transaction,
-    dto: UpdateTransactionDto,
-  ): Promise<void> {
-    if (
-      existing.accountId !== updated.accountId ||
-      dto.amount !== undefined ||
-      dto.type !== undefined
-    ) {
-      await this.sideEffectsService.updateAccountBalance(
-        existing.accountId,
-        existing.amount,
-        existing.type,
-        false,
-      );
-      await this.sideEffectsService.updateAccountBalance(
-        updated.accountId,
-        updated.amount,
-        updated.type,
-        true,
-      );
     }
   }
 }

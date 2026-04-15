@@ -104,4 +104,26 @@ export class Account {
     }
     return this.metadata.minimumPayment ?? null;
   }
+
+  /**
+   * Create a new Account with an updated balance.
+   * Immutable — returns a new instance.
+   */
+  withUpdatedBalance(newBalance: number): Account {
+    return new Account(
+      this.id,
+      this.name,
+      this.type,
+      this.category,
+      newBalance,
+      this.userId,
+      this.currency,
+      this.notes,
+      this.metadata,
+      this.deletedAt,
+      this.createdAt,
+      new Date(),
+      this.version + 1,
+    );
+  }
 }
