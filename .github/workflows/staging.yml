@@ -100,8 +100,7 @@ jobs:
       name: staging
     strategy:
       fail-fast: false
-      matrix:
-        include: ${{ fromJson(needs.detect-changes.outputs.matrix) }}
+      matrix: ${{ fromJson(needs.detect-changes.outputs.matrix) }}
     steps:
       - uses: actions/checkout@v4
 

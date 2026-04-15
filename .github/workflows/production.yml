@@ -120,8 +120,7 @@ jobs:
       name: production
     strategy:
       fail-fast: false
-      matrix:
-        include: ${{ fromJson(needs.release.outputs.apps) }}
+      matrix: ${{ fromJson(needs.release.outputs.apps) }}
     steps:
       - uses: actions/checkout@v4
 
