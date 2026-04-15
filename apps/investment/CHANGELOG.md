@@ -1,5 +1,11 @@
 # investment
 
+## 0.3.1
+
+### Patch Changes
+
+- 03f40af: Add Sentry metrics wrapper and console logging integration, implement unit of work pattern for transactional consistency, and add event-driven architecture for transaction operations"
+
 ## 0.3.0
 
 ### Minor Changes
