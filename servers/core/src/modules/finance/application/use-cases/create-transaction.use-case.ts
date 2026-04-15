@@ -1,6 +1,8 @@
 import { Inject, Injectable } from "@nestjs/common";
+import { EventEmitter2 } from "@nestjs/event-emitter";
 import { Liability } from "../../domain/entities/liability.entity";
 import { Transaction } from "../../domain/entities/transaction.entity";
+import { TransactionCreatedEvent } from "../../domain/events/transaction-created.event";
 import { AccountNotFoundException } from "../../domain/exceptions/account.exceptions";
 import { BudgetItemNotFoundException } from "../../domain/exceptions/budget.exceptions";
 import { TransactionAccessDeniedException } from "../../domain/exceptions/transaction.exceptions";
@@ -26,14 +28,12 @@ import {
 } from "../../domain/repositories/transaction.repository.interface";
 import type { Currency } from "../../domain/value-objects/currency";
 import type { CreateTransactionDto } from "../dtos/create-transaction.dto";
-import { TransactionSideEffectsService } from "../services/transaction-side-effects.service";
 import { normalizeBudgetItemId } from "../utils/transaction-budget-item.util";
 import { normalizeTransactionDate } from "../utils/transaction-date.util";
 
 @Injectable()
 export class CreateTransactionUseCase {
   constructor(
-    private readonly sideEffectsService: TransactionSideEffectsService,
     @Inject(TRANSACTION_REPOSITORY)
     private readonly transactionRepository: ITransactionRepository,
     @Inject(ACCOUNT_REPOSITORY)
@@ -44,6 +44,7 @@ export class CreateTransactionUseCase {
     private readonly budgetRepository: IBudgetRepository,
     @Inject(LIABILITY_REPOSITORY)
     private readonly liabilityRepository: ILiabilityRepository,
+    private readonly eventEmitter: EventEmitter2,
   ) {}
 
   async execute(
@@ -63,14 +64,12 @@ export class CreateTransactionUseCase {
         throw new BudgetItemNotFoundException(budgetItemId);
       }
 
-      // Verify budget ownership
       const budget = await this.budgetRepository.findById(budgetItem.budgetId);
       if (budget?.userId !== userId) {
         throw new TransactionAccessDeniedException();
       }
     }
 
-    // Check if account is a liability and installment is requested
     const isLiabilityAccount = account.isLiability();
     const hasInstallment =
       dto.installment !== undefined && dto.installment !== null;
@@ -102,7 +101,6 @@ export class CreateTransactionUseCase {
     const createdTransaction =
       await this.transactionRepository.create(transaction);
 
-    // Create liability records if this is an installment transaction
     if (hasInstallment && isLiabilityAccount && dto.installment) {
       await this.createInstallmentLiabilities(
         userId,
@@ -112,19 +110,18 @@ export class CreateTransactionUseCase {
       );
     }
 
-    // Update budget item spent field
-    if (createdTransaction.budgetItemId) {
-      await this.sideEffectsService.recalculateSpent(
+    this.eventEmitter.emit(
+      "transaction.created",
+      new TransactionCreatedEvent(
+        createdTransaction.id,
+        userId,
+        createdTransaction.accountId,
         createdTransaction.budgetItemId,
-      );
-    }
-
-    // Update account balance (add transaction)
-    await this.sideEffectsService.updateAccountBalance(
-      createdTransaction.accountId,
-      createdTransaction.amount,
-      createdTransaction.type,
-      true, // isAdd = true
+        createdTransaction.amount,
+        createdTransaction.type,
+        createdTransaction.currency,
+        createdTransaction.installment,
+      ),
     );
 
     return createdTransaction;
@@ -140,19 +137,15 @@ export class CreateTransactionUseCase {
     },
     currency: string,
   ): Promise<void> {
-    // Calculate total amounts
     const principal = transaction.amount;
     const totalAmount = installment.monthlyAmount * installment.tenure;
     const totalInterest = totalAmount - principal;
 
-    // Base name for the liability
     const baseName = transaction.notes ?? "Installment Transaction";
 
-    // Create a liability for each month in the tenure
     const promises: Promise<Liability>[] = [];
 
     for (let i = 1; i <= installment.tenure; i++) {
-      // Calculate due date: transaction date + i months
       const dueAt = new Date(transaction.date);
       dueAt.setMonth(dueAt.getMonth() + i);
 
@@ -163,20 +156,20 @@ export class CreateTransactionUseCase {
         userId,
         liabilityName,
         "INSTALLMENT",
-        installment.monthlyAmount, // Each liability is one monthly payment
+        installment.monthlyAmount,
         currency as Currency,
-        null, // paidAt
-        null, // notes
-        null, // deletedAt
+        null,
+        null,
+        null,
         new Date(),
         new Date(),
         1,
         transaction.id,
-        i, // installmentNumber: 1, 2, 3...N
+        i,
         principal,
         totalInterest,
         totalAmount,
-        null, // remainingMonths - not needed for individual installments
+        null,
         {
           tenure: installment.tenure,
           interestRate: installment.interestRate,
