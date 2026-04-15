@@ -142,4 +142,4 @@ jobs:
             NEXT_PUBLIC_SENTRY_TRACES_SAMPLE_RATE=${{ vars.NEXT_PUBLIC_SENTRY_TRACES_SAMPLE_RATE }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
-          platforms: linux/amd64# trigger
+          platforms: linux/amd64
