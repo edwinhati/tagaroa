@@ -70,7 +70,7 @@ jobs:
       - name: Run ${{ matrix.task }}
         run: |
           if [ "${{ matrix.task }}" = "knip" ]; then
-            bunx knip
+            bunx knip --no-progress
           else
             bun turbo run ${{ matrix.task }} --filter="...[origin/main]"
           fi

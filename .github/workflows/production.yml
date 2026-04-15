@@ -40,7 +40,7 @@ jobs:
       - name: Run ${{ matrix.task }}
         run: |
           if [ "${{ matrix.task }}" = "knip" ]; then
-            bunx knip
+            bunx knip --no-progress
           else
             bun run ${{ matrix.task }}
           fi
