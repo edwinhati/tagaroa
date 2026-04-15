@@ -111,11 +111,22 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       - id: tag_release
-        if: "startsWith(github.event.head_commit.message, 'ci: version bump')"
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          FINANCE_APP_SENTRY_DSN: ${{ secrets.FINANCE_APP_SENTRY_DSN }}
+          AUTH_APP_SENTRY_DSN: ${{ secrets.AUTH_APP_SENTRY_DSN }}
+          WEB_APP_SENTRY_DSN: ${{ secrets.WEB_APP_SENTRY_DSN }}
+          ADMIN_APP_SENTRY_DSN: ${{ secrets.ADMIN_APP_SENTRY_DSN }}
+          INVESTMENT_APP_SENTRY_DSN: ${{ secrets.INVESTMENT_APP_SENTRY_DSN }}
+          CORE_SERVICE_SENTRY_DSN: ${{ secrets.CORE_SERVICE_SENTRY_DSN }}
         run: |
-          bash .github/scripts/detect-version-bumps.sh
+          if [[ "${{ github.event.head_commit.message }}" == "ci: version bump"* ]]; then
+            bash .github/scripts/detect-version-bumps.sh
+          else
+            echo "released=false"
+            echo "version="
+            echo 'apps={"include":[]}'
+          fi
 
   deploy:
     name: Deploy (${{ matrix.component }})
