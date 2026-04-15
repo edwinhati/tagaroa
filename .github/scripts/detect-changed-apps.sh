@@ -31,17 +31,17 @@ else
   BASE_BRANCH="origin/main"
 fi
 
-echo "Detecting changed apps compared to: $BASE_BRANCH"
+echo "Detecting changed apps compared to: $BASE_BRANCH" >&2
 
 # Get changed packages using turbo --filter
 # --filter=...[BASE] means: package + dependents that changed since BASE
 TURBO_OUTPUT=$(bun turbo run build --filter="...[$BASE_BRANCH]" --dry=json 2>/dev/null || echo '{"packages":[]}')
-echo "Turbo output: $TURBO_OUTPUT"
+echo "Turbo output: $TURBO_OUTPUT" >&2
 
 PACKAGES=$(echo "$TURBO_OUTPUT" | jq -r '.packages[]' 2>/dev/null || echo "")
 
 if [ -z "$PACKAGES" ]; then
-  echo "No changed packages detected or turbo failed, falling back to all apps"
+  echo "No changed packages detected or turbo failed, falling back to all apps" >&2
   # Fall back to all deployable components
   ALL_COMPONENTS="finance-app auth-app web-app admin-app investment-app core-service"
   INCLUDE_JSON="{\"include\":["
@@ -86,13 +86,13 @@ for pkg in $PACKAGES; do
   fi
   
   INCLUDE_JSON+="{\"component\":\"$COMP\",\"dockerfile\":\"$DOCKERFILE\"}"
-  echo "Changed: $pkg → $COMP"
+  echo "Changed: $pkg → $COMP" >&2
 done
 
 INCLUDE_JSON+="]}"
 
 if [ "$first" = true ]; then
-  echo "No deployable components changed, using all apps"
+  echo "No deployable components changed, using all apps" >&2
   # Recursive call with fallback
   ALL_COMPONENTS="finance-app auth-app web-app admin-app investment-app core-service"
   INCLUDE_JSON="{\"include\":["
