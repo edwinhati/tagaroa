@@ -86,6 +86,35 @@ export function SentryTestConsole() {
     setLogs([]);
   };
 
+  const triggerMetric = (
+    type: "count" | "distribution" | "gauge",
+    name: string,
+    value: number,
+  ) => {
+    switch (type) {
+      case "count":
+        Sentry.metrics.count(name, value);
+        break;
+      case "distribution":
+        Sentry.metrics.distribution(name, value);
+        break;
+      case "gauge":
+        Sentry.metrics.gauge(name, value);
+        break;
+    }
+    addLog("success", `Metric: ${type} - ${name}: ${value}`);
+  };
+
+  const triggerTimedMetric = async () => {
+    const start = performance.now();
+    await new Promise((resolve) =>
+      setTimeout(resolve, Math.random() * 500 + 100),
+    );
+    const duration = performance.now() - start;
+    Sentry.metrics.distribution("timed_operation", duration);
+    addLog("success", `Timed operation: ${duration.toFixed(2)}ms`);
+  };
+
   const getLogIcon = (type: LogEntry["type"]) => {
     switch (type) {
       case "success":
@@ -259,6 +288,53 @@ export function SentryTestConsole() {
               </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
+        </div>
+
+        <div className="mb-6 rounded-xl border border-cyan-800/50 bg-cyan-900/20 p-4">
+          <h3 className="mb-3 text-sm font-medium text-cyan-400">Metrics</h3>
+          <div className="flex flex-wrap gap-2">
+            <Button
+              onClick={() => triggerMetric("count", "button_click", 1)}
+              size="sm"
+              variant="outline"
+              className="border-cyan-700 bg-transparent text-cyan-300 hover:bg-cyan-800/30"
+            >
+              Count++
+            </Button>
+            <Button
+              onClick={() =>
+                triggerMetric(
+                  "distribution",
+                  "api_response_time",
+                  Math.random() * 1000,
+                )
+              }
+              size="sm"
+              variant="outline"
+              className="border-cyan-700 bg-transparent text-cyan-300 hover:bg-cyan-800/30"
+            >
+              Distribution
+            </Button>
+            <Button
+              onClick={() =>
+                triggerMetric("gauge", "memory_usage", Math.random() * 100)
+              }
+              size="sm"
+              variant="outline"
+              className="border-cyan-700 bg-transparent text-cyan-300 hover:bg-cyan-800/30"
+            >
+              Gauge
+            </Button>
+
+            <Button
+              onClick={triggerTimedMetric}
+              size="sm"
+              variant="outline"
+              className="border-cyan-700 bg-transparent text-cyan-300 hover:bg-cyan-800/30"
+            >
+              Timed Op
+            </Button>
+          </div>
         </div>
 
         <div className="rounded-xl border border-zinc-800 bg-zinc-900/80">
