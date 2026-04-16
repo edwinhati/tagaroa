@@ -21,7 +21,7 @@ export const accounts = financeSchema.table(
     userId: uuid("user_id").notNull(),
     currency: varchar("currency", { length: 3 }).notNull(),
     notes: text("notes"),
-    metadata: jsonb("metadata"),
+    metadata: jsonb("metadata").$type<Record<string, unknown>>(),
     deletedAt: timestamp("deleted_at", { withTimezone: true }),
     createdAt: timestamp("created_at", { withTimezone: true }).defaultNow(),
     updatedAt: timestamp("updated_at", { withTimezone: true })

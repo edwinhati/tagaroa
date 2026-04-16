@@ -12,7 +12,8 @@ export const portfolioSnapshots = investmentSchema.table(
     timestamp: timestamp("timestamp", { withTimezone: true }).notNull(),
     nav: decimal("nav", { precision: 20, scale: 8 }).notNull(),
     cash: decimal("cash", { precision: 20, scale: 8 }).notNull(),
-    positionsSnapshot: jsonb("positions_snapshot"),
+    positionsSnapshot:
+      jsonb("positions_snapshot").$type<Record<string, unknown>>(),
     createdAt: timestamp("created_at", { withTimezone: true }).defaultNow(),
     version: decimal("version", { precision: 20, scale: 0 })
       .notNull()

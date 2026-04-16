@@ -100,7 +100,6 @@ export class S3ClientService {
       canonicalUri,
       canonicalQueryString,
       canonicalHeaders,
-      "", // blank line after headers
       signedHeaders,
       payloadHash,
     ].join("\n");

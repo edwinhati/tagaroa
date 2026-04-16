@@ -6,7 +6,7 @@ import {
   HttpStatus,
   Logger,
 } from "@nestjs/common";
-import { SentryExceptionCaptured } from "@sentry/nestjs";
+import * as Sentry from "@sentry/nestjs";
 import type { Request, Response } from "express";
 import { DomainException } from "../exceptions/domain.exception";
 
@@ -33,7 +33,6 @@ const DOMAIN_CODE_TO_STATUS: Record<string, number> = {
 export class AllExceptionsFilter implements ExceptionFilter {
   private readonly logger = new Logger(AllExceptionsFilter.name);
 
-  @SentryExceptionCaptured()
   catch(exception: unknown, host: ArgumentsHost) {
     const ctx = host.switchToHttp();
     const request = ctx.getRequest<Request & { requestId?: string }>();
@@ -43,6 +42,7 @@ export class AllExceptionsFilter implements ExceptionFilter {
     const { status, code, title, detail } = this.resolveError(exception);
 
     if (status >= HttpStatus.INTERNAL_SERVER_ERROR) {
+      Sentry.captureException(exception);
       this.logger.error(
         `${status} ${code}: ${detail}`,
         exception instanceof Error ? exception.stack : undefined,
