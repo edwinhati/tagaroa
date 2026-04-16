@@ -129,6 +129,7 @@ jobs:
     if: needs.release.outputs.released == 'true'
     environment:
       name: production
+      url: https://tagaroa.edwinhati.work
     strategy:
       fail-fast: false
       matrix:
