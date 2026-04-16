@@ -10,6 +10,9 @@ if (isEnabled && dsn) {
       process.env.SENTRY_ENVIRONMENT || process.env.NODE_ENV || "development",
 
     enableLogs: true,
+    integrations: [
+      Sentry.consoleLoggingIntegration({ levels: ["log", "warn", "error"] }),
+    ],
     tracesSampleRate: Number.parseFloat(
       process.env.SENTRY_TRACES_SAMPLE_RATE || "1.0",
     ),

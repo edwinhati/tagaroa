@@ -63,17 +63,30 @@ export function getSentryConfig(): SentryConfig {
 /**
  * Universal environment variable getter
  * Works in browser, Node.js, and edge runtimes
+ *
+ * NOTE: Next.js inlines `process.env.VAR` statically at build time.
+ * Dynamic bracket access (`process.env[name]`) is NOT replaced in the browser.
+ * We use an explicit static map so the bundler can inline each variable.
  */
 function getEnvVar(name: string): string | undefined {
-  try {
-    if (typeof process !== "undefined" && process.env) {
-      return process.env[name];
-    }
-  } catch {
-    // Edge runtime or browser without process
-  }
+  // Static map — required for browser/edge where dynamic process.env access fails
+  const staticEnv: Record<string, string | undefined> = {
+    NODE_ENV: process.env.NODE_ENV,
+    NEXT_PUBLIC_SENTRY_DSN: process.env.NEXT_PUBLIC_SENTRY_DSN,
+    SENTRY_DSN: process.env.SENTRY_DSN,
+    NEXT_PUBLIC_SENTRY_TRACES_SAMPLE_RATE:
+      process.env.NEXT_PUBLIC_SENTRY_TRACES_SAMPLE_RATE,
+    SENTRY_TRACES_SAMPLE_RATE: process.env.SENTRY_TRACES_SAMPLE_RATE,
+    NEXT_PUBLIC_SENTRY_PROFILES_SAMPLE_RATE:
+      process.env.NEXT_PUBLIC_SENTRY_PROFILES_SAMPLE_RATE,
+    SENTRY_PROFILES_SAMPLE_RATE: process.env.SENTRY_PROFILES_SAMPLE_RATE,
+    SENTRY_ENVIRONMENT: process.env.SENTRY_ENVIRONMENT,
+    NEXT_PUBLIC_SENTRY_DEV_ENABLE: process.env.NEXT_PUBLIC_SENTRY_DEV_ENABLE,
+    NEXT_PUBLIC_SENTRY_DEBUG: process.env.NEXT_PUBLIC_SENTRY_DEBUG,
+    NEXT_PUBLIC_SENTRY_TUNNEL: process.env.NEXT_PUBLIC_SENTRY_TUNNEL,
+  };
 
-  return undefined;
+  return staticEnv[name];
 }
 
 /**

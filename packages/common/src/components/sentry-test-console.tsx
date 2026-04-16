@@ -111,7 +111,9 @@ export function SentryTestConsole() {
       setTimeout(resolve, Math.random() * 500 + 100),
     );
     const duration = performance.now() - start;
-    Sentry.metrics.distribution("timed_operation", duration);
+    Sentry.metrics.distribution("timed_operation", duration, {
+      unit: "millisecond",
+    });
     addLog("success", `Timed operation: ${duration.toFixed(2)}ms`);
   };
 

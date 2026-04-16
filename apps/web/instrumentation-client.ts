@@ -1,1 +1,4 @@
-export { initSentryClient } from "@repo/sentry-config/nextjs/client";
+export {
+  initSentryClient,
+  onRouterTransitionStart,
+} from "@repo/sentry-config/nextjs/client";

@@ -1,4 +1,5 @@
 import { Controller, Get, UseGuards } from "@nestjs/common";
+import * as Sentry from "@sentry/nestjs";
 import { AllowAnonymous } from "@thallesp/nestjs-better-auth";
 import { MonitoringService } from "../../modules/observability/application/monitoring.service";
 import { DevelopmentGuard } from "../guards/development.guard";
@@ -65,5 +66,56 @@ export class DebugController {
     });
 
     return { message: "Messages sent to Sentry" };
+  }
+
+  @Get("sentry-metrics")
+  triggerMetrics(): { message: string; metrics: string[] } {
+    Sentry.metrics.count("debug.button_click", 1);
+    Sentry.metrics.gauge("debug.memory_usage", process.memoryUsage().heapUsed, {
+      unit: "byte",
+    });
+    Sentry.metrics.distribution(
+      "debug.response_time",
+      Math.random() * 500 + 50,
+      {
+        unit: "millisecond",
+      },
+    );
+
+    return {
+      message: "Metrics emitted to Sentry",
+      metrics: [
+        "debug.button_click (count)",
+        "debug.memory_usage (gauge)",
+        "debug.response_time (distribution)",
+      ],
+    };
+  }
+
+  @Get("sentry-logs")
+  triggerLogs(): { message: string } {
+    Sentry.logger.trace("Trace log from debug endpoint", {
+      endpoint: "/debug/sentry-logs",
+    });
+    Sentry.logger.debug("Debug log from debug endpoint", {
+      endpoint: "/debug/sentry-logs",
+    });
+    Sentry.logger.info("Info log from debug endpoint", {
+      endpoint: "/debug/sentry-logs",
+      timestamp: new Date().toISOString(),
+    });
+    Sentry.logger.warn("Warning log from debug endpoint", {
+      endpoint: "/debug/sentry-logs",
+    });
+    Sentry.logger.error("Error log from debug endpoint", {
+      endpoint: "/debug/sentry-logs",
+    });
+
+    // Also trigger via console so consoleLoggingIntegration captures them
+    console.log("[Sentry Test] console.log captured as Sentry log");
+    console.warn("[Sentry Test] console.warn captured as Sentry log");
+    console.error("[Sentry Test] console.error captured as Sentry log");
+
+    return { message: "Logs sent to Sentry" };
   }
 }

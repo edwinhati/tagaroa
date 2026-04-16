@@ -1,6 +1,8 @@
 import * as Sentry from "@sentry/nextjs";
 import { getSentryConfig, validateSentryConfig } from "../config";
 
+export const onRouterTransitionStart = Sentry.captureRouterTransitionStart;
+
 export function initSentryClient(): void {
   const config = getSentryConfig();
 
