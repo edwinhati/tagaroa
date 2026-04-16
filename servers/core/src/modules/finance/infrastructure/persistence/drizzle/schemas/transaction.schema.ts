@@ -37,7 +37,7 @@ export const transactions = financeSchema.table(
       .$onUpdate(() => new Date()),
     version: integer("version").default(1),
     // Installment metadata for credit card/pay-later transactions
-    installment: jsonb("installment"),
+    installment: jsonb("installment").$type<Record<string, unknown>>(),
   },
   (table) => [
     index("idx_transactions_user_id").on(table.userId),

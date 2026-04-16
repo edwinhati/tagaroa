@@ -39,7 +39,9 @@ export const liabilities = financeSchema.table(
     totalInterest: decimal("total_interest", { precision: 15, scale: 2 }),
     totalAmount: decimal("total_amount", { precision: 15, scale: 2 }),
     remainingMonths: integer("remaining_months"),
-    installmentMetadata: jsonb("installment_metadata"),
+    installmentMetadata: jsonb("installment_metadata").$type<
+      Record<string, unknown>
+    >(),
     dueAt: timestamp("due_at", { withTimezone: true }),
   },
   (table) => [
