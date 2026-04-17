@@ -2,10 +2,10 @@
   "name": "tagaroa",
   "devDependencies": {
     "@biomejs/biome": "^2.4.12",
-    "@changesets/cli": "^2.29.0",
-    "lefthook": "^2.1.5",
+    "@changesets/cli": "^2.30.0",
+    "lefthook": "^2.1.6",
     "turbo": "^2.9.6",
-    "typescript": "6.0.2"
+    "typescript": "6.0.3"
   },
   "engines": {
     "node": ">=18"

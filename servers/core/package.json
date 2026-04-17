@@ -40,6 +40,7 @@
     "@scalar/nestjs-api-reference": "^1.1.8",
     "@sentry/nestjs": "^10.49.0",
     "@thallesp/nestjs-better-auth": "^2.6.0",
+    "axios": "^1.15.0",
     "better-auth": "^1.6.5",
     "class-transformer": "^0.5.1",
     "class-validator": "^0.15.1",
@@ -58,6 +59,6 @@
     "@types/express": "^5.0.0",
     "@types/node": "^25.6.0",
     "drizzle-kit": "^0.31.10",
-    "typescript": "^6.0.2"
+    "typescript": "^6.0.3"
   }
 }
