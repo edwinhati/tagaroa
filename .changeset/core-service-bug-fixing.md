@@ -11,3 +11,4 @@ Fix Zod v4 deprecation warnings:
 
 Fixed `ConcurrentModificationException` in overlapping asynchronous Account balance updates:
 - Added optimistic concurrency retry loop with a backoff/jitter inside `AccountBalanceEventHandler.adjustBalance()` to automatically recover from rapid, overlapping `transaction.created` events.
+- Fixed account balances not updating by moving `eventEmitter.emit` calls outside `unitOfWork` transactions in `CreateTransactionUseCase`, `UpdateTransactionUseCase`, and `DeleteTransactionUseCase`, ensuring event handlers read the committed account row version.

@@ -53,7 +53,7 @@ export class CreateTransactionUseCase {
     userId: string,
     dto: CreateTransactionDto,
   ): Promise<Transaction> {
-    return this.unitOfWork.execute(async () => {
+    const createdTransaction = await this.unitOfWork.execute(async () => {
       const budgetItemId = normalizeBudgetItemId(dto.budgetItemId);
 
       const account = await this.accountRepository.findById(dto.accountId);
@@ -104,34 +104,37 @@ export class CreateTransactionUseCase {
         dto.installment ?? null,
       );
 
-      const createdTransaction =
-        await this.transactionRepository.create(transaction);
+      const created = await this.transactionRepository.create(transaction);
 
       if (hasInstallment && isLiabilityAccount && dto.installment) {
         await this.createInstallmentLiabilities(
           userId,
-          createdTransaction,
+          created,
           dto.installment,
           account.currency,
         );
       }
 
-      this.eventEmitter.emit(
-        "transaction.created",
-        new TransactionCreatedEvent(
-          createdTransaction.id,
-          userId,
-          createdTransaction.accountId,
-          createdTransaction.budgetItemId,
-          createdTransaction.amount,
-          createdTransaction.type,
-          createdTransaction.currency,
-          createdTransaction.installment,
-        ),
-      );
-
-      return createdTransaction;
+      return created;
     });
+
+    // Emit AFTER the transaction has committed so the event handler
+    // reads the committed account row (correct version number).
+    this.eventEmitter.emit(
+      "transaction.created",
+      new TransactionCreatedEvent(
+        createdTransaction.id,
+        userId,
+        createdTransaction.accountId,
+        createdTransaction.budgetItemId,
+        createdTransaction.amount,
+        createdTransaction.type,
+        createdTransaction.currency,
+        createdTransaction.installment,
+      ),
+    );
+
+    return createdTransaction;
   }
 
   private async createInstallmentLiabilities(
