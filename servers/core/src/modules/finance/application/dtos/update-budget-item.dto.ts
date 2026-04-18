@@ -5,7 +5,7 @@ import { createZodDto } from "../../../../shared/pipes/zod-validation.pipe";
 const UpdateBudgetItemSchema = z
   .object({
     allocation: z.number().min(0),
-    budget_id: z.string().uuid(),
+    budget_id: z.uuid(),
   })
   .transform(({ budget_id, ...rest }) => ({
     ...rest,

@@ -1,7 +1,7 @@
 import { z } from "zod";
 import { createZodDto } from "../../../../shared/pipes/zod-validation.pipe";
-import { Currency } from "../../domain/value-objects/currency";
-import { TransactionType } from "../../domain/value-objects/transaction-type";
+import { CurrencySchema } from "../../domain/value-objects/currency";
+import { TransactionTypeSchema } from "../../domain/value-objects/transaction-type";
 
 // Installment schema for validation
 const InstallmentSchema = z
@@ -17,16 +17,19 @@ const CreateTransactionSchema = z
   .object({
     amount: z.number().min(0.01),
     date: z.string(),
-    currency: z.nativeEnum(Currency),
-    type: z.nativeEnum(TransactionType),
+    currency: CurrencySchema,
+    type: TransactionTypeSchema,
     notes: z.string().optional(),
     files: z.array(z.string()).optional(),
-    account_id: z.string().uuid(),
+    account_id: z.uuid(),
     budget_item_id: z
       .string()
-      .uuid()
-      .nullish()
-      .transform((v) => v ?? undefined),
+      .trim()
+      .optional()
+      .refine((v) => !v || z.uuid().safeParse(v).success, {
+        message: "Invalid UUID format",
+      })
+      .transform((v) => (v === "" ? undefined : v)),
     installment: InstallmentSchema,
   })
   .transform(({ account_id, budget_item_id, ...rest }) => {

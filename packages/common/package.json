@@ -7,7 +7,7 @@
     "lint": "biome check"
   },
   "dependencies": {
-    "@better-auth/infra": "^0.2.3",
+    "@better-auth/infra": "^0.2.4",
     "@repo/ui": "*",
     "@sentry/nextjs": "^10.49.0",
     "@tabler/icons-react": "^3.41.1",

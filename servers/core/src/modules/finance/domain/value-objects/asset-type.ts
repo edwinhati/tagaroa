@@ -1,3 +1,5 @@
+import { z } from "zod";
+
 export const AssetType = {
   CASH: "CASH",
   SAVINGS: "SAVINGS",
@@ -12,3 +14,15 @@ export const AssetType = {
 } as const;
 
 export type AssetType = (typeof AssetType)[keyof typeof AssetType];
+export const AssetTypeSchema = z.enum([
+  "CASH",
+  "SAVINGS",
+  "INVESTMENT",
+  "REAL_ESTATE",
+  "VEHICLE",
+  "CRYPTO",
+  "STOCK",
+  "BOND",
+  "MUTUAL_FUND",
+  "OTHER",
+]);

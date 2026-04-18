@@ -1,3 +1,5 @@
+import { z } from "zod";
+
 export const LiabilityType = {
   LOAN: "LOAN",
   MORTGAGE: "MORTGAGE",
@@ -10,3 +12,13 @@ export const LiabilityType = {
 } as const;
 
 export type LiabilityType = (typeof LiabilityType)[keyof typeof LiabilityType];
+export const LiabilityTypeSchema = z.enum([
+  "LOAN",
+  "MORTGAGE",
+  "CREDIT_CARD",
+  "AUTO_LOAN",
+  "STUDENT_LOAN",
+  "MEDICAL_DEBT",
+  "TAX_DEBT",
+  "OTHER",
+]);

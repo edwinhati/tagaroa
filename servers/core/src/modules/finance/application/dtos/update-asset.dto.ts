@@ -1,15 +1,15 @@
 import { z } from "zod";
 import { createZodDto } from "../../../../shared/pipes/zod-validation.pipe";
-import { AssetType } from "../../domain/value-objects/asset-type";
-import { Currency } from "../../domain/value-objects/currency";
+import { AssetTypeSchema } from "../../domain/value-objects/asset-type";
+import { CurrencySchema } from "../../domain/value-objects/currency";
 
 const UpdateAssetSchema = z.object({
   name: z.string().optional(),
-  type: z.nativeEnum(AssetType).optional(),
+  type: AssetTypeSchema.optional(),
   value: z.number().optional(),
   shares: z.number().nullable().optional(),
   ticker: z.string().nullable().optional(),
-  currency: z.nativeEnum(Currency).optional(),
+  currency: CurrencySchema.optional(),
   notes: z.string().nullable().optional(),
 });
 

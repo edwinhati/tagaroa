@@ -36,13 +36,7 @@ export class StorageController {
 
   private getDownloadUrl(fileId: string): string {
     const baseUrl = this.configService.get<string>("BASE_URL", "");
-    const port = this.configService.get<number>("PORT", 8081);
-
-    // Check if BASE_URL already includes a port
-    const hasPort = /:\d+$/.test(baseUrl);
-    return hasPort
-      ? `${baseUrl}/api/storage/${fileId}/download`
-      : `${baseUrl}:${port}/api/storage/${fileId}/download`;
+    return `${baseUrl}/api/storage/${fileId}/download`;
   }
 
   private toFileResponse(result: {
@@ -109,8 +103,9 @@ export class StorageController {
     const { buffer, contentType, fileName } =
       await this.downloadFileUseCase.execute(id, session.user.id);
 
+    // Browser security: If the origin is from our trusted finance app, we must ensure headers are correct
     return new StreamableFile(buffer, {
-      type: contentType,
+      type: contentType || "application/octet-stream",
       disposition: `inline; filename="${fileName}"`,
       length: buffer.length,
     });

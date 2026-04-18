@@ -151,6 +151,7 @@ jobs:
             NEXT_PUBLIC_MAIN_APP_URL=${{ vars.NEXT_PUBLIC_MAIN_APP_URL }}
             NEXT_PUBLIC_ALLOWED_REDIRECT_ORIGINS=${{ vars.NEXT_PUBLIC_ALLOWED_REDIRECT_ORIGINS }}
             NEXT_PUBLIC_SENTRY_DSN=${{ steps.vars.outputs.sentry_dsn }}
+            NEXT_PUBLIC_SENTRY_ENVIRONMENT=${{ vars.NEXT_PUBLIC_SENTRY_ENVIRONMENT }}
             NEXT_PUBLIC_SENTRY_TRACES_SAMPLE_RATE=${{ vars.NEXT_PUBLIC_SENTRY_TRACES_SAMPLE_RATE }}
           cache-from: type=gha
           cache-to: type=gha,mode=max

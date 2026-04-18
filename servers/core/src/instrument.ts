@@ -7,7 +7,10 @@ if (isEnabled && dsn) {
   Sentry.init({
     dsn,
     environment:
-      process.env.SENTRY_ENVIRONMENT || process.env.NODE_ENV || "development",
+      process.env.NEXT_PUBLIC_SENTRY_ENVIRONMENT ||
+      process.env.SENTRY_ENVIRONMENT ||
+      process.env.NODE_ENV ||
+      "development",
 
     enableLogs: true,
     integrations: [

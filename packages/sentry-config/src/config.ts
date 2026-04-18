@@ -37,7 +37,10 @@ export function getSentryConfig(): SentryConfig {
     : 0;
 
   const environment =
-    getEnvVar("SENTRY_ENVIRONMENT") || getEnvVar("NODE_ENV") || "development";
+    getEnvVar("NEXT_PUBLIC_SENTRY_ENVIRONMENT") ||
+    getEnvVar("SENTRY_ENVIRONMENT") ||
+    getEnvVar("NODE_ENV") ||
+    "development";
 
   const sentryDevEnable = getEnvVar("NEXT_PUBLIC_SENTRY_DEV_ENABLE") === "true";
 
@@ -81,6 +84,7 @@ function getEnvVar(name: string): string | undefined {
       process.env.NEXT_PUBLIC_SENTRY_PROFILES_SAMPLE_RATE,
     SENTRY_PROFILES_SAMPLE_RATE: process.env.SENTRY_PROFILES_SAMPLE_RATE,
     SENTRY_ENVIRONMENT: process.env.SENTRY_ENVIRONMENT,
+    NEXT_PUBLIC_SENTRY_ENVIRONMENT: process.env.NEXT_PUBLIC_SENTRY_ENVIRONMENT,
     NEXT_PUBLIC_SENTRY_DEV_ENABLE: process.env.NEXT_PUBLIC_SENTRY_DEV_ENABLE,
     NEXT_PUBLIC_SENTRY_DEBUG: process.env.NEXT_PUBLIC_SENTRY_DEBUG,
     NEXT_PUBLIC_SENTRY_TUNNEL: process.env.NEXT_PUBLIC_SENTRY_TUNNEL,
