@@ -1,6 +1,5 @@
 import { Inject, Injectable } from "@nestjs/common";
 import { OnEvent } from "@nestjs/event-emitter";
-import { ConcurrentModificationException } from "../../../../shared/exceptions/domain.exception";
 import type { TransactionCreatedEvent } from "../../domain/events/transaction-created.event";
 import type { TransactionDeletedEvent } from "../../domain/events/transaction-deleted.event";
 import type { TransactionUpdatedEvent } from "../../domain/events/transaction-updated.event";
@@ -10,6 +9,10 @@ import { TransactionType } from "../../domain/value-objects/transaction-type";
 
 @Injectable()
 export class AccountBalanceEventHandler {
+  // Serializes balance updates per account to prevent concurrent version conflicts.
+  // Each account ID maps to the tail of its pending update chain.
+  private readonly accountLocks = new Map<string, Promise<void>>();
+
   constructor(
     @Inject(ACCOUNT_REPOSITORY)
     private readonly accountRepo: IAccountRepository,
@@ -49,37 +52,50 @@ export class AccountBalanceEventHandler {
     await this.adjustBalance(event.accountId, event.amount, event.type, false);
   }
 
-  private async adjustBalance(
+  private adjustBalance(
     accountId: string,
     amount: number,
     type: TransactionType,
     isAdd: boolean,
-    retries = 3,
   ): Promise<void> {
-    for (let attempt = 1; attempt <= retries; attempt++) {
-      try {
-        const account = await this.accountRepo.findById(accountId);
-        if (!account) return;
+    // Chain the new update behind any in-flight update for this account.
+    // This ensures sequential execution and makes version conflicts impossible.
+    const previous = this.accountLocks.get(accountId) ?? Promise.resolve();
 
-        const effectiveAmount = type === "INCOME" ? amount : -amount;
-        const newBalance =
-          account.balance + (isAdd ? effectiveAmount : -effectiveAmount);
+    const next = previous.then(() =>
+      this.doAdjustBalance(accountId, amount, type, isAdd),
+    );
 
-        const updated = account.withUpdatedBalance(newBalance);
-        await this.accountRepo.update(updated);
-        return; // Success, break loop
-      } catch (error) {
-        if (
-          error instanceof ConcurrentModificationException &&
-          attempt < retries
-        ) {
-          // Add randomized jitter to avoid identical collision patterns
-          const jitter = Math.random() * 50 * attempt;
-          await new Promise((resolve) => setTimeout(resolve, jitter));
-          continue;
-        }
-        throw error;
+    // Store the chained promise (suppress unhandled rejection on the chain tail)
+    this.accountLocks.set(
+      accountId,
+      next.catch(() => {}),
+    );
+
+    // Clean up the map once the chain is idle to avoid memory leaks
+    next.finally(() => {
+      if (this.accountLocks.get(accountId) === next.catch(() => {})) {
+        this.accountLocks.delete(accountId);
       }
-    }
+    });
+
+    return next;
+  }
+
+  private async doAdjustBalance(
+    accountId: string,
+    amount: number,
+    type: TransactionType,
+    isAdd: boolean,
+  ): Promise<void> {
+    const account = await this.accountRepo.findById(accountId);
+    if (!account) return;
+
+    const effectiveAmount = type === "INCOME" ? amount : -amount;
+    const newBalance =
+      account.balance + (isAdd ? effectiveAmount : -effectiveAmount);
+
+    const updated = account.withUpdatedBalance(newBalance);
+    await this.accountRepo.update(updated);
   }
 }
