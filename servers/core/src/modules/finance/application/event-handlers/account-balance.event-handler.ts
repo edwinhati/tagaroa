@@ -1,5 +1,6 @@
 import { Inject, Injectable } from "@nestjs/common";
 import { OnEvent } from "@nestjs/event-emitter";
+import { ConcurrentModificationException } from "../../../../shared/exceptions/domain.exception";
 import type { TransactionCreatedEvent } from "../../domain/events/transaction-created.event";
 import type { TransactionDeletedEvent } from "../../domain/events/transaction-deleted.event";
 import type { TransactionUpdatedEvent } from "../../domain/events/transaction-updated.event";
@@ -53,15 +54,32 @@ export class AccountBalanceEventHandler {
     amount: number,
     type: TransactionType,
     isAdd: boolean,
+    retries = 3,
   ): Promise<void> {
-    const account = await this.accountRepo.findById(accountId);
-    if (!account) return;
+    for (let attempt = 1; attempt <= retries; attempt++) {
+      try {
+        const account = await this.accountRepo.findById(accountId);
+        if (!account) return;
 
-    const effectiveAmount = type === "INCOME" ? amount : -amount;
-    const newBalance =
-      account.balance + (isAdd ? effectiveAmount : -effectiveAmount);
+        const effectiveAmount = type === "INCOME" ? amount : -amount;
+        const newBalance =
+          account.balance + (isAdd ? effectiveAmount : -effectiveAmount);
 
-    const updated = account.withUpdatedBalance(newBalance);
-    await this.accountRepo.update(updated);
+        const updated = account.withUpdatedBalance(newBalance);
+        await this.accountRepo.update(updated);
+        return; // Success, break loop
+      } catch (error) {
+        if (
+          error instanceof ConcurrentModificationException &&
+          attempt < retries
+        ) {
+          // Add randomized jitter to avoid identical collision patterns
+          const jitter = Math.random() * 50 * attempt;
+          await new Promise((resolve) => setTimeout(resolve, jitter));
+          continue;
+        }
+        throw error;
+      }
+    }
   }
 }
