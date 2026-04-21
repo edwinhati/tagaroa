@@ -16,3 +16,7 @@ Fixed transaction validation and budget item management:
 Security improvements in `@repo/auth`:
 - Added `freshAge: 1 hour` to session configuration to enforce re-authentication for sensitive operations (like account deletion or critical financial changes) while maintaining a 7-day session for general use.
 
+Fixed frontend account balance and dashboard stale data:
+- Updated transaction mutation hooks in `packages/common` to invalidate `accounts`, `budgets`, and all dashboard-related query keys (`dashboard-summary`, `account-aggregations`, etc.) when a transaction is modified. This ensures the UI reflects balance and progress changes immediately without a manual refresh.
+- Updated account and budget mutation hooks to consistently invalidate dashboard aggregations.
+

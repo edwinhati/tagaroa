@@ -205,6 +205,15 @@ export const useTransactionMutationOptions = () => {
     mutationFn: mutateTransaction,
     onSettled: () => {
       queryClient.invalidateQueries({ queryKey: ["transactions"] });
+      queryClient.invalidateQueries({ queryKey: ["accounts"] });
+      queryClient.invalidateQueries({ queryKey: ["budgets"] });
+      queryClient.invalidateQueries({ queryKey: ["dashboard-summary"] });
+      queryClient.invalidateQueries({ queryKey: ["account-aggregations"] });
+      queryClient.invalidateQueries({ queryKey: ["budget-performance"] });
+      queryClient.invalidateQueries({ queryKey: ["transaction-trends"] });
+      queryClient.invalidateQueries({ queryKey: ["expense-breakdown"] });
+      queryClient.invalidateQueries({ queryKey: ["net-worth"] });
+      queryClient.invalidateQueries({ queryKey: ["insights"] });
     },
   });
 };
@@ -247,6 +256,15 @@ export const useTransactionDeleteMutationOptions = () => {
     onSettled: () => {
       // Refetch after success or error
       queryClient.invalidateQueries({ queryKey: ["transactions"] });
+      queryClient.invalidateQueries({ queryKey: ["accounts"] });
+      queryClient.invalidateQueries({ queryKey: ["budgets"] });
+      queryClient.invalidateQueries({ queryKey: ["dashboard-summary"] });
+      queryClient.invalidateQueries({ queryKey: ["account-aggregations"] });
+      queryClient.invalidateQueries({ queryKey: ["budget-performance"] });
+      queryClient.invalidateQueries({ queryKey: ["transaction-trends"] });
+      queryClient.invalidateQueries({ queryKey: ["expense-breakdown"] });
+      queryClient.invalidateQueries({ queryKey: ["net-worth"] });
+      queryClient.invalidateQueries({ queryKey: ["insights"] });
     },
   });
 };
