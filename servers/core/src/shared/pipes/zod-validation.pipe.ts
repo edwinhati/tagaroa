@@ -40,9 +40,24 @@ export class ZodValidationPipe implements PipeTransform {
 
     const result = schema.safeParse(value);
     if (!result.success) {
+      const flattened = z.flattenError(result.error);
+
+      // Build a readable summary: "field: error1; field2: error2"
+      const fieldErrors = flattened.fieldErrors as Record<
+        string,
+        string[] | undefined
+      >;
+      const fieldMessages = Object.entries(fieldErrors)
+        .map(([field, errs]) => `${field}: ${errs?.join(", ") ?? ""}`)
+        .join("; ");
+      const formMessages = flattened.formErrors.join("; ");
+      const message =
+        [fieldMessages, formMessages].filter(Boolean).join("; ") ||
+        "Validation failed";
+
       throw new BadRequestException({
-        message: "Validation failed",
-        errors: z.flattenError(result.error),
+        message,
+        errors: flattened,
       });
     }
     return result.data;

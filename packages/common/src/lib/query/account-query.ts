@@ -146,6 +146,9 @@ export const useAccountMutationOptions = () => {
     mutationFn: mutateAccount,
     onSettled: () => {
       queryClient.invalidateQueries({ queryKey: ["accounts"] });
+      queryClient.invalidateQueries({ queryKey: ["dashboard-summary"] });
+      queryClient.invalidateQueries({ queryKey: ["account-aggregations"] });
+      queryClient.invalidateQueries({ queryKey: ["net-worth"] });
     },
   });
 };
@@ -189,6 +192,9 @@ export const useAccountDeleteMutationOptions = () => {
     onSettled: () => {
       // Refetch after success or error
       queryClient.invalidateQueries({ queryKey: ["accounts"] });
+      queryClient.invalidateQueries({ queryKey: ["dashboard-summary"] });
+      queryClient.invalidateQueries({ queryKey: ["account-aggregations"] });
+      queryClient.invalidateQueries({ queryKey: ["net-worth"] });
     },
   });
 };

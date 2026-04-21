@@ -26,7 +26,6 @@ import {
 } from "../../domain/repositories/transaction.repository.interface";
 import type { UpdateTransactionDto } from "../dtos/update-transaction.dto";
 import { UnitOfWork } from "../services/unit-of-work.service";
-import { normalizeBudgetItemId } from "../utils/transaction-budget-item.util";
 import { normalizeTransactionDate } from "../utils/transaction-date.util";
 
 @Injectable()
@@ -49,62 +48,69 @@ export class UpdateTransactionUseCase {
     id: string,
     dto: UpdateTransactionDto,
   ): Promise<Transaction> {
-    return this.unitOfWork.execute(async () => {
-      const budgetItemId = normalizeBudgetItemId(dto.budgetItemId);
-      const existing = await this.transactionRepository.findById(id);
+    const { updatedTransaction, existing } = await this.unitOfWork.execute(
+      async () => {
+        const existing = await this.transactionRepository.findById(id);
 
-      if (!existing) {
-        throw new TransactionNotFoundException(id);
-      }
-      if (existing.userId !== userId) {
-        throw new TransactionAccessDeniedException();
-      }
+        if (!existing) {
+          throw new TransactionNotFoundException(id);
+        }
+        if (existing.userId !== userId) {
+          throw new TransactionAccessDeniedException();
+        }
 
-      await this.validateAccountChange(userId, dto, existing.accountId);
-      await this.validateBudgetItemChange(
-        userId,
-        budgetItemId,
-        existing.budgetItemId,
-      );
-
-      const updated = new Transaction(
-        existing.id,
-        dto.amount ?? existing.amount,
-        dto.date ? normalizeTransactionDate(dto.date) : existing.date,
-        dto.notes ?? existing.notes,
-        dto.currency ?? existing.currency,
-        dto.type ?? existing.type,
-        dto.files ?? existing.files,
-        existing.userId,
-        dto.accountId ?? existing.accountId,
-        budgetItemId ?? existing.budgetItemId,
-        existing.deletedAt,
-        existing.createdAt,
-        new Date(),
-        existing.version + 1,
-      );
-
-      const updatedTransaction =
-        await this.transactionRepository.update(updated);
-
-      this.eventEmitter.emit(
-        "transaction.updated",
-        new TransactionUpdatedEvent(
-          updatedTransaction.id,
+        await this.validateAccountChange(userId, dto, existing.accountId);
+        await this.validateBudgetItemChange(
           userId,
-          existing.accountId,
+          dto.budgetItemId,
           existing.budgetItemId,
-          existing.amount,
-          existing.type,
-          updatedTransaction.accountId,
-          updatedTransaction.budgetItemId,
-          updatedTransaction.amount,
-          updatedTransaction.type,
-        ),
-      );
+        );
 
-      return updatedTransaction;
-    });
+        const updated = new Transaction(
+          existing.id,
+          dto.amount ?? existing.amount,
+          dto.date ? normalizeTransactionDate(dto.date) : existing.date,
+          dto.notes ?? existing.notes,
+          dto.currency ?? existing.currency,
+          dto.type ?? existing.type,
+          dto.files ?? existing.files,
+          existing.userId,
+          dto.accountId ?? existing.accountId,
+          dto.budgetItemId === undefined
+            ? existing.budgetItemId
+            : dto.budgetItemId,
+          existing.deletedAt,
+          existing.createdAt,
+          new Date(),
+          existing.version + 1,
+        );
+
+        const updatedTransaction =
+          await this.transactionRepository.update(updated);
+
+        return { updatedTransaction, existing };
+      },
+    );
+
+    // Emit AFTER the transaction has committed so the event handler
+    // reads the committed account row (correct version number).
+    this.eventEmitter.emit(
+      "transaction.updated",
+      new TransactionUpdatedEvent(
+        updatedTransaction.id,
+        userId,
+        existing.accountId,
+        existing.budgetItemId,
+        existing.amount,
+        existing.type,
+        updatedTransaction.accountId,
+        updatedTransaction.budgetItemId,
+        updatedTransaction.amount,
+        updatedTransaction.type,
+      ),
+    );
+
+    return updatedTransaction;
   }
 
   private async validateAccountChange(
@@ -122,12 +128,12 @@ export class UpdateTransactionUseCase {
 
   private async validateBudgetItemChange(
     userId: string,
-    budgetItemId: string | undefined,
+    budgetItemId: string | null | undefined,
     existingBudgetItemId: string | null | undefined,
   ): Promise<void> {
     if (budgetItemId === undefined || budgetItemId === existingBudgetItemId)
       return;
-    if (!budgetItemId) return;
+    if (!budgetItemId) return; // null or empty (though DTO handles empty)
 
     const budgetItem = await this.budgetItemRepository.findById(budgetItemId);
     if (!budgetItem) {

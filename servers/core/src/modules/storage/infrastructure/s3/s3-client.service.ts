@@ -37,8 +37,14 @@ export class S3ClientService {
     } else if (provider === "aws") {
       config.endpoint = process.env.S3_ENDPOINT;
     } else if (provider === "r2") {
-      config.accountId = process.env.CLOUDFLARE_ACCOUNT_ID || "";
-      config.endpoint = `https://${config.accountId}.r2.cloudflarestorage.com`;
+      config.accountId =
+        process.env.S3_ACCOUNT_ID || process.env.CLOUDFLARE_ACCOUNT_ID || "";
+      config.region = "auto"; // R2 uses 'auto' for regional endpoints
+      if (config.accountId) {
+        config.endpoint = `https://${config.accountId}.r2.cloudflarestorage.com`;
+      } else {
+        config.endpoint = process.env.S3_ENDPOINT;
+      }
     }
 
     return config;
@@ -92,7 +98,10 @@ export class S3ClientService {
     const signedHeaders = sortedHeaderKeys.join(";");
 
     // Create canonical request
-    const canonicalUri = path;
+    // IMPORTANT: For Supabase/S3-compatible endpoints with path prefixes (e.g. /storage/v1/s3),
+    // the canonical URI MUST include that prefix.
+    const endpointPath = url.pathname === "/" ? "" : url.pathname;
+    const canonicalUri = `${endpointPath}${path}`;
     const canonicalQueryString = "";
 
     const canonicalRequest = [

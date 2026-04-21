@@ -8,10 +8,10 @@ export const envSchema = z.object({
     .enum(["development", "production", "test"])
     .default("development"),
   MAX_FILE_SIZE: z.coerce.number().default(10_485_760),
-  S3_PROVIDER: z.enum(["minio", "aws", "r2"]).default("minio"),
-  S3_BUCKET: z.string().default("uploads"),
-  S3_REGION: z.string().default("us-east-1"),
-  S3_ENDPOINT: z.string().optional(),
+  S3_PROVIDER: z.enum(["minio", "aws", "r2"]).default("r2"),
+  S3_BUCKET: z.string().default("tagaroa"),
+  S3_REGION: z.string().default("auto"),
+  S3_ENDPOINT: z.url().optional(),
   S3_ACCESS_KEY_ID: z.string().default(""),
   S3_SECRET_ACCESS_KEY: z.string().default(""),
   CLOUDFLARE_ACCOUNT_ID: z.string().optional(),
@@ -48,6 +48,7 @@ export const envSchema = z.object({
     .default("false")
     .transform((v) => v === "true"),
   OTEL_EXPORTER_OTLP_ENDPOINT: z.url().optional(),
+  OTEL_EXPORTER_OTLP_HEADERS: z.string().optional(),
   OTEL_SERVICE_NAME: z.string().default("tagaroa-core"),
 });
 

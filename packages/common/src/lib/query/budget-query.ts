@@ -143,6 +143,7 @@ export const useBudgetMutationOptions = () => {
     mutationFn: mutateBudget,
     onSettled: () => {
       queryClient.invalidateQueries({ queryKey: ["budgets"] });
+      queryClient.invalidateQueries({ queryKey: ["budget-performance"] });
     },
   });
 };
@@ -181,6 +182,7 @@ export const useBudgetItemMutationOptions = () => {
     }) => updateBudgetItem(itemId, allocation, budgetId),
     onSettled: () => {
       queryClient.invalidateQueries({ queryKey: ["budgets"] });
+      queryClient.invalidateQueries({ queryKey: ["budget-performance"] });
     },
   });
 };

@@ -10,6 +10,7 @@ import {
 import { authConfiguration, googleProvider, trustedOrigins } from "./config";
 import * as schema from "./db";
 import { db } from "./drizzle";
+import { secondaryStorage } from "./redis";
 
 const MAX_SESSIONS_PER_USER = 3;
 
@@ -37,11 +38,15 @@ export const auth = betterAuth({
     },
   },
   session: {
+    expiresIn: 60 * 60 * 24 * 7,
+    updateAge: 60 * 60 * 24,
+    freshAge: 60 * 60,
     cookieCache: {
       enabled: true,
       strategy: "jwe",
-      maxAge: 5 * 60, // 5 min — verifies from signed cookie, no DB call
+      maxAge: 5 * 60,
     },
+    storeSessionInDatabase: true,
   },
   socialProviders: {
     google: googleProvider,
@@ -65,6 +70,7 @@ export const auth = betterAuth({
       : [openAPI({ disableDefaultReference: true })]),
   ],
   trustedOrigins,
+  secondaryStorage,
   logger: {
     disabled: false,
     disableColors: false,

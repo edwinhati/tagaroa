@@ -21,7 +21,7 @@ export class DeleteTransactionUseCase {
   ) {}
 
   async execute(userId: string, id: string): Promise<void> {
-    return this.unitOfWork.execute(async () => {
+    const existing = await this.unitOfWork.execute(async () => {
       const existing = await this.transactionRepository.findById(id);
 
       if (!existing) {
@@ -33,17 +33,21 @@ export class DeleteTransactionUseCase {
 
       await this.transactionRepository.delete(id);
 
-      this.eventEmitter.emit(
-        "transaction.deleted",
-        new TransactionDeletedEvent(
-          existing.id,
-          userId,
-          existing.accountId,
-          existing.budgetItemId,
-          existing.amount,
-          existing.type,
-        ),
-      );
+      return existing;
     });
+
+    // Emit AFTER the transaction has committed so the event handler
+    // reads the committed account row (correct version number).
+    this.eventEmitter.emit(
+      "transaction.deleted",
+      new TransactionDeletedEvent(
+        existing.id,
+        userId,
+        existing.accountId,
+        existing.budgetItemId,
+        existing.amount,
+        existing.type,
+      ),
+    );
   }
 }

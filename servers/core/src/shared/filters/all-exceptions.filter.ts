@@ -39,10 +39,15 @@ export class AllExceptionsFilter implements ExceptionFilter {
     const response = ctx.getResponse<Response>();
     const requestId = request.requestId;
 
-    const { status, code, title, detail } = this.resolveError(exception);
+    const { status, code, title, detail, ...rest } =
+      this.resolveError(exception);
 
     if (status >= HttpStatus.INTERNAL_SERVER_ERROR) {
       Sentry.captureException(exception);
+      // Ensure the event is sent before we continue
+      Sentry.flush(2000).catch((err) =>
+        this.logger.error("Failed to flush Sentry event", err),
+      );
       this.logger.error(
         `${status} ${code}: ${detail}`,
         exception instanceof Error ? exception.stack : undefined,
@@ -52,7 +57,7 @@ export class AllExceptionsFilter implements ExceptionFilter {
     }
 
     response.status(status).json({
-      errors: [{ status, code, title, detail }],
+      errors: [{ status, code, title, detail, ...rest }],
       ...(requestId ? { meta: { requestId } } : {}),
     });
   }
@@ -77,19 +82,41 @@ export class AllExceptionsFilter implements ExceptionFilter {
     if (exception instanceof HttpException) {
       const status = exception.getStatus();
       const res = exception.getResponse();
-      const message =
-        typeof res === "string"
-          ? res
-          : (res as { message?: string | string[] }).message;
-      const detail = Array.isArray(message)
-        ? message.join("; ")
-        : (message ?? exception.message);
+
+      let detail: string;
+      let validationErrors:
+        | { fieldErrors: Record<string, string[]>; formErrors: string[] }
+        | undefined;
+      let code = HttpStatus[status] ?? "HTTP_ERROR";
+
+      if (typeof res === "string") {
+        detail = res;
+      } else {
+        const responseObj = res as {
+          message?: string | string[];
+          errors?: {
+            fieldErrors: Record<string, string[]>;
+            formErrors: string[];
+          };
+        };
+        const message = responseObj.message;
+        detail = Array.isArray(message)
+          ? message.join("; ")
+          : (message ?? exception.message);
+        validationErrors = responseObj.errors;
+
+        // Use a dedicated code for Zod validation failures
+        if (validationErrors) {
+          code = "VALIDATION_ERROR";
+        }
+      }
 
       return {
         status,
-        code: HttpStatus[status] ?? "HTTP_ERROR",
+        code,
         title: exception.name,
         detail,
+        ...(validationErrors ? { errors: validationErrors } : {}),
       };
     }
 

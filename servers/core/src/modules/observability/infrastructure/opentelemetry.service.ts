@@ -17,16 +17,41 @@ export class OpenTelemetryService implements OnApplicationShutdown {
   private readonly isEnabled: boolean;
   private readonly endpoint: string;
   private readonly serviceName: string;
+  private readonly headers?: Record<string, string>;
+
+  private parseHeaders(
+    headersStr?: string,
+  ): Record<string, string> | undefined {
+    if (!headersStr) return undefined;
+
+    const headers: Record<string, string> = {};
+    const pairs = headersStr.split(",").map((p) => p.trim());
+
+    for (const pair of pairs) {
+      const equalIndex = pair.indexOf("=");
+      if (equalIndex > 0) {
+        const key = pair.slice(0, equalIndex);
+        const value = pair.slice(equalIndex + 1);
+        headers[key] = value;
+      }
+    }
+
+    return Object.keys(headers).length > 0 ? headers : undefined;
+  }
 
   constructor(private readonly configService: ConfigService<AppConfig, true>) {
     this.isEnabled =
       this.configService.get("OTEL_ENABLED", { infer: true }) ?? false;
     this.endpoint =
       this.configService.get("OTEL_EXPORTER_OTLP_ENDPOINT", { infer: true }) ??
-      "http://localhost:4318/v1/traces";
+      "";
     this.serviceName =
       this.configService.get("OTEL_SERVICE_NAME", { infer: true }) ??
-      "tagaroa-core";
+      "core-service";
+    const headersStr = this.configService.get("OTEL_EXPORTER_OTLP_HEADERS", {
+      infer: true,
+    }) as string | undefined;
+    this.headers = this.parseHeaders(headersStr);
   }
 
   async initialize(): Promise<void> {
@@ -41,6 +66,7 @@ export class OpenTelemetryService implements OnApplicationShutdown {
 
     const traceExporter = new OTLPTraceExporter({
       url: this.endpoint,
+      headers: this.headers,
     });
 
     this.sdk = new NodeSDK({
