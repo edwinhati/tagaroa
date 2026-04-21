@@ -12,10 +12,10 @@ const UpdateTransactionSchema = z
     notes: z.string().optional(),
     files: z.array(z.string()).optional(),
     account_id: z.uuid().optional(),
-    budget_item_id: z
-      .uuid()
-      .nullish()
-      .transform((v) => v ?? undefined),
+    budget_item_id: z.preprocess(
+      (val) => (val === "" ? null : val),
+      z.uuid().nullable().optional(),
+    ),
   })
   .transform(({ account_id, budget_item_id, ...rest }) => ({
     ...rest,

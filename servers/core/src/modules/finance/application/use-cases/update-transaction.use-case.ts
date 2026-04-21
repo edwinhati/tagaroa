@@ -26,7 +26,6 @@ import {
 } from "../../domain/repositories/transaction.repository.interface";
 import type { UpdateTransactionDto } from "../dtos/update-transaction.dto";
 import { UnitOfWork } from "../services/unit-of-work.service";
-import { normalizeBudgetItemId } from "../utils/transaction-budget-item.util";
 import { normalizeTransactionDate } from "../utils/transaction-date.util";
 
 @Injectable()
@@ -51,7 +50,6 @@ export class UpdateTransactionUseCase {
   ): Promise<Transaction> {
     const { updatedTransaction, existing } = await this.unitOfWork.execute(
       async () => {
-        const budgetItemId = normalizeBudgetItemId(dto.budgetItemId);
         const existing = await this.transactionRepository.findById(id);
 
         if (!existing) {
@@ -64,7 +62,7 @@ export class UpdateTransactionUseCase {
         await this.validateAccountChange(userId, dto, existing.accountId);
         await this.validateBudgetItemChange(
           userId,
-          budgetItemId,
+          dto.budgetItemId,
           existing.budgetItemId,
         );
 
@@ -78,7 +76,9 @@ export class UpdateTransactionUseCase {
           dto.files ?? existing.files,
           existing.userId,
           dto.accountId ?? existing.accountId,
-          budgetItemId ?? existing.budgetItemId,
+          dto.budgetItemId !== undefined
+            ? dto.budgetItemId
+            : existing.budgetItemId,
           existing.deletedAt,
           existing.createdAt,
           new Date(),
@@ -128,12 +128,12 @@ export class UpdateTransactionUseCase {
 
   private async validateBudgetItemChange(
     userId: string,
-    budgetItemId: string | undefined,
+    budgetItemId: string | null | undefined,
     existingBudgetItemId: string | null | undefined,
   ): Promise<void> {
     if (budgetItemId === undefined || budgetItemId === existingBudgetItemId)
       return;
-    if (!budgetItemId) return;
+    if (!budgetItemId) return; // null or empty (though DTO handles empty)
 
     const budgetItem = await this.budgetItemRepository.findById(budgetItemId);
     if (!budgetItem) {

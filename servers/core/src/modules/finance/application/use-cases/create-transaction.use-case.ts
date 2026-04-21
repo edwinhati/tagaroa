@@ -29,7 +29,6 @@ import {
 import type { Currency } from "../../domain/value-objects/currency";
 import type { CreateTransactionDto } from "../dtos/create-transaction.dto";
 import { UnitOfWork } from "../services/unit-of-work.service";
-import { normalizeBudgetItemId } from "../utils/transaction-budget-item.util";
 import { normalizeTransactionDate } from "../utils/transaction-date.util";
 
 @Injectable()
@@ -54,18 +53,17 @@ export class CreateTransactionUseCase {
     dto: CreateTransactionDto,
   ): Promise<Transaction> {
     const createdTransaction = await this.unitOfWork.execute(async () => {
-      const budgetItemId = normalizeBudgetItemId(dto.budgetItemId);
-
       const account = await this.accountRepository.findById(dto.accountId);
       if (account?.userId !== userId) {
         throw new AccountNotFoundException(dto.accountId);
       }
 
-      if (budgetItemId) {
-        const budgetItem =
-          await this.budgetItemRepository.findById(budgetItemId);
+      if (dto.budgetItemId) {
+        const budgetItem = await this.budgetItemRepository.findById(
+          dto.budgetItemId,
+        );
         if (!budgetItem) {
-          throw new BudgetItemNotFoundException(budgetItemId);
+          throw new BudgetItemNotFoundException(dto.budgetItemId);
         }
 
         const budget = await this.budgetRepository.findById(
@@ -96,7 +94,7 @@ export class CreateTransactionUseCase {
         dto.files ?? null,
         userId,
         dto.accountId,
-        budgetItemId ?? null,
+        dto.budgetItemId ?? null,
         null,
         new Date(),
         new Date(),

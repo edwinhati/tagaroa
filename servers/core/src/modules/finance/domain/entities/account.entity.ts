@@ -123,7 +123,7 @@ export class Account {
       this.deletedAt,
       this.createdAt,
       new Date(),
-      this.version + 1,
+      this.version,
     );
   }
 }

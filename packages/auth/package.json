@@ -13,6 +13,7 @@
     "@better-auth/infra": "^0.2.4",
     "better-auth": "^1.6.5",
     "drizzle-orm": "^0.45.2",
+    "ioredis": "^5.4.2",
     "zod": "^4.3.6"
   },
   "devDependencies": {

@@ -2,13 +2,17 @@
 "core-service": patch
 ---
 
-Refactor Zod schema definitions to replace `z.nativeEnum()` with `z.enum()`, update UUID validation to use `z.uuid()`, and adopt the new `z.flattenError(result.error)` standard. These changes resolve multiple deprecation warnings and TypeScript type inference bugs resulting from the migration to Zod v4.
+Refactor Zod schema definitions to replace `z.nativeEnum()` with `z.enum()`, update UUID validation to use `z.uuid()`, and adopt the new `z.flattenError(result.error)` standard.
 
-Fix Zod v4 deprecation warnings:
-- Replaced `z.nativeEnum()` with `z.enum()` for domain value objects
-- Replaced `z.string().uuid()` with `z.uuid()` in DTOs
-- Updated `ZodValidationPipe` to use Zod v4 `z.flattenError` and improved error typing
+Fixed `ConcurrentModificationException` in Account balance updates:
+- Removed redundant version increment in `Account` domain entity. The repository now handles atomic version increments in the database, preventing false-positive optimistic locking conflicts.
+- Fixed a bug in `AccountBalanceEventHandler` where account-specific locks were never cleared from memory due to an incorrect promise comparison in the cleanup logic.
 
-Fixed `ConcurrentModificationException` in overlapping asynchronous Account balance updates:
-- Replaced the retry-with-jitter approach with a per-account promise-chain lock in `AccountBalanceEventHandler`. Concurrent updates for the same account are now serialized, making version conflicts in the Drizzle repository structurally impossible.
-- Fixed account balances not updating by moving `eventEmitter.emit` calls outside `unitOfWork` transactions in `CreateTransactionUseCase`, `UpdateTransactionUseCase`, and `DeleteTransactionUseCase`, ensuring event handlers read the committed account row version.
+Fixed transaction validation and budget item management:
+- Updated `CreateTransactionDto` and `UpdateTransactionDto` to handle empty strings for `budget_item_id` by converting them to `null` via `z.preprocess`.
+- Enhanced `UpdateTransactionUseCase` to allow clearing the budget item by passing `null`, while treating `undefined` as "no change".
+- Removed redundant `normalizeBudgetItemId` utility as validation is now handled at the DTO layer.
+
+Security improvements in `@repo/auth`:
+- Added `freshAge: 1 hour` to session configuration to enforce re-authentication for sensitive operations (like account deletion or critical financial changes) while maintaining a 7-day session for general use.
+

@@ -22,14 +22,10 @@ const CreateTransactionSchema = z
     notes: z.string().optional(),
     files: z.array(z.string()).optional(),
     account_id: z.uuid(),
-    budget_item_id: z
-      .string()
-      .trim()
-      .optional()
-      .refine((v) => !v || z.uuid().safeParse(v).success, {
-        message: "Invalid UUID format",
-      })
-      .transform((v) => (v === "" ? undefined : v)),
+    budget_item_id: z.preprocess(
+      (val) => (val === "" ? null : val),
+      z.uuid().nullable().optional(),
+    ),
     installment: InstallmentSchema,
   })
   .transform(({ account_id, budget_item_id, ...rest }) => {
