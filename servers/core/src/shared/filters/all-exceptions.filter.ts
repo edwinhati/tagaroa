@@ -83,7 +83,7 @@ export class AllExceptionsFilter implements ExceptionFilter {
       const status = exception.getStatus();
       const res = exception.getResponse();
 
-      let detail = "An error occurred";
+      let detail: string;
       let validationErrors:
         | { fieldErrors: Record<string, string[]>; formErrors: string[] }
         | undefined;

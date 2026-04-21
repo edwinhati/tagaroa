@@ -76,9 +76,9 @@ export class UpdateTransactionUseCase {
           dto.files ?? existing.files,
           existing.userId,
           dto.accountId ?? existing.accountId,
-          dto.budgetItemId !== undefined
-            ? dto.budgetItemId
-            : existing.budgetItemId,
+          dto.budgetItemId === undefined
+            ? existing.budgetItemId
+            : dto.budgetItemId,
           existing.deletedAt,
           existing.createdAt,
           new Date(),
