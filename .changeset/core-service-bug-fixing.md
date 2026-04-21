@@ -18,5 +18,9 @@ Security improvements in `@repo/auth`:
 
 Fixed frontend account balance and dashboard stale data:
 - Updated transaction mutation hooks in `packages/common` to invalidate `accounts`, `budgets`, and all dashboard-related query keys (`dashboard-summary`, `account-aggregations`, etc.) when a transaction is modified. This ensures the UI reflects balance and progress changes immediately without a manual refresh.
-- Updated account and budget mutation hooks to consistently invalidate dashboard aggregations.
+Update transaction and account mutation hooks to consistently invalidate dashboard aggregations.
+
+Fixed GitHub Actions workflows:
+- Enabled `build` and `test` jobs to run on `pull_request` events in both `Staging` and `Development` pipelines. Previously, these jobs only ran on `push` events, causing CI to skip for Pull Requests.
+
 
