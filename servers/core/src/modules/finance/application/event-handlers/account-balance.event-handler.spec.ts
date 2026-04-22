@@ -156,7 +156,7 @@ describe("AccountBalanceEventHandler", () => {
       newAmount: 100,
       previousType: "INCOME",
       newType: "INCOME",
-    } as any);
+    } as unknown as Parameters<AccountBalanceEventHandler["handleUpdated"]>[0]);
 
     expect(accountRepo.update).not.toHaveBeenCalled();
   });
@@ -212,7 +212,7 @@ describe("AccountBalanceEventHandler", () => {
       newAmount: 200,
       previousType: "INCOME",
       newType: "INCOME",
-    } as any);
+    } as unknown as Parameters<AccountBalanceEventHandler["handleUpdated"]>[0]);
 
     expect(accountRepo.update).toHaveBeenCalledTimes(2);
 

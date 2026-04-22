@@ -1,16 +1,17 @@
-import { Button } from "@repo/ui/components/button";
+import * as React from "react";
 
 import { cn } from "@repo/ui/lib/utils";
+import { Button } from "@repo/ui/components/button";
 import {
   IconChevronLeft,
   IconChevronRight,
   IconDots,
 } from "@tabler/icons-react";
-import type * as React from "react";
 
 function Pagination({ className, ...props }: React.ComponentProps<"nav">) {
   return (
     <nav
+      role="navigation"
       aria-label="pagination"
       data-slot="pagination"
       className={cn("mx-auto flex w-full justify-center", className)}

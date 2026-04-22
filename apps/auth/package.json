@@ -20,7 +20,7 @@
     "@repo/ui": "*",
     "@sentry/nextjs": "10.49.0",
     "@tabler/icons-react": "^3.41.1",
-    "better-auth": "^1.6.5",
+    "better-auth": "^1.6.7",
     "next": "^16.2.4",
     "react": "^19.2.5",
     "react-dom": "^19.2.5",
@@ -34,11 +34,11 @@
     "@playwright/test": "^1.59.1",
     "@repo/playwright-config": "*",
     "@repo/typescript-config": "*",
-    "@tailwindcss/postcss": "^4.2.3",
+    "@tailwindcss/postcss": "^4.2.4",
     "@types/node": "^25.6.0",
     "@types/react": "19.2.14",
     "@types/react-dom": "19.2.3",
-    "tailwindcss": "^4.2.3",
+    "tailwindcss": "^4.2.4",
     "typescript": "^6.0.3"
   }
 }
