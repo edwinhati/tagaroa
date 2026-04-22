@@ -409,7 +409,7 @@ export function TransactionDataTable() {
 function TransactionDataTableContent() {
   const [pagination, setPagination] = useState<PaginationState>({
     pageIndex: 0,
-    pageSize: 5,
+    pageSize: 10,
   });
   const [searchQuery, setSearchQuery] = useState<string>("");
   const debouncedSearchQuery = useDebounce(searchQuery, 300);
@@ -666,7 +666,7 @@ function TransactionDataTableContent() {
 
       <DataTablePagination
         table={table}
-        pageSizeOptions={[5, 10, 25, 50]}
+        pageSizeOptions={[10, 25, 50, 100]}
         serverSidePagination={
           paginationInfo
             ? {

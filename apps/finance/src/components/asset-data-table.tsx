@@ -163,7 +163,7 @@ const multiColumnFilterFn: FilterFn<Asset> = (row, filterValue) => {
 function AssetDataTableContent() {
   const [pagination, setPagination] = useState<PaginationState>({
     pageIndex: 0,
-    pageSize: 5,
+    pageSize: 10,
   });
   const [searchQuery, setSearchQuery] = useState<string>("");
   const [typeFilter, setTypeFilter] = useState<string[]>([]);
@@ -510,7 +510,7 @@ function AssetDataTableContent() {
 
       <DataTablePagination
         table={table}
-        pageSizeOptions={[5, 10, 25, 50]}
+        pageSizeOptions={[10, 25, 50, 100]}
         serverSidePagination={
           paginationInfo
             ? {

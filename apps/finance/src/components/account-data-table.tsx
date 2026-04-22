@@ -199,7 +199,7 @@ function AccountDataTableContent() {
 
   const [pagination, setPagination] = useState<PaginationState>({
     pageIndex: 0,
-    pageSize: 5,
+    pageSize: 10,
   });
   const [serverFilters, setServerFilters] = useState<Record<string, string[]>>(
     {},
@@ -538,7 +538,7 @@ function AccountDataTableContent() {
       {/* Pagination */}
       <DataTablePagination
         table={table}
-        pageSizeOptions={[5, 10, 25, 50]}
+        pageSizeOptions={[10, 25, 50, 100]}
         serverSidePagination={
           paginationInfo
             ? {

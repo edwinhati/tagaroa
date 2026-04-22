@@ -690,7 +690,7 @@ export function UserDataTable() {
       {/* Pagination */}
       <DataTablePagination
         table={table}
-        pageSizeOptions={[5, 10, 25, 50]}
+        pageSizeOptions={[10, 25, 50, 100]}
         serverSidePagination={{
           total: total,
           page: pagination.pageIndex + 1,
