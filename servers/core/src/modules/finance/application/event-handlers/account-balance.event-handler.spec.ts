@@ -124,4 +124,106 @@ describe("AccountBalanceEventHandler", () => {
     expect(locks.has(accountId)).toBe(false);
     expect(accountRepo.update).toHaveBeenCalledTimes(2);
   });
+
+  it("should not adjust balance if relevant fields (account, amount, type) have not changed", async () => {
+    const accountId = "acc-1";
+    const account = new Account(
+      accountId,
+      "Test",
+      "BANK",
+      "ASSET" as AccountCategory,
+      1000,
+      "user-1",
+      "USD",
+      null,
+      null,
+      null,
+      new Date(),
+      new Date(),
+      1,
+    );
+
+    accountRepo.findById.mockResolvedValue(account);
+    accountRepo.update.mockResolvedValue(account);
+
+    // Call handleUpdated with no changes to balance-affecting fields
+    await handler.handleUpdated({
+      transactionId: "tx-1",
+      userId: "user-1",
+      previousAccountId: accountId,
+      newAccountId: accountId,
+      previousAmount: 100,
+      newAmount: 100,
+      previousType: "INCOME",
+      newType: "INCOME",
+    } as any);
+
+    expect(accountRepo.update).not.toHaveBeenCalled();
+  });
+
+  it("should adjust balance when relevant fields change", async () => {
+    const oldAccountId = "acc-1";
+    const newAccountId = "acc-2";
+    const oldAccount = new Account(
+      oldAccountId,
+      "Old",
+      "BANK",
+      "ASSET" as AccountCategory,
+      1000,
+      "user-1",
+      "USD",
+      null,
+      null,
+      null,
+      new Date(),
+      new Date(),
+      1,
+    );
+    const newAccount = new Account(
+      newAccountId,
+      "New",
+      "BANK",
+      "ASSET" as AccountCategory,
+      2000,
+      "user-1",
+      "USD",
+      null,
+      null,
+      null,
+      new Date(),
+      new Date(),
+      1,
+    );
+
+    accountRepo.findById.mockImplementation((id: string) => {
+      if (id === oldAccountId) return Promise.resolve(oldAccount);
+      if (id === newAccountId) return Promise.resolve(newAccount);
+      return Promise.resolve(null);
+    });
+    accountRepo.update.mockResolvedValue(oldAccount);
+
+    // Call handleUpdated with account change
+    await handler.handleUpdated({
+      transactionId: "tx-1",
+      userId: "user-1",
+      previousAccountId: oldAccountId,
+      newAccountId: newAccountId,
+      previousAmount: 100,
+      newAmount: 200,
+      previousType: "INCOME",
+      newType: "INCOME",
+    } as any);
+
+    expect(accountRepo.update).toHaveBeenCalledTimes(2);
+
+    // Verify first call: reverse old income (1000 - 100 = 900)
+    const firstUpdate = accountRepo.update.mock.calls[0][0];
+    expect(firstUpdate.id).toBe(oldAccountId);
+    expect(firstUpdate.balance).toBe(900);
+
+    // Verify second call: apply new income (2000 + 200 = 2200)
+    const secondUpdate = accountRepo.update.mock.calls[1][0];
+    expect(secondUpdate.id).toBe(newAccountId);
+    expect(secondUpdate.balance).toBe(2200);
+  });
 });

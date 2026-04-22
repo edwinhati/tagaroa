@@ -36,19 +36,20 @@ export class AccountBalanceEventHandler {
   @OnEvent("transaction.updated")
   async handleUpdated(event: TransactionUpdatedEvent): Promise<void> {
     try {
-      // Reverse old effect
-      await this.adjustBalance(
-        event.previousAccountId,
-        event.previousAmount,
-        event.previousType,
-        false,
-      );
-      // Apply new effect (only if account changed or amount/type changed)
+      // Apply changes only if balance-affecting fields changed
       if (
         event.previousAccountId !== event.newAccountId ||
         event.previousAmount !== event.newAmount ||
         event.previousType !== event.newType
       ) {
+        // Reverse old effect
+        await this.adjustBalance(
+          event.previousAccountId,
+          event.previousAmount,
+          event.previousType,
+          false,
+        );
+        // Apply new effect
         await this.adjustBalance(
           event.newAccountId,
           event.newAmount,
