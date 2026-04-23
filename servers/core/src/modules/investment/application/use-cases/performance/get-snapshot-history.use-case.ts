@@ -1,12 +1,12 @@
 import { Inject, Injectable } from "@nestjs/common";
 import {
+  type IPortfolioSnapshotRepository,
+  PORTFOLIO_SNAPSHOT_REPOSITORY,
+} from "../../../../snapshot/domain/repositories/portfolio-snapshot.repository.interface";
+import {
   PortfolioAccessDeniedException,
   PortfolioNotFoundException,
 } from "../../../domain/exceptions/investment.exceptions";
-import {
-  type IPortfolioSnapshotRepository,
-  PORTFOLIO_SNAPSHOT_REPOSITORY,
-} from "../../../domain/performance/repositories/snapshot.repository.interface";
 import {
   type IPortfolioRepository,
   PORTFOLIO_REPOSITORY,
@@ -53,7 +53,6 @@ export class GetSnapshotHistoryUseCase {
 
     if (snapshots.length === 0) return [];
 
-    // Compute running drawdown from peak
     let peakNav = snapshots[0]?.nav ?? 0;
     return snapshots.map((s) => {
       if (s.nav > peakNav) peakNav = s.nav;

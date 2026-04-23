@@ -1,5 +1,6 @@
 import { Module } from "@nestjs/common";
 import { ScheduleModule } from "@nestjs/schedule";
+import { SnapshotModule } from "../snapshot/snapshot.module";
 import { GetCorrelationMatrixUseCase } from "./application/use-cases/analytics/get-correlation-matrix.use-case";
 import { DeleteInstrumentUseCase } from "./application/use-cases/market-data/delete-instrument.use-case";
 import { GetInstrumentMetadataUseCase } from "./application/use-cases/market-data/get-instrument-metadata.use-case";
@@ -31,7 +32,6 @@ import { UpdatePortfolioUseCase } from "./application/use-cases/portfolio/update
 import { MARKET_DATA_PROVIDER } from "./domain/market-data/interfaces/market-data-provider.interface";
 import { INSTRUMENT_REPOSITORY } from "./domain/market-data/repositories/instrument.repository.interface";
 import { OHLCV_REPOSITORY } from "./domain/market-data/repositories/ohlcv.repository.interface";
-import { PORTFOLIO_SNAPSHOT_REPOSITORY } from "./domain/performance/repositories/snapshot.repository.interface";
 import { CASH_FLOW_REPOSITORY } from "./domain/portfolio/repositories/cash-flow.repository.interface";
 import { PORTFOLIO_REPOSITORY } from "./domain/portfolio/repositories/portfolio.repository.interface";
 import { POSITION_REPOSITORY } from "./domain/portfolio/repositories/position.repository.interface";
@@ -44,20 +44,19 @@ import { DrizzleInstrumentRepository } from "./infrastructure/persistence/drizzl
 import { DrizzleOhlcvRepository } from "./infrastructure/persistence/drizzle/repositories/drizzle-ohlcv.repository";
 import { DrizzlePortfolioRepository } from "./infrastructure/persistence/drizzle/repositories/drizzle-portfolio.repository";
 import { DrizzlePositionRepository } from "./infrastructure/persistence/drizzle/repositories/drizzle-position.repository";
-import { DrizzleSnapshotRepository } from "./infrastructure/persistence/drizzle/repositories/drizzle-snapshot.repository";
 import { DrizzleTradeRepository } from "./infrastructure/persistence/drizzle/repositories/drizzle-trade.repository";
 import { PortfolioSnapshotScheduler } from "./infrastructure/scheduler/portfolio-snapshot.scheduler";
-import { AnalyticsController } from "./presentation/http/controllers/analytics.controller";
-import { CashFlowController } from "./presentation/http/controllers/cash-flow.controller";
-import { InstrumentController } from "./presentation/http/controllers/instrument.controller";
-import { OhlcvController } from "./presentation/http/controllers/ohlcv.controller";
-import { PerformanceController } from "./presentation/http/controllers/performance.controller";
-import { PortfolioController } from "./presentation/http/controllers/portfolio.controller";
-import { PositionController } from "./presentation/http/controllers/position.controller";
-import { TradeController } from "./presentation/http/controllers/trade.controller";
+import { AnalyticsController } from "./presentation/http/analytics.controller";
+import { CashFlowController } from "./presentation/http/cash-flow.controller";
+import { InstrumentController } from "./presentation/http/instrument.controller";
+import { OhlcvController } from "./presentation/http/ohlcv.controller";
+import { PerformanceController } from "./presentation/http/performance.controller";
+import { PortfolioController } from "./presentation/http/portfolio.controller";
+import { PositionController } from "./presentation/http/position.controller";
+import { TradeController } from "./presentation/http/trade.controller";
 
 @Module({
-  imports: [ScheduleModule.forRoot()],
+  imports: [ScheduleModule.forRoot(), SnapshotModule],
   controllers: [
     InstrumentController,
     OhlcvController,
@@ -85,10 +84,6 @@ import { TradeController } from "./presentation/http/controllers/trade.controlle
     {
       provide: POSITION_REPOSITORY,
       useClass: DrizzlePositionRepository,
-    },
-    {
-      provide: PORTFOLIO_SNAPSHOT_REPOSITORY,
-      useClass: DrizzleSnapshotRepository,
     },
     {
       provide: TRADE_REPOSITORY,

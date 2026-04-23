@@ -3,11 +3,11 @@ import {
   type ITransactionRepository,
   TRANSACTION_REPOSITORY,
 } from "../../domain/repositories/transaction.repository.interface";
-import type { GetTransactionTrendsDto } from "../dtos/dashboard/get-transaction-trends.dto";
+import type { GetTransactionTrendsDto } from "../dtos/get-transaction-trends.dto";
 import type {
   TransactionTrendItemDto,
   TransactionTrendsResponseDto,
-} from "../dtos/dashboard/transaction-trends-response.dto";
+} from "../dtos/transaction-trends-response.dto";
 
 @Injectable()
 export class GetTransactionTrendsUseCase {

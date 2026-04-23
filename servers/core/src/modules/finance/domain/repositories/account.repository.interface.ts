@@ -37,6 +37,7 @@ export interface IAccountRepository {
     userId: string,
     filters?: Omit<AccountFilterParams, "categories">,
   ): Promise<CategoryAggregationResult[]>;
+  findAllActiveUserIds(): Promise<string[]>;
   create(account: Account): Promise<Account>;
   update(account: Account): Promise<Account>;
   delete(id: string): Promise<void>;

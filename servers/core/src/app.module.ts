@@ -12,9 +12,9 @@ import { FinanceModule } from "./modules/finance/finance.module";
 import { HealthModule } from "./modules/health/health.module";
 import { InvestmentModule } from "./modules/investment/investment.module";
 import { ObservabilityModule } from "./modules/observability/observability.module";
+import { SnapshotModule } from "./modules/snapshot/snapshot.module";
 import { StorageModule } from "./modules/storage/storage.module";
 import { envSchema } from "./shared/config/env.validation";
-import { DebugController } from "./shared/controllers/debug.controller";
 import { DatabaseModule } from "./shared/database/database.module";
 import { AllExceptionsFilter } from "./shared/filters/all-exceptions.filter";
 import { DevelopmentGuard } from "./shared/guards/development.guard";
@@ -38,12 +38,12 @@ import { RequestIdMiddleware } from "./shared/middleware/request-id.middleware";
     AuthModule,
     FinanceModule,
     InvestmentModule,
+    SnapshotModule,
     StorageModule,
     HealthModule,
     SentryModule.forRoot(),
     ObservabilityModule,
   ],
-  controllers: [DebugController],
   providers: [
     DevelopmentGuard,
     {

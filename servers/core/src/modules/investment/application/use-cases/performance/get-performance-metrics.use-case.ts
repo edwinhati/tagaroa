@@ -1,13 +1,13 @@
 import { Inject, Injectable } from "@nestjs/common";
 import {
+  type IPortfolioSnapshotRepository,
+  PORTFOLIO_SNAPSHOT_REPOSITORY,
+} from "../../../../snapshot/domain/repositories/portfolio-snapshot.repository.interface";
+import {
   PortfolioAccessDeniedException,
   PortfolioNotFoundException,
 } from "../../../domain/exceptions/investment.exceptions";
 import { PerformanceMetrics } from "../../../domain/performance/entities/performance-metrics.entity";
-import {
-  type IPortfolioSnapshotRepository,
-  PORTFOLIO_SNAPSHOT_REPOSITORY,
-} from "../../../domain/performance/repositories/snapshot.repository.interface";
 import type { CashFlow } from "../../../domain/portfolio/entities/cash-flow.entity";
 import {
   CASH_FLOW_REPOSITORY,

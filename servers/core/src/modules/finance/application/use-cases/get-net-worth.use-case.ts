@@ -1,5 +1,9 @@
 import { Inject, Injectable } from "@nestjs/common";
 import {
+  type INetWorthSnapshotRepository,
+  NET_WORTH_SNAPSHOT_REPOSITORY,
+} from "../../../snapshot/domain/repositories/net-worth-snapshot.repository.interface";
+import {
   ASSET_REPOSITORY,
   type IAssetRepository,
 } from "../../domain/repositories/asset.repository.interface";
@@ -7,15 +11,11 @@ import {
   type ILiabilityRepository,
   LIABILITY_REPOSITORY,
 } from "../../domain/repositories/liability.repository.interface";
-import {
-  type INetWorthSnapshotRepository,
-  NET_WORTH_SNAPSHOT_REPOSITORY,
-} from "../../domain/repositories/net-worth-snapshot.repository.interface";
-import type { GetNetWorthDto } from "../dtos/dashboard/get-net-worth.dto";
+import type { GetNetWorthDto } from "../dtos/get-net-worth.dto";
 import type {
   NetWorthResponseDto,
   NetWorthSnapshotDto,
-} from "../dtos/dashboard/net-worth-response.dto";
+} from "../dtos/net-worth-response.dto";
 
 @Injectable()
 export class GetNetWorthUseCase {
@@ -34,7 +34,6 @@ export class GetNetWorthUseCase {
   ): Promise<NetWorthResponseDto> {
     const currency = dto.currency || "IDR";
 
-    // Calculate current net worth
     const [totalAssets, totalLiabilities] = await Promise.all([
       this.assetRepository.getTotalValue(userId, currency),
       this.liabilityRepository.getTotalAmount(userId, currency),
@@ -42,7 +41,6 @@ export class GetNetWorthUseCase {
 
     const currentNetWorth = totalAssets - totalLiabilities;
 
-    // Fetch historical snapshots if date range provided
     let snapshots: NetWorthSnapshotDto[] = [];
     if (dto.start_date && dto.end_date) {
       const startDate = new Date(dto.start_date);
