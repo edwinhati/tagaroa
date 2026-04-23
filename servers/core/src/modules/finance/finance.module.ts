@@ -3,8 +3,6 @@ import { EcbRatesProvider } from "../investment/infrastructure/market-data-provi
 import { SnapshotModule } from "../snapshot/snapshot.module";
 import { AccountBalanceEventHandler } from "./application/event-handlers/account-balance.event-handler";
 import { BudgetItemSpentEventHandler } from "./application/event-handlers/budget-item-spent.event-handler";
-import { ExchangeRateService } from "./application/services/exchange-rate.service";
-import { EXCHANGE_RATE_SERVICE } from "./application/services/exchange-rate.service.token";
 import { UnitOfWork } from "./application/services/unit-of-work.service";
 import { CreateAccountUseCase } from "./application/use-cases/create-account.use-case";
 import { CreateAssetUseCase } from "./application/use-cases/create-asset.use-case";
@@ -47,6 +45,8 @@ import { BUDGET_REPOSITORY } from "./domain/repositories/budget.repository.inter
 import { BUDGET_ITEM_REPOSITORY } from "./domain/repositories/budget-item.repository.interface";
 import { LIABILITY_REPOSITORY } from "./domain/repositories/liability.repository.interface";
 import { TRANSACTION_REPOSITORY } from "./domain/repositories/transaction.repository.interface";
+import { EXCHANGE_RATE_SERVICE } from "./domain/services/exchange-rate.service.interface";
+import { EcbExchangeRateService } from "./infrastructure/exchange-rate/ecb-exchange-rate.service";
 import { DrizzleAccountRepository } from "./infrastructure/persistence/drizzle/repositories/drizzle-account.repository";
 import { DrizzleAssetRepository } from "./infrastructure/persistence/drizzle/repositories/drizzle-asset.repository";
 import { DrizzleBudgetRepository } from "./infrastructure/persistence/drizzle/repositories/drizzle-budget.repository";
@@ -136,7 +136,7 @@ import { TransactionController } from "./presentation/http/transaction.controlle
     EcbRatesProvider,
     {
       provide: EXCHANGE_RATE_SERVICE,
-      useClass: ExchangeRateService,
+      useClass: EcbExchangeRateService,
     },
     CreateNetWorthSnapshotUseCase,
     NetWorthSnapshotScheduler,

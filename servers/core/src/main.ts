@@ -6,7 +6,7 @@ import { DocumentBuilder, SwaggerModule } from "@nestjs/swagger";
 import { apiReference } from "@scalar/nestjs-api-reference";
 import helmet from "helmet";
 import { AppModule } from "./app.module";
-import { auth } from "./modules/auth/auth";
+import { auth } from "./modules/auth/auth-instance";
 import { FinanceModule } from "./modules/finance/finance.module";
 import { OpenTelemetryService } from "./modules/observability/infrastructure/opentelemetry.service";
 import { StorageModule } from "./modules/storage/storage.module";

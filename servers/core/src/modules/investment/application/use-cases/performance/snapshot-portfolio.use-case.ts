@@ -1,10 +1,10 @@
 import { Inject, Injectable } from "@nestjs/common";
 import { EventEmitter2 } from "@nestjs/event-emitter";
+import { PortfolioSnapshot } from "../../../../snapshot/domain/entities/portfolio-snapshot.entity";
 import {
   PortfolioAccessDeniedException,
   PortfolioNotFoundException,
 } from "../../../domain/exceptions/investment.exceptions";
-import { PortfolioSnapshot } from "../../../domain/performance/entities/portfolio-snapshot.entity";
 import {
   type IPortfolioRepository,
   PORTFOLIO_REPOSITORY,
@@ -57,6 +57,7 @@ export class SnapshotPortfolioUseCase {
     const snapshot = new PortfolioSnapshot(
       crypto.randomUUID(),
       portfolioId,
+      userId,
       now,
       nav,
       cash,
@@ -67,7 +68,7 @@ export class SnapshotPortfolioUseCase {
 
     this.eventEmitter.emit(
       "snapshot.created",
-      snapshot.toEvent(portfolio.userId, portfolio.currency),
+      snapshot.toEvent(portfolio.currency),
     );
 
     return snapshot;

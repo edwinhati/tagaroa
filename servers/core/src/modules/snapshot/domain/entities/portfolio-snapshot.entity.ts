@@ -10,4 +10,19 @@ export class PortfolioSnapshot {
     public readonly createdAt: Date,
     public readonly version: number,
   ) {}
+
+  toEvent(currency: string): any {
+    return {
+      type: "portfolio",
+      userId: this.userId,
+      sourceId: this.portfolioId,
+      snapshotDate: this.timestamp,
+      baseCurrency: currency,
+      nav: this.nav,
+      cash: this.cash,
+      positions: this.positionsSnapshot
+        ? Object.values(this.positionsSnapshot)
+        : [],
+    };
+  }
 }

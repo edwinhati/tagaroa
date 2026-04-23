@@ -1,6 +1,6 @@
 import { Module, Provider } from "@nestjs/common";
-import { MonitoringService } from "./application/monitoring.service";
-import { MONITORING_SERVICE } from "./domain/monitoring-service.interface";
+import { MonitoringService } from "./application/services/monitoring.service";
+import { MONITORING_SERVICE } from "./domain/services/monitoring-service.interface";
 import { OpenTelemetryService } from "./infrastructure/opentelemetry.service";
 import { SentryMonitoringService } from "./infrastructure/sentry-monitoring.service";
 import { SentryTestController } from "./presentation/http/sentry-test.controller";

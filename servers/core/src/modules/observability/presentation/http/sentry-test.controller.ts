@@ -2,7 +2,7 @@ import { Controller, Get, UseGuards } from "@nestjs/common";
 import * as Sentry from "@sentry/nestjs";
 import { AllowAnonymous } from "@thallesp/nestjs-better-auth";
 import { DevelopmentGuard } from "../../../../shared/guards/development.guard";
-import { MonitoringService } from "../../application/monitoring.service";
+import { MonitoringService } from "../../application/services/monitoring.service";
 
 @Controller("sentry-test")
 @AllowAnonymous()

@@ -1,6 +1,6 @@
 import { Inject, Injectable } from "@nestjs/common";
-import type { IMonitoringService } from "../domain/monitoring-service.interface";
-import { MONITORING_SERVICE } from "../domain/monitoring-service.interface";
+import type { IMonitoringService } from "../../domain/services/monitoring-service.interface";
+import { MONITORING_SERVICE } from "../../domain/services/monitoring-service.interface";
 
 @Injectable()
 export class MonitoringService {

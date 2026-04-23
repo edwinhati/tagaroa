@@ -1,7 +1,7 @@
 import { Global, Module, type OnModuleDestroy } from "@nestjs/common";
 import type { BunSQLDatabase } from "drizzle-orm/bun-sql";
-import { getDatabase } from "../client/drizzle";
 import { DRIZZLE } from "./database.constants";
+import { getDatabase } from "./drizzle-client";
 
 @Global()
 @Module({

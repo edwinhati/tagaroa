@@ -6,7 +6,7 @@ import {
   type FxRatesUsed,
   type LiabilitiesBreakdown,
   NetWorthSnapshot,
-} from "../../domain/entities/net-worth-snapshot.entity";
+} from "../../../snapshot/domain/entities/net-worth-snapshot.entity";
 import {
   ACCOUNT_REPOSITORY,
   type IAccountRepository,
@@ -19,11 +19,13 @@ import {
   type ILiabilityRepository,
   LIABILITY_REPOSITORY,
 } from "../../domain/repositories/liability.repository.interface";
+import {
+  EXCHANGE_RATE_SERVICE,
+  type IExchangeRateService,
+} from "../../domain/services/exchange-rate.service.interface";
 import { AssetType } from "../../domain/value-objects/asset-type";
 import type { Currency } from "../../domain/value-objects/currency";
 import { LiabilityType } from "../../domain/value-objects/liability-type";
-import type { ExchangeRateService } from "../services/exchange-rate.service";
-import { EXCHANGE_RATE_SERVICE } from "../services/exchange-rate.service.token";
 
 export interface CreateNetWorthSnapshotDto {
   userId: string;
@@ -44,7 +46,7 @@ export class CreateNetWorthSnapshotUseCase {
     @Inject(LIABILITY_REPOSITORY)
     private readonly liabilityRepository: ILiabilityRepository,
     @Inject(EXCHANGE_RATE_SERVICE)
-    private readonly exchangeRateService: ExchangeRateService,
+    private readonly exchangeRateService: IExchangeRateService,
     private readonly eventEmitter: EventEmitter2,
   ) {}
 

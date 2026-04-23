@@ -1,1 +1,0 @@
-export const EXCHANGE_RATE_SERVICE = Symbol("EXCHANGE_RATE_SERVICE");
