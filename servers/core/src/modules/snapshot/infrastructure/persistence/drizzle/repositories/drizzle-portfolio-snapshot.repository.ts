@@ -1,4 +1,4 @@
-import { and, asc, between, desc, eq } from "drizzle-orm";
+import { and, asc, between, desc, eq, isNull, lt } from "drizzle-orm";
 import { DrizzleBaseRepository } from "../../../../../../shared/database/drizzle-base.repository";
 import type { PortfolioSnapshot } from "../../../../domain/entities/portfolio-snapshot.entity";
 import type { IPortfolioSnapshotRepository } from "../../../../domain/repositories/portfolio-snapshot.repository.interface";
@@ -59,5 +59,21 @@ export class DrizzlePortfolioSnapshotRepository
       throw new Error("Failed to create portfolio snapshot");
     }
     return PortfolioSnapshotMapper.toDomain(row);
+  }
+
+  async findUnarchivedBeforeDate(date: Date): Promise<PortfolioSnapshot[]> {
+    const rows = await this.getDb()
+      .select()
+      .from(portfolio)
+      .where(and(lt(portfolio.timestamp, date), isNull(portfolio.archivedAt)))
+      .orderBy(asc(portfolio.timestamp));
+    return rows.map(PortfolioSnapshotMapper.toDomain);
+  }
+
+  async markAsArchived(id: string, s3Key: string): Promise<void> {
+    await this.getDb()
+      .update(portfolio)
+      .set({ archivedAt: new Date(), s3Key })
+      .where(eq(portfolio.id, id));
   }
 }

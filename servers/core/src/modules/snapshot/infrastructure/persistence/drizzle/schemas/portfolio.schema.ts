@@ -1,4 +1,11 @@
-import { decimal, index, jsonb, timestamp, uuid } from "drizzle-orm/pg-core";
+import {
+  decimal,
+  index,
+  jsonb,
+  timestamp,
+  uuid,
+  varchar,
+} from "drizzle-orm/pg-core";
 import { snapshotSchema } from "../schema";
 
 export const portfolio = snapshotSchema.table(
@@ -16,10 +23,13 @@ export const portfolio = snapshotSchema.table(
     version: decimal("version", { precision: 20, scale: 0 })
       .notNull()
       .default("1"),
+    archivedAt: timestamp("archived_at", { withTimezone: true }),
+    s3Key: varchar("s3_key", { length: 512 }),
   },
   (table) => [
     index("idx_portfolio_portfolio_id").on(table.portfolioId),
     index("idx_portfolio_portfolio_ts").on(table.portfolioId, table.timestamp),
     index("idx_portfolio_user_id").on(table.userId),
+    index("idx_portfolio_archived").on(table.archivedAt),
   ],
 );

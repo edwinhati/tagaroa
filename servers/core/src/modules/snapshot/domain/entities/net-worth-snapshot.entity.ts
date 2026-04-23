@@ -29,7 +29,30 @@ export class NetWorthSnapshot {
     public readonly fxRateSource: string | null,
     public readonly createdAt: Date,
     public readonly version: number,
+    public readonly archivedAt: Date | null = null,
+    public readonly s3Key: string | null = null,
   ) {}
+
+  markAsArchived(s3Key: string): NetWorthSnapshot {
+    return new NetWorthSnapshot(
+      this.id,
+      this.userId,
+      this.snapshotDate,
+      this.totalAssets,
+      this.totalLiabilities,
+      this.netWorth,
+      this.baseCurrency,
+      this.assetsBreakdown,
+      this.liabilitiesBreakdown,
+      this.fxRatesUsed,
+      this.fxRateDate,
+      this.fxRateSource,
+      this.createdAt,
+      this.version,
+      new Date(),
+      s3Key,
+    );
+  }
 
   toEvent(): {
     type: "net_worth";
@@ -43,6 +66,8 @@ export class NetWorthSnapshot {
       fxRateDate: Date;
       fxRateSource: string | null;
     };
+    archivedAt: Date | null;
+    s3Key: string | null;
   } {
     return {
       type: "net_worth",
@@ -63,6 +88,8 @@ export class NetWorthSnapshot {
         fxRateDate: this.fxRateDate,
         fxRateSource: this.fxRateSource,
       },
+      archivedAt: this.archivedAt,
+      s3Key: this.s3Key,
     };
   }
 }

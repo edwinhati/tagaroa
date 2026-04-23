@@ -13,4 +13,6 @@ export interface INetWorthSnapshotRepository {
   ): Promise<NetWorthSnapshot[]>;
   findLatestByUserId(userId: string): Promise<NetWorthSnapshot | null>;
   create(snapshot: NetWorthSnapshot): Promise<NetWorthSnapshot>;
+  findUnarchivedBeforeDate(date: Date): Promise<NetWorthSnapshot[]>;
+  markAsArchived(id: string, s3Key: string): Promise<void>;
 }

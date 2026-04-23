@@ -1,4 +1,4 @@
-import { and, asc, between, desc, eq } from "drizzle-orm";
+import { and, asc, between, desc, eq, isNull, lt } from "drizzle-orm";
 import { DrizzleBaseRepository } from "../../../../../../shared/database/drizzle-base.repository";
 import type { NetWorthSnapshot } from "../../../../domain/entities/net-worth-snapshot.entity";
 import type { INetWorthSnapshotRepository } from "../../../../domain/repositories/net-worth-snapshot.repository.interface";
@@ -62,5 +62,25 @@ export class DrizzleNetWorthSnapshotRepository
       throw new Error("Failed to create net worth snapshot");
     }
     return NetWorthSnapshotMapper.toDomain(row);
+  }
+
+  async findUnarchivedBeforeDate(date: Date): Promise<NetWorthSnapshot[]> {
+    const dateStr = date.toISOString().slice(0, 10);
+    const rows = await this.getDb()
+      .select()
+      .from(netWorth)
+      .where(
+        and(lt(netWorth.snapshotDate, dateStr), isNull(netWorth.archivedAt)),
+      )
+      .orderBy(asc(netWorth.snapshotDate));
+
+    return rows.map(NetWorthSnapshotMapper.toDomain);
+  }
+
+  async markAsArchived(id: string, s3Key: string): Promise<void> {
+    await this.getDb()
+      .update(netWorth)
+      .set({ archivedAt: new Date(), s3Key })
+      .where(eq(netWorth.id, id));
   }
 }

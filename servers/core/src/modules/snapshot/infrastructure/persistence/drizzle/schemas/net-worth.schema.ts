@@ -46,10 +46,13 @@ export const netWorth = snapshotSchema.table(
     fxRateSource: varchar("fx_rate_source", { length: 50 }),
     createdAt: timestamp("created_at", { withTimezone: true }).defaultNow(),
     version: integer("version").notNull().default(1),
+    archivedAt: timestamp("archived_at", { withTimezone: true }),
+    s3Key: varchar("s3_key", { length: 512 }),
   },
   (table) => [
     index("idx_net_worth_user_id").on(table.userId),
     index("idx_net_worth_user_date").on(table.userId, table.snapshotDate),
     index("idx_net_worth_date").on(table.snapshotDate),
+    index("idx_net_worth_archived").on(table.archivedAt),
   ],
 );
