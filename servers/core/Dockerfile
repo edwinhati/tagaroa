@@ -26,14 +26,10 @@ FROM installer AS builder
 WORKDIR /app
 
 # Set environment variables as ARGs
-ARG NEXT_PUBLIC_SENTRY_DSN
-ARG NEXT_PUBLIC_SENTRY_ENVIRONMENT
-ARG NEXT_PUBLIC_SENTRY_TRACES_SAMPLE_RATE
+ARG SENTRY_RELEASE
 
-# Make them available as environment variables
-ENV NEXT_PUBLIC_SENTRY_DSN=${NEXT_PUBLIC_SENTRY_DSN}
-ENV NEXT_PUBLIC_SENTRY_ENVIRONMENT=${NEXT_PUBLIC_SENTRY_ENVIRONMENT}
-ENV NEXT_PUBLIC_SENTRY_TRACES_SAMPLE_RATE=${NEXT_PUBLIC_SENTRY_TRACES_SAMPLE_RATE}
+# Make them available as environment variables for the backend
+ENV SENTRY_RELEASE=${SENTRY_RELEASE}
 
 # Copy full pruned source
 COPY --from=pruner /app/out/full/ .
@@ -72,6 +68,7 @@ COPY --chmod=555 --from=builder --chown=nestjs:nestjs /app/packages ./packages
 
 ENV NODE_ENV=production
 ENV PORT=8080
+ENV SENTRY_RELEASE=${SENTRY_RELEASE}
 
 # Remove write permissions for security
 RUN chmod -R 555 /app

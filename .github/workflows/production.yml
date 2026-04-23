@@ -7,7 +7,7 @@ on:
 
 env:
   REGISTRY: registry.gitlab.com/tagaroa
-  BUN_VERSION: "1.3.12"
+  BUN_VERSION: "1.3.13"
   ENVIRONMENT: production
   NEXT_TELEMETRY_DISABLED: 1
 
@@ -18,7 +18,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        task: [build, lint, check-types, knip]
+        task: [ build, lint, check-types, knip ]
     steps:
       - uses: actions/checkout@v4
 
@@ -174,10 +174,12 @@ jobs:
           COMPONENT="${{ matrix.component }}"
           DIR=$(dirname "${{ matrix.dockerfile }}")
           VERSION=$(node -p "require('./' + '$DIR' + '/package.json').version")
+          RELEASE_NAME="${COMPONENT}@${VERSION}"
           TAGS="${{ env.REGISTRY }}/${COMPONENT}:${VERSION}"
           TAGS="${TAGS},${{ env.REGISTRY }}/${COMPONENT}:latest"
           TAGS="${TAGS},${{ env.REGISTRY }}/${COMPONENT}:${GITHUB_SHA::8}"
           echo "version=${VERSION}" >> $GITHUB_OUTPUT
+          echo "release_name=${RELEASE_NAME}" >> $GITHUB_OUTPUT
           echo "image-tags=${TAGS}" >> $GITHUB_OUTPUT
 
       - uses: docker/login-action@v3
@@ -203,6 +205,8 @@ jobs:
             NEXT_PUBLIC_SENTRY_DSN=${{ steps.vars.outputs.sentry_dsn }}
             NEXT_PUBLIC_SENTRY_ENVIRONMENT=${{ vars.NEXT_PUBLIC_SENTRY_ENVIRONMENT }}
             NEXT_PUBLIC_SENTRY_TRACES_SAMPLE_RATE=${{ vars.NEXT_PUBLIC_SENTRY_TRACES_SAMPLE_RATE }}
+            NEXT_PUBLIC_SENTRY_RELEASE=${{ steps.meta.outputs.release_name }}
+            SENTRY_RELEASE=${{ steps.meta.outputs.release_name }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
           platforms: linux/amd64
@@ -214,6 +218,6 @@ jobs:
           SENTRY_ORG: ${{ secrets.SENTRY_ORG }}
         with:
           environment: production
-          release: ${{ steps.meta.outputs.version }}
+          release: ${{ steps.meta.outputs.release_name }}
           set_commits: auto
           projects: ${{ matrix.sentry_project }}

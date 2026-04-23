@@ -1,13 +1,11 @@
 "use client";
 
 import { DataTableBulkDeleteDialog } from "@repo/common/components/data-table-bulk-delete-dialog";
-import { DataTableEmptyState } from "@repo/common/components/data-table-empty-state";
 import { DataTableExportButton } from "@repo/common/components/data-table-export-button";
 import { DataTableMultiSelectFilter } from "@repo/common/components/data-table-multi-select-filter";
-import { DataTablePagination } from "@repo/common/components/data-table-pagination";
 import { ServerSearchInput } from "@repo/common/components/data-table-search-input";
 import { DataTableSkeleton } from "@repo/common/components/data-table-skeleton";
-import { DataTableSortableHeader } from "@repo/common/components/data-table-sortable-header";
+import { DataTableView } from "@repo/common/components/data-table-view";
 import { Loading } from "@repo/common/components/loading";
 import { exportToCSV } from "@repo/common/lib/csv-export";
 import {
@@ -15,7 +13,6 @@ import {
   exportAccountsQueryOptions,
   useAccountDeleteMutationOptions,
 } from "@repo/common/lib/query/account-query";
-
 import type {
   Account,
   AccountCategory,
@@ -41,20 +38,11 @@ import {
   EmptyMedia,
   EmptyTitle,
 } from "@repo/ui/components/empty";
-
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHeader,
-  TableRow,
-} from "@repo/ui/components/table";
 import { IconDots, IconPlus, IconWallet } from "@tabler/icons-react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   type ColumnDef,
   type FilterFn,
-  flexRender,
   getCoreRowModel,
   getSortedRowModel,
   type PaginationState,
@@ -199,7 +187,7 @@ function AccountDataTableContent() {
 
   const [pagination, setPagination] = useState<PaginationState>({
     pageIndex: 0,
-    pageSize: 5,
+    pageSize: 10,
   });
   const [serverFilters, setServerFilters] = useState<Record<string, string[]>>(
     {},
@@ -458,97 +446,51 @@ function AccountDataTableContent() {
         </div>
       </div>
 
-      {/* Table */}
-      <div className="bg-background overflow-hidden rounded-md border">
-        <Table className="table-fixed">
-          <TableHeader>
-            {table.getHeaderGroups().map((headerGroup) => (
-              <TableRow key={headerGroup.id} className="hover:bg-transparent">
-                {headerGroup.headers.map((header) => (
-                  <DataTableSortableHeader key={header.id} header={header} />
-                ))}
-              </TableRow>
-            ))}
-          </TableHeader>
-          <TableBody>
-            {(() => {
-              if (hasRows) {
-                return table.getRowModel().rows.map((row) => (
-                  <TableRow
-                    key={row.id}
-                    data-state={row.getIsSelected() ? "selected" : undefined}
-                  >
-                    {row.getVisibleCells().map((cell) => (
-                      <TableCell key={cell.id} className="last:py-0">
-                        {flexRender(
-                          cell.column.columnDef.cell,
-                          cell.getContext(),
-                        )}
-                      </TableCell>
-                    ))}
-                  </TableRow>
-                ));
-              }
-
-              const renderEmptyState = !hasTotalData && !hasActiveFilters;
-              return (
-                <TableRow>
-                  <TableCell colSpan={columns.length} className="h-96">
-                    <div className="flex h-full">
-                      {renderEmptyState ? (
-                        <Empty>
-                          <EmptyHeader>
-                            <EmptyMedia variant="icon">
-                              <IconWallet aria-hidden="true" />
-                            </EmptyMedia>
-                            <EmptyTitle>No Accounts Yet</EmptyTitle>
-                            <EmptyDescription>
-                              You haven&apos;t added any accounts yet. Get
-                              started by adding your first account to track your
-                              finances.
-                            </EmptyDescription>
-                          </EmptyHeader>
-                          <EmptyContent>
-                            <AccountFormDialog
-                              trigger={
-                                <Button size="sm">
-                                  <IconPlus
-                                    className="-ms-1 opacity-60"
-                                    size={16}
-                                    aria-hidden="true"
-                                  />
-                                  Add account
-                                </Button>
-                              }
-                            />
-                          </EmptyContent>
-                        </Empty>
-                      ) : (
-                        <DataTableEmptyState />
-                      )}
-                    </div>
-                  </TableCell>
-                </TableRow>
-              );
-            })()}
-          </TableBody>
-        </Table>
-      </div>
-
-      {/* Pagination */}
-      <DataTablePagination
+      {/* Table & Pagination */}
+      <DataTableView
         table={table}
-        pageSizeOptions={[5, 10, 25, 50]}
-        serverSidePagination={
+        columnsLength={columns.length}
+        hasRows={hasRows}
+        hasTotalData={hasTotalData}
+        hasActiveFilters={hasActiveFilters}
+        paginationInfo={
           paginationInfo
             ? {
                 total: paginationInfo.total,
                 page: paginationInfo.page,
-                totalPages: paginationInfo.total_pages,
-                hasNext: paginationInfo.has_next,
-                hasPrev: paginationInfo.has_prev,
+                total_pages: paginationInfo.total_pages,
+                has_next: paginationInfo.has_next,
+                has_prev: paginationInfo.has_prev,
               }
             : undefined
+        }
+        emptyState={
+          <Empty>
+            <EmptyHeader>
+              <EmptyMedia variant="icon">
+                <IconWallet aria-hidden="true" />
+              </EmptyMedia>
+              <EmptyTitle>No Accounts Yet</EmptyTitle>
+              <EmptyDescription>
+                You haven&apos;t added any accounts yet. Get started by adding
+                your first account to track your finances.
+              </EmptyDescription>
+            </EmptyHeader>
+            <EmptyContent>
+              <AccountFormDialog
+                trigger={
+                  <Button size="sm">
+                    <IconPlus
+                      className="-ms-1 opacity-60"
+                      size={16}
+                      aria-hidden="true"
+                    />
+                    Add account
+                  </Button>
+                }
+              />
+            </EmptyContent>
+          </Empty>
         }
       />
     </div>

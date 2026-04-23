@@ -1,12 +1,10 @@
 "use client";
 
 import { DataTableBulkDeleteDialog } from "@repo/common/components/data-table-bulk-delete-dialog";
-import { DataTableEmptyState } from "@repo/common/components/data-table-empty-state";
 import { DataTableMultiSelectFilter } from "@repo/common/components/data-table-multi-select-filter";
-import { DataTablePagination } from "@repo/common/components/data-table-pagination";
 import { ServerSearchInput } from "@repo/common/components/data-table-search-input";
 import { DataTableSkeleton } from "@repo/common/components/data-table-skeleton";
-import { DataTableSortableHeader } from "@repo/common/components/data-table-sortable-header";
+import { DataTableView } from "@repo/common/components/data-table-view";
 import { Loading } from "@repo/common/components/loading";
 import { useDebounce } from "@repo/common/hooks/use-debounce";
 import { useFilters } from "@repo/common/hooks/use-filters";
@@ -38,20 +36,11 @@ import {
   EmptyHeader,
   EmptyTitle,
 } from "@repo/ui/components/empty";
-
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHeader,
-  TableRow,
-} from "@repo/ui/components/table";
 import { cn } from "@repo/ui/lib/utils";
 import { IconDots, IconPlus } from "@tabler/icons-react";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import {
   type ColumnDef,
-  flexRender,
   getCoreRowModel,
   getSortedRowModel,
   type PaginationState,
@@ -409,7 +398,7 @@ export function TransactionDataTable() {
 function TransactionDataTableContent() {
   const [pagination, setPagination] = useState<PaginationState>({
     pageIndex: 0,
-    pageSize: 5,
+    pageSize: 10,
   });
   const [searchQuery, setSearchQuery] = useState<string>("");
   const debouncedSearchQuery = useDebounce(searchQuery, 300);
@@ -592,91 +581,38 @@ function TransactionDataTableContent() {
         onBulkDelete={handleBulkDelete}
       />
 
-      <div className="bg-background overflow-x-auto rounded-md border">
-        <Table>
-          <TableHeader>
-            {table.getHeaderGroups().map((headerGroup) => (
-              <TableRow key={headerGroup.id} className="hover:bg-transparent">
-                {headerGroup.headers.map((header) => (
-                  <DataTableSortableHeader key={header.id} header={header} />
-                ))}
-              </TableRow>
-            ))}
-          </TableHeader>
-          <TableBody>
-            {(() => {
-              if (hasRows) {
-                return table.getRowModel().rows.map((row) => (
-                  <TableRow
-                    key={row.id}
-                    data-state={row.getIsSelected() ? "selected" : undefined}
-                  >
-                    {row.getVisibleCells().map((cell) => (
-                      <TableCell key={cell.id} className="last:py-0">
-                        {flexRender(
-                          cell.column.columnDef.cell,
-                          cell.getContext(),
-                        )}
-                      </TableCell>
-                    ))}
-                  </TableRow>
-                ));
-              }
-              const renderEmptyState = !hasTotalData && !hasActiveFilters;
-              return (
-                <TableRow>
-                  <TableCell colSpan={columns.length} className="h-96">
-                    <div className="flex h-full">
-                      {renderEmptyState ? (
-                        <Empty>
-                          <EmptyHeader>
-                            <EmptyTitle>No Transactions Yet</EmptyTitle>
-                            <EmptyDescription>
-                              You haven&apos;t added any transactions yet. Get
-                              started by adding your first transaction to track
-                              your finances.
-                            </EmptyDescription>
-                          </EmptyHeader>
-                          <EmptyContent>
-                            <TransactionFormDialog
-                              trigger={
-                                <Button size="sm">
-                                  <IconPlus
-                                    className="-ms-1 opacity-60"
-                                    size={16}
-                                    aria-hidden="true"
-                                  />
-                                  Add transaction
-                                </Button>
-                              }
-                            />
-                          </EmptyContent>
-                        </Empty>
-                      ) : (
-                        <DataTableEmptyState />
-                      )}
-                    </div>
-                  </TableCell>
-                </TableRow>
-              );
-            })()}
-          </TableBody>
-        </Table>
-      </div>
-
-      <DataTablePagination
+      <DataTableView
         table={table}
-        pageSizeOptions={[5, 10, 25, 50]}
-        serverSidePagination={
-          paginationInfo
-            ? {
-                total: paginationInfo.total,
-                page: paginationInfo.page,
-                totalPages: paginationInfo.total_pages,
-                hasNext: paginationInfo.has_next,
-                hasPrev: paginationInfo.has_prev,
-              }
-            : undefined
+        columnsLength={columns.length}
+        hasRows={hasRows}
+        hasTotalData={hasTotalData}
+        hasActiveFilters={hasActiveFilters}
+        paginationInfo={paginationInfo}
+        tableContainerClassName="bg-background overflow-x-auto rounded-md border"
+        emptyState={
+          <Empty>
+            <EmptyHeader>
+              <EmptyTitle>No Transactions Yet</EmptyTitle>
+              <EmptyDescription>
+                You haven&apos;t added any transactions yet. Get started by
+                adding your first transaction to track your finances.
+              </EmptyDescription>
+            </EmptyHeader>
+            <EmptyContent>
+              <TransactionFormDialog
+                trigger={
+                  <Button size="sm">
+                    <IconPlus
+                      className="-ms-1 opacity-60"
+                      size={16}
+                      aria-hidden="true"
+                    />
+                    Add transaction
+                  </Button>
+                }
+              />
+            </EmptyContent>
+          </Empty>
         }
       />
     </div>

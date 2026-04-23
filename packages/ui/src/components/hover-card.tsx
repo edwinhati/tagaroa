@@ -48,4 +48,4 @@ function HoverCardContent({
   );
 }
 
-export { HoverCard, HoverCardContent, HoverCardTrigger };
+export { HoverCard, HoverCardTrigger, HoverCardContent };

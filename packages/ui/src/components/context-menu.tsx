@@ -1,9 +1,10 @@
 "use client";
 
+import * as React from "react";
 import { ContextMenu as ContextMenuPrimitive } from "@base-ui/react/context-menu";
+
 import { cn } from "@repo/ui/lib/utils";
-import { IconCheck, IconChevronRight } from "@tabler/icons-react";
-import type * as React from "react";
+import { IconChevronRight, IconCheck } from "@tabler/icons-react";
 
 function ContextMenu({ ...props }: ContextMenuPrimitive.Root.Props) {
   return <ContextMenuPrimitive.Root data-slot="context-menu" {...props} />;
@@ -254,18 +255,18 @@ function ContextMenuShortcut({
 
 export {
   ContextMenu,
-  ContextMenuCheckboxItem,
+  ContextMenuTrigger,
   ContextMenuContent,
-  ContextMenuGroup,
   ContextMenuItem,
-  ContextMenuLabel,
-  ContextMenuPortal,
-  ContextMenuRadioGroup,
+  ContextMenuCheckboxItem,
   ContextMenuRadioItem,
+  ContextMenuLabel,
   ContextMenuSeparator,
   ContextMenuShortcut,
+  ContextMenuGroup,
+  ContextMenuPortal,
   ContextMenuSub,
   ContextMenuSubContent,
   ContextMenuSubTrigger,
-  ContextMenuTrigger,
+  ContextMenuRadioGroup,
 };

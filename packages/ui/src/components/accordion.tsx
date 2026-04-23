@@ -1,5 +1,3 @@
-"use client";
-
 import { Accordion as AccordionPrimitive } from "@base-ui/react/accordion";
 
 import { cn } from "@repo/ui/lib/utils";
@@ -77,4 +75,4 @@ function AccordionContent({
   );
 }
 
-export { Accordion, AccordionContent, AccordionItem, AccordionTrigger };
+export { Accordion, AccordionItem, AccordionTrigger, AccordionContent };

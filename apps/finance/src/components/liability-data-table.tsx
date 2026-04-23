@@ -2,13 +2,11 @@
 
 import { DataTableBulkDeleteDialog } from "@repo/common/components/data-table-bulk-delete-dialog";
 import { DataTableDeleteDialog } from "@repo/common/components/data-table-delete-dialog";
-import { DataTableEmptyState } from "@repo/common/components/data-table-empty-state";
 import { DataTableExportButton } from "@repo/common/components/data-table-export-button";
 import { DataTableMultiSelectFilter } from "@repo/common/components/data-table-multi-select-filter";
-import { DataTablePagination } from "@repo/common/components/data-table-pagination";
 import { ServerSearchInput } from "@repo/common/components/data-table-search-input";
 import { DataTableSkeleton } from "@repo/common/components/data-table-skeleton";
-import { DataTableSortableHeader } from "@repo/common/components/data-table-sortable-header";
+import { DataTableView } from "@repo/common/components/data-table-view";
 import { Loading } from "@repo/common/components/loading";
 import { exportToCSV } from "@repo/common/lib/csv-export";
 import {
@@ -43,14 +41,6 @@ import {
   EmptyHeader,
   EmptyTitle,
 } from "@repo/ui/components/empty";
-
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHeader,
-  TableRow,
-} from "@repo/ui/components/table";
 import {
   IconCircleCheck,
   IconDots,
@@ -63,7 +53,6 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   type ColumnDef,
   type FilterFn,
-  flexRender,
   getCoreRowModel,
   getSortedRowModel,
   type PaginationState,
@@ -266,7 +255,7 @@ export function LiabilityDataTable() {
 function LiabilityDataTableContent() {
   const [pagination, setPagination] = useState<PaginationState>({
     pageIndex: 0,
-    pageSize: 5,
+    pageSize: 10,
   });
   const [searchQuery, setSearchQuery] = useState<string>("");
   const [typeFilter, setTypeFilter] = useState<string[]>([]);
@@ -486,97 +475,39 @@ function LiabilityDataTableContent() {
         </div>
       </div>
 
-      <div className="bg-background overflow-hidden rounded-md border">
-        <Table
-          className="table-fixed"
-          role="table"
-          aria-label="Liabilities table"
-        >
-          <TableHeader>
-            {table.getHeaderGroups().map((headerGroup) => (
-              <TableRow key={headerGroup.id} className="hover:bg-transparent">
-                {headerGroup.headers.map((header) => (
-                  <DataTableSortableHeader key={header.id} header={header} />
-                ))}
-              </TableRow>
-            ))}
-          </TableHeader>
-          <TableBody>
-            {(() => {
-              if (hasRows) {
-                return table.getRowModel().rows.map((row) => (
-                  <TableRow
-                    key={row.id}
-                    data-state={row.getIsSelected() ? "selected" : undefined}
-                    className="transition-colors"
-                  >
-                    {row.getVisibleCells().map((cell) => (
-                      <TableCell key={cell.id} className="last:py-0">
-                        {flexRender(
-                          cell.column.columnDef.cell,
-                          cell.getContext(),
-                        )}
-                      </TableCell>
-                    ))}
-                  </TableRow>
-                ));
-              }
-
-              const renderEmptyState = !hasTotalData && !hasActiveFilters;
-              return (
-                <TableRow>
-                  <TableCell colSpan={columns.length} className="h-96">
-                    <div className="flex h-full">
-                      {renderEmptyState ? (
-                        <Empty>
-                          <EmptyHeader>
-                            <EmptyTitle>No Liabilities Yet</EmptyTitle>
-                            <EmptyDescription>
-                              You haven&apos;t added any liabilities yet. Get
-                              started by adding your first liability to track
-                              your net worth.
-                            </EmptyDescription>
-                          </EmptyHeader>
-                          <EmptyContent>
-                            <LiabilityFormDialog
-                              trigger={
-                                <Button size="sm">
-                                  <IconPlus
-                                    className="-ms-1 opacity-60"
-                                    size={16}
-                                    aria-hidden="true"
-                                  />
-                                  Add liability
-                                </Button>
-                              }
-                            />
-                          </EmptyContent>
-                        </Empty>
-                      ) : (
-                        <DataTableEmptyState />
-                      )}
-                    </div>
-                  </TableCell>
-                </TableRow>
-              );
-            })()}
-          </TableBody>
-        </Table>
-      </div>
-
-      <DataTablePagination
+      <DataTableView
         table={table}
-        pageSizeOptions={[5, 10, 25, 50]}
-        serverSidePagination={
-          paginationInfo
-            ? {
-                total: paginationInfo.total,
-                page: paginationInfo.page,
-                totalPages: paginationInfo.total_pages,
-                hasNext: paginationInfo.has_next,
-                hasPrev: paginationInfo.has_prev,
-              }
-            : undefined
+        columnsLength={columns.length}
+        hasRows={hasRows}
+        hasTotalData={hasTotalData}
+        hasActiveFilters={hasActiveFilters}
+        paginationInfo={paginationInfo}
+        tableClassName="table-fixed"
+        tableAriaLabel="Liabilities table"
+        emptyState={
+          <Empty>
+            <EmptyHeader>
+              <EmptyTitle>No Liabilities Yet</EmptyTitle>
+              <EmptyDescription>
+                You haven&apos;t added any liabilities yet. Get started by
+                adding your first liability to track your net worth.
+              </EmptyDescription>
+            </EmptyHeader>
+            <EmptyContent>
+              <LiabilityFormDialog
+                trigger={
+                  <Button size="sm">
+                    <IconPlus
+                      className="-ms-1 opacity-60"
+                      size={16}
+                      aria-hidden="true"
+                    />
+                    Add liability
+                  </Button>
+                }
+              />
+            </EmptyContent>
+          </Empty>
         }
       />
     </div>

@@ -1,12 +1,13 @@
 "use client";
 
-import { Button } from "@repo/ui/components/button";
-import { cn } from "@repo/ui/lib/utils";
-import { IconChevronLeft, IconChevronRight } from "@tabler/icons-react";
+import * as React from "react";
 import useEmblaCarousel, {
   type UseEmblaCarouselType,
 } from "embla-carousel-react";
-import * as React from "react";
+
+import { cn } from "@repo/ui/lib/utils";
+import { Button } from "@repo/ui/components/button";
+import { IconChevronLeft, IconChevronRight } from "@tabler/icons-react";
 
 type CarouselApi = UseEmblaCarouselType[1];
 type UseCarouselParameters = Parameters<typeof useEmblaCarousel>;
@@ -231,11 +232,11 @@ function CarouselNext({
 }
 
 export {
-  Carousel,
   type CarouselApi,
+  Carousel,
   CarouselContent,
   CarouselItem,
-  CarouselNext,
   CarouselPrevious,
+  CarouselNext,
   useCarousel,
 };

@@ -2,12 +2,10 @@
 
 import { DataTableBulkDeleteDialog } from "@repo/common/components/data-table-bulk-delete-dialog";
 import { DataTableDeleteDialog } from "@repo/common/components/data-table-delete-dialog";
-import { DataTableEmptyState } from "@repo/common/components/data-table-empty-state";
 import { DataTableExportButton } from "@repo/common/components/data-table-export-button";
 import { DataTableMultiSelectFilter } from "@repo/common/components/data-table-multi-select-filter";
-import { DataTablePagination } from "@repo/common/components/data-table-pagination";
 import { ServerSearchInput } from "@repo/common/components/data-table-search-input";
-import { DataTableSortableHeader } from "@repo/common/components/data-table-sortable-header";
+import { DataTableView } from "@repo/common/components/data-table-view";
 import { Loading } from "@repo/common/components/loading";
 import { exportToCSV } from "@repo/common/lib/csv-export";
 import {
@@ -17,7 +15,6 @@ import {
   useAssetDeleteMutationOptions,
   useAssetMutationOptions,
 } from "@repo/common/lib/query/asset-query";
-import { resolveColumnKey } from "@repo/common/lib/resolve-column-key";
 import type { Asset, PaginatedAssetsResult } from "@repo/common/types/asset";
 import { Badge } from "@repo/ui/components/badge";
 import { Button } from "@repo/ui/components/button";
@@ -52,14 +49,13 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   type ColumnDef,
   type FilterFn,
-  flexRender,
   getCoreRowModel,
   getSortedRowModel,
   type PaginationState,
   type Row,
   useReactTable,
 } from "@tanstack/react-table";
-import { type ReactNode, useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { AssetFormDialog } from "@/components/asset-form-dialog";
 
 const SelectHeaderCell = ({
@@ -163,7 +159,7 @@ const multiColumnFilterFn: FilterFn<Asset> = (row, filterValue) => {
 function AssetDataTableContent() {
   const [pagination, setPagination] = useState<PaginationState>({
     pageIndex: 0,
-    pageSize: 5,
+    pageSize: 10,
   });
   const [searchQuery, setSearchQuery] = useState<string>("");
   const [typeFilter, setTypeFilter] = useState<string[]>([]);
@@ -253,14 +249,6 @@ function AssetDataTableContent() {
   );
 
   const paginationInfo = stableData?.pagination;
-  const showLoadingState = isInitialLoading;
-  const skeletonRowKeys = useMemo(
-    () =>
-      Array.from({ length: pagination.pageSize }, (_, index) => {
-        return `assets-loading-${pagination.pageIndex}-${index}`;
-      }),
-    [pagination.pageIndex, pagination.pageSize],
-  );
 
   const hasActiveFilters = searchQuery.length > 0 || typeFilter.length > 0;
 
@@ -363,83 +351,6 @@ function AssetDataTableContent() {
     return <AssetTableSkeleton />;
   }
 
-  let tableBodyContent: ReactNode;
-
-  if (showLoadingState) {
-    tableBodyContent = skeletonRowKeys.map((rowKey) => (
-      <TableRow key={rowKey} className="pointer-events-none">
-        {columns.map((column, cellIndex) => {
-          const columnKey = resolveColumnKey(column, cellIndex);
-          return (
-            <TableCell key={`${columnKey}-${rowKey}`}>
-              <Skeleton
-                className={cellIndex === 0 ? "h-4 w-4 rounded" : "h-5 w-full"}
-              />
-            </TableCell>
-          );
-        })}
-      </TableRow>
-    ));
-  } else if (hasRows) {
-    tableBodyContent = table.getRowModel().rows.map((row) => (
-      <TableRow
-        key={row.id}
-        data-state={row.getIsSelected() ? "selected" : undefined}
-        className="transition-colors"
-      >
-        {row.getVisibleCells().map((cell) => (
-          <TableCell key={cell.id} className="last:py-0">
-            {flexRender(cell.column.columnDef.cell, cell.getContext())}
-          </TableCell>
-        ))}
-      </TableRow>
-    ));
-  } else if (!hasTotalData && !hasActiveFilters) {
-    tableBodyContent = (
-      <TableRow>
-        <TableCell colSpan={columns.length} className="h-96">
-          <div className="flex h-full">
-            <Empty>
-              <EmptyHeader>
-                <EmptyTitle>No Assets Yet</EmptyTitle>
-                <EmptyDescription>
-                  You haven&apos;t added any assets yet. Get started by adding
-                  your first asset to track your net worth.
-                </EmptyDescription>
-              </EmptyHeader>
-              <EmptyContent>
-                <AssetFormDialog
-                  trigger={
-                    <Button size="sm">
-                      <IconPlus
-                        className="-ms-1 opacity-60"
-                        size={16}
-                        aria-hidden="true"
-                      />
-                      Add asset
-                    </Button>
-                  }
-                />
-              </EmptyContent>
-            </Empty>
-          </div>
-        </TableCell>
-      </TableRow>
-    );
-  } else {
-    tableBodyContent = (
-      <TableRow>
-        <TableCell colSpan={columns.length} className="h-96">
-          <div className="flex h-full">
-            <div className="flex h-full w-full">
-              <DataTableEmptyState />
-            </div>
-          </div>
-        </TableCell>
-      </TableRow>
-    );
-  }
-
   return (
     <div className="relative space-y-4">
       <div className="flex flex-wrap items-center justify-between gap-3">
@@ -493,34 +404,49 @@ function AssetDataTableContent() {
         </div>
       </div>
 
-      <div className="bg-background overflow-hidden rounded-md border">
-        <Table className="table-fixed" role="table" aria-label="Assets table">
-          <TableHeader>
-            {table.getHeaderGroups().map((headerGroup) => (
-              <TableRow key={headerGroup.id} className="hover:bg-transparent">
-                {headerGroup.headers.map((header) => (
-                  <DataTableSortableHeader key={header.id} header={header} />
-                ))}
-              </TableRow>
-            ))}
-          </TableHeader>
-          <TableBody>{tableBodyContent}</TableBody>
-        </Table>
-      </div>
-
-      <DataTablePagination
+      {/* Table & Pagination */}
+      <DataTableView
         table={table}
-        pageSizeOptions={[5, 10, 25, 50]}
-        serverSidePagination={
+        columnsLength={columns.length}
+        hasRows={hasRows}
+        hasTotalData={hasTotalData}
+        hasActiveFilters={hasActiveFilters}
+        tableAriaLabel="Assets table"
+        paginationInfo={
           paginationInfo
             ? {
                 total: paginationInfo.total,
                 page: paginationInfo.page,
-                totalPages: paginationInfo.total_pages,
-                hasNext: paginationInfo.has_next,
-                hasPrev: paginationInfo.has_prev,
+                total_pages: paginationInfo.total_pages,
+                has_next: paginationInfo.has_next,
+                has_prev: paginationInfo.has_prev,
               }
             : undefined
+        }
+        emptyState={
+          <Empty>
+            <EmptyHeader>
+              <EmptyTitle>No Assets Yet</EmptyTitle>
+              <EmptyDescription>
+                You haven&apos;t added any assets yet. Get started by adding
+                your first asset to track your net worth.
+              </EmptyDescription>
+            </EmptyHeader>
+            <EmptyContent>
+              <AssetFormDialog
+                trigger={
+                  <Button size="sm">
+                    <IconPlus
+                      className="-ms-1 opacity-60"
+                      size={16}
+                      aria-hidden="true"
+                    />
+                    Add asset
+                  </Button>
+                }
+              />
+            </EmptyContent>
+          </Empty>
         }
       />
     </div>

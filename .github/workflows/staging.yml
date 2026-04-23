@@ -10,7 +10,7 @@ on:
 
 env:
   REGISTRY: registry.gitlab.com/tagaroa
-  BUN_VERSION: "1.3.12"
+  BUN_VERSION: "1.3.13"
   ENVIRONMENT: staging
   NEXT_TELEMETRY_DISABLED: 1
 
@@ -22,7 +22,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        task: [build, lint, check-types, knip]
+        task: [ build, lint, check-types, knip ]
     steps:
       - uses: actions/checkout@v4
         with:
@@ -82,7 +82,7 @@ jobs:
   deploy:
     name: Deploy (${{ matrix.component }})
     runs-on: ubuntu-latest
-    needs: [test]
+    needs: [ test ]
     if: github.event_name == 'push'
     environment:
       name: staging

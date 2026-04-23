@@ -1,7 +1,8 @@
 import { NavigationMenu as NavigationMenuPrimitive } from "@base-ui/react/navigation-menu";
+import { cva } from "class-variance-authority";
+
 import { cn } from "@repo/ui/lib/utils";
 import { IconChevronDown } from "@tabler/icons-react";
-import { cva } from "class-variance-authority";
 
 function NavigationMenu({
   align = "start",
@@ -164,7 +165,7 @@ export {
   NavigationMenuItem,
   NavigationMenuLink,
   NavigationMenuList,
-  NavigationMenuPositioner,
   NavigationMenuTrigger,
   navigationMenuTriggerStyle,
+  NavigationMenuPositioner,
 };
