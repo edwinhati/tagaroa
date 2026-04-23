@@ -14,5 +14,5 @@ export interface IPortfolioSnapshotRepository {
   findLatest(portfolioId: string): Promise<PortfolioSnapshot | null>;
   create(snapshot: PortfolioSnapshot): Promise<PortfolioSnapshot>;
   findUnarchivedBeforeDate(date: Date): Promise<PortfolioSnapshot[]>;
-  markAsArchived(id: string, s3Key: string): Promise<void>;
+  markAsArchived(id: string, archiveKey: string): Promise<void>;
 }

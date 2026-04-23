@@ -13,7 +13,7 @@ function mapNetWorthSnapshotToDomain(
   row: NetWorthSnapshotRow,
 ): NetWorthSnapshot {
   const archivedAt = row.archivedAt ? new Date(row.archivedAt) : null;
-  const s3Key = row.s3Key ?? null;
+  const archiveKey = row.s3Key ?? null;
   return new NetWorthSnapshot(
     row.id,
     row.userId,
@@ -30,7 +30,7 @@ function mapNetWorthSnapshotToDomain(
     row.createdAt ?? new Date(),
     row.version,
     archivedAt,
-    s3Key,
+    archiveKey,
   );
 }
 
@@ -52,7 +52,7 @@ function mapNetWorthSnapshotToPersistence(
     fxRateSource: entity.fxRateSource,
     version: entity.version,
     archivedAt: entity.archivedAt ?? null,
-    s3Key: entity.s3Key ?? null,
+    s3Key: entity.archiveKey ?? null,
   };
 }
 

@@ -30,10 +30,10 @@ export class NetWorthSnapshot {
     public readonly createdAt: Date,
     public readonly version: number,
     public readonly archivedAt: Date | null = null,
-    public readonly s3Key: string | null = null,
+    public readonly archiveKey: string | null = null,
   ) {}
 
-  markAsArchived(s3Key: string): NetWorthSnapshot {
+  markAsArchived(archiveKey: string): NetWorthSnapshot {
     return new NetWorthSnapshot(
       this.id,
       this.userId,
@@ -50,7 +50,7 @@ export class NetWorthSnapshot {
       this.createdAt,
       this.version,
       new Date(),
-      s3Key,
+      archiveKey,
     );
   }
 
@@ -67,7 +67,7 @@ export class NetWorthSnapshot {
       fxRateSource: string | null;
     };
     archivedAt: Date | null;
-    s3Key: string | null;
+    archiveKey: string | null;
   } {
     return {
       type: "net_worth",
@@ -89,7 +89,7 @@ export class NetWorthSnapshot {
         fxRateSource: this.fxRateSource,
       },
       archivedAt: this.archivedAt,
-      s3Key: this.s3Key,
+      archiveKey: this.archiveKey,
     };
   }
 }

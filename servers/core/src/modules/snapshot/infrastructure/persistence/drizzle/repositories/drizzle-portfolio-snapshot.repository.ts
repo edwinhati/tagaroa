@@ -70,10 +70,10 @@ export class DrizzlePortfolioSnapshotRepository
     return rows.map(PortfolioSnapshotMapper.toDomain);
   }
 
-  async markAsArchived(id: string, s3Key: string): Promise<void> {
+  async markAsArchived(id: string, archiveKey: string): Promise<void> {
     await this.getDb()
       .update(portfolio)
-      .set({ archivedAt: new Date(), s3Key })
+      .set({ archivedAt: new Date(), s3Key: archiveKey })
       .where(eq(portfolio.id, id));
   }
 }

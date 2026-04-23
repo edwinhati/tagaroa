@@ -8,7 +8,7 @@ function mapPortfolioSnapshotToDomain(
   row: PortfolioSnapshotRow,
 ): PortfolioSnapshot {
   const archivedAt = row.archivedAt ? new Date(row.archivedAt) : null;
-  const s3Key = row.s3Key ?? null;
+  const archiveKey = row.s3Key ?? null;
   return new PortfolioSnapshot(
     row.id,
     row.portfolioId,
@@ -20,7 +20,7 @@ function mapPortfolioSnapshotToDomain(
     row.createdAt ?? new Date(),
     Number(row.version),
     archivedAt,
-    s3Key,
+    archiveKey,
   );
 }
 
@@ -36,7 +36,7 @@ function mapPortfolioSnapshotToPersistence(
     cash: String(entity.cash),
     positionsSnapshot: entity.positionsSnapshot,
     archivedAt: entity.archivedAt ?? null,
-    s3Key: entity.s3Key ?? null,
+    s3Key: entity.archiveKey ?? null,
     version: String(entity.version),
   };
 }

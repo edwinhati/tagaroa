@@ -63,7 +63,7 @@ export class ArchiveSnapshotsUseCase {
     for (const [userId, snapshots] of netWorthByUser) {
       try {
         const datePart = cutoffDate.toISOString().slice(0, 10);
-        const s3Key = `snapshots/net-worth/${userId}/${datePart}.json`;
+        const archiveKey = `snapshots/net-worth/${userId}/${datePart}.json`;
         const buffer = Buffer.from(
           JSON.stringify(
             snapshots.map((s) => ({
@@ -82,10 +82,14 @@ export class ArchiveSnapshotsUseCase {
           ),
         );
 
-        await this.storageService.upload(s3Key, buffer, "application/json");
+        await this.storageService.upload(
+          archiveKey,
+          buffer,
+          "application/json",
+        );
 
         for (const snapshot of snapshots) {
-          await this.netWorthRepository.markAsArchived(snapshot.id, s3Key);
+          await this.netWorthRepository.markAsArchived(snapshot.id, archiveKey);
         }
         netWorthArchived += snapshots.length;
         this.logger.log(
@@ -105,7 +109,7 @@ export class ArchiveSnapshotsUseCase {
     for (const [portfolioId, snapshots] of portfolioById) {
       try {
         const datePart = cutoffDate.toISOString().slice(0, 10);
-        const s3Key = `snapshots/portfolio/${portfolioId}/${datePart}.json`;
+        const archiveKey = `snapshots/portfolio/${portfolioId}/${datePart}.json`;
         const buffer = Buffer.from(
           JSON.stringify(
             snapshots.map((s) => ({
@@ -118,10 +122,17 @@ export class ArchiveSnapshotsUseCase {
           ),
         );
 
-        await this.storageService.upload(s3Key, buffer, "application/json");
+        await this.storageService.upload(
+          archiveKey,
+          buffer,
+          "application/json",
+        );
 
         for (const snapshot of snapshots) {
-          await this.portfolioRepository.markAsArchived(snapshot.id, s3Key);
+          await this.portfolioRepository.markAsArchived(
+            snapshot.id,
+            archiveKey,
+          );
         }
         portfolioArchived += snapshots.length;
         this.logger.log(

@@ -10,7 +10,7 @@ export class PortfolioSnapshot {
     public readonly createdAt: Date,
     public readonly version: number,
     public readonly archivedAt: Date | null = null,
-    public readonly s3Key: string | null = null,
+    public readonly archiveKey: string | null = null,
   ) {}
 
   toEvent(currency: string): {
@@ -23,7 +23,7 @@ export class PortfolioSnapshot {
     cash: number;
     positions: unknown[];
     archivedAt: Date | null;
-    s3Key: string | null;
+    archiveKey: string | null;
   } {
     return {
       type: "portfolio",
@@ -37,11 +37,11 @@ export class PortfolioSnapshot {
         ? Object.values(this.positionsSnapshot)
         : [],
       archivedAt: this.archivedAt,
-      s3Key: this.s3Key,
+      archiveKey: this.archiveKey,
     };
   }
 
-  markAsArchived(s3Key: string): PortfolioSnapshot {
+  markAsArchived(archiveKey: string): PortfolioSnapshot {
     return new PortfolioSnapshot(
       this.id,
       this.portfolioId,
@@ -53,7 +53,7 @@ export class PortfolioSnapshot {
       this.createdAt,
       this.version,
       new Date(),
-      s3Key,
+      archiveKey,
     );
   }
 }
