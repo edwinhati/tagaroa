@@ -1,6 +1,0 @@
----
-# CNPG Role Defaults
-
-cnpg_namespace: cnpg-system
-cnpg_helm_version: "0.27.0"
-cnpg_monitoring_enabled: false
