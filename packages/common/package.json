@@ -9,11 +9,11 @@
   "dependencies": {
     "@better-auth/infra": "^0.2.5",
     "@repo/ui": "*",
-    "@sentry/nextjs": "^10.49.0",
+    "@sentry/nextjs": "^10.50.0",
     "@tabler/icons-react": "^3.41.1",
-    "@tanstack/react-query": "^5.99.2",
+    "@tanstack/react-query": "^5.100.1",
     "@tanstack/react-table": "^8.21.3",
-    "better-auth": "^1.6.7",
+    "better-auth": "^1.6.9",
     "next": "^16.2.4",
     "next-themes": "^0.4.6",
     "react": "19.2.5",
@@ -24,7 +24,7 @@
     "zustand": "^5.0.12"
   },
   "devDependencies": {
-    "@biomejs/biome": "2.4.12",
+    "@biomejs/biome": "2.4.13",
     "@repo/typescript-config": "*",
     "@types/node": "^25.6.0",
     "@types/react": "19.2.14",
