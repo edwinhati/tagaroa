@@ -1,13 +1,10 @@
 import { Inject, Injectable } from "@nestjs/common";
+import { EventEmitter2 } from "@nestjs/event-emitter";
+import { PortfolioSnapshot } from "../../../../snapshot/domain/entities/portfolio-snapshot.entity";
 import {
   PortfolioAccessDeniedException,
   PortfolioNotFoundException,
 } from "../../../domain/exceptions/investment.exceptions";
-import { PortfolioSnapshot } from "../../../domain/performance/entities/portfolio-snapshot.entity";
-import {
-  type IPortfolioSnapshotRepository,
-  PORTFOLIO_SNAPSHOT_REPOSITORY,
-} from "../../../domain/performance/repositories/snapshot.repository.interface";
 import {
   type IPortfolioRepository,
   PORTFOLIO_REPOSITORY,
@@ -24,8 +21,7 @@ export class SnapshotPortfolioUseCase {
     private readonly portfolioRepository: IPortfolioRepository,
     @Inject(POSITION_REPOSITORY)
     private readonly positionRepository: IPositionRepository,
-    @Inject(PORTFOLIO_SNAPSHOT_REPOSITORY)
-    private readonly snapshotRepository: IPortfolioSnapshotRepository,
+    private readonly eventEmitter: EventEmitter2,
   ) {}
 
   async execute(
@@ -61,6 +57,7 @@ export class SnapshotPortfolioUseCase {
     const snapshot = new PortfolioSnapshot(
       crypto.randomUUID(),
       portfolioId,
+      userId,
       now,
       nav,
       cash,
@@ -69,6 +66,11 @@ export class SnapshotPortfolioUseCase {
       1,
     );
 
-    return this.snapshotRepository.create(snapshot);
+    this.eventEmitter.emit(
+      "snapshot.created",
+      snapshot.toEvent(portfolio.currency),
+    );
+
+    return snapshot;
   }
 }

@@ -6,7 +6,7 @@ import {
 import type {
   AccountAggregationDto,
   AccountAggregationsResponseDto,
-} from "../dtos/dashboard/account-aggregations-response.dto";
+} from "../dtos/account-aggregations-response.dto";
 
 @Injectable()
 export class GetAccountAggregationsUseCase {

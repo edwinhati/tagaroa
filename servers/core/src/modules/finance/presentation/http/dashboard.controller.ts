@@ -1,12 +1,12 @@
 import { Controller, Get, Query } from "@nestjs/common";
 import { Session, type UserSession } from "@thallesp/nestjs-better-auth";
 import { buildJsonApiResponse } from "../../../../shared/types/pagination";
-import type { GetBudgetPerformanceDto } from "../../application/dtos/dashboard/get-budget-performance.dto";
-import type { GetExpenseBreakdownDto } from "../../application/dtos/dashboard/get-expense-breakdown.dto";
-import type { GetInsightsDto } from "../../application/dtos/dashboard/get-insights.dto";
-import type { GetNetWorthDto } from "../../application/dtos/dashboard/get-net-worth.dto";
-import type { GetSummaryDto } from "../../application/dtos/dashboard/get-summary.dto";
-import type { GetTransactionTrendsDto } from "../../application/dtos/dashboard/get-transaction-trends.dto";
+import type { GetBudgetPerformanceDto } from "../../application/dtos/get-budget-performance.dto";
+import type { GetExpenseBreakdownDto } from "../../application/dtos/get-expense-breakdown.dto";
+import type { GetInsightsDto } from "../../application/dtos/get-insights.dto";
+import type { GetNetWorthDto } from "../../application/dtos/get-net-worth.dto";
+import type { GetSummaryDto } from "../../application/dtos/get-summary.dto";
+import type { GetTransactionTrendsDto } from "../../application/dtos/get-transaction-trends.dto";
 import { GetAccountAggregationsUseCase } from "../../application/use-cases/get-account-aggregations.use-case";
 import { GetBudgetPerformanceUseCase } from "../../application/use-cases/get-budget-performance.use-case";
 import { GetExpenseBreakdownUseCase } from "../../application/use-cases/get-expense-breakdown.use-case";

@@ -15,8 +15,8 @@ import { TransactionType } from "../../domain/value-objects/transaction-type";
 import type {
   BudgetPerformanceItemDto,
   BudgetPerformanceResponseDto,
-} from "../dtos/dashboard/budget-performance-response.dto";
-import type { GetBudgetPerformanceDto } from "../dtos/dashboard/get-budget-performance.dto";
+} from "../dtos/budget-performance-response.dto";
+import type { GetBudgetPerformanceDto } from "../dtos/get-budget-performance.dto";
 
 @Injectable()
 export class GetBudgetPerformanceUseCase {

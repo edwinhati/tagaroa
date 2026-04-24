@@ -211,6 +211,15 @@ export class DrizzleAccountRepository
     return AccountMapper.toDomain(row);
   }
 
+  async findAllActiveUserIds(): Promise<string[]> {
+    const rows = await this.getDb()
+      .selectDistinct({ userId: accounts.userId })
+      .from(accounts)
+      .where(isNull(accounts.deletedAt));
+
+    return rows.map((row) => row.userId);
+  }
+
   async delete(id: string): Promise<void> {
     await this.getDb()
       .update(accounts)

@@ -14,8 +14,10 @@ export default defineConfig({
     "./src/modules/storage/infrastructure/persistence/drizzle/schemas/*.ts",
     "./src/modules/investment/infrastructure/persistence/drizzle/schema.ts",
     "./src/modules/investment/infrastructure/persistence/drizzle/schemas/*.ts",
+    "./src/modules/snapshot/infrastructure/persistence/drizzle/schema.ts",
+    "./src/modules/snapshot/infrastructure/persistence/drizzle/schemas/*.ts",
   ],
-  schemaFilter: ["auth", "finance", "storage", "investment"],
+  schemaFilter: ["auth", "finance", "storage", "investment", "snapshot"],
   dialect: "postgresql",
   dbCredentials: {
     url: databaseUrl,

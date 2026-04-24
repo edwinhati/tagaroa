@@ -1,4 +1,6 @@
 import { Module } from "@nestjs/common";
+import { EcbRatesProvider } from "../investment/infrastructure/market-data-providers/ecb-rates.provider";
+import { SnapshotModule } from "../snapshot/snapshot.module";
 import { AccountBalanceEventHandler } from "./application/event-handlers/account-balance.event-handler";
 import { BudgetItemSpentEventHandler } from "./application/event-handlers/budget-item-spent.event-handler";
 import { UnitOfWork } from "./application/services/unit-of-work.service";
@@ -6,6 +8,7 @@ import { CreateAccountUseCase } from "./application/use-cases/create-account.use
 import { CreateAssetUseCase } from "./application/use-cases/create-asset.use-case";
 import { CreateBudgetUseCase } from "./application/use-cases/create-budget.use-case";
 import { CreateLiabilityUseCase } from "./application/use-cases/create-liability.use-case";
+import { CreateNetWorthSnapshotUseCase } from "./application/use-cases/create-net-worth-snapshot.use-case";
 import { CreateTransactionUseCase } from "./application/use-cases/create-transaction.use-case";
 import { DeleteAccountUseCase } from "./application/use-cases/delete-account.use-case";
 import { DeleteAssetUseCase } from "./application/use-cases/delete-asset.use-case";
@@ -41,15 +44,16 @@ import { ASSET_REPOSITORY } from "./domain/repositories/asset.repository.interfa
 import { BUDGET_REPOSITORY } from "./domain/repositories/budget.repository.interface";
 import { BUDGET_ITEM_REPOSITORY } from "./domain/repositories/budget-item.repository.interface";
 import { LIABILITY_REPOSITORY } from "./domain/repositories/liability.repository.interface";
-import { NET_WORTH_SNAPSHOT_REPOSITORY } from "./domain/repositories/net-worth-snapshot.repository.interface";
 import { TRANSACTION_REPOSITORY } from "./domain/repositories/transaction.repository.interface";
+import { EXCHANGE_RATE_SERVICE } from "./domain/services/exchange-rate.service.interface";
+import { EcbExchangeRateService } from "./infrastructure/exchange-rate/ecb-exchange-rate.service";
 import { DrizzleAccountRepository } from "./infrastructure/persistence/drizzle/repositories/drizzle-account.repository";
 import { DrizzleAssetRepository } from "./infrastructure/persistence/drizzle/repositories/drizzle-asset.repository";
 import { DrizzleBudgetRepository } from "./infrastructure/persistence/drizzle/repositories/drizzle-budget.repository";
 import { DrizzleBudgetItemRepository } from "./infrastructure/persistence/drizzle/repositories/drizzle-budget-item.repository";
 import { DrizzleLiabilityRepository } from "./infrastructure/persistence/drizzle/repositories/drizzle-liability.repository";
-import { DrizzleNetWorthSnapshotRepository } from "./infrastructure/persistence/drizzle/repositories/drizzle-net-worth-snapshot.repository";
 import { DrizzleTransactionRepository } from "./infrastructure/persistence/drizzle/repositories/drizzle-transaction.repository";
+import { NetWorthSnapshotScheduler } from "./infrastructure/scheduler/net-worth-snapshot.scheduler";
 import { AccountController } from "./presentation/http/account.controller";
 import { AssetController } from "./presentation/http/asset.controller";
 import { BudgetController } from "./presentation/http/budget.controller";
@@ -58,6 +62,7 @@ import { LiabilityController } from "./presentation/http/liability.controller";
 import { TransactionController } from "./presentation/http/transaction.controller";
 
 @Module({
+  imports: [SnapshotModule],
   controllers: [
     AccountController,
     AssetController,
@@ -90,10 +95,6 @@ import { TransactionController } from "./presentation/http/transaction.controlle
     {
       provide: LIABILITY_REPOSITORY,
       useClass: DrizzleLiabilityRepository,
-    },
-    {
-      provide: NET_WORTH_SNAPSHOT_REPOSITORY,
-      useClass: DrizzleNetWorthSnapshotRepository,
     },
     CreateAccountUseCase,
     GetAccountsUseCase,
@@ -132,6 +133,13 @@ import { TransactionController } from "./presentation/http/transaction.controlle
     UpdateLiabilityUseCase,
     DeleteLiabilityUseCase,
     UnitOfWork,
+    EcbRatesProvider,
+    {
+      provide: EXCHANGE_RATE_SERVICE,
+      useClass: EcbExchangeRateService,
+    },
+    CreateNetWorthSnapshotUseCase,
+    NetWorthSnapshotScheduler,
   ],
 })
 export class FinanceModule {}

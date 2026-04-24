@@ -8,8 +8,8 @@ import {
   TRANSACTION_REPOSITORY,
 } from "../../domain/repositories/transaction.repository.interface";
 import { TransactionType } from "../../domain/value-objects/transaction-type";
-import type { GetSummaryDto } from "../dtos/dashboard/get-summary.dto";
-import type { SummaryResponseDto } from "../dtos/dashboard/summary-response.dto";
+import type { GetSummaryDto } from "../dtos/get-summary.dto";
+import type { SummaryResponseDto } from "../dtos/summary-response.dto";
 import { calculateChange, getPreviousPeriod } from "../utils/period-helpers";
 
 @Injectable()

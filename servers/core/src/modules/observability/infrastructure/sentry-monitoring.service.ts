@@ -1,5 +1,5 @@
 import * as Sentry from "@sentry/nestjs";
-import { IMonitoringService } from "../domain/monitoring-service.interface";
+import { IMonitoringService } from "../domain/services/monitoring-service.interface";
 
 export class SentryMonitoringService implements IMonitoringService {
   captureException(error: unknown, context?: Record<string, unknown>): void {

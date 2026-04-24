@@ -7,8 +7,8 @@ import { TransactionType } from "../../domain/value-objects/transaction-type";
 import type {
   ExpenseBreakdownItemDto,
   ExpenseBreakdownResponseDto,
-} from "../dtos/dashboard/expense-breakdown-response.dto";
-import type { GetExpenseBreakdownDto } from "../dtos/dashboard/get-expense-breakdown.dto";
+} from "../dtos/expense-breakdown-response.dto";
+import type { GetExpenseBreakdownDto } from "../dtos/get-expense-breakdown.dto";
 
 @Injectable()
 export class GetExpenseBreakdownUseCase {

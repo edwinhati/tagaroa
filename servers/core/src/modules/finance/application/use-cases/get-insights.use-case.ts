@@ -4,11 +4,11 @@ import {
   TRANSACTION_REPOSITORY,
 } from "../../domain/repositories/transaction.repository.interface";
 import { TransactionType } from "../../domain/value-objects/transaction-type";
-import type { GetInsightsDto } from "../dtos/dashboard/get-insights.dto";
+import type { GetInsightsDto } from "../dtos/get-insights.dto";
 import type {
   InsightItemDto,
   InsightsResponseDto,
-} from "../dtos/dashboard/insights-response.dto";
+} from "../dtos/insights-response.dto";
 import { calculateChange, getPreviousPeriod } from "../utils/period-helpers";
 
 @Injectable()
