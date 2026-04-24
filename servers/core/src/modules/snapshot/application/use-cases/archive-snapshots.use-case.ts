@@ -58,92 +58,33 @@ export class ArchiveSnapshotsUseCase {
     let portfolioArchived = 0;
     let failed = 0;
 
-    // Archive net worth snapshots by user
-    const netWorthByUser = this.groupByUser(netWorthSnapshots);
-    for (const [userId, snapshots] of netWorthByUser) {
-      try {
-        const datePart = cutoffDate.toISOString().slice(0, 10);
-        const archiveKey = `snapshots/net-worth/${userId}/${datePart}.json`;
-        const buffer = Buffer.from(
-          JSON.stringify(
-            snapshots.map((s) => ({
-              id: s.id,
-              snapshotDate: s.snapshotDate,
-              totalAssets: s.totalAssets,
-              totalLiabilities: s.totalLiabilities,
-              netWorth: s.netWorth,
-              baseCurrency: s.baseCurrency,
-              assetsBreakdown: s.assetsBreakdown,
-              liabilitiesBreakdown: s.liabilitiesBreakdown,
-              fxRatesUsed: s.fxRatesUsed,
-              fxRateDate: s.fxRateDate,
-              fxRateSource: s.fxRateSource,
-            })),
-          ),
-        );
+    const datePart = cutoffDate.toISOString().slice(0, 10);
 
-        await this.storageService.upload(
-          archiveKey,
-          buffer,
-          "application/json",
-        );
-
-        for (const snapshot of snapshots) {
-          await this.netWorthRepository.markAsArchived(snapshot.id, archiveKey);
-        }
-        netWorthArchived += snapshots.length;
-        this.logger.log(
-          `Archived ${snapshots.length} net worth snapshots for user ${userId}`,
-        );
-      } catch (error) {
+    for (const [userId, snapshots] of this.groupByUser(netWorthSnapshots)) {
+      const count = await this.archiveNetWorthGroup(
+        userId,
+        snapshots,
+        datePart,
+      );
+      if (count >= 0) {
+        netWorthArchived += count;
+      } else {
         failed += snapshots.length;
-        this.logger.error(
-          `Failed to archive net worth snapshots for user ${userId}`,
-          error instanceof Error ? error.stack : String(error),
-        );
       }
     }
 
-    // Archive portfolio snapshots by portfolio
-    const portfolioById = this.groupByPortfolio(portfolioSnapshots);
-    for (const [portfolioId, snapshots] of portfolioById) {
-      try {
-        const datePart = cutoffDate.toISOString().slice(0, 10);
-        const archiveKey = `snapshots/portfolio/${portfolioId}/${datePart}.json`;
-        const buffer = Buffer.from(
-          JSON.stringify(
-            snapshots.map((s) => ({
-              id: s.id,
-              timestamp: s.timestamp,
-              nav: s.nav,
-              cash: s.cash,
-              positionsSnapshot: s.positionsSnapshot,
-            })),
-          ),
-        );
-
-        await this.storageService.upload(
-          archiveKey,
-          buffer,
-          "application/json",
-        );
-
-        for (const snapshot of snapshots) {
-          await this.portfolioRepository.markAsArchived(
-            snapshot.id,
-            archiveKey,
-          );
-        }
-        portfolioArchived += snapshots.length;
-        this.logger.log(
-          `Archived ${snapshots.length} portfolio snapshots for portfolio ${portfolioId}`,
-        );
-      } catch (error) {
+    for (const [portfolioId, snapshots] of this.groupByPortfolio(
+      portfolioSnapshots,
+    )) {
+      const count = await this.archivePortfolioGroup(
+        portfolioId,
+        snapshots,
+        datePart,
+      );
+      if (count >= 0) {
+        portfolioArchived += count;
+      } else {
         failed += snapshots.length;
-        this.logger.error(
-          `Failed to archive portfolio snapshots for portfolio ${portfolioId}`,
-          error instanceof Error ? error.stack : String(error),
-        );
       }
     }
 
@@ -154,12 +95,94 @@ export class ArchiveSnapshotsUseCase {
     return { netWorthArchived, portfolioArchived, failed };
   }
 
+  private async archiveNetWorthGroup(
+    userId: string,
+    snapshots: NetWorthSnapshot[],
+    datePart: string,
+  ): Promise<number> {
+    try {
+      const archiveKey = `snapshots/net-worth/${userId}/${datePart}.json`;
+      const buffer = Buffer.from(
+        JSON.stringify(
+          snapshots.map((s) => ({
+            id: s.id,
+            snapshotDate: s.snapshotDate,
+            totalAssets: s.totalAssets,
+            totalLiabilities: s.totalLiabilities,
+            netWorth: s.netWorth,
+            baseCurrency: s.baseCurrency,
+            assetsBreakdown: s.assetsBreakdown,
+            liabilitiesBreakdown: s.liabilitiesBreakdown,
+            fxRatesUsed: s.fxRatesUsed,
+            fxRateDate: s.fxRateDate,
+            fxRateSource: s.fxRateSource,
+          })),
+        ),
+      );
+
+      await this.storageService.upload(archiveKey, buffer, "application/json");
+
+      for (const snapshot of snapshots) {
+        await this.netWorthRepository.markAsArchived(snapshot.id, archiveKey);
+      }
+
+      this.logger.log(
+        `Archived ${snapshots.length} net worth snapshots for user ${userId}`,
+      );
+      return snapshots.length;
+    } catch (error) {
+      this.logger.error(
+        `Failed to archive net worth snapshots for user ${userId}`,
+        error instanceof Error ? error.stack : String(error),
+      );
+      return -1;
+    }
+  }
+
+  private async archivePortfolioGroup(
+    portfolioId: string,
+    snapshots: PortfolioSnapshot[],
+    datePart: string,
+  ): Promise<number> {
+    try {
+      const archiveKey = `snapshots/portfolio/${portfolioId}/${datePart}.json`;
+      const buffer = Buffer.from(
+        JSON.stringify(
+          snapshots.map((s) => ({
+            id: s.id,
+            timestamp: s.timestamp,
+            nav: s.nav,
+            cash: s.cash,
+            positionsSnapshot: s.positionsSnapshot,
+          })),
+        ),
+      );
+
+      await this.storageService.upload(archiveKey, buffer, "application/json");
+
+      for (const snapshot of snapshots) {
+        await this.portfolioRepository.markAsArchived(snapshot.id, archiveKey);
+      }
+
+      this.logger.log(
+        `Archived ${snapshots.length} portfolio snapshots for portfolio ${portfolioId}`,
+      );
+      return snapshots.length;
+    } catch (error) {
+      this.logger.error(
+        `Failed to archive portfolio snapshots for portfolio ${portfolioId}`,
+        error instanceof Error ? error.stack : String(error),
+      );
+      return -1;
+    }
+  }
+
   private groupByUser(
     snapshots: NetWorthSnapshot[],
   ): Map<string, NetWorthSnapshot[]> {
     const groups = new Map<string, NetWorthSnapshot[]>();
     for (const snapshot of snapshots) {
-      const existing = groups.get(snapshot.userId) || [];
+      const existing = groups.get(snapshot.userId) ?? [];
       existing.push(snapshot);
       groups.set(snapshot.userId, existing);
     }
@@ -171,7 +194,7 @@ export class ArchiveSnapshotsUseCase {
   ): Map<string, PortfolioSnapshot[]> {
     const groups = new Map<string, PortfolioSnapshot[]>();
     for (const snapshot of snapshots) {
-      const existing = groups.get(snapshot.portfolioId) || [];
+      const existing = groups.get(snapshot.portfolioId) ?? [];
       existing.push(snapshot);
       groups.set(snapshot.portfolioId, existing);
     }
