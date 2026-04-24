@@ -1,17 +1,14 @@
 import type { SecondaryStorage } from "better-auth";
 
-import Redis from "ioredis";
+import { RedisClient } from "bun";
 
-const createRedisClient = (): Redis | undefined => {
+const createRedisClient = (): RedisClient | undefined => {
   const url = process.env.REDIS_URL;
   if (!url) return undefined;
 
-  const useTls = url.startsWith("rediss://");
-
-  return new Redis(url, {
-    maxRetriesPerRequest: 3,
-    retryStrategy: (times) => Math.min(times * 100, 3000),
-    tls: useTls ? { rejectUnauthorized: false } : undefined,
+  // TLS is handled automatically by the rediss:// scheme
+  return new RedisClient(url, {
+    maxRetries: 3,
   });
 };
 
@@ -24,10 +21,9 @@ export const secondaryStorage: SecondaryStorage | undefined = redis
         return value ?? null;
       },
       set: async (key: string, value: string, ttl?: number) => {
+        await redis.set(key, value);
         if (ttl) {
-          await redis.set(key, value, "EX", ttl);
-        } else {
-          await redis.set(key, value);
+          await redis.expire(key, ttl);
         }
       },
       delete: async (key: string) => {
