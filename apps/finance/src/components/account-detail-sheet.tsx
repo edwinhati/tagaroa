@@ -171,10 +171,17 @@ export function AccountDetailSheet({
                         value !== undefined && value !== null && value !== "",
                     )
                     .map(([key, value], index, arr) => {
-                      const strValue =
-                        typeof value === "object" && value !== null
-                          ? JSON.stringify(value)
-                          : String(value);
+                      let strValue: string;
+                      if (typeof value === "string") {
+                        strValue = value;
+                      } else if (
+                        typeof value === "number" ||
+                        typeof value === "boolean"
+                      ) {
+                        strValue = String(value);
+                      } else {
+                        strValue = JSON.stringify(value);
+                      }
 
                       const formattedValue = (() => {
                         if (key === "creditLimit" || key === "minimumPayment") {
