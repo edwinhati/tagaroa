@@ -25,7 +25,7 @@ function formatFileSize(bytes?: number) {
   return `${Number.parseFloat((bytes / k ** i).toFixed(1))} ${sizes[i]}`;
 }
 
-export function FileListItem({ fileId, onClick }: FileListItemProps) {
+export function FileListItem({ fileId, onClick }: Readonly<FileListItemProps>) {
   const { data: file, isLoading } = useQuery(fileQueryOptions(fileId));
 
   if (isLoading) {

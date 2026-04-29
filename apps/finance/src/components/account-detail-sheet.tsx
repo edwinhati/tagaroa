@@ -188,7 +188,7 @@ export function AccountDetailSheet({
                         <PropertyRow
                           key={key}
                           label={key
-                            .replace(/([A-Z])/g, " $1")
+                            .replaceAll(/([A-Z])/g, " $1")
                             .replace(/^./, (str) => str.toUpperCase())}
                           value={formattedValue}
                           className={index === arr.length - 1 ? "border-0" : ""}

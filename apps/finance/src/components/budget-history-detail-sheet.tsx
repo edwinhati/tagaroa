@@ -29,6 +29,15 @@ interface BudgetHistoryDetailSheetProps {
   onEdit?: () => void;
 }
 
+function formatAmount(amount: number, currency: string) {
+  return new Intl.NumberFormat(currency === "IDR" ? "id-ID" : "en-US", {
+    style: "currency",
+    currency: currency,
+    minimumFractionDigits: 0,
+    maximumFractionDigits: 0,
+  }).format(amount);
+}
+
 function BudgetItemRow({
   item,
   currency,
@@ -37,14 +46,12 @@ function BudgetItemRow({
     item.allocation > 0 ? (item.spent / item.allocation) * 100 : 0;
   const isOverBudget = item.spent > item.allocation;
 
-  const formatAmount = (amount: number) => {
-    return new Intl.NumberFormat(currency === "IDR" ? "id-ID" : "en-US", {
-      style: "currency",
-      currency: currency,
-      minimumFractionDigits: 0,
-      maximumFractionDigits: 0,
-    }).format(amount);
-  };
+  let progressColor = "bg-emerald-500";
+  if (isOverBudget) {
+    progressColor = "bg-destructive";
+  } else if (percentage > 80) {
+    progressColor = "bg-amber-500";
+  }
 
   return (
     <div className="py-3 border-b border-border/50 last:border-0">
@@ -59,7 +66,8 @@ function BudgetItemRow({
           variant={isOverBudget ? "destructive" : "secondary"}
           className="text-xs"
         >
-          {formatAmount(item.spent)} / {formatAmount(item.allocation)}
+          {formatAmount(item.spent, currency)} /{" "}
+          {formatAmount(item.allocation, currency)}
         </Badge>
       </div>
       <div className="space-y-1">
@@ -69,14 +77,7 @@ function BudgetItemRow({
         </div>
         <div className="h-1.5 w-full rounded-full bg-muted overflow-hidden">
           <div
-            className={cn(
-              "h-full rounded-full transition-all",
-              isOverBudget
-                ? "bg-destructive"
-                : percentage > 80
-                  ? "bg-amber-500"
-                  : "bg-emerald-500",
-            )}
+            className={cn("h-full rounded-full transition-all", progressColor)}
             style={{ width: `${Math.min(percentage, 100)}%` }}
           />
         </div>
@@ -91,15 +92,6 @@ export function BudgetHistoryDetailSheet({
   onOpenChange,
   onEdit,
 }: Readonly<BudgetHistoryDetailSheetProps>) {
-  const formatAmount = (amount: number, currency: string) => {
-    return new Intl.NumberFormat(currency === "IDR" ? "id-ID" : "en-US", {
-      style: "currency",
-      currency: currency,
-      minimumFractionDigits: 0,
-      maximumFractionDigits: 0,
-    }).format(amount);
-  };
-
   const getMonthName = (month: number) => {
     return new Date(2000, month - 1).toLocaleString("en-US", { month: "long" });
   };
@@ -110,6 +102,13 @@ export function BudgetHistoryDetailSheet({
     budget && budget.amount > 0 ? (totalSpent / budget.amount) * 100 : 0;
 
   if (!budget) return null;
+
+  let progressColor = "bg-emerald-500";
+  if (spentPercentage > 100) {
+    progressColor = "bg-destructive";
+  } else if (spentPercentage > 80) {
+    progressColor = "bg-amber-500";
+  }
 
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
@@ -161,11 +160,7 @@ export function BudgetHistoryDetailSheet({
                   <div
                     className={cn(
                       "h-full rounded-full transition-all",
-                      spentPercentage > 100
-                        ? "bg-destructive"
-                        : spentPercentage > 80
-                          ? "bg-amber-500"
-                          : "bg-emerald-500",
+                      progressColor,
                     )}
                     style={{ width: `${Math.min(spentPercentage, 100)}%` }}
                   />

@@ -12,16 +12,19 @@ export function getDownloadUrl(fileId: string): string {
   return `/api/storage/${fileId}/download`;
 }
 
-export function getFileIcon(contentType?: string, fileName?: string) {
-  const type = contentType || "";
-  const name = fileName || "";
-
-  if (type.startsWith("image/")) return IconPhoto;
-  if (type.includes("pdf") || name.endsWith(".pdf")) return IconFileText;
-  if (type.includes("video/")) return IconMovie;
-  if (type.includes("audio/")) return IconHeadphones;
-  if (type.includes("zip") || name.endsWith(".zip")) return IconFileZip;
-  if (type.includes("excel") || name.endsWith(".xls") || name.endsWith(".xlsx"))
+export function getFileIcon(contentType = "", fileName = "") {
+  if (contentType.startsWith("image/")) return IconPhoto;
+  if (contentType.includes("pdf") || fileName.endsWith(".pdf"))
+    return IconFileText;
+  if (contentType.includes("video/")) return IconMovie;
+  if (contentType.includes("audio/")) return IconHeadphones;
+  if (contentType.includes("zip") || fileName.endsWith(".zip"))
+    return IconFileZip;
+  if (
+    contentType.includes("excel") ||
+    fileName.endsWith(".xls") ||
+    fileName.endsWith(".xlsx")
+  )
     return IconTable;
   return IconFile;
 }

@@ -31,7 +31,7 @@ export function FilePreviewDialog({
   contentType,
   open,
   onOpenChange,
-}: FilePreviewDialogProps) {
+}: Readonly<FilePreviewDialogProps>) {
   const downloadUrl = fileId ? getDownloadUrl(fileId) : "";
   const showImage = isImage(contentType);
   const showPdf = isPdf(contentType, fileName);
