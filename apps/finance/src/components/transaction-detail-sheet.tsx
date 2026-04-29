@@ -1,5 +1,9 @@
 "use client";
 
+import {
+  PropertyRow,
+  SectionHeader,
+} from "@repo/common/components/detail-elements";
 import type { FilePreviewData } from "@repo/common/components/file-list-item";
 import { FileListItem } from "@repo/common/components/file-list-item";
 import { FilePreviewDialog } from "@repo/common/components/file-preview-dialog";
@@ -43,45 +47,6 @@ function getTypeColor(type: string): string {
   return type === "INCOME"
     ? "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400"
     : "bg-rose-500/10 text-rose-600 dark:text-rose-400";
-}
-
-function SectionHeader({
-  icon: Icon,
-  title,
-}: Readonly<{
-  icon: React.ElementType;
-  title: string;
-}>) {
-  return (
-    <div className="flex items-center gap-2 text-muted-foreground">
-      <Icon size={14} />
-      <span className="text-xs font-semibold uppercase tracking-wider">
-        {title}
-      </span>
-    </div>
-  );
-}
-
-function PropertyRow({
-  label,
-  value,
-  className,
-}: Readonly<{
-  label: string;
-  value: React.ReactNode;
-  className?: string;
-}>) {
-  return (
-    <div
-      className={cn(
-        "flex items-center justify-between py-2.5 border-b border-border/50 last:border-0",
-        className,
-      )}
-    >
-      <span className="text-sm text-muted-foreground">{label}</span>
-      <span className="text-sm font-medium text-foreground">{value}</span>
-    </div>
-  );
 }
 
 export function TransactionDetailSheet({

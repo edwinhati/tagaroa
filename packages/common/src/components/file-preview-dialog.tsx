@@ -6,20 +6,8 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@repo/ui/components/dialog";
-import {
-  IconDownload,
-  IconFile,
-  IconFileText,
-  IconFileZip,
-  IconHeadphones,
-  IconMovie,
-  IconPhoto,
-  IconTable,
-} from "@tabler/icons-react";
-
-function getDownloadUrl(fileId: string): string {
-  return `/api/storage/${fileId}/download`;
-}
+import { IconDownload } from "@tabler/icons-react";
+import { getDownloadUrl, getFileIcon } from "./file-utils";
 
 interface FilePreviewDialogProps {
   fileId: string | null;
@@ -27,20 +15,6 @@ interface FilePreviewDialogProps {
   contentType?: string;
   open: boolean;
   onOpenChange: (open: boolean) => void;
-}
-
-function getFileIcon(contentType?: string, fileName?: string) {
-  const type = contentType || "";
-  const name = fileName || "";
-
-  if (type.startsWith("image/")) return IconPhoto;
-  if (type.includes("pdf") || name.endsWith(".pdf")) return IconFileText;
-  if (type.includes("video/")) return IconMovie;
-  if (type.includes("audio/")) return IconHeadphones;
-  if (type.includes("zip") || name.endsWith(".zip")) return IconFileZip;
-  if (type.includes("excel") || name.endsWith(".xls") || name.endsWith(".xlsx"))
-    return IconTable;
-  return IconFile;
 }
 
 function isImage(contentType?: string) {

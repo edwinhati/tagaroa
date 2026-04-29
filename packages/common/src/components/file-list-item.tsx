@@ -2,20 +2,8 @@
 
 import { fileQueryOptions } from "@repo/common/lib/query/storage-query";
 import { Skeleton } from "@repo/ui/components/skeleton";
-import {
-  IconFile,
-  IconFileText,
-  IconFileZip,
-  IconHeadphones,
-  IconMovie,
-  IconPhoto,
-  IconTable,
-} from "@tabler/icons-react";
 import { useQuery } from "@tanstack/react-query";
-
-function getDownloadUrl(fileId: string): string {
-  return `/api/storage/${fileId}/download`;
-}
+import { getDownloadUrl, getFileIcon } from "./file-utils";
 
 export type FilePreviewData = {
   id: string;
@@ -26,20 +14,6 @@ export type FilePreviewData = {
 interface FileListItemProps {
   fileId: string;
   onClick?: (data: FilePreviewData) => void;
-}
-
-function getFileIcon(contentType?: string, fileName?: string) {
-  const type = contentType || "";
-  const name = fileName || "";
-
-  if (type.startsWith("image/")) return IconPhoto;
-  if (type.includes("pdf") || name.endsWith(".pdf")) return IconFileText;
-  if (type.includes("video/")) return IconMovie;
-  if (type.includes("audio/")) return IconHeadphones;
-  if (type.includes("zip") || name.endsWith(".zip")) return IconFileZip;
-  if (type.includes("excel") || name.endsWith(".xls") || name.endsWith(".xlsx"))
-    return IconTable;
-  return IconFile;
 }
 
 function formatFileSize(bytes?: number) {
