@@ -1,7 +1,6 @@
 import type { AccountCategory } from "../value-objects/account-category";
 import type { AccountMetadata } from "../value-objects/credit-metadata";
 import {
-  calculateAvailableCredit,
   calculateCreditUtilization,
   isCreditAccountMetadata,
 } from "../value-objects/credit-metadata";
@@ -35,24 +34,6 @@ export class Account {
    */
   isAsset(): boolean {
     return this.category === "ASSET";
-  }
-
-  /**
-   * Get available credit for credit accounts
-   * Returns null for non-credit accounts
-   */
-  getAvailableCredit(): number | null {
-    if (!this.isLiability() || !isCreditAccountMetadata(this.metadata)) {
-      return null;
-    }
-    // Use stored available credit or calculate from credit limit
-    if (this.metadata.availableCredit !== undefined) {
-      return this.metadata.availableCredit;
-    }
-    if (this.metadata.creditLimit !== undefined) {
-      return calculateAvailableCredit(this.metadata.creditLimit, this.balance);
-    }
-    return null;
   }
 
   /**

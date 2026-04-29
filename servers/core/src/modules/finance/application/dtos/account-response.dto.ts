@@ -17,7 +17,6 @@ export type AccountResponseDto = {
   updated_at: Date;
   version: number;
   // Computed fields for credit accounts
-  available_credit?: number | null;
   credit_utilization?: number | null;
 };
 
@@ -40,7 +39,6 @@ export function toAccountResponse(account: Account): AccountResponseDto {
 
   // Add computed credit fields for liability accounts
   if (account.isLiability()) {
-    response.available_credit = account.getAvailableCredit();
     response.credit_utilization = account.getCreditUtilization();
   }
 

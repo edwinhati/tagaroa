@@ -51,6 +51,7 @@ import {
 } from "@tanstack/react-table";
 import { useSearchParams } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
+import { AccountDetailSheet } from "@/components/account-detail-sheet";
 import { AccountFormDialog } from "@/components/account-form-dialog";
 
 // Cell renderer components - defined outside to avoid recreation on each render
@@ -127,6 +128,7 @@ const multiColumnFilterFn: FilterFn<Account> = (row, filterValue) => {
 
 type AccountTableMeta = {
   deleteAccount: (id: string) => void;
+  onViewAccount: (account: Account) => void;
 };
 
 const ActionsCell = ({
@@ -138,7 +140,11 @@ const ActionsCell = ({
 }>) => {
   const meta = table.options.meta as AccountTableMeta | undefined;
   return meta?.deleteAccount ? (
-    <RowActions row={row} deleteAccount={meta.deleteAccount} />
+    <RowActions
+      row={row}
+      deleteAccount={meta.deleteAccount}
+      onViewAccount={meta.onViewAccount}
+    />
   ) : null;
 };
 
@@ -194,6 +200,10 @@ function AccountDataTableContent() {
   );
   const [searchQuery, setSearchQuery] = useState<string>("");
   const [openPopovers, setOpenPopovers] = useState<Record<string, boolean>>({});
+  const [viewingAccount, setViewingAccount] = useState<Account | null>(null);
+  const [showViewSheet, setShowViewSheet] = useState(false);
+  const [editingAccount, setEditingAccount] = useState<Account | null>(null);
+  const [showEditDialog, setShowEditDialog] = useState(false);
 
   // Stable data state to prevent re-renders during refetch
   const [stableData, setStableData] = useState<PaginatedAccountsResult | null>(
@@ -290,6 +300,10 @@ function AccountDataTableContent() {
     },
     meta: {
       deleteAccount,
+      onViewAccount: (account: Account) => {
+        setViewingAccount(account);
+        setShowViewSheet(true);
+      },
     },
   });
 
@@ -403,6 +417,22 @@ function AccountDataTableContent() {
 
   return (
     <div className="relative space-y-4">
+      <AccountFormDialog
+        initialData={editingAccount ?? undefined}
+        open={showEditDialog}
+        onOpenChange={setShowEditDialog}
+        trigger={null}
+      />
+      <AccountDetailSheet
+        account={viewingAccount}
+        open={showViewSheet}
+        onOpenChange={setShowViewSheet}
+        onEdit={() => {
+          setEditingAccount(viewingAccount);
+          setShowViewSheet(false);
+          setShowEditDialog(true);
+        }}
+      />
       {/* Filters */}
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div className="flex items-center gap-3">
@@ -453,6 +483,10 @@ function AccountDataTableContent() {
         hasRows={hasRows}
         hasTotalData={hasTotalData}
         hasActiveFilters={hasActiveFilters}
+        onRowClick={(account) => {
+          setViewingAccount(account);
+          setShowViewSheet(true);
+        }}
         paginationInfo={
           paginationInfo
             ? {
@@ -500,9 +534,10 @@ function AccountDataTableContent() {
 type RowActionsProps = Readonly<{
   row: Row<Account>;
   deleteAccount: (id: string) => void;
+  onViewAccount: (account: Account) => void;
 }>;
 
-function RowActions({ row, deleteAccount }: RowActionsProps) {
+function RowActions({ row, deleteAccount, onViewAccount }: RowActionsProps) {
   const [showEditDialog, setShowEditDialog] = useState(false);
 
   return (
@@ -528,6 +563,9 @@ function RowActions({ row, deleteAccount }: RowActionsProps) {
         />
         <DropdownMenuContent align="end">
           <DropdownMenuGroup>
+            <DropdownMenuItem onClick={() => onViewAccount(row.original)}>
+              <span>View</span>
+            </DropdownMenuItem>
             <DropdownMenuItem onClick={() => setShowEditDialog(true)}>
               <span>Edit</span>
               <DropdownMenuShortcut>⌘E</DropdownMenuShortcut>

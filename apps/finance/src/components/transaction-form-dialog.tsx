@@ -73,7 +73,7 @@ type PaymentMethod = "full" | "installment";
 
 type TransactionFormDialogProps = Readonly<{
   initialData?: Partial<Transaction>;
-  trigger?: React.ReactElement;
+  trigger?: React.ReactElement | null;
   nativeButton?: boolean;
   onSuccess?: () => void;
   open?: boolean;

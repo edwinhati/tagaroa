@@ -52,6 +52,7 @@ import { useSearchParams } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
 import type { DateRange } from "react-day-picker";
 import { DateRangePicker } from "./date-range-picker";
+import { TransactionDetailSheet } from "./transaction-detail-sheet";
 import { TransactionFormDialog } from "./transaction-form-dialog";
 
 // Types
@@ -71,14 +72,217 @@ type TransactionWithRelations = Transaction & {
   };
 };
 
+type TransactionTableMeta = {
+  deleteTransaction: (id: string) => void;
+  onViewTransaction: (transaction: TransactionWithRelations) => void;
+};
+
+// Cell renderer components - defined outside to avoid recreation on each render
+const SelectHeaderCell = ({
+  table,
+}: Readonly<{
+  table: ReturnType<typeof useReactTable<TransactionWithRelations>>;
+}>) => (
+  <Checkbox
+    checked={table.getIsAllPageRowsSelected()}
+    indeterminate={table.getIsSomePageRowsSelected()}
+    onCheckedChange={(value) => table.toggleAllPageRowsSelected(!!value)}
+    aria-label="Select all"
+  />
+);
+
+const SelectRowCell = ({
+  row,
+}: Readonly<{ row: Row<TransactionWithRelations> }>) => (
+  <Checkbox
+    checked={row.getIsSelected()}
+    onCheckedChange={(value) => row.toggleSelected(!!value)}
+    aria-label="Select row"
+  />
+);
+
+const DateCell = ({
+  row,
+}: Readonly<{ row: Row<TransactionWithRelations> }>) => (
+  <div className="font-medium">
+    {format(row.getValue("date"), "MMM dd, yyyy")}
+  </div>
+);
+
+const TypeCell = ({
+  row,
+}: Readonly<{ row: Row<TransactionWithRelations> }>) => {
+  const typeValue = row.getValue("type") as string;
+  const isIncome = typeValue === "INCOME";
+  return (
+    <Badge
+      variant="outline"
+      className={cn(
+        isIncome
+          ? "border-emerald-500/40 bg-emerald-50 text-emerald-700 dark:bg-emerald-950/30 dark:text-emerald-400"
+          : "border-rose-500/40 bg-rose-50 text-rose-700 dark:bg-rose-950/30 dark:text-rose-400",
+      )}
+    >
+      {typeValue.replaceAll("_", "-")}
+    </Badge>
+  );
+};
+
+const AmountCell = ({
+  row,
+}: Readonly<{ row: Row<TransactionWithRelations> }>) => {
+  const amount = Number.parseFloat(row.getValue("amount"));
+  const isIncome = row.original.type === "INCOME";
+  const formatted = new Intl.NumberFormat(
+    row.original.currency === "IDR" ? "id-ID" : "en-US",
+    { style: "currency", currency: row.original.currency },
+  ).format(amount);
+  return (
+    <span
+      className={cn(
+        "font-medium tabular-nums",
+        isIncome
+          ? "text-emerald-600 dark:text-emerald-400"
+          : "text-rose-600 dark:text-rose-400",
+      )}
+    >
+      {formatted}
+    </span>
+  );
+};
+
+const AccountCell = ({
+  row,
+}: Readonly<{ row: Row<TransactionWithRelations> }>) => (
+  <div className="font-medium">{row.original.account?.name || "—"}</div>
+);
+
+const CategoryCell = ({
+  row,
+}: Readonly<{ row: Row<TransactionWithRelations> }>) => (
+  <div className="text-muted-foreground">
+    {row.original.budget_item?.category || "—"}
+  </div>
+);
+
+const CurrencyCell = ({
+  row,
+}: Readonly<{ row: Row<TransactionWithRelations> }>) => (
+  <Badge variant="outline">{row.getValue("currency")}</Badge>
+);
+
+const NotesCell = ({
+  row,
+}: Readonly<{ row: Row<TransactionWithRelations> }>) => {
+  const notes = row.getValue("notes");
+  if (!notes) {
+    return (
+      <div className="max-w-[200px] truncate text-muted-foreground">—</div>
+    );
+  }
+  const notesStr =
+    typeof notes === "object" ? JSON.stringify(notes) : String(notes);
+  return (
+    <div className="max-w-[200px] truncate text-muted-foreground">
+      {notesStr}
+    </div>
+  );
+};
+
+const ActionsHeaderCell = () => <span className="sr-only">Actions</span>;
+
+const ActionsCell = ({
+  row,
+  table,
+}: Readonly<{
+  row: Row<TransactionWithRelations>;
+  table: ReturnType<typeof useReactTable<TransactionWithRelations>>;
+}>) => {
+  const meta = table.options.meta as TransactionTableMeta | undefined;
+  return meta?.deleteTransaction ? (
+    <RowActions
+      row={row}
+      deleteTransaction={meta.deleteTransaction}
+      onViewTransaction={meta.onViewTransaction}
+    />
+  ) : null;
+};
+
+// Columns
+
+const columns: ColumnDef<TransactionWithRelations>[] = [
+  {
+    id: "select",
+    header: SelectHeaderCell,
+    cell: SelectRowCell,
+    size: 28,
+    enableSorting: false,
+    enableHiding: false,
+  },
+  {
+    header: "Date",
+    accessorKey: "date",
+    cell: DateCell,
+    size: 120,
+  },
+  {
+    header: "Type",
+    accessorKey: "type",
+    cell: TypeCell,
+    size: 100,
+  },
+  {
+    header: "Amount",
+    accessorKey: "amount",
+    cell: AmountCell,
+    size: 150,
+  },
+  {
+    header: "Account",
+    accessorFn: (row) => row.account?.name,
+    cell: AccountCell,
+    size: 150,
+  },
+  {
+    header: "Category",
+    accessorFn: (row) => row.budget_item?.category,
+    cell: CategoryCell,
+    size: 150,
+  },
+  {
+    header: "Currency",
+    accessorKey: "currency",
+    cell: CurrencyCell,
+    size: 100,
+  },
+  {
+    header: "Notes",
+    accessorKey: "notes",
+    cell: NotesCell,
+    size: 220,
+  },
+  {
+    id: "actions",
+    header: ActionsHeaderCell,
+    cell: ActionsCell,
+    size: 60,
+    enableHiding: false,
+  },
+];
+
 // Row Actions
 
 type RowActionsProps = Readonly<{
   row: Row<TransactionWithRelations>;
   deleteTransaction: (id: string) => void;
+  onViewTransaction: (transaction: TransactionWithRelations) => void;
 }>;
 
-function RowActions({ row, deleteTransaction }: RowActionsProps) {
+function RowActions({
+  row,
+  deleteTransaction,
+  onViewTransaction,
+}: RowActionsProps) {
   const [showEditDialog, setShowEditDialog] = useState(false);
 
   return (
@@ -87,6 +291,7 @@ function RowActions({ row, deleteTransaction }: RowActionsProps) {
         initialData={row.original}
         open={showEditDialog}
         onOpenChange={setShowEditDialog}
+        trigger={null}
       />
       <DropdownMenu>
         <DropdownMenuTrigger
@@ -103,6 +308,9 @@ function RowActions({ row, deleteTransaction }: RowActionsProps) {
         />
         <DropdownMenuContent align="end">
           <DropdownMenuGroup>
+            <DropdownMenuItem onClick={() => onViewTransaction(row.original)}>
+              <span>View</span>
+            </DropdownMenuItem>
             <DropdownMenuItem onClick={() => setShowEditDialog(true)}>
               <span>Edit</span>
               <DropdownMenuShortcut>⌘E</DropdownMenuShortcut>
@@ -122,149 +330,6 @@ function RowActions({ row, deleteTransaction }: RowActionsProps) {
       </DropdownMenu>
     </div>
   );
-}
-
-// Columns
-
-function buildColumns(
-  deleteTransaction: (id: string) => void,
-): ColumnDef<TransactionWithRelations>[] {
-  return [
-    {
-      id: "select",
-      header: ({ table }) => (
-        <Checkbox
-          checked={table.getIsAllPageRowsSelected()}
-          indeterminate={table.getIsSomePageRowsSelected()}
-          onCheckedChange={(value) => table.toggleAllPageRowsSelected(!!value)}
-          aria-label="Select all"
-        />
-      ),
-      cell: ({ row }) => (
-        <Checkbox
-          checked={row.getIsSelected()}
-          onCheckedChange={(value) => row.toggleSelected(!!value)}
-          aria-label="Select row"
-        />
-      ),
-      size: 28,
-      enableSorting: false,
-      enableHiding: false,
-    },
-    {
-      header: "Date",
-      accessorKey: "date",
-      cell: ({ row }) => (
-        <div className="font-medium">
-          {format(row.getValue("date"), "MMM dd, yyyy")}
-        </div>
-      ),
-      size: 120,
-    },
-    {
-      header: "Type",
-      accessorKey: "type",
-      cell: ({ row }) => {
-        const typeValue = row.getValue("type") as string;
-        const isIncome = typeValue === "INCOME";
-        return (
-          <Badge
-            variant="outline"
-            className={cn(
-              isIncome
-                ? "border-emerald-500/40 bg-emerald-50 text-emerald-700 dark:bg-emerald-950/30 dark:text-emerald-400"
-                : "border-rose-500/40 bg-rose-50 text-rose-700 dark:bg-rose-950/30 dark:text-rose-400",
-            )}
-          >
-            {typeValue.replaceAll("_", "-")}
-          </Badge>
-        );
-      },
-      size: 100,
-    },
-    {
-      header: "Amount",
-      accessorKey: "amount",
-      cell: ({ row }) => {
-        const amount = Number.parseFloat(row.getValue("amount"));
-        const isIncome = row.original.type === "INCOME";
-        const formatted = new Intl.NumberFormat(
-          row.original.currency === "IDR" ? "id-ID" : "en-US",
-          { style: "currency", currency: row.original.currency },
-        ).format(amount);
-        return (
-          <span
-            className={cn(
-              "font-medium tabular-nums",
-              isIncome
-                ? "text-emerald-600 dark:text-emerald-400"
-                : "text-rose-600 dark:text-rose-400",
-            )}
-          >
-            {formatted}
-          </span>
-        );
-      },
-      size: 150,
-    },
-    {
-      header: "Account",
-      accessorFn: (row) => row.account?.name,
-      cell: ({ row }) => (
-        <div className="font-medium">{row.original.account?.name || "—"}</div>
-      ),
-      size: 150,
-    },
-    {
-      header: "Category",
-      accessorFn: (row) => row.budget_item?.category,
-      cell: ({ row }) => (
-        <div className="text-muted-foreground">
-          {row.original.budget_item?.category || "—"}
-        </div>
-      ),
-      size: 150,
-    },
-    {
-      header: "Currency",
-      accessorKey: "currency",
-      cell: ({ row }) => (
-        <Badge variant="outline">{row.getValue("currency")}</Badge>
-      ),
-      size: 100,
-    },
-    {
-      header: "Notes",
-      accessorKey: "notes",
-      cell: ({ row }) => {
-        const notes = row.getValue("notes");
-        if (!notes) {
-          return (
-            <div className="max-w-[200px] truncate text-muted-foreground">
-              —
-            </div>
-          );
-        }
-        const notesStr =
-          typeof notes === "object" ? JSON.stringify(notes) : String(notes);
-        return (
-          <div className="max-w-[200px] truncate text-muted-foreground">
-            {notesStr}
-          </div>
-        );
-      },
-      size: 220,
-    },
-    {
-      id: "actions",
-      header: () => <span className="sr-only">Actions</span>,
-      cell: ({ row }) => (
-        <RowActions row={row} deleteTransaction={deleteTransaction} />
-      ),
-      size: 60,
-      enableHiding: false,
-    },
-  ];
 }
 
 // Toolbar
@@ -407,6 +472,13 @@ function TransactionDataTableContent() {
     useState<PaginatedTransactionsResult | null>(null);
   const [isInitialLoading, setIsInitialLoading] = useState(true);
 
+  const [viewingTransaction, setViewingTransaction] =
+    useState<TransactionWithRelations | null>(null);
+  const [showViewSheet, setShowViewSheet] = useState(false);
+  const [editingTransaction, setEditingTransaction] =
+    useState<TransactionWithRelations | null>(null);
+  const [showEditDialog, setShowEditDialog] = useState(false);
+
   const {
     serverFilters,
     setServerFilters,
@@ -455,11 +527,6 @@ function TransactionDataTableContent() {
     }),
   );
 
-  const columns = useMemo(
-    () => buildColumns(deleteTransaction),
-    [deleteTransaction],
-  );
-
   useEffect(() => {
     if (transactionsResponse && !error) {
       setStableData({
@@ -503,6 +570,13 @@ function TransactionDataTableContent() {
     pageCount: paginationInfo?.total_pages ?? 0,
     onPaginationChange: setPagination,
     state: { pagination },
+    meta: {
+      deleteTransaction,
+      onViewTransaction: (transaction: TransactionWithRelations) => {
+        setViewingTransaction(transaction);
+        setShowViewSheet(true);
+      },
+    },
   });
 
   const handleBulkDelete = () => {
@@ -563,6 +637,23 @@ function TransactionDataTableContent() {
 
   return (
     <div className="relative space-y-4">
+      <TransactionFormDialog
+        initialData={editingTransaction ?? undefined}
+        open={showEditDialog}
+        onOpenChange={setShowEditDialog}
+        trigger={null}
+      />
+      <TransactionDetailSheet
+        transaction={viewingTransaction}
+        open={showViewSheet}
+        onOpenChange={setShowViewSheet}
+        onEdit={() => {
+          setEditingTransaction(viewingTransaction);
+          setShowViewSheet(false);
+          setShowEditDialog(true);
+        }}
+      />
+
       <h2 className="sr-only">Transaction Management</h2>
       <TransactionToolbar
         searchQuery={searchQuery}
@@ -589,6 +680,10 @@ function TransactionDataTableContent() {
         hasActiveFilters={hasActiveFilters}
         paginationInfo={paginationInfo}
         tableContainerClassName="bg-background overflow-x-auto rounded-md border"
+        onRowClick={(transaction) => {
+          setViewingTransaction(transaction);
+          setShowViewSheet(true);
+        }}
         emptyState={
           <Empty>
             <EmptyHeader>

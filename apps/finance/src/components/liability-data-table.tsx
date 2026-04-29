@@ -62,6 +62,7 @@ import {
 import { format } from "date-fns";
 import { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
+import { LiabilityDetailSheet } from "@/components/liability-detail-sheet";
 import { LiabilityFormDialog } from "@/components/liability-form-dialog";
 
 const SelectHeaderCell = ({
@@ -97,7 +98,6 @@ const TypeCell = ({ row }: { row: Row<Liability> }) => {
 const InstallmentProgressCell = ({ row }: { row: Row<Liability> }) => {
   const liability = row.original;
 
-  // Use the helper function to get installment progress
   const progress = getInstallmentProgress(liability);
 
   if (!progress) {
@@ -157,6 +157,7 @@ const ActionsHeaderCell = () => <span className="sr-only">Actions</span>;
 type LiabilityTableMeta = {
   mutateLiability: (liability: Liability) => void;
   deleteLiability: (id: string) => void;
+  onViewLiability: (liability: Liability) => void;
 };
 
 const ActionsCell = ({
@@ -172,6 +173,7 @@ const ActionsCell = ({
       row={row}
       mutateLiability={meta.mutateLiability}
       deleteLiability={meta.deleteLiability}
+      onViewLiability={meta.onViewLiability}
     />
   ) : null;
 };
@@ -265,6 +267,15 @@ function LiabilityDataTableContent() {
     useState<PaginatedLiabilitiesResult | null>(null);
   const [isInitialLoading, setIsInitialLoading] = useState(true);
 
+  const [viewingLiability, setViewingLiability] = useState<Liability | null>(
+    null,
+  );
+  const [showViewSheet, setShowViewSheet] = useState(false);
+  const [editingLiability, setEditingLiability] = useState<Liability | null>(
+    null,
+  );
+  const [showEditDialog, setShowEditDialog] = useState(false);
+
   const liabilityMutationOpts = useLiabilityMutationOptions();
   const { mutate: mutateLiability } = useMutation(liabilityMutationOpts);
 
@@ -345,6 +356,10 @@ function LiabilityDataTableContent() {
     meta: {
       mutateLiability,
       deleteLiability,
+      onViewLiability: (liability: Liability) => {
+        setViewingLiability(liability);
+        setShowViewSheet(true);
+      },
     },
   });
 
@@ -411,6 +426,22 @@ function LiabilityDataTableContent() {
 
   return (
     <div className="relative space-y-4">
+      <LiabilityFormDialog
+        initialData={editingLiability ?? undefined}
+        open={showEditDialog}
+        onOpenChange={setShowEditDialog}
+        trigger={null}
+      />
+      <LiabilityDetailSheet
+        liability={viewingLiability}
+        open={showViewSheet}
+        onOpenChange={setShowViewSheet}
+        onEdit={() => {
+          setEditingLiability(viewingLiability);
+          setShowViewSheet(false);
+          setShowEditDialog(true);
+        }}
+      />
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div className="flex items-center gap-3">
           <ServerSearchInput
@@ -481,6 +512,10 @@ function LiabilityDataTableContent() {
         hasRows={hasRows}
         hasTotalData={hasTotalData}
         hasActiveFilters={hasActiveFilters}
+        onRowClick={(liability) => {
+          setViewingLiability(liability);
+          setShowViewSheet(true);
+        }}
         paginationInfo={paginationInfo}
         tableClassName="table-fixed"
         tableAriaLabel="Liabilities table"
@@ -518,12 +553,14 @@ type RowActionsProps = Readonly<{
   row: Row<Liability>;
   mutateLiability: (liability: Liability) => void;
   deleteLiability: (id: string) => void;
+  onViewLiability: (liability: Liability) => void;
 }>;
 
 function RowActions({
   row,
   mutateLiability,
   deleteLiability,
+  onViewLiability,
 }: RowActionsProps) {
   const [editDialogOpen, setEditDialogOpen] = useState(false);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
@@ -578,6 +615,9 @@ function RowActions({
         />
         <DropdownMenuContent align="end">
           <DropdownMenuGroup>
+            <DropdownMenuItem onClick={() => onViewLiability(row.original)}>
+              <span>View</span>
+            </DropdownMenuItem>
             <DropdownMenuItem
               onClick={() => {
                 setEditDialogOpen(true);

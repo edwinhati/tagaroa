@@ -1,16 +1,21 @@
 "use client";
 
 import { DataTableBulkDeleteDialog } from "@repo/common/components/data-table-bulk-delete-dialog";
-import { DataTableEmptyState } from "@repo/common/components/data-table-empty-state";
-import { DataTablePagination } from "@repo/common/components/data-table-pagination";
-import { DataTableSortableHeader } from "@repo/common/components/data-table-sortable-header";
+import { DataTableView } from "@repo/common/components/data-table-view";
 import { Loading } from "@repo/common/components/loading";
-import { useBudgetPeriod } from "@repo/common/hooks/use-budget-period";
 import { budgetHistoryQueryOptions } from "@repo/common/lib/query/budget-query";
 import type { Budget, PaginatedBudgetsResult } from "@repo/common/types/budget";
 import { Button, buttonVariants } from "@repo/ui/components/button";
-import { Card, CardContent } from "@repo/ui/components/card";
 import { Checkbox } from "@repo/ui/components/checkbox";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuGroup,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuShortcut,
+  DropdownMenuTrigger,
+} from "@repo/ui/components/dropdown-menu";
 import {
   Empty,
   EmptyContent,
@@ -19,27 +24,17 @@ import {
   EmptyMedia,
   EmptyTitle,
 } from "@repo/ui/components/empty";
-import { Skeleton } from "@repo/ui/components/skeleton";
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@repo/ui/components/table";
 import { cn } from "@repo/ui/lib/utils";
 import {
   IconCalendar,
   IconChartBar,
-  IconEye,
+  IconDots,
   IconPlus,
   IconWallet,
 } from "@tabler/icons-react";
 import { useQuery } from "@tanstack/react-query";
 import {
   type ColumnDef,
-  flexRender,
   getCoreRowModel,
   getSortedRowModel,
   type PaginationState,
@@ -49,8 +44,9 @@ import {
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
+import { BudgetFormDialog } from "@/components/budget-form-dialog";
+import { BudgetHistoryDetailSheet } from "@/components/budget-history-detail-sheet";
 
-// Format currency helper
 const formatCurrency = (value: number, currency = "IDR") => {
   return new Intl.NumberFormat(currency === "IDR" ? "id-ID" : "en-US", {
     style: "currency",
@@ -60,7 +56,6 @@ const formatCurrency = (value: number, currency = "IDR") => {
   }).format(value);
 };
 
-// Summary card component matching main budget page
 type SummaryCardProps = Readonly<{
   title: string;
   value: string;
@@ -69,9 +64,9 @@ type SummaryCardProps = Readonly<{
 }>;
 
 const SummaryCard = ({ title, value, icon, iconColor }: SummaryCardProps) => (
-  <Card
+  <div
     className={cn(
-      "relative group",
+      "relative group rounded-lg border bg-card p-5",
       "motion-safe:transition-all motion-safe:duration-300 motion-safe:ease-out",
       "hover:shadow-lg hover:shadow-primary/5",
       "motion-safe:hover:-translate-y-0.5",
@@ -79,7 +74,7 @@ const SummaryCard = ({ title, value, icon, iconColor }: SummaryCardProps) => (
       "bg-card/80 backdrop-blur-sm",
     )}
   >
-    <CardContent className="flex items-center gap-4 p-5">
+    <div className="flex items-center gap-4">
       <div
         className={cn(
           "flex items-center justify-center rounded-xl p-3",
@@ -98,11 +93,10 @@ const SummaryCard = ({ title, value, icon, iconColor }: SummaryCardProps) => (
           {value}
         </p>
       </div>
-    </CardContent>
-  </Card>
+    </div>
+  </div>
 );
 
-// Summary stats section
 const HistorySummary = ({
   budgets,
   total,
@@ -143,7 +137,6 @@ const HistorySummary = ({
   );
 };
 
-// Cell renderer components
 const BudgetHistorySelectHeaderCell = ({
   table,
 }: {
@@ -165,7 +158,6 @@ const BudgetHistorySelectRowCell = ({ row }: { row: Row<Budget> }) => (
   />
 );
 
-// Combined Period Cell with icon
 const PeriodCell = ({ row }: { row: Row<Budget> }) => {
   const month = row.original.month;
   const year = row.original.year;
@@ -184,45 +176,31 @@ const PeriodCell = ({ row }: { row: Row<Budget> }) => {
   );
 };
 
-// Amount cell with currency formatting
 const AmountCell = ({ row }: { row: Row<Budget> }) => {
   const formatted = formatCurrency(row.original.amount, row.original.currency);
   return <span className="font-mono font-medium">{formatted}</span>;
 };
 
-// Actions cell with view button
-const ActionsCell = ({ row }: { row: Row<Budget> }) => {
-  const { month, year } = row.original;
-  const { setMonth, setYear } = useBudgetPeriod((s) => ({
-    setMonth: s.setMonth,
-    setYear: s.setYear,
-  }));
-  const router = useRouter();
-
-  const handleView = () => {
-    setMonth(month);
-    setYear(year);
-    router.push("/budgets");
-  };
-
-  return (
-    <div className="flex justify-end gap-1 opacity-0 group-hover/row:opacity-100 motion-safe:transition-opacity">
-      <Button
-        variant="ghost"
-        size="sm"
-        className="h-8 gap-1.5"
-        onClick={handleView}
-      >
-        <IconEye className="h-4 w-4" />
-        View
-      </Button>
-    </div>
-  );
-};
-
 const BudgetHistoryActionsHeaderCell = () => (
   <span className="sr-only">Actions</span>
 );
+
+type BudgetTableMeta = {
+  onViewBudget: (budget: Budget) => void;
+};
+
+const ActionsCell = ({
+  row,
+  table,
+}: {
+  row: Row<Budget>;
+  table: ReturnType<typeof useReactTable<Budget>>;
+}) => {
+  const meta = table.options.meta as BudgetTableMeta | undefined;
+  return meta?.onViewBudget ? (
+    <RowActions row={row} onViewBudget={meta.onViewBudget} />
+  ) : null;
+};
 
 export function BudgetHistoryDataTable() {
   const [isMounted, setIsMounted] = useState(false);
@@ -248,12 +226,14 @@ function BudgetHistoryDataTableContent() {
     pageIndex: 0,
     pageSize: 10,
   });
-
-  // Stable data state to prevent re-renders during refetch
   const [stableData, setStableData] = useState<PaginatedBudgetsResult | null>(
     null,
   );
   const [isInitialLoading, setIsInitialLoading] = useState(true);
+  const [viewingBudget, setViewingBudget] = useState<Budget | null>(null);
+  const [showViewSheet, setShowViewSheet] = useState(false);
+  const [editingBudget, setEditingBudget] = useState<Budget | null>(null);
+  const [showEditDialog, setShowEditDialog] = useState(false);
 
   const { data: budgetResponse, error } = useQuery(
     budgetHistoryQueryOptions({
@@ -289,14 +269,13 @@ function BudgetHistoryDataTableContent() {
         id: "actions",
         header: BudgetHistoryActionsHeaderCell,
         cell: ActionsCell,
-        size: 100,
+        size: 60,
         enableSorting: false,
       },
     ],
     [],
   );
 
-  // Update stable data only when new data arrives, not during loading
   useEffect(() => {
     if (budgetResponse && !error) {
       setStableData({
@@ -307,18 +286,13 @@ function BudgetHistoryDataTableContent() {
     }
   }, [budgetResponse, error]);
 
-  // Use stable data to prevent re-renders during refetch
   const tableData = useMemo(() => {
     return stableData?.budgets || [];
   }, [stableData?.budgets]);
 
   const paginationInfo = stableData?.pagination;
-  const showLoadingState = isInitialLoading;
-
-  // Check if there's truly no data (no budgets at all for the user)
   const hasTotalData = (paginationInfo?.total ?? 0) > 0;
 
-  // TanStack Table exposes functions that React Compiler cannot memoize
   const table = useReactTable({
     data: tableData,
     columns,
@@ -330,16 +304,21 @@ function BudgetHistoryDataTableContent() {
     state: {
       pagination,
     },
+    meta: {
+      onViewBudget: (budget: Budget) => {
+        setViewingBudget(budget);
+        setShowViewSheet(true);
+      },
+    },
   });
-
-  const hasRows = table.getRowModel().rows.length > 0;
-  const selectedCount = table.getSelectedRowModel().rows.length;
 
   const handleDeleteRows = () => {
     table.resetRowSelection();
   };
 
-  // Show error state
+  const hasRows = table.getRowModel().rows.length > 0;
+  const selectedCount = table.getSelectedRowModel().rows.length;
+
   if (error) {
     return (
       <div className="space-y-4">
@@ -350,14 +329,29 @@ function BudgetHistoryDataTableContent() {
     );
   }
 
-  // Show initial loading state only on first load
   if (isInitialLoading) {
     return <BudgetHistoryTableSkeleton />;
   }
 
   return (
     <div className="relative space-y-4">
-      {/* Summary Stats */}
+      <BudgetFormDialog
+        initialData={editingBudget ?? undefined}
+        open={showEditDialog}
+        onOpenChange={setShowEditDialog}
+        trigger={null}
+      />
+      <BudgetHistoryDetailSheet
+        budget={viewingBudget}
+        open={showViewSheet}
+        onOpenChange={setShowViewSheet}
+        onEdit={() => {
+          setEditingBudget(viewingBudget);
+          setShowViewSheet(false);
+          setShowEditDialog(true);
+        }}
+      />
+
       {hasTotalData && (
         <HistorySummary
           budgets={tableData}
@@ -365,7 +359,6 @@ function BudgetHistoryDataTableContent() {
         />
       )}
 
-      {/* Filters */}
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div className="flex items-center gap-3">
           <DataTableBulkDeleteDialog
@@ -378,201 +371,175 @@ function BudgetHistoryDataTableContent() {
         </div>
       </div>
 
-      {/* Table */}
-      <div className="bg-background overflow-hidden rounded-lg border border-border/50">
-        <Table className="table-fixed">
-          <TableHeader>
-            {table.getHeaderGroups().map((headerGroup) => (
-              <TableRow key={headerGroup.id} className="hover:bg-transparent">
-                {headerGroup.headers.map((header) => (
-                  <DataTableSortableHeader key={header.id} header={header} />
-                ))}
-              </TableRow>
-            ))}
-          </TableHeader>
-          <TableBody>
-            {(() => {
-              if (showLoadingState) {
-                return <BudgetHistorySkeletonRows />;
-              }
-
-              if (hasRows) {
-                return table.getRowModel().rows.map((row) => (
-                  <TableRow
-                    key={row.id}
-                    data-state={row.getIsSelected() ? "selected" : undefined}
-                    className={cn(
-                      "group/row",
-                      "motion-safe:transition-colors motion-safe:duration-150",
-                      "hover:bg-muted/60",
-                      "focus-within:bg-muted/40 focus-within:ring-1 focus-within:ring-primary/20 focus-within:ring-inset",
-                      row.getIsSelected() && "bg-primary/5 hover:bg-primary/10",
-                    )}
-                  >
-                    {row.getVisibleCells().map((cell) => (
-                      <TableCell
-                        key={cell.id}
-                        className="last:py-0 motion-safe:transition-colors motion-safe:duration-150"
-                      >
-                        {flexRender(
-                          cell.column.columnDef.cell,
-                          cell.getContext(),
-                        )}
-                      </TableCell>
-                    ))}
-                  </TableRow>
-                ));
-              }
-
-              const renderEmptyState = !hasTotalData;
-              return (
-                <TableRow>
-                  <TableCell colSpan={columns.length} className="h-96">
-                    <div className="flex h-full">
-                      {renderEmptyState ? (
-                        <Empty className="py-12">
-                          <EmptyMedia
-                            variant="icon"
-                            className="bg-primary/10 text-primary"
-                          >
-                            <IconCalendar className="h-6 w-6" />
-                          </EmptyMedia>
-                          <EmptyHeader>
-                            <EmptyTitle>No Budget History</EmptyTitle>
-                            <EmptyDescription>
-                              You haven&apos;t created any budgets yet. Start by
-                              creating your first budget to track your monthly
-                              spending.
-                            </EmptyDescription>
-                          </EmptyHeader>
-                          <EmptyContent>
-                            <Link
-                              href="/budgets"
-                              className={buttonVariants({ size: "sm" })}
-                            >
-                              <IconPlus
-                                className="-ms-1 opacity-60"
-                                size={16}
-                                aria-hidden="true"
-                              />
-                              Create Budget
-                            </Link>
-                          </EmptyContent>
-                        </Empty>
-                      ) : (
-                        <DataTableEmptyState />
-                      )}
-                    </div>
-                  </TableCell>
-                </TableRow>
-              );
-            })()}
-          </TableBody>
-        </Table>
-      </div>
-
-      {/* Pagination */}
-      <DataTablePagination
+      <DataTableView
         table={table}
-        pageSizeOptions={[10, 25, 50, 100]}
-        serverSidePagination={
+        columnsLength={columns.length}
+        hasRows={hasRows}
+        hasTotalData={hasTotalData}
+        hasActiveFilters={false}
+        onRowClick={(budget) => {
+          setViewingBudget(budget);
+          setShowViewSheet(true);
+        }}
+        paginationInfo={
           paginationInfo
             ? {
                 total: paginationInfo.total,
                 page: paginationInfo.page,
-                totalPages: paginationInfo.total_pages,
-                hasNext: paginationInfo.page < paginationInfo.total_pages,
-                hasPrev: paginationInfo.page > 1,
+                total_pages: paginationInfo.total_pages,
+                has_next: paginationInfo.page < paginationInfo.total_pages,
+                has_prev: paginationInfo.page > 1,
               }
             : undefined
+        }
+        emptyState={
+          <Empty>
+            <EmptyHeader>
+              <EmptyMedia variant="icon" className="bg-primary/10 text-primary">
+                <IconCalendar className="h-6 w-6" />
+              </EmptyMedia>
+              <EmptyTitle>No Budget History</EmptyTitle>
+              <EmptyDescription>
+                You haven&apos;t created any budgets yet. Start by creating your
+                first budget to track your monthly spending.
+              </EmptyDescription>
+            </EmptyHeader>
+            <EmptyContent>
+              <Link href="/budgets" className={buttonVariants({ size: "sm" })}>
+                <IconPlus
+                  className="-ms-1 opacity-60"
+                  size={16}
+                  aria-hidden="true"
+                />
+                Create Budget
+              </Link>
+            </EmptyContent>
+          </Empty>
         }
       />
     </div>
   );
 }
 
-// Skeleton rows matching actual column structure
-function BudgetHistorySkeletonRows() {
+type RowActionsProps = Readonly<{
+  row: Row<Budget>;
+  onViewBudget: (budget: Budget) => void;
+}>;
+
+function RowActions({ row, onViewBudget }: RowActionsProps) {
+  const [showEditDialog, setShowEditDialog] = useState(false);
+  const { month, year } = row.original;
+  const router = useRouter();
+
+  const handleNavigate = () => {
+    router.push(`/budgets?month=${month}&year=${year}`);
+  };
+
   return (
-    <>
-      {Array.from({ length: 5 }, (_, i) => i).map((i) => (
-        <TableRow
-          key={`history-skeleton-row-${i}`}
-          className="pointer-events-none animate-in fade-in-50 duration-300"
-          style={{ animationDelay: `${i * 50}ms` }}
-        >
-          {/* Checkbox */}
-          <TableCell>
-            <Skeleton className="h-4 w-4 rounded" />
-          </TableCell>
-          {/* Period with icon */}
-          <TableCell>
-            <div className="flex items-center gap-2">
-              <Skeleton className="h-7 w-7 rounded-lg" />
-              <Skeleton className="h-4 w-28" />
-            </div>
-          </TableCell>
-          {/* Amount */}
-          <TableCell>
-            <Skeleton className="h-5 w-28" />
-          </TableCell>
-          {/* Actions */}
-          <TableCell>
-            <Skeleton className="h-8 w-16 rounded-md" />
-          </TableCell>
-        </TableRow>
-      ))}
-    </>
+    <div className="flex justify-end">
+      <BudgetFormDialog
+        initialData={row.original}
+        open={showEditDialog}
+        onOpenChange={setShowEditDialog}
+        trigger={null}
+      />
+      <DropdownMenu>
+        <DropdownMenuTrigger
+          render={
+            <Button
+              size="icon"
+              variant="ghost"
+              className="shadow-none"
+              aria-label="Edit item"
+            >
+              <IconDots size={16} aria-hidden="true" />
+            </Button>
+          }
+        />
+        <DropdownMenuContent align="end">
+          <DropdownMenuGroup>
+            <DropdownMenuItem onClick={() => onViewBudget(row.original)}>
+              <span>View</span>
+            </DropdownMenuItem>
+            <DropdownMenuItem onClick={handleNavigate}>
+              <span>Open in Budgets</span>
+            </DropdownMenuItem>
+            <DropdownMenuItem onClick={() => setShowEditDialog(true)}>
+              <span>Edit</span>
+              <DropdownMenuShortcut>⌘E</DropdownMenuShortcut>
+            </DropdownMenuItem>
+          </DropdownMenuGroup>
+          <DropdownMenuSeparator />
+        </DropdownMenuContent>
+      </DropdownMenu>
+    </div>
   );
 }
 
-// Full page skeleton for initial load
 function BudgetHistoryTableSkeleton() {
   return (
     <div className="space-y-4">
-      {/* Summary cards skeleton */}
       <div className="grid gap-4 md:grid-cols-3">
         {Array.from({ length: 3 }, (_, i) => i).map((i) => (
-          <Card key={`history-card-skeleton-${i}`} className="border-border/50">
-            <CardContent className="flex items-center gap-4 p-5">
-              <Skeleton className="h-11 w-11 rounded-xl" />
+          <div
+            key={`history-card-skeleton-${i}`}
+            className="rounded-lg border bg-card p-5"
+          >
+            <div className="flex items-center gap-4">
+              <div className="h-11 w-11 rounded-xl bg-muted" />
               <div className="space-y-2 flex-1">
-                <Skeleton className="h-4 w-24" />
-                <Skeleton className="h-7 w-32" />
+                <div className="h-4 w-24 bg-muted rounded" />
+                <div className="h-7 w-32 bg-muted rounded" />
               </div>
-            </CardContent>
-          </Card>
+            </div>
+          </div>
         ))}
       </div>
 
-      {/* Filter skeleton */}
       <div className="flex items-center justify-between">
-        <Skeleton className="h-8 w-[100px]" />
+        <div className="h-8 w-[100px] bg-muted rounded" />
       </div>
 
-      {/* Table skeleton */}
       <div className="rounded-lg border border-border/50 overflow-hidden">
-        <Table>
-          <TableHeader>
-            <TableRow>
-              <TableHead className="w-7">
-                <Skeleton className="h-4 w-4 rounded" />
-              </TableHead>
-              <TableHead>
-                <Skeleton className="h-4 w-16" />
-              </TableHead>
-              <TableHead>
-                <Skeleton className="h-4 w-16" />
-              </TableHead>
-              <TableHead>
-                <Skeleton className="h-4 w-16" />
-              </TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            <BudgetHistorySkeletonRows />
-          </TableBody>
-        </Table>
+        <table className="w-full">
+          <thead>
+            <tr>
+              <th className="w-7 p-4">
+                <div className="h-4 w-4 bg-muted rounded" />
+              </th>
+              <th className="p-4">
+                <div className="h-4 w-16 bg-muted rounded" />
+              </th>
+              <th className="p-4">
+                <div className="h-4 w-16 bg-muted rounded" />
+              </th>
+              <th className="p-4">
+                <div className="h-4 w-16 bg-muted rounded" />
+              </th>
+            </tr>
+          </thead>
+          <tbody>
+            {Array.from({ length: 5 }, (_, i) => i).map((i) => (
+              <tr key={`history-skeleton-row-${i}`}>
+                <td className="p-4">
+                  <div className="h-4 w-4 bg-muted rounded" />
+                </td>
+                <td className="p-4">
+                  <div className="flex items-center gap-2">
+                    <div className="h-7 w-7 bg-muted rounded-lg" />
+                    <div className="h-4 w-28 bg-muted rounded" />
+                  </div>
+                </td>
+                <td className="p-4">
+                  <div className="h-5 w-28 bg-muted rounded" />
+                </td>
+                <td className="p-4">
+                  <div className="h-8 w-16 bg-muted rounded-md" />
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
       </div>
     </div>
   );

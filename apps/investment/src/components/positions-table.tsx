@@ -3,9 +3,15 @@
 import { instrumentsQueryOptions } from "@repo/common/lib/query/instrument-query";
 import {
   portfoliosQueryOptions,
-  positionsQueryOptions,
+  positionsWithPnlQueryOptions,
 } from "@repo/common/lib/query/portfolio-query";
-import type { Position } from "@repo/common/types/investment";
+import type { PositionWithPnl } from "@repo/common/types/investment";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@repo/ui/components/dropdown-menu";
 import { Skeleton } from "@repo/ui/components/skeleton";
 import {
   Table,
@@ -19,23 +25,41 @@ import { cn } from "@repo/ui/lib/utils";
 import {
   IconArrowDownRight,
   IconArrowUpRight,
+  IconDots,
+  IconEye,
   IconListDetails,
+  IconX,
 } from "@tabler/icons-react";
 import { useQuery } from "@tanstack/react-query";
+import { useState } from "react";
+import { PositionDetailSheet } from "./position-detail-sheet";
 
 type InstrumentMap = Map<string, { ticker: string; assetClass: string }>;
 
 interface PositionRowProps {
-  readonly position: Position;
+  readonly position: PositionWithPnl;
   readonly instrumentsById: InstrumentMap;
+  readonly onRowClick: () => void;
+  readonly onView: () => void;
+  readonly onClosePosition: () => void;
 }
 
-function PositionRow({ position, instrumentsById }: PositionRowProps) {
+function PositionRow({
+  position,
+  instrumentsById,
+  onRowClick,
+  onView,
+  onClosePosition,
+}: PositionRowProps) {
   const isLong = position.side === "LONG";
   const instrument = instrumentsById.get(position.instrumentId);
+  const isProfitable = position.unrealizedPnl >= 0;
 
   return (
-    <TableRow className="transition-colors hover:bg-muted/40">
+    <TableRow
+      className="transition-colors hover:bg-muted/40 cursor-pointer"
+      onClick={onRowClick}
+    >
       <TableCell>
         {instrument ? (
           <div className="flex flex-col gap-0.5">
@@ -75,12 +99,39 @@ function PositionRow({ position, instrumentsById }: PositionRowProps) {
           maximumFractionDigits: 6,
         })}
       </TableCell>
-      <TableCell className="text-right text-sm text-muted-foreground">
-        {new Date(position.openedAt).toLocaleDateString("en-US", {
-          month: "short",
-          day: "numeric",
-          year: "numeric",
+      <TableCell
+        className={cn(
+          "text-right font-mono tabular-nums",
+          isProfitable ? "text-emerald-600" : "text-red-600",
+        )}
+      >
+        {position.unrealizedPnl >= 0 ? "+" : ""}
+        {position.unrealizedPnl.toLocaleString("en-US", {
+          maximumFractionDigits: 2,
         })}
+      </TableCell>
+      <TableCell className="text-right">
+        <DropdownMenu>
+          <DropdownMenuTrigger
+            onClick={(e) => e.stopPropagation()}
+            className="inline-flex h-8 w-8 items-center justify-center rounded-md border border-transparent hover:border-border hover:bg-muted"
+          >
+            <IconDots className="h-4 w-4" />
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end">
+            <DropdownMenuItem onClick={onView}>
+              <IconEye className="mr-2 h-4 w-4" />
+              View
+            </DropdownMenuItem>
+            <DropdownMenuItem
+              onClick={onClosePosition}
+              className="text-red-600 focus:text-red-600"
+            >
+              <IconX className="mr-2 h-4 w-4" />
+              Close Position
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
       </TableCell>
     </TableRow>
   );
@@ -90,15 +141,19 @@ interface PortfolioSectionProps {
   readonly portfolioId: string;
   readonly portfolioName: string;
   readonly instrumentsById: InstrumentMap;
+  readonly onViewPosition: (position: PositionWithPnl) => void;
+  readonly onClosePosition: (position: PositionWithPnl) => void;
 }
 
 function PortfolioSection({
   portfolioId,
   portfolioName,
   instrumentsById,
+  onViewPosition,
+  onClosePosition,
 }: PortfolioSectionProps) {
   const { data: positions = [], isLoading } = useQuery(
-    positionsQueryOptions(portfolioId),
+    positionsWithPnlQueryOptions(portfolioId),
   );
 
   const content = (() => {
@@ -132,8 +187,9 @@ function PortfolioSection({
                 Avg Cost
               </TableHead>
               <TableHead className="text-right text-xs uppercase tracking-wider">
-                Opened
+                P&L
               </TableHead>
+              <TableHead className="w-10" />
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -142,6 +198,9 @@ function PortfolioSection({
                 key={pos.id}
                 position={pos}
                 instrumentsById={instrumentsById}
+                onRowClick={() => onViewPosition(pos)}
+                onView={() => onViewPosition(pos)}
+                onClosePosition={() => onClosePosition(pos)}
               />
             ))}
           </TableBody>
@@ -167,12 +226,15 @@ function PortfolioSection({
 }
 
 export function PositionsTable() {
+  const [viewingPosition, setViewingPosition] =
+    useState<PositionWithPnl | null>(null);
+  const [showViewSheet, setShowViewSheet] = useState(false);
+
   const { data, isLoading: portfoliosLoading } = useQuery(
     portfoliosQueryOptions({ page: 1, limit: 100 }),
   );
   const portfolios = data?.portfolios ?? [];
 
-  // Fetch all instruments once at the top level — shared across all portfolio sections
   const { data: instrumentsData } = useQuery(
     instrumentsQueryOptions({ limit: 200 }),
   );
@@ -182,6 +244,13 @@ export function PositionsTable() {
       { ticker: i.ticker, assetClass: i.assetClass },
     ]),
   );
+
+  const handleViewPosition = (position: PositionWithPnl) => {
+    setViewingPosition(position);
+    setShowViewSheet(true);
+  };
+
+  const handleClosePosition = (_position: PositionWithPnl) => {};
 
   if (portfoliosLoading) {
     return (
@@ -211,15 +280,30 @@ export function PositionsTable() {
   }
 
   return (
-    <div className="flex flex-col gap-8 p-6 max-w-7xl">
-      {portfolios.map((portfolio) => (
-        <PortfolioSection
-          key={portfolio.id}
-          portfolioId={portfolio.id ?? ""}
-          portfolioName={portfolio.name}
-          instrumentsById={instrumentsById}
-        />
-      ))}
-    </div>
+    <>
+      <div className="flex flex-col gap-8 p-6 max-w-7xl">
+        {portfolios.map((portfolio) => (
+          <PortfolioSection
+            key={portfolio.id}
+            portfolioId={portfolio.id ?? ""}
+            portfolioName={portfolio.name}
+            instrumentsById={instrumentsById}
+            onViewPosition={handleViewPosition}
+            onClosePosition={handleClosePosition}
+          />
+        ))}
+      </div>
+
+      <PositionDetailSheet
+        position={viewingPosition}
+        open={showViewSheet}
+        onOpenChange={setShowViewSheet}
+        onClosePosition={() => {
+          if (viewingPosition) {
+            handleClosePosition(viewingPosition);
+          }
+        }}
+      />
+    </>
   );
 }

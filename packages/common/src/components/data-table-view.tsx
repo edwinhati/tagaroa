@@ -30,6 +30,7 @@ export type DataTableViewProps<TData> = Readonly<{
   tableContainerClassName?: string;
   tableClassName?: string;
   tableAriaLabel?: string;
+  onRowClick?: (row: TData) => void;
 }>;
 
 export function DataTableView<TData>({
@@ -43,6 +44,7 @@ export function DataTableView<TData>({
   tableContainerClassName = "bg-background overflow-hidden rounded-md border",
   tableClassName,
   tableAriaLabel,
+  onRowClick,
 }: DataTableViewProps<TData>) {
   return (
     <>
@@ -68,7 +70,21 @@ export function DataTableView<TData>({
                   <TableRow
                     key={row.id}
                     data-state={row.getIsSelected() ? "selected" : undefined}
-                    className="transition-colors"
+                    className={
+                      onRowClick
+                        ? "cursor-pointer transition-colors hover:bg-muted/50"
+                        : "transition-colors"
+                    }
+                    onClick={(e) => {
+                      if (!onRowClick) return;
+                      const target = e.target as HTMLElement;
+                      const interactive = target.closest(
+                        "button, input, a, textarea, select, [role='menuitem'], [role='dialog'], [role='checkbox']",
+                      );
+                      if (!interactive) {
+                        onRowClick(row.original);
+                      }
+                    }}
                   >
                     {row.getVisibleCells().map((cell) => (
                       <TableCell key={cell.id} className="last:py-0">
