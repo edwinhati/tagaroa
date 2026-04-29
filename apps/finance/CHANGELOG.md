@@ -1,5 +1,13 @@
 # finance
 
+## 0.5.0
+
+### Minor Changes
+
+- 0d3c1ee: - Added detail sheets for accounts, assets, budgets, liabilities, and positions across `finance` and `investment` applications.
+  - Centralized UI detail elements and file utilities into `@repo/common` to fix code duplication and improve consistency.
+  - Improved type handling and value formatting across finance detail components.
+
 ## 0.4.5
 
 ### Patch Changes
