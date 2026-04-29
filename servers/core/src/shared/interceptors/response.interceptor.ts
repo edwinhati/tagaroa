@@ -3,6 +3,7 @@ import {
   type ExecutionContext,
   Injectable,
   type NestInterceptor,
+  StreamableFile,
 } from "@nestjs/common";
 import { map, type Observable } from "rxjs";
 
@@ -19,6 +20,10 @@ export class ResponseInterceptor implements NestInterceptor {
         }
 
         if (typeof body !== "object") {
+          return body;
+        }
+
+        if (body instanceof StreamableFile) {
           return body;
         }
 

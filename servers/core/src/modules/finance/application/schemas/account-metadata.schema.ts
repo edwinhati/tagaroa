@@ -3,7 +3,6 @@ import { z } from "zod";
 // Credit account metadata schema
 const CreditMetadataSchema = z.object({
   creditLimit: z.number().min(0).optional(),
-  availableCredit: z.number().min(0).optional(),
   billingCycleDay: z.number().int().min(1).max(31).optional(),
   minimumPayment: z.number().min(0).optional(),
   nextDueDate: z.iso.datetime().optional(),

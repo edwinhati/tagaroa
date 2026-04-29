@@ -44,7 +44,7 @@ import { toast } from "sonner";
 
 type AssetFormDialogProps = Readonly<{
   initialData?: Asset;
-  trigger?: React.ReactElement;
+  trigger?: React.ReactElement | null;
   open?: boolean;
   onOpenChange?: (open: boolean) => void;
 }>;

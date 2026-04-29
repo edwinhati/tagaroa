@@ -7,7 +7,6 @@ import {
 import type { IAccountRepository } from "../../domain/repositories/account.repository.interface";
 import { ACCOUNT_REPOSITORY } from "../../domain/repositories/account.repository.interface";
 import type { AccountMetadata } from "../../domain/value-objects/credit-metadata";
-import { calculateAvailableCredit } from "../../domain/value-objects/credit-metadata";
 import type { UpdateAccountDto } from "../dtos/update-account.dto";
 
 @Injectable()
@@ -75,19 +74,6 @@ export class UpdateAccountUseCase {
       typeof dto.metadata.nextDueDate === "string"
     ) {
       merged = { ...merged, nextDueDate: new Date(dto.metadata.nextDueDate) };
-    }
-
-    const meta = dto.metadata as { creditLimit?: number };
-    const newBalance = dto.balance ?? existing.balance;
-    if (
-      existing.isLiability() &&
-      meta.creditLimit !== undefined &&
-      meta.creditLimit > 0
-    ) {
-      merged = {
-        ...merged,
-        availableCredit: calculateAvailableCredit(meta.creditLimit, newBalance),
-      };
     }
 
     return merged;

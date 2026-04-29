@@ -56,6 +56,7 @@ import {
   useReactTable,
 } from "@tanstack/react-table";
 import { useEffect, useMemo, useState } from "react";
+import { AssetDetailSheet } from "@/components/asset-detail-sheet";
 import { AssetFormDialog } from "@/components/asset-form-dialog";
 
 const SelectHeaderCell = ({
@@ -107,6 +108,19 @@ const TickerCell = ({ row }: { row: Row<Asset> }) => {
 
 const ActionsHeaderCell = () => <span className="sr-only">Actions</span>;
 
+const multiColumnFilterFn: FilterFn<Asset> = (row, filterValue) => {
+  const searchableRowContent =
+    `${row.original.name} ${row.original.type} ${row.original.ticker || ""}`.toLowerCase();
+  const searchTerm = (filterValue ?? "").toLowerCase();
+  return searchableRowContent.includes(searchTerm);
+};
+
+type AssetTableMeta = {
+  mutateAsset: (asset: Asset) => void;
+  deleteAsset: (id: string) => void;
+  onViewAsset: (asset: Asset) => void;
+};
+
 const ActionsCell = ({
   row,
   table,
@@ -114,21 +128,56 @@ const ActionsCell = ({
   row: Row<Asset>;
   table: ReturnType<typeof useReactTable<Asset>>;
 }) => {
-  const meta = table.options.meta as
-    | {
-        mutateAsset: (asset: Asset) => void;
-        deleteAsset: (id: string) => void;
-      }
-    | undefined;
-
-  return (
+  const meta = table.options.meta as AssetTableMeta | undefined;
+  return meta?.deleteAsset ? (
     <RowActions
       row={row}
-      mutateAsset={meta?.mutateAsset ?? (() => {})}
-      deleteAsset={meta?.deleteAsset ?? (() => {})}
+      mutateAsset={meta.mutateAsset}
+      deleteAsset={meta.deleteAsset}
+      onViewAsset={meta.onViewAsset}
     />
-  );
+  ) : null;
 };
+
+const columns: ColumnDef<Asset>[] = [
+  {
+    id: "select",
+    header: SelectHeaderCell,
+    cell: SelectRowCell,
+    size: 28,
+  },
+  {
+    header: "Name",
+    accessorKey: "name",
+    cell: NameCell,
+    size: 180,
+    filterFn: multiColumnFilterFn,
+  },
+  {
+    header: "Type",
+    accessorKey: "type",
+    cell: TypeCell,
+    size: 100,
+  },
+  {
+    header: "Ticker",
+    accessorKey: "ticker",
+    cell: TickerCell,
+    size: 80,
+  },
+  {
+    header: "Value",
+    accessorKey: "value",
+    cell: ValueCell,
+    size: 120,
+  },
+  {
+    id: "actions",
+    header: ActionsHeaderCell,
+    cell: ActionsCell,
+    size: 60,
+  },
+];
 
 export function AssetDataTable() {
   const [isMounted, setIsMounted] = useState(false);
@@ -149,13 +198,6 @@ export function AssetDataTable() {
   return <AssetDataTableContent />;
 }
 
-const multiColumnFilterFn: FilterFn<Asset> = (row, filterValue) => {
-  const searchableRowContent =
-    `${row.original.name} ${row.original.type} ${row.original.ticker || ""}`.toLowerCase();
-  const searchTerm = (filterValue ?? "").toLowerCase();
-  return searchableRowContent.includes(searchTerm);
-};
-
 function AssetDataTableContent() {
   const [pagination, setPagination] = useState<PaginationState>({
     pageIndex: 0,
@@ -168,6 +210,11 @@ function AssetDataTableContent() {
     null,
   );
   const [isInitialLoading, setIsInitialLoading] = useState(true);
+
+  const [viewingAsset, setViewingAsset] = useState<Asset | null>(null);
+  const [showViewSheet, setShowViewSheet] = useState(false);
+  const [editingAsset, setEditingAsset] = useState<Asset | null>(null);
+  const [showEditDialog, setShowEditDialog] = useState(false);
 
   const assetMutationOpts = useAssetMutationOptions();
   const { mutate: mutateAsset } = useMutation(assetMutationOpts);
@@ -189,49 +236,6 @@ function AssetDataTableContent() {
   );
 
   const { data: assetTypes } = useQuery(assetTypesQueryOptions());
-
-  const columns: ColumnDef<Asset>[] = useMemo(
-    () => [
-      {
-        id: "select",
-        header: SelectHeaderCell,
-        cell: SelectRowCell,
-        size: 28,
-      },
-      {
-        header: "Name",
-        accessorKey: "name",
-        cell: NameCell,
-        size: 180,
-        filterFn: multiColumnFilterFn,
-      },
-      {
-        header: "Type",
-        accessorKey: "type",
-        cell: TypeCell,
-        size: 100,
-      },
-      {
-        header: "Ticker",
-        accessorKey: "ticker",
-        cell: TickerCell,
-        size: 80,
-      },
-      {
-        header: "Value",
-        accessorKey: "value",
-        cell: ValueCell,
-        size: 120,
-      },
-      {
-        id: "actions",
-        header: ActionsHeaderCell,
-        cell: ActionsCell,
-        size: 60,
-      },
-    ],
-    [],
-  );
 
   useEffect(() => {
     if (assetsResponse && !error) {
@@ -289,6 +293,10 @@ function AssetDataTableContent() {
     meta: {
       mutateAsset,
       deleteAsset,
+      onViewAsset: (asset: Asset) => {
+        setViewingAsset(asset);
+        setShowViewSheet(true);
+      },
     },
   });
 
@@ -353,6 +361,22 @@ function AssetDataTableContent() {
 
   return (
     <div className="relative space-y-4">
+      <AssetFormDialog
+        initialData={editingAsset ?? undefined}
+        open={showEditDialog}
+        onOpenChange={setShowEditDialog}
+        trigger={null}
+      />
+      <AssetDetailSheet
+        asset={viewingAsset}
+        open={showViewSheet}
+        onOpenChange={setShowViewSheet}
+        onEdit={() => {
+          setEditingAsset(viewingAsset);
+          setShowViewSheet(false);
+          setShowEditDialog(true);
+        }}
+      />
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div className="flex items-center gap-3">
           <ServerSearchInput
@@ -404,7 +428,6 @@ function AssetDataTableContent() {
         </div>
       </div>
 
-      {/* Table & Pagination */}
       <DataTableView
         table={table}
         columnsLength={columns.length}
@@ -412,6 +435,10 @@ function AssetDataTableContent() {
         hasTotalData={hasTotalData}
         hasActiveFilters={hasActiveFilters}
         tableAriaLabel="Assets table"
+        onRowClick={(asset) => {
+          setViewingAsset(asset);
+          setShowViewSheet(true);
+        }}
         paginationInfo={
           paginationInfo
             ? {
@@ -457,9 +484,15 @@ type RowActionsProps = Readonly<{
   row: Row<Asset>;
   mutateAsset: (asset: Asset) => void;
   deleteAsset: (id: string) => void;
+  onViewAsset: (asset: Asset) => void;
 }>;
 
-function RowActions({ row, mutateAsset, deleteAsset }: RowActionsProps) {
+function RowActions({
+  row,
+  mutateAsset,
+  deleteAsset,
+  onViewAsset,
+}: RowActionsProps) {
   const [showEditDialog, setShowEditDialog] = useState(false);
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
 
@@ -469,6 +502,7 @@ function RowActions({ row, mutateAsset, deleteAsset }: RowActionsProps) {
         initialData={row.original}
         open={showEditDialog}
         onOpenChange={setShowEditDialog}
+        trigger={null}
       />
       <DataTableDeleteDialog
         itemName={row.original.name}
@@ -492,6 +526,9 @@ function RowActions({ row, mutateAsset, deleteAsset }: RowActionsProps) {
         />
         <DropdownMenuContent align="end">
           <DropdownMenuGroup>
+            <DropdownMenuItem onClick={() => onViewAsset(row.original)}>
+              <span>View</span>
+            </DropdownMenuItem>
             <DropdownMenuItem onClick={() => setShowEditDialog(true)}>
               <span>Edit</span>
               <DropdownMenuShortcut>⌘E</DropdownMenuShortcut>

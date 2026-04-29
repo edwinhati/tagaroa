@@ -18,7 +18,6 @@ export type AccountCategory =
 // Credit account metadata
 export type CreditAccountMetadata = {
   creditLimit?: number;
-  availableCredit?: number;
   billingCycleDay?: number;
   minimumPayment?: number;
   nextDueDate?: string;
@@ -87,7 +86,6 @@ export type AccountResponse = {
   updated_at: Date;
   version: number;
   // Computed fields for credit accounts
-  available_credit?: number | null;
   credit_utilization?: number | null;
 };
 

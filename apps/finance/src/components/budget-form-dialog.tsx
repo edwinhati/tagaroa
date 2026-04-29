@@ -39,7 +39,9 @@ import { toast } from "sonner";
 
 type BudgetFormDialogProps = Readonly<{
   initialData?: Budget;
-  trigger?: React.ReactElement;
+  trigger?: React.ReactElement | null;
+  open?: boolean;
+  onOpenChange?: (open: boolean) => void;
 }>;
 
 import { useBudgetPeriod } from "@repo/common/hooks/use-budget-period";
@@ -48,8 +50,11 @@ import { currencies } from "@repo/common/lib/currencies";
 export function BudgetFormDialog({
   initialData,
   trigger,
+  open: controlledOpen,
+  onOpenChange: setControlledOpen,
 }: BudgetFormDialogProps) {
-  const [open, setOpen] = useState(false);
+  const [uncontrolledOpen, setUncontrolledOpen] = useState(false);
+  const open = controlledOpen ?? uncontrolledOpen;
 
   const periodMonth = useBudgetPeriod((s) => s.month);
   const periodYear = useBudgetPeriod((s) => s.year);
@@ -81,7 +86,11 @@ export function BudgetFormDialog({
     if (!newOpen) {
       form.reset();
     }
-    setOpen(newOpen);
+    if (setControlledOpen) {
+      setControlledOpen(newOpen);
+    } else {
+      setUncontrolledOpen(newOpen);
+    }
   };
 
   const budgetMutationOpts = useBudgetMutationOptions();
@@ -90,7 +99,11 @@ export function BudgetFormDialog({
     onSuccess: () => {
       toast.success(initialData ? "Budget updated" : "Budget created");
       form.reset();
-      setOpen(false);
+      if (setControlledOpen) {
+        setControlledOpen(false);
+      } else {
+        setUncontrolledOpen(false);
+      }
     },
     onError: (err) => {
       toast.error("Failed to save budget", {
@@ -119,21 +132,23 @@ export function BudgetFormDialog({
 
   return (
     <Dialog open={open} onOpenChange={handleOpenChange}>
-      <DialogTrigger
-        nativeButton={true}
-        render={
-          trigger ?? (
-            <Button className="ml-auto" size="sm">
-              <IconPlus
-                className="-ms-1 opacity-60"
-                size={16}
-                aria-hidden="true"
-              />
-              Create budget
-            </Button>
-          )
-        }
-      />
+      {trigger !== null && (
+        <DialogTrigger
+          nativeButton={true}
+          render={
+            trigger ?? (
+              <Button className="ml-auto" size="sm">
+                <IconPlus
+                  className="-ms-1 opacity-60"
+                  size={16}
+                  aria-hidden="true"
+                />
+                Create budget
+              </Button>
+            )
+          }
+        />
+      )}
       <DialogContent className="!max-w-2xl !w-full max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>

@@ -4,8 +4,6 @@
 export type CreditAccountMetadata = {
   /** Maximum credit limit */
   creditLimit?: number;
-  /** Currently available credit (calculated: creditLimit + balance where balance is negative) */
-  availableCredit?: number;
   /** Day of the month when the billing cycle ends (1-31) */
   billingCycleDay?: number;
   /** Minimum payment due for current period */
@@ -48,24 +46,10 @@ export function isCreditAccountMetadata(
   const creditMeta = metadata as CreditAccountMetadata;
   return (
     creditMeta.creditLimit !== undefined ||
-    creditMeta.availableCredit !== undefined ||
     creditMeta.billingCycleDay !== undefined ||
     creditMeta.minimumPayment !== undefined ||
     creditMeta.nextDueDate !== undefined
   );
-}
-
-/**
- * Calculate available credit based on credit limit and current balance
- * Note: For liability accounts, balance is typically negative (money owed)
- */
-export function calculateAvailableCredit(
-  creditLimit: number,
-  balance: number,
-): number {
-  // Balance is negative for credit accounts (money owed)
-  // Available = Credit Limit - Amount Owed = Credit Limit + Balance
-  return Math.max(0, creditLimit + balance);
 }
 
 /**

@@ -1,7 +1,11 @@
 "use client";
 
 import { storageApi } from "@repo/common/lib/http";
-import { mutationOptions, useQueryClient } from "@tanstack/react-query";
+import {
+  mutationOptions,
+  queryOptions,
+  useQueryClient,
+} from "@tanstack/react-query";
 
 export type FileMetadata = {
   id: string;
@@ -21,6 +25,10 @@ const uploadFile = async (file: File): Promise<FileMetadata> => {
 };
 
 // Get file by ID
+const getFile = async (id: string): Promise<FileMetadata> => {
+  return storageApi.get<FileMetadata>(`/${id}`);
+};
+
 // Get presigned URL for file
 // Delete file
 export const useUploadFileMutationOptions = () => {
@@ -34,3 +42,11 @@ export const useUploadFileMutationOptions = () => {
     },
   });
 };
+
+export const fileQueryOptions = (id: string) =>
+  queryOptions<FileMetadata, Error>({
+    queryKey: ["file", id],
+    queryFn: () => getFile(id),
+    enabled: !!id,
+    staleTime: 5 * 60 * 1000,
+  });

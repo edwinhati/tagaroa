@@ -39,7 +39,7 @@ import { toast } from "sonner";
 
 type LiabilityFormDialogProps = Readonly<{
   initialData?: Liability;
-  trigger?: React.ReactElement;
+  trigger?: React.ReactElement | null;
   open?: boolean;
   onOpenChange?: (open: boolean) => void;
 }>;

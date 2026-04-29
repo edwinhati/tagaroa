@@ -4,7 +4,7 @@ import type { IAccountRepository } from "../../domain/repositories/account.repos
 import { ACCOUNT_REPOSITORY } from "../../domain/repositories/account.repository.interface";
 import { getAccountCategoryFromType } from "../../domain/value-objects/account-category";
 import type { AccountMetadata } from "../../domain/value-objects/credit-metadata";
-import { calculateAvailableCredit } from "../../domain/value-objects/credit-metadata";
+
 import type { CreateAccountDto } from "../dtos/create-account.dto";
 
 @Injectable()
@@ -34,19 +34,6 @@ export class CreateAccountUseCase {
           ...metadata,
           nextDueDate: new Date(dto.metadata.nextDueDate),
         };
-      }
-
-      // Calculate available credit for liability accounts
-      if (category === "LIABILITY") {
-        const meta = dto.metadata as { creditLimit?: number };
-        const creditLimit = meta.creditLimit;
-        const balance = dto.balance ?? 0;
-        if (creditLimit !== undefined && creditLimit > 0) {
-          metadata = {
-            ...metadata,
-            availableCredit: calculateAvailableCredit(creditLimit, balance),
-          };
-        }
       }
     }
 
