@@ -171,17 +171,22 @@ export function AccountDetailSheet({
                         value !== undefined && value !== null && value !== "",
                     )
                     .map(([key, value], index, arr) => {
+                      const strValue =
+                        typeof value === "object" && value !== null
+                          ? JSON.stringify(value)
+                          : String(value);
+
                       const formattedValue = (() => {
                         if (key === "creditLimit" || key === "minimumPayment") {
                           return formatBalance(Number(value), account.currency);
                         }
                         if (key === "interestRate") {
-                          return `${value}%`;
+                          return `${strValue}%`;
                         }
                         if (key === "billingCycleDay") {
-                          return `Day ${value}`;
+                          return `Day ${strValue}`;
                         }
-                        return String(value);
+                        return strValue;
                       })();
 
                       return (
