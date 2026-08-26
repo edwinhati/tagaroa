@@ -1,0 +1,13 @@
+{
+  "$schema": "./node_modules/oxfmt/configuration_schema.json",
+  "printWidth": 80,
+  "ignorePatterns": [".agents/**", ".claude/**"],
+  "sortImports": {},
+  "sortTailwindcss": {
+    "stylesheet": "./packages/ui/src/styles/globals.css",
+    "functions": ["clsx", "cn"]
+  },
+  "sortPackageJson": {
+    "sortScripts": true
+  }
+}
