@@ -1,0 +1,25 @@
+{
+  "name": "@servers/core",
+  "version": "0.0.0",
+  "private": true,
+  "scripts": {
+    "build": "rm -rf dist && tsc -p tsconfig.build.json",
+    "check-types": "tsc --noEmit",
+    "dev": "bun --watch --no-orphans src/main.ts",
+    "start": "bun src/main.ts",
+    "start:prod": "bun dist/main.js"
+  },
+  "dependencies": {
+    "@nestjs/common": "^11.2.3",
+    "@nestjs/core": "^11.2.3",
+    "@nestjs/platform-express": "^11.2.3",
+    "reflect-metadata": "^0.2.2",
+    "rxjs": "^7.8.2"
+  },
+  "devDependencies": {
+    "@nestjs/schematics": "^11.1.0",
+    "@repo/typescript-config": "*",
+    "@types/node": "26.3.0",
+    "typescript": "7.0.2"
+  }
+}
