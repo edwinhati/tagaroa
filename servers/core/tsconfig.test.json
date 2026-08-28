@@ -1,0 +1,12 @@
+{
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "noEmit": true,
+    "rootDir": ".",
+    "module": "preserve",
+    "moduleResolution": "bundler",
+    "types": ["bun", "node"]
+  },
+  "include": ["test/**/*.ts", "drizzle.config.ts"],
+  "exclude": ["node_modules", "dist"]
+}

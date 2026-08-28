@@ -1,4 +1,4 @@
-import { expect, test } from "bun:test";
+import { describe, expect, test } from "bun:test";
 
 import { APIError } from "better-auth/api";
 
@@ -65,61 +65,71 @@ test("does not clear the flag after a rejected password change", async () => {
   expect(updated).toBe(false);
 });
 
-const neverBreached = async () => false;
-
-test("validates passwords issued through admin routes", async () => {
-  expect(
-    validateTemporaryPassword(
-      "/admin/create-user",
-      { password: "short" },
-      neverBreached,
-    ),
-  ).rejects.toThrow("Password must be at least 12 characters");
-  expect(
-    validateTemporaryPassword(
-      "/admin/set-user-password",
-      { newPassword: "x".repeat(257) },
-      neverBreached,
-    ),
-  ).rejects.toThrow("Password must be at most 256 characters");
+test("validates passwords issued through admin routes", () => {
+  expect(() =>
+    validateTemporaryPassword("/admin/create-user", { password: "short" }),
+  ).toThrow("Password must be at least 12 characters");
+  expect(() =>
+    validateTemporaryPassword("/admin/set-user-password", {
+      newPassword: "x".repeat(257),
+    }),
+  ).toThrow("Password must be at most 256 characters");
 
   // A route that carries no issued password is not this hook's business.
-  await validateTemporaryPassword(
-    "/sign-in/email",
-    { password: "x" },
-    async () => {
-      throw new Error("should not be checked");
-    },
-  );
+  expect(() =>
+    validateTemporaryPassword("/sign-in/email", { password: "x" }),
+  ).not.toThrow();
 });
 
-test("refuses an issued password that appears in a breach", async () => {
-  expect(
-    validateTemporaryPassword(
-      "/admin/create-user",
-      { password: "issued-password-12" },
-      async () => true,
-    ),
-  ).rejects.toThrow("Password has been compromised in a data breach");
-});
-
-test("keeps the newest sessions and returns the rest", () => {
-  const session = (token: string, minute: number) => ({
-    createdAt: new Date(2026, 0, 1, 0, minute),
+describe("excessSessionTokens", () => {
+  const now = new Date(2026, 0, 8);
+  const live = new Date(2026, 0, 15);
+  const session = (token: string, day: number, expiresAt = live) => ({
+    expiresAt,
     token,
+    updatedAt: new Date(2026, 0, day),
   });
 
-  expect(
-    excessSessionTokens([
-      session("oldest", 0),
-      session("second", 1),
-      session("third", 2),
-      session("newest", 3),
-    ]),
-  ).toEqual(["oldest"]);
-  expect(
-    excessSessionTokens([session("a", 0), session("b", 1), session("c", 2)]),
-  ).toEqual([]);
+  test("drops the least recently used session past the cap", () => {
+    expect(
+      excessSessionTokens(
+        [
+          session("idle", 1),
+          session("second", 2),
+          session("third", 3),
+          session("newest", 4),
+        ],
+        now,
+      ),
+    ).toEqual(["idle"]);
+  });
+
+  test("leaves a person at the cap alone", () => {
+    expect(
+      excessSessionTokens(
+        [session("a", 1), session("b", 2), session("c", 3)],
+        now,
+      ),
+    ).toEqual([]);
+  });
+
+  // Expired rows linger until Better Auth purges them. Counting them would
+  // evict the one session the person is actually using.
+  test("ignores sessions that have already expired", () => {
+    const expired = new Date(2026, 0, 2);
+
+    expect(
+      excessSessionTokens(
+        [
+          session("live-but-idle", 1),
+          session("dead", 3, expired),
+          session("also-dead", 4, expired),
+          session("newest", 5),
+        ],
+        now,
+      ),
+    ).toEqual([]);
+  });
 });
 
 const testConfig = {

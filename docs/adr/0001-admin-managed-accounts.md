@@ -56,8 +56,9 @@ restore access for a locked-out subsidiary admin.
   with 2FA when the `twoFactor` plugin is added.
 - Temporary passwords travel by email during onboarding and do not expire yet. Add expiry
   before using them beyond the current internal rollout.
-- Better Auth's 12-character minimum and breached-password check do not cover passwords set
-  through the admin endpoint. The account-management flow must validate them.
+- Better Auth's 12-character minimum does not cover passwords set through the admin
+  endpoints, so the account-management flow applies it there itself. The breached-password
+  check needs no help: `haveIBeenPwned` lists both admin paths among its defaults.
 - Workspace apps must reject flagged sessions. A redirect in `apps/auth` alone does not stop
   a user from opening another app directly, so the core service refuses a flagged session on
   every route outside `/api/auth`

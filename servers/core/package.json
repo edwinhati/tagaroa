@@ -5,7 +5,7 @@
   "scripts": {
     "auth:schema": "auth generate --config ./src/modules/auth/auth.cli.ts --output ./src/modules/auth/infrastructure/persistence/drizzle/schema.ts --yes",
     "build": "rm -rf dist && tsc -p tsconfig.build.json",
-    "check-types": "tsc --noEmit",
+    "check-types": "tsc --noEmit && tsc -p tsconfig.test.json",
     "db:generate": "drizzle-kit generate",
     "db:migrate": "drizzle-kit migrate",
     "db:push": "drizzle-kit push",

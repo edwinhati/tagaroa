@@ -208,9 +208,8 @@ test("a fourth sign-in ends the oldest session", async () => {
     cookies.push(sessionCookie(response)!);
   }
 
-  const [oldest] = cookies;
   const revoked = await request("/api/auth/get-session", {
-    headers: { cookie: oldest },
+    headers: { cookie: cookies[0]! },
   });
   expect(await revoked.json()).toBeNull();
 

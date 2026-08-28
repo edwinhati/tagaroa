@@ -24,7 +24,7 @@ export interface AuthConfig {
 const MIN_PASSWORD_LENGTH = 12;
 const MAX_PASSWORD_LENGTH = 256;
 
-/** A person may hold up to this many sessions at once; the oldest fall away. */
+/** A person may hold up to this many live sessions; the least recently used go. */
 const MAX_CONCURRENT_SESSIONS = 3;
 
 /**
@@ -46,45 +46,15 @@ const temporaryPassword = (path: string, body: unknown): string | undefined => {
 };
 
 /**
- * The k-anonymity range API: only the first five characters of the hash leave
- * this process. A range request that fails lets the password through, matching
- * Better Auth's own plugin — an unreachable third party must not close signin.
+ * Better Auth enforces the length rules on the routes an employee uses, not on
+ * the admin routes that issue a password, so the same rules are applied here.
+ * The breach check needs no help: `haveIBeenPwned` already covers both admin
+ * paths by default.
  */
-const isBreachedPassword = async (password: string): Promise<boolean> => {
-  const digest = await crypto.subtle.digest(
-    "SHA-1",
-    new TextEncoder().encode(password),
-  );
-  const hash = Array.from(new Uint8Array(digest))
-    .map((byte) => byte.toString(16).padStart(2, "0"))
-    .join("")
-    .toUpperCase();
-
-  let body: string;
-  try {
-    const response = await fetch(
-      `https://api.pwnedpasswords.com/range/${hash.slice(0, 5)}`,
-    );
-    if (!response.ok) return false;
-    body = await response.text();
-  } catch {
-    return false;
-  }
-
-  const suffix = hash.slice(5);
-  return body.split("\n").some((line) => line.trim().split(":")[0] === suffix);
-};
-
-/**
- * Better Auth's length rules and its breach check both sit on the sign-up and
- * change-password routes, so a password an admin issues would reach the employee
- * unchecked. ADR-0001 puts that check here instead.
- */
-export const validateTemporaryPassword = async (
+export const validateTemporaryPassword = (
   path: string,
   body: unknown,
-  breached: (password: string) => Promise<boolean>,
-): Promise<void> => {
+): void => {
   const password = temporaryPassword(path, body);
   if (password === undefined) return;
 
@@ -98,12 +68,6 @@ export const validateTemporaryPassword = async (
     throw new APIError("BAD_REQUEST", {
       code: "PASSWORD_TOO_LONG",
       message: `Password must be at most ${MAX_PASSWORD_LENGTH} characters`,
-    });
-  }
-  if (await breached(password)) {
-    throw new APIError("BAD_REQUEST", {
-      code: "PASSWORD_COMPROMISED",
-      message: "Password has been compromised in a data breach",
     });
   }
 };
@@ -163,14 +127,21 @@ export const applyTemporaryPasswordLifecycle = async (
   }
 };
 
-/** The sessions past the cap, oldest first, given every session a person holds. */
+/**
+ * The live sessions past the cap, least recently used first. Expired rows are
+ * ignored rather than deleted: they hold no slot, and purging them belongs to
+ * Better Auth. `updatedAt` moves as a session is used, so a laptop opened daily
+ * outlives an idle one that happened to sign in later.
+ */
 export const excessSessionTokens = (
-  sessions: readonly { createdAt: Date; token: string }[],
+  sessions: readonly { expiresAt: Date; token: string; updatedAt: Date }[],
+  now: Date = new Date(),
   limit: number = MAX_CONCURRENT_SESSIONS,
 ): string[] =>
-  [...sessions]
+  sessions
+    .filter((session) => session.expiresAt > now)
     .sort(
-      (first, second) => second.createdAt.getTime() - first.createdAt.getTime(),
+      (first, second) => second.updatedAt.getTime() - first.updatedAt.getTime(),
     )
     .slice(limit)
     .map((session) => session.token);
@@ -185,12 +156,9 @@ const superAdminAc = defaultAc.newRole({
   user: [...defaultStatements.user],
 });
 
-const validateAdminPassword = (
-  breached: (password: string) => Promise<boolean>,
-) =>
-  createAuthMiddleware(async (ctx) => {
-    await validateTemporaryPassword(ctx.path, ctx.body, breached);
-  });
+const validateAdminPassword = createAuthMiddleware(async (ctx) => {
+  validateTemporaryPassword(ctx.path, ctx.body);
+});
 
 /**
  * An admin-created account starts on a password the employee did not choose and
@@ -206,13 +174,8 @@ const updateTemporaryPasswordState = createAuthMiddleware(async (ctx) => {
   );
 });
 
-export const createAuth = (repository: AuthRepository, config: AuthConfig) => {
-  // The breach check calls a third party, which no unit test should reach and no
-  // offline development machine can.
-  const checksBreaches = config.nodeEnv === "production";
-  const breached = checksBreaches ? isBreachedPassword : async () => false;
-
-  return betterAuth({
+export const createAuth = (repository: AuthRepository, config: AuthConfig) =>
+  betterAuth({
     advanced: {
       database: { joins: repository.supportsJoins },
       useSecureCookies: config.nodeEnv === "production",
@@ -223,8 +186,8 @@ export const createAuth = (repository: AuthRepository, config: AuthConfig) => {
     databaseHooks: {
       session: {
         create: {
-          // A person may hold three sessions at once, so signing in on a fourth
-          // device ends the session they touched longest ago.
+          // A person may hold three live sessions at once, so signing in on a
+          // fourth device ends the one they touched longest ago.
           after: async (session, ctx) => {
             if (!ctx) return;
             const { internalAdapter } = ctx.context;
@@ -238,7 +201,7 @@ export const createAuth = (repository: AuthRepository, config: AuthConfig) => {
     },
     hooks: {
       after: updateTemporaryPasswordState,
-      before: validateAdminPassword(breached),
+      before: validateAdminPassword,
     },
     emailAndPassword: {
       // Accounts are issued, never registered — in every environment, so that no
@@ -254,7 +217,10 @@ export const createAuth = (repository: AuthRepository, config: AuthConfig) => {
         defaultRole: "user",
         roles: { admin: adminAc, "super-admin": superAdminAc, user: userAc },
       }),
-      haveIBeenPwned({ enabled: checksBreaches }),
+      // Covers /admin/create-user and /admin/set-user-password among its default
+      // paths, so an issued password is checked too. It calls a third party,
+      // which no test should reach and no offline machine can.
+      haveIBeenPwned({ enabled: config.nodeEnv === "production" }),
       openAPI({ disableDefaultReference: config.nodeEnv === "production" }),
       organization({
         allowUserToCreateOrganization: false,
@@ -279,6 +245,5 @@ export const createAuth = (repository: AuthRepository, config: AuthConfig) => {
     secret: config.secret,
     trustedOrigins: config.trustedOrigins,
   });
-};
 
 export type Auth = ReturnType<typeof createAuth>;
