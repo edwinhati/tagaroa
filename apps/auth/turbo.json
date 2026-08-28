@@ -1,0 +1,12 @@
+{
+  "extends": ["//"],
+  "tasks": {
+    "build": {
+      "env": [
+        "VITE_AUTH_BASE_URL",
+        "VITE_POST_SIGNIN_URL",
+        "VITE_TRUSTED_REDIRECT_ORIGINS"
+      ]
+    }
+  }
+}
