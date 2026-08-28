@@ -6,6 +6,7 @@
     "emitDecoratorMetadata": true,
     "experimentalDecorators": true,
     "outDir": "./dist",
+    "rootDir": "./src",
     "sourceMap": true,
     "types": ["node"],
     "useDefineForClassFields": false

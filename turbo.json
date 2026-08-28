@@ -28,6 +28,13 @@
     "dev": {
       "cache": false,
       "persistent": true
+    },
+    "test": {},
+    "test:integration": {
+      "cache": false
+    },
+    "test:e2e": {
+      "cache": false
     }
   }
 }
