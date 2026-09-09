@@ -1,10 +1,4 @@
-import {
-  Progress,
-  ProgressLabel,
-  ProgressTrack,
-  ProgressIndicator,
-  ProgressValue,
-} from "@repo/ui";
+import { Progress, ProgressLabel, ProgressValue } from "@repo/ui";
 
 export const Values = () => (
   <div className="w-72 gap-4 flex flex-col">

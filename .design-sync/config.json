@@ -4,9 +4,7 @@
   "shape": "package",
   "cssEntry": "styles.css",
   "tsconfig": "../tsconfig.json",
-  "extraFonts": [
-    "../.ds-fonts/fonts.css"
-  ],
+  "extraFonts": ["../.ds-fonts/fonts.css"],
   "componentSrcMap": {
     "Accordion": "../src/components/accordion.tsx",
     "AccordionContent": null,

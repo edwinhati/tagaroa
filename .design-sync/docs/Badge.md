@@ -12,7 +12,10 @@ There are no status variants. Fifteen `--status-*-{tint,line,text}` triplets shi
 them yet. For a status pill today, use `outline` or `ghost` and apply the triplet:
 
 ```jsx
-<Badge variant="outline" className="bg-status-success-tint border-status-success-line text-status-success-text">
+<Badge
+  variant="outline"
+  className="bg-status-success-tint border-status-success-line text-status-success-text"
+>
   Active
 </Badge>
 ```
