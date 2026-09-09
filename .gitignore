@@ -36,3 +36,15 @@ yarn-error.log*
 # Misc
 .DS_Store
 *.pem
+
+# design-sync (staged converter, build output, machine state)
+.ds-sync/
+ds-bundle/
+.design-sync/.cache/
+.design-sync/node_modules
+packages/ui/.ds-dist/
+packages/ui/.ds-fonts/
+packages/ui/.ds-tsconfig.json
+packages/ui/src/_ds-entry.ts
+packages/ui/src/_ds-styles.css
+packages/ui/src/_ds-styles.built.css
