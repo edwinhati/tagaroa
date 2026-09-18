@@ -6,21 +6,17 @@ A small status or count label attached to something else.
 
 **Variants:** `default` · `secondary` · `destructive` · `outline` · `ghost` · `link`
 
-There are no status variants. Fifteen `--status-*-{tint,line,text}` triplets ship in
-`tagaroa.css` (`neutral`, `info`, `success`, `warning`, `danger`, exposed to Tailwind as
-`bg-status-success-tint`, `text-status-success-text`, and so on), but no component consumes
-them yet. For a status pill today, use `outline` or `ghost` and apply the triplet:
+**Status is a data attribute, not a variant.** Set `data-status` to one of five values and the
+badge takes that triplet's tint, line and text from `tagaroa.css`:
 
 ```jsx
-<Badge
-  variant="outline"
-  className="bg-status-success-tint border-status-success-line text-status-success-text"
->
-  Active
-</Badge>
+<Badge data-status="success" variant="outline">Active</Badge>
 ```
 
-Prefer a shipped triplet over inventing a colour: `neutral` for draft, inherited, revoked,
+Map every product state to one of the five; never invent a sixth colour, and never use
+`default` / `secondary` / `destructive` to mean a state. `neutral` for draft, inherited, revoked,
 queued; `info` for invited, in review, sending; `success` for active, granted, delivered,
 current; `warning` for temporary password, expiring, emergency live, MFA stale; `danger` for
 suspended, locked, failed.
+
+Plain variants are for counts and categories ("3 pending", "Platform"), not state.

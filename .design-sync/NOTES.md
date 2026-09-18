@@ -252,7 +252,7 @@ straight from `"recharts"`, and `isAnimationActive={false}` on every `Bar`/`Line
 Every class and token it enumerates is checked against the built `styles.css` closure before
 upload. Two arbitrary-value classes had to be corrected: `rounded-[10px]` and `text-[13px]`
 emit nothing, because the sheet is precompiled and nothing scanned at build time contained
-them. `rounded-xl` already resolves to 10px (`--radius-xl: 0.625rem`); the closest real type
+them. `rounded-xl` already resolves to 12px (`--radius-xl: 0.75rem` in `tagaroa.css`); the closest real type
 step is `text-sm`. Only `text-xs`/`text-sm`/`text-base`/`text-lg` exist. Re-run that check on
 every sync - a class named there and absent from the sheet is worse than saying nothing,
 because the agent will trust it and ship unstyled output.

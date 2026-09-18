@@ -1,5 +1,6 @@
 import {
   Badge,
+  Card,
   Table,
   TableBody,
   TableCaption,
@@ -11,7 +12,7 @@ import {
 } from "@repo/ui";
 
 export const Directory = () => (
-  <div className="p-1 overflow-hidden rounded-lg bg-muted/40">
+  <Card className="p-0 gap-0">
     <Table>
       <TableCaption>People in the Engineering subsidiary.</TableCaption>
       <TableHeader>
@@ -28,7 +29,7 @@ export const Directory = () => (
           <TableCell>Platform</TableCell>
           <TableCell>Domain administrator</TableCell>
           <TableCell>
-            <Badge variant="secondary">Active</Badge>
+            <Badge data-status="success" variant="outline">Active</Badge>
           </TableCell>
         </TableRow>
         <TableRow>
@@ -36,7 +37,7 @@ export const Directory = () => (
           <TableCell>Supply chain</TableCell>
           <TableCell>Member</TableCell>
           <TableCell>
-            <Badge variant="outline">Invited</Badge>
+            <Badge data-status="info" variant="outline">Invited</Badge>
           </TableCell>
         </TableRow>
         <TableRow>
@@ -44,7 +45,7 @@ export const Directory = () => (
           <TableCell>Finance</TableCell>
           <TableCell>Member</TableCell>
           <TableCell>
-            <Badge variant="destructive">Suspended</Badge>
+            <Badge data-status="danger" variant="outline">Suspended</Badge>
           </TableCell>
         </TableRow>
         <TableRow>
@@ -52,12 +53,12 @@ export const Directory = () => (
           <TableCell>Platform</TableCell>
           <TableCell>Super-admin</TableCell>
           <TableCell>
-            <Badge variant="secondary">Active</Badge>
+            <Badge data-status="success" variant="outline">Active</Badge>
           </TableCell>
         </TableRow>
       </TableBody>
     </Table>
-  </div>
+  </Card>
 );
 
 export const WithFooter = () => (

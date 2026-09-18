@@ -4,6 +4,7 @@ import {
   Avatar,
   AvatarFallback,
   Badge,
+  Card,
   DataTableColumnVisibility,
   DataTableExportButton,
   DataTablePagination,
@@ -176,7 +177,7 @@ export const PeopleTable = () => {
   });
 
   return (
-    <div className="min-w-0 overflow-hidden rounded-lg bg-muted/40">
+    <Card className="min-w-0 p-0 gap-0">
       <DataTableToolbar
         onSearchChange={setSearch}
         search={search}
@@ -195,6 +196,6 @@ export const PeopleTable = () => {
       </DataTableToolbar>
       <DataTableView caption="People and account access" table={table} />
       <DataTablePagination countLabel="4 of 4 people" table={table} />
-    </div>
+    </Card>
   );
 };

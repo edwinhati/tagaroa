@@ -10,7 +10,7 @@ import {
 } from "@repo/ui";
 
 export const List = () => (
-  <ItemGroup className="max-w-lg p-2 rounded-lg bg-muted/40">
+  <ItemGroup className="max-w-lg p-2 rounded-xl bg-card border border-border shadow-sm">
     <Item>
       <ItemContent>
         <ItemTitle>Ada Okonkwo</ItemTitle>
@@ -19,7 +19,7 @@ export const List = () => (
         </ItemDescription>
       </ItemContent>
       <ItemActions>
-        <Badge variant="secondary">Active</Badge>
+        <Badge data-status="success" variant="outline">Active</Badge>
       </ItemActions>
     </Item>
     <Item>
@@ -30,7 +30,7 @@ export const List = () => (
         </ItemDescription>
       </ItemContent>
       <ItemActions>
-        <Badge variant="outline">Invited</Badge>
+        <Badge data-status="info" variant="outline">Invited</Badge>
         <Button size="sm" variant="ghost">
           Resend
         </Button>
@@ -44,7 +44,7 @@ export const List = () => (
         </ItemDescription>
       </ItemContent>
       <ItemActions>
-        <Badge variant="destructive">Suspended</Badge>
+        <Badge data-status="danger" variant="outline">Suspended</Badge>
       </ItemActions>
     </Item>
   </ItemGroup>
