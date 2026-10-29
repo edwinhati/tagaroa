@@ -1,4 +1,4 @@
-import { asObject } from "@repo/narrow";
+import { asObject } from "@repo/contracts";
 import { APIError, createAuthMiddleware } from "better-auth/api";
 import { betterAuth } from "better-auth/minimal";
 import { openAPI } from "better-auth/plugins";

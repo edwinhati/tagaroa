@@ -17,6 +17,9 @@ describe("postSignInTarget", () => {
   });
   process.env.VITE_TRUSTED_REDIRECT_ORIGINS =
     "http://localhost:3002, http://localhost:3003";
+  // Cleared rather than inherited from .env, so the fallback these tests assert
+  // is the built-in one and not whatever this machine points at.
+  delete process.env.VITE_POST_SIGNIN_URL;
 
   test("accepts same-origin redirects", () => {
     expect(postSignInTarget("/workspace")).toBe(

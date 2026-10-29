@@ -1,4 +1,4 @@
-import { messageFor } from "@repo/narrow";
+import { messageFor } from "@repo/contracts";
 import { adminClient, organizationClient } from "better-auth/client/plugins";
 import { createAuthClient } from "better-auth/react";
 

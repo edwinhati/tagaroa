@@ -1,0 +1,31 @@
+amends "package://github.com/jdx/hk/releases/download/v2.8.0/hk@2.8.0#/Config.pkl"
+
+steps {
+  ["format"] {
+    glob = List("*.{js,jsx,ts,tsx,mjs,cjs,mts,cts,json,jsonc,css,scss,less,html,vue,md,mdx,yaml,yml,toml}")
+    check = "bun run oxfmt --check {{files}}"
+  }
+  ["lint"] {
+    glob = List("*.{js,jsx,ts,tsx,mjs,cjs,mts,cts}")
+    check = "bun run oxlint --deny-warnings {{files}}"
+  }
+  ["types"] {
+    check = "bun run check-types"
+  }
+  ["tests"] {
+    check = "bun run test"
+  }
+}
+
+hooks {
+  ["pre-commit"] {
+    fix = false
+    stage = false
+    stash = "git"
+    steps {
+      ["live-injection"] {
+        check = "sh scripts/check-live-staged.sh"
+      }
+    }
+  }
+}

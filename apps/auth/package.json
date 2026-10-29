@@ -14,7 +14,7 @@
     "test:e2e": "bunx --bun --no-install playwright test"
   },
   "dependencies": {
-    "@repo/narrow": "*",
+    "@repo/contracts": "*",
     "@repo/ui": "*",
     "@tanstack/react-form": "1.33.5",
     "@tanstack/react-query": "5.102.8",

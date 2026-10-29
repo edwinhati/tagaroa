@@ -23,7 +23,7 @@
     "@nestjs/config": "12.0.0",
     "@nestjs/core": "12.0.1",
     "@nestjs/platform-express": "12.0.1",
-    "@repo/narrow": "*",
+    "@repo/contracts": "*",
     "@thallesp/nestjs-better-auth": "2.7.0",
     "better-auth": "1.7.2",
     "drizzle-orm": "0.45.2",

@@ -1,6 +1,27 @@
 import { describe, expect, test } from "bun:test";
 
 import { asObject, messageFor } from "./index";
+import type { ApiDocument, Collection } from "./index";
+
+test("collection documents keep list and object responses distinct", () => {
+  const object: ApiDocument<{ name: string }> = { data: { name: "Tagaroa" } };
+  const collection: Collection<string> = {
+    data: ["email"],
+    links: { first: "?page=1", last: "?page=1", self: "?page=1" },
+    meta: {
+      hasNext: false,
+      hasPrevious: false,
+      limit: 25,
+      offset: 0,
+      page: 1,
+      total: 1,
+      totalPages: 1,
+    },
+  };
+
+  expect(object.data.name).toBe("Tagaroa");
+  expect(collection.meta.total).toBe(collection.data.length);
+});
 
 describe("asObject", () => {
   test("passes objects and arrays through", () => {

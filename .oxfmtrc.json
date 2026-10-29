@@ -1,7 +1,7 @@
 {
   "$schema": "./node_modules/oxfmt/configuration_schema.json",
   "printWidth": 80,
-  "ignorePatterns": [".agents/**", ".claude/**"],
+  "ignorePatterns": [".agents/**", ".claude/**", "**/routeTree.gen.ts"],
   "sortImports": {},
   "sortTailwindcss": {
     "stylesheet": "./packages/ui/src/styles/globals.css",
