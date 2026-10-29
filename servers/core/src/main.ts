@@ -2,7 +2,7 @@ import { Logger } from "@nestjs/common";
 import { ConfigService } from "@nestjs/config";
 
 import { createApplication } from "./application";
-import type { AppEnv } from "./shared/config/env";
+import type { AppEnv } from "./platform/config/env";
 
 async function bootstrap() {
   const app = await createApplication();

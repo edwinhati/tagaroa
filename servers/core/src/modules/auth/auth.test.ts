@@ -4,50 +4,194 @@ import { APIError } from "better-auth/api";
 
 import type { AuthConfig } from "./auth";
 import {
+  adminAuditEvent,
   applyTemporaryPasswordLifecycle,
+  authenticationAuditEvent,
   createAuth,
   excessSessionTokens,
+  validatePersonalEmail,
   validateTemporaryPassword,
 } from "./auth";
 import { createAuthMetadataRepository } from "./infrastructure/persistence/auth.persistence.module";
 
+test("describes successful admin writes as durable audit events", () => {
+  expect(
+    adminAuditEvent(
+      "/admin/create-user",
+      { email: "person@tagaroa.test" },
+      { user: { email: "person@tagaroa.test", id: "person-id" } },
+    ),
+  ).toEqual({
+    detail: "person@tagaroa.test",
+    targetUserId: "person-id",
+    type: "user.created",
+  });
+  expect(
+    adminAuditEvent(
+      "/admin/set-role",
+      { role: ["admin", "user"], userId: "person-id" },
+      { user: { id: "person-id" } },
+    ),
+  ).toEqual({
+    detail: "admin, user",
+    targetUserId: "person-id",
+    type: "user.role.updated",
+  });
+  expect(
+    adminAuditEvent(
+      "/admin/update-user",
+      {
+        data: { email: "new@tagaroa.test", name: "New name" },
+        userId: "person-id",
+      },
+      { id: "person-id" },
+    ),
+  ).toEqual({
+    detail: "email, name",
+    targetUserId: "person-id",
+    type: "user.updated",
+  });
+  expect(adminAuditEvent("/admin/list-users", {}, [])).toBeUndefined();
+  expect(
+    adminAuditEvent(
+      "/organization/add-member",
+      {
+        organizationId: "subsidiary-id",
+        role: "member",
+        teamId: "team-id",
+        userId: "person-id",
+      },
+      { id: "membership-id" },
+    ),
+  ).toEqual({
+    detail: "subsidiary-id:team-id",
+    targetUserId: "person-id",
+    type: "user.subsidiary.added",
+  });
+  expect(
+    adminAuditEvent(
+      "/organization/remove-team-member",
+      { teamId: "team-id", userId: "person-id" },
+      { message: "Team member removed successfully." },
+    ),
+  ).toEqual({
+    detail: "team-id",
+    targetUserId: "person-id",
+    type: "user.team.removed",
+  });
+});
+
+test("describes successful authentication assurance events durably", () => {
+  expect(
+    authenticationAuditEvent(
+      "/sign-in/email",
+      { user: { id: "person-id" } },
+      undefined,
+    ),
+  ).toEqual({
+    actorId: "person-id",
+    targetUserId: "person-id",
+    type: "user.signed-in",
+  });
+  expect(
+    authenticationAuditEvent("/two-factor/verify-backup-code", {}, "person-id"),
+  ).toEqual({
+    actorId: "person-id",
+    targetUserId: "person-id",
+    type: "user.two-factor.recovery-used",
+  });
+  expect(
+    authenticationAuditEvent("/passkey/verify-registration", {}, "person-id"),
+  ).toEqual({
+    actorId: "person-id",
+    targetUserId: "person-id",
+    type: "user.passkey.added",
+  });
+  expect(
+    authenticationAuditEvent(
+      "/sign-in/email",
+      { twoFactorRedirect: true, user: { id: "person-id" } },
+      undefined,
+    ),
+  ).toBeUndefined();
+});
+
 test("tracks the temporary-password lifecycle after successful requests", async () => {
-  const updates: Array<[string, { mustChangePassword: boolean }]> = [];
+  const updates: Array<
+    [
+      string,
+      {
+        mustChangePassword: boolean;
+        temporaryPasswordExpiresAt: Date | null;
+      },
+    ]
+  > = [];
   const updateUser = async (
     userId: string,
-    data: { mustChangePassword: boolean },
+    data: {
+      mustChangePassword: boolean;
+      temporaryPasswordExpiresAt: Date | null;
+    },
   ) => {
     updates.push([userId, data]);
   };
 
-  const created = { user: { id: "new-user", mustChangePassword: false } };
+  const now = new Date("2026-09-01T12:00:00.000Z");
+  const expiresAt = new Date("2026-09-02T12:00:00.000Z");
+  const created = {
+    user: {
+      id: "new-user",
+      mustChangePassword: false,
+      temporaryPasswordExpiresAt: null as Date | null,
+    },
+  };
   await applyTemporaryPasswordLifecycle(
     "/admin/create-user",
     {},
     created,
     updateUser,
+    now,
   );
   await applyTemporaryPasswordLifecycle(
     "/admin/set-user-password",
     { userId: "reset-user" },
     { status: true },
     updateUser,
+    now,
   );
-  const changed = { user: { id: "changed-user", mustChangePassword: true } };
+  const changed = {
+    user: {
+      id: "changed-user",
+      mustChangePassword: true,
+      temporaryPasswordExpiresAt: expiresAt as Date | null,
+    },
+  };
   await applyTemporaryPasswordLifecycle(
     "/change-password",
     {},
     changed,
     updateUser,
+    now,
   );
 
   expect(updates).toEqual([
-    ["new-user", { mustChangePassword: true }],
-    ["reset-user", { mustChangePassword: true }],
-    ["changed-user", { mustChangePassword: false }],
+    [
+      "new-user",
+      { mustChangePassword: true, temporaryPasswordExpiresAt: expiresAt },
+    ],
+    [
+      "reset-user",
+      { mustChangePassword: true, temporaryPasswordExpiresAt: expiresAt },
+    ],
+    [
+      "changed-user",
+      { mustChangePassword: false, temporaryPasswordExpiresAt: null },
+    ],
   ]);
   expect(created.user.mustChangePassword).toBe(true);
+  expect(created.user.temporaryPasswordExpiresAt).toEqual(expiresAt);
   expect(changed.user.mustChangePassword).toBe(false);
+  expect(changed.user.temporaryPasswordExpiresAt).toBeNull();
 });
 
 test("does not clear the flag after a rejected password change", async () => {
@@ -78,6 +222,51 @@ test("validates passwords issued through admin routes", () => {
   // A route that carries no issued password is not this hook's business.
   expect(() =>
     validateTemporaryPassword("/sign-in/email", { password: "x" }),
+  ).not.toThrow();
+});
+
+test("requires a deliverable personal address when an account is issued", () => {
+  expect(() =>
+    validatePersonalEmail("/admin/create-user", {
+      data: { personalEmail: "person@personal.test" },
+    }),
+  ).not.toThrow();
+
+  // The onboarding message is the only one the workspace sends to staff, and it
+  // has nowhere to go without this.
+  expect(() =>
+    validatePersonalEmail("/admin/create-user", { data: {} }),
+  ).toThrow("A personal email address is required to issue an account");
+  expect(() => validatePersonalEmail("/admin/create-user", {})).toThrow(
+    "A personal email address is required to issue an account",
+  );
+  expect(() =>
+    validatePersonalEmail("/admin/create-user", {
+      data: { personalEmail: "not-an-address" },
+    }),
+  ).toThrow("That is not a valid personal email address");
+
+  // The workspace mailbox is exactly where the password must not go.
+  expect(() =>
+    validatePersonalEmail("/admin/create-user", {
+      data: { personalEmail: "Person@Tagaroa.test" },
+      email: "person@tagaroa.test",
+    }),
+  ).toThrow("must differ from the workspace address");
+
+  // An update may leave the address alone, but not corrupt it.
+  expect(() =>
+    validatePersonalEmail("/admin/update-user", { data: { name: "Ana" } }),
+  ).not.toThrow();
+  expect(() =>
+    validatePersonalEmail("/admin/update-user", {
+      data: { personalEmail: "" },
+    }),
+  ).toThrow("That is not a valid personal email address");
+
+  // A route that carries no personal address is not this hook's business.
+  expect(() =>
+    validatePersonalEmail("/sign-in/email", { data: { personalEmail: "x" } }),
   ).not.toThrow();
 });
 
@@ -135,6 +324,8 @@ describe("excessSessionTokens", () => {
 const testConfig = {
   baseURL: "http://localhost:8080",
   nodeEnv: "test",
+  passkeyOrigins: "http://localhost:3001",
+  passkeyRpId: "localhost",
   secret: "test-secret-with-at-least-thirty-two-characters",
   trustedOrigins: ["http://localhost:8080"],
 } satisfies AuthConfig;
@@ -153,6 +344,9 @@ test("exposes the Better Auth health endpoint", async () => {
   expect(await response.json()).toEqual({ ok: true });
   expect(auth.options.plugins?.map((plugin) => plugin.id)).toEqual([
     "admin",
+    "two-factor",
+    "passkey",
+    "bearer",
     "have-i-been-pwned",
     "open-api",
     "organization",
@@ -175,8 +369,43 @@ test("grants break-glass to the super-admin role", () => {
   const { options } = createAuth(createAuthMetadataRepository(), testConfig);
   const adminPlugin = options.plugins?.find((plugin) => plugin.id === "admin");
 
-  expect(adminPlugin?.options?.adminRoles).toEqual(["admin", "super-admin"]);
+  expect(adminPlugin?.options?.adminRoles).toEqual([
+    "access-reviewer",
+    "helpdesk",
+    "admin",
+    "super-admin",
+  ]);
   expect(
     adminPlugin?.options?.roles?.["super-admin"]?.statements.user,
   ).toContain("impersonate-admins");
+  expect(adminPlugin?.options?.roles?.admin?.statements.user).not.toContain(
+    "impersonate",
+  );
+  expect(adminPlugin?.options?.roles?.admin?.statements.user).not.toContain(
+    "set-role",
+  );
+  expect(adminPlugin?.options?.roles?.admin?.statements.user).not.toContain(
+    "delete",
+  );
+});
+
+test("subsidiary departure audit uses the removed member's identity, not the request identifier", () => {
+  expect(
+    adminAuditEvent(
+      "/organization/remove-member",
+      { memberIdOrEmail: "membership-id" },
+      { member: { userId: "employee-id", organizationId: "subsidiary-id" } },
+    ),
+  ).toEqual({
+    targetUserId: "employee-id",
+    detail: "subsidiary-id",
+    type: "user.subsidiary.removed",
+  });
+  expect(
+    adminAuditEvent(
+      "/organization/remove-member",
+      { memberIdOrEmail: "membership-id" },
+      {},
+    ),
+  ).toBeUndefined();
 });

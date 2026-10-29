@@ -27,6 +27,23 @@ test("lets an anonymous or settled request through", () => {
   expect(handler.handle).toHaveBeenCalledTimes(4);
 });
 
+test("reports an expired temporary password distinctly", () => {
+  const handler = { handle: mock(() => of("handled")) } as CallHandler;
+
+  expect(() =>
+    interceptor.intercept(
+      contextFor({
+        user: {
+          mustChangePassword: true,
+          temporaryPasswordExpiresAt: new Date(Date.now() - 60_000),
+        },
+      }),
+      handler,
+    ),
+  ).toThrow("That temporary password has expired");
+  expect(handler.handle).not.toHaveBeenCalled();
+});
+
 test("refuses a session still on its temporary password", () => {
   const handler = { handle: mock(() => of("handled")) } as CallHandler;
 

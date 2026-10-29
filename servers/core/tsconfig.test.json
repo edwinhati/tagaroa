@@ -7,6 +7,6 @@
     "moduleResolution": "bundler",
     "types": ["bun", "node"]
   },
-  "include": ["test/**/*.ts", "drizzle.config.ts"],
+  "include": ["test/**/*.ts", "scripts/**/*.ts", "drizzle.config.ts"],
   "exclude": ["node_modules", "dist"]
 }

@@ -1,0 +1,38 @@
+import type { AccessReview } from "../entities/access-review.entity";
+import type { Person } from "../entities/person.entity";
+import type { ReviewWeek } from "../value-objects/review-week.vo";
+
+export interface PrivilegedPerson {
+  userId: string;
+  name: string;
+  email: string;
+  role: string;
+  reviewed: boolean;
+  reviewedAt: Date | null;
+}
+
+/**
+ * Who holds privileged access, and whether this week's confirmation still
+ * stands. A banned account is left out: its access is already answered for.
+ */
+export const privilegedAccess = (
+  people: readonly Person[],
+  reviews: readonly AccessReview[],
+  week: ReviewWeek,
+): PrivilegedPerson[] => {
+  const reviewByPerson = new Map(reviews.map((row) => [row.userId, row]));
+
+  return people
+    .filter((person) => !person.banned && person.privileged)
+    .map((person) => {
+      const review = reviewByPerson.get(person.id);
+      return {
+        email: person.email,
+        name: person.name,
+        reviewed: Boolean(review?.standsFor(person, week)),
+        reviewedAt: review?.reviewedAt ?? null,
+        role: person.role ?? "admin",
+        userId: person.id,
+      };
+    });
+};

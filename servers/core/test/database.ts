@@ -13,14 +13,26 @@ const composeFile = resolve(
 const testDatabaseUrl =
   process.env.TEST_DATABASE_URL ??
   "postgresql://tagaroa:tagaroa@127.0.0.1:5432/tagaroa_test";
+const testPort = process.env.E2E_CORE_PORT ?? "8080";
+const trustedOrigins =
+  process.env.E2E_TRUSTED_ORIGINS ?? "http://localhost:3001";
 
 export const testEnv = {
   BETTER_AUTH_SECRET: "integration-secret-at-least-thirty-two-characters",
-  BETTER_AUTH_URL: "http://localhost:8080",
+  BETTER_AUTH_URL: `http://localhost:${testPort}`,
   DATABASE_URL: testDatabaseUrl,
   NODE_ENV: "test",
-  PORT: "8080",
-  TRUSTED_ORIGINS: "http://localhost:3001",
+  // The queue is drained by hand in the tests, so a message can be inspected
+  // where it was enqueued rather than raced against a timer.
+  NOTIFICATION_WORKER: "0",
+  PORT: testPort,
+  // Provider credentials are fixtures: nothing is sent outside production, but
+  // the webhooks still verify their signatures with these.
+  TWILIO_ACCOUNT_SID: "AC-test-account",
+  TWILIO_AUTH_TOKEN: "test-auth-token",
+  TWILIO_FROM: "+15550100",
+  WHATSAPP_APP_SECRET: "test-app-secret",
+  TRUSTED_ORIGINS: trustedOrigins,
 } as const;
 
 const run = (command: string[]) => {

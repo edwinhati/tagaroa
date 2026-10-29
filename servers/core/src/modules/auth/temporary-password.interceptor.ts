@@ -9,7 +9,12 @@ import type { Observable } from "rxjs";
 
 /** The part of the request Better Auth's own guard leaves behind. */
 interface SessionRequest {
-  session?: { user?: { mustChangePassword?: boolean } } | null;
+  session?: {
+    user?: {
+      mustChangePassword?: boolean;
+      temporaryPasswordExpiresAt?: Date | string | null;
+    };
+  } | null;
 }
 
 /**
@@ -25,7 +30,16 @@ export class TemporaryPasswordInterceptor implements NestInterceptor {
   intercept(context: ExecutionContext, next: CallHandler): Observable<unknown> {
     const request = context.switchToHttp().getRequest<SessionRequest>();
 
-    if (request.session?.user?.mustChangePassword) {
+    const user = request.session?.user;
+    if (user?.mustChangePassword) {
+      const expiresAt = user.temporaryPasswordExpiresAt;
+      if (expiresAt && new Date(expiresAt).getTime() <= Date.now()) {
+        throw new ForbiddenException({
+          code: "TEMPORARY_PASSWORD_EXPIRED",
+          message:
+            "That temporary password has expired. Ask an administrator to issue a new one.",
+        });
+      }
       throw new ForbiddenException({
         code: "MUST_CHANGE_PASSWORD",
         message: "Replace your temporary password before using the workspace.",

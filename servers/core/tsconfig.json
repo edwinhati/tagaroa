@@ -5,6 +5,9 @@
     "declarationMap": false,
     "emitDecoratorMetadata": true,
     "experimentalDecorators": true,
+    // `@repo/email` ships its React Email shell as source, so typechecking
+    // reaches a .tsx from here. Nothing in this service renders JSX itself.
+    "jsx": "react-jsx",
     "outDir": "./dist",
     "rootDir": "./src",
     "sourceMap": true,

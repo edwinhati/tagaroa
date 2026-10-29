@@ -1,15 +1,29 @@
-import { afterAll, beforeAll, expect, setDefaultTimeout, test } from "bun:test";
+import {
+  afterAll,
+  beforeAll,
+  expect,
+  setDefaultTimeout,
+  spyOn,
+  test,
+} from "bun:test";
+import { createHmac } from "node:crypto";
 
-import type { INestApplication } from "@nestjs/common";
+import { Logger, type INestApplication } from "@nestjs/common";
 import { betterAuth } from "better-auth/minimal";
 import { admin, testUtils } from "better-auth/plugins";
 
 import { createAuthRepository } from "../../src/modules/auth/infrastructure/persistence/auth.persistence.module";
+import { OnboardingHook } from "../../src/modules/auth/onboarding.hook";
+import {
+  NOTIFICATION_SENDER,
+  type NotificationSender,
+} from "../../src/modules/notification/application/notification.facade";
 import {
   DATABASE,
   type Database,
-} from "../../src/shared/database/database.module";
+} from "../../src/platform/database/database.module";
 import { prepareTestDatabase, testEnv } from "../database";
+import { authenticatorCode } from "../totp";
 
 Object.assign(process.env, testEnv);
 setDefaultTimeout(60_000);
@@ -23,10 +37,10 @@ beforeAll(async () => {
   const { createApplication } = await import("../../src/application");
   app = await createApplication();
   const client = app.get<Database>(DATABASE).$client;
-  const close = client.close.bind(client);
-  client.close = async (options) => {
+  const end = client.end.bind(client);
+  client.end = async (options) => {
     databaseCloseCalls += 1;
-    await close(options);
+    await end(options);
   };
   await app.listen(0, "127.0.0.1");
   baseURL = await app.getUrl();
@@ -55,7 +69,11 @@ const sessionCookie = (response: Response) =>
  * admin issues it. The admin itself is seeded straight into the database, which
  * is the one account the product has no flow for.
  */
-const adminCookie = async (): Promise<string> => {
+const adminCookie = async (
+  role = "admin",
+  mfa = true,
+  existingUserId?: string,
+): Promise<string> => {
   const auth = betterAuth({
     baseURL: testEnv.BETTER_AUTH_URL,
     database: createAuthRepository(app.get<Database>(DATABASE)).adapter,
@@ -63,12 +81,19 @@ const adminCookie = async (): Promise<string> => {
     secret: testEnv.BETTER_AUTH_SECRET,
   });
   const helpers = (await auth.$context).test;
+  if (existingUserId)
+    return (await helpers.login({ userId: existingUserId })).headers.get(
+      "cookie",
+    )!;
   const user = helpers.createUser({
     email: `admin-${crypto.randomUUID()}@tagaroa.test`,
     name: "Integration Admin",
-    role: "admin",
+    role,
   });
   await helpers.saveUser(user);
+  await app.get<Database>(DATABASE).$client`
+    update auth."user" set two_factor_enabled = ${mfa} where id = ${user.id}
+  `;
   return (await helpers.login({ userId: user.id })).headers.get("cookie")!;
 };
 
@@ -82,7 +107,7 @@ const issueAccount = async (temporaryPassword: string) => {
       email,
       name: "Integration Employee",
       password: temporaryPassword,
-      role: "user",
+      data: { personalEmail: `personal.${email}` },
     }),
   });
   expect(created.status).toBe(200);
@@ -95,6 +120,252 @@ const signIn = (email: string, password: string) =>
     method: "POST",
     body: JSON.stringify({ email, password }),
   });
+
+test("TOTP accepts adjacent windows at rollover and rejects two-window drift", async () => {
+  const employee = await issueAccount("QaBoundaryPassword123!");
+  const client = app.get<Database>(DATABASE).$client;
+  await client`update auth."user" set must_change_password = false where email = ${employee.email}`;
+  let cookie = sessionCookie(await signIn(employee.email, employee.password))!;
+  const enabled = await request("/api/auth/two-factor/enable", {
+    method: "POST",
+    headers: { cookie },
+    body: JSON.stringify({ password: employee.password, method: "totp" }),
+  });
+  expect(enabled.status).toBe(200);
+  const { totpURI } = await enabled.json();
+  const boundary = Math.floor(Date.now() / 30_000) * 30_000;
+  const now = spyOn(Date, "now");
+  try {
+    for (const [time, offset, status] of [
+      [boundary + 29_999, -2, 401],
+      [boundary + 29_999, 2, 401],
+      [boundary + 29_999, -1, 200],
+      [boundary + 30_000, -1, 200],
+      [boundary + 30_000, 0, 200],
+      [boundary + 30_000, 1, 200],
+    ] as const) {
+      now.mockReturnValue(time);
+      const verified = await request("/api/auth/two-factor/verify-totp", {
+        method: "POST",
+        headers: { cookie },
+        body: JSON.stringify({
+          code: authenticatorCode(totpURI, time + offset * 30_000),
+          trustDevice: false,
+        }),
+      });
+      expect(verified.status).toBe(status);
+      if (status === 401)
+        expect((await verified.json()).code).toBe("INVALID_CODE");
+      cookie = sessionCookie(verified) ?? cookie;
+    }
+  } finally {
+    now.mockRestore();
+  }
+});
+
+test("subsidiary and team rename, membership removal and team deletion persist while subsidiary deletion is refused", async () => {
+  const cookie = await adminCookie("super-admin");
+  const send = (path: string, body: unknown) =>
+    request(path, {
+      method: "POST",
+      headers: { cookie },
+      body: JSON.stringify(body),
+    });
+  const subsidiary = await send("/api/auth-management/subsidiaries", {
+    name: "QA CRUD",
+    slug: `crud-${crypto.randomUUID()}`,
+  });
+  expect(subsidiary.status).toBe(201);
+  const organizationId = (await subsidiary.json()).data.id;
+  expect(
+    (await send("/api/auth/organization/set-active", { organizationId }))
+      .status,
+  ).toBe(200);
+  expect(
+    (
+      await send("/api/auth/organization/update", {
+        organizationId,
+        data: { name: "QA renamed" },
+      })
+    ).status,
+  ).toBe(200);
+  const team = await send(
+    `/api/auth-management/subsidiaries/${organizationId}/teams`,
+    { name: "QA team" },
+  );
+  expect(team.status).toBe(201);
+  const teamId = (await team.json()).data.id;
+  expect(
+    (
+      await send("/api/auth/organization/update-team", {
+        teamId,
+        data: { name: "QA renamed team" },
+      })
+    ).status,
+  ).toBe(200);
+  const employee = await issueAccount("QaMemberPassword123!");
+  const login = await signIn(employee.email, employee.password);
+  expect(login.status).toBe(200);
+  const userId = (await login.json()).user.id;
+  for (const deniedCookie of [
+    await adminCookie("user"),
+    await adminCookie("admin", false),
+  ]) {
+    expect(
+      (
+        await request(
+          `/api/auth-management/subsidiaries/${organizationId}/members`,
+          {
+            method: "POST",
+            headers: { cookie: deniedCookie },
+            body: JSON.stringify({ userId, role: "member" }),
+          },
+        )
+      ).status,
+    ).toBe(403);
+  }
+  expect(
+    (
+      await send(
+        `/api/auth-management/subsidiaries/${organizationId}/members`,
+        { userId, role: "owner" },
+      )
+    ).status,
+  ).toBe(400);
+  expect(
+    (
+      await send(
+        `/api/auth-management/subsidiaries/${organizationId}/members`,
+        { userId, role: "member" },
+      )
+    ).status,
+  ).toBe(201);
+  expect(
+    (await send("/api/auth/organization/add-team-member", { teamId, userId }))
+      .status,
+  ).toBe(200);
+  expect(
+    (
+      await send("/api/auth/organization/remove-member", {
+        organizationId,
+        memberIdOrEmail: employee.email,
+      })
+    ).status,
+  ).toBe(200);
+  const sql = app.get<Database>(DATABASE).$client;
+  expect(
+    (
+      await sql`select id from auth.team_member where team_id = ${teamId} and user_id = ${userId}`
+    ).length,
+  ).toBe(0);
+  expect(
+    (await sql`select name from auth.team where id = ${teamId}`)[0].name,
+  ).toBe("QA renamed team");
+  expect(
+    (
+      await sql`select name from auth.organization where id = ${organizationId}`
+    )[0].name,
+  ).toBe("QA renamed");
+  expect(
+    (await send("/api/auth/organization/remove-team", { teamId })).status,
+  ).toBe(400);
+  expect(
+    (
+      await send(`/api/auth-management/subsidiaries/${organizationId}/teams`, {
+        name: "QA retained team",
+      })
+    ).status,
+  ).toBe(201);
+  expect(
+    (await send("/api/auth/organization/remove-team", { teamId })).status,
+  ).toBe(200);
+  expect(
+    (await send("/api/auth/organization/delete", { organizationId })).status,
+  ).toBe(404);
+  expect(
+    (await sql`select id from auth.organization where id = ${organizationId}`)
+      .length,
+  ).toBe(1);
+});
+
+test("authenticated collections remain correct under 200 requests at concurrency 10", async () => {
+  const cookie = await adminCookie();
+  const durations: number[] = [];
+  for (let batch = 0; batch < 20; batch += 1) {
+    await Promise.all(
+      Array.from({ length: 10 }, async (_, index) => {
+        const started = performance.now();
+        const response = await request(
+          index % 2
+            ? "/api/directory"
+            : "/api/notifications/templates?limit=10",
+          { headers: { cookie } },
+        );
+        expect(response.status).toBe(200);
+        const body = await response.json();
+        expect(body.data).toBeDefined();
+        durations.push(performance.now() - started);
+      }),
+    );
+  }
+  durations.sort((a, b) => a - b);
+  console.info(
+    `QA collection load: 200 requests, concurrency 10, p50=${durations[99]!.toFixed(1)}ms, p95=${durations[189]!.toFixed(1)}ms, max=${durations[199]!.toFixed(1)}ms`,
+  );
+});
+
+test("authenticated sessions and collections survive a 60-second local soak", async () => {
+  const cookie = await adminCookie();
+  const paths = [
+    "/api/directory",
+    "/api/notifications/templates?limit=10",
+    "/api/auth/get-session",
+  ];
+  for (const path of paths) {
+    expect((await request(path, { headers: { cookie } })).status).toBe(200);
+  }
+  Bun.gc(true);
+  const before = process.memoryUsage();
+  const durations: number[] = [];
+  let failures = 0;
+  const started = performance.now();
+  while (performance.now() - started < 60_000) {
+    await Promise.all(
+      Array.from({ length: 10 }, async (_, index) => {
+        const requestStarted = performance.now();
+        try {
+          const response = await request(paths[index % paths.length]!, {
+            headers: { cookie },
+            signal: AbortSignal.timeout(5_000),
+          });
+          const body = await response.json();
+          if (
+            response.status !== 200 ||
+            (index % paths.length === 2
+              ? !body.user?.id
+              : body.data === undefined)
+          )
+            failures += 1;
+        } catch {
+          failures += 1;
+        }
+        durations.push(performance.now() - requestStarted);
+      }),
+    );
+    await Bun.sleep(100);
+  }
+  expect(failures).toBe(0);
+  expect(durations.length).toBeGreaterThan(100);
+  expect(
+    (await request("/api/auth/get-session", { headers: { cookie } })).status,
+  ).toBe(200);
+  Bun.gc(true);
+  const after = process.memoryUsage();
+  durations.sort((a, b) => a - b);
+  console.info(
+    `QA local soak: ${durations.length} requests, concurrency 10, failures=${failures}, p95=${durations[Math.ceil(durations.length * 0.95) - 1]!.toFixed(1)}ms, rssDeltaMiB=${((after.rss - before.rss) / 1048576).toFixed(1)}, heapDeltaMiB=${((after.heapUsed - before.heapUsed) / 1048576).toFixed(1)}`,
+  );
+}, 90_000);
 
 test("reports core service liveness", async () => {
   const response = await request("/api/health/live");
@@ -217,4 +488,1261 @@ test("a fourth sign-in ends the oldest session", async () => {
     headers: { cookie: cookies[3]! },
   });
   expect((await newest.json()).user.email).toBe(issued.email);
+});
+
+test("wrong credentials, suspension, restoration, and expired temporary passwords", async () => {
+  const issued = await issueAccount("issued-password-12");
+  expect((await signIn(issued.email, "wrong-password-12")).status).toBe(401);
+  const operator = await adminCookie();
+  const signedIn = await signIn(issued.email, issued.password);
+  const userId = (await signedIn.json()).user.id;
+  const cookie = sessionCookie(signedIn)!;
+  const banned = await request("/api/auth/admin/ban-user", {
+    method: "POST",
+    headers: { cookie: operator },
+    body: JSON.stringify({ userId, banReason: "Integration suspension" }),
+  });
+  expect(banned.status).toBe(200);
+  expect((await signIn(issued.email, issued.password)).status).toBe(403);
+  expect(
+    await (
+      await request("/api/auth/get-session", { headers: { cookie } })
+    ).json(),
+  ).toBeNull();
+  expect(
+    (
+      await request("/api/auth/admin/unban-user", {
+        method: "POST",
+        headers: { cookie: operator },
+        body: JSON.stringify({ userId }),
+      })
+    ).status,
+  ).toBe(200);
+  expect((await signIn(issued.email, issued.password)).status).toBe(200);
+  await app.get<Database>(DATABASE).$client`
+    update auth."user" set temporary_password_expires_at = now() - interval '1 second'
+    where id = ${userId}
+  `;
+  const expired = await signIn(issued.email, issued.password);
+  expect(expired.status).toBe(403);
+  expect((await expired.json()).code).toBe("TEMPORARY_PASSWORD_EXPIRED");
+});
+
+test("ending other sessions preserves the current session and expired sessions are refused", async () => {
+  const issued = await issueAccount("issued-password-12");
+  const first = sessionCookie(await signIn(issued.email, issued.password))!;
+  const second = sessionCookie(await signIn(issued.email, issued.password))!;
+  const response = await request("/api/auth/revoke-other-sessions", {
+    method: "POST",
+    headers: { cookie: second },
+    body: "{}",
+  });
+  expect(response.status).toBe(200);
+  expect(
+    await (
+      await request("/api/auth/get-session", { headers: { cookie: first } })
+    ).json(),
+  ).toBeNull();
+  const current = await (
+    await request("/api/auth/get-session", { headers: { cookie: second } })
+  ).json();
+  expect(current.user.email).toBe(issued.email);
+  await app.get<Database>(DATABASE).$client`
+    update auth.session set expires_at = now() - interval '1 second' where id = ${current.session.id}
+  `;
+  expect(
+    await (
+      await request("/api/auth/get-session", { headers: { cookie: second } })
+    ).json(),
+  ).toBeNull();
+});
+
+test("administration read and write endpoints enforce identity roles and MFA", async () => {
+  for (const [role, readAllowed, writeAllowed] of [
+    ["user", false, false],
+    ["helpdesk", true, false],
+    ["access-reviewer", true, false],
+    ["admin", true, true],
+    ["super-admin", true, true],
+  ] as const) {
+    const cookie = await adminCookie(role);
+    expect(
+      (await request("/api/directory", { headers: { cookie } })).status,
+    ).toBe(readAllowed ? 200 : 403);
+    const write = await request(
+      `/api/directory/positions/group/missing-${crypto.randomUUID()}`,
+      {
+        method: "PUT",
+        headers: { cookie },
+        body: JSON.stringify({ title: "QA title" }),
+      },
+    );
+    expect(write.status).toBe(writeAllowed ? 404 : 403);
+  }
+  const withoutMfa = await adminCookie("admin", false);
+  const denied = await request("/api/directory", {
+    headers: { cookie: withoutMfa },
+  });
+  expect(denied.status).toBe(403);
+  expect((await denied.json()).code).toBe("PRIVILEGED_TWO_FACTOR_REQUIRED");
+});
+
+test("concurrent sign-ins retain at most three usable sessions", async () => {
+  const issued = await issueAccount("concurrent-password-12");
+  const responses = await Promise.all(
+    Array.from({ length: 4 }, () => signIn(issued.email, issued.password)),
+  );
+  expect(responses.every((response) => response.status === 200)).toBe(true);
+  const sessions = await Promise.all(
+    responses.map(async (response) =>
+      (
+        await request("/api/auth/get-session", {
+          headers: { cookie: sessionCookie(response)! },
+        })
+      ).json(),
+    ),
+  );
+  expect(sessions.filter(Boolean)).toHaveLength(3);
+  expect(
+    sessions
+      .filter(Boolean)
+      .every((session) => session.user.email === issued.email),
+  ).toBe(true);
+});
+
+test("template edits validate freshness and atomically reject concurrent overwrites", async () => {
+  const cookie = await adminCookie();
+  const draft = {
+    key: `qa.concurrent.${crypto.randomUUID().replaceAll("-", "")}`,
+    channel: "sms",
+    locale: "en",
+    subject: null,
+    body: "Original wording",
+    variables: [],
+    secrets: [],
+  };
+  const created = await request("/api/notifications/templates", {
+    method: "POST",
+    headers: { cookie },
+    body: JSON.stringify(draft),
+  });
+  expect(created.status).toBe(201);
+  const { id } = await created.json();
+  const client = app.get<Database>(DATABASE).$client;
+  try {
+    // JS reads millisecond precision; PostgreSQL defaults include microseconds.
+    await client`update notification.template set updated_at = timestamp '2026-01-01 00:00:00.123456' where id = ${id}`;
+    const path = `/api/notifications/templates/${id}`;
+    for (const expectedUpdatedAt of [undefined, "not-a-date"]) {
+      const invalid = await request(path, {
+        method: "PUT",
+        headers: { cookie },
+        body: JSON.stringify({ ...draft, expectedUpdatedAt }),
+      });
+      expect(invalid.status).toBe(400);
+    }
+    const expectedUpdatedAt = "2026-01-01T00:00:00.123Z";
+    const responses = await Promise.all(
+      ["First writer", "Second writer"].map((body) =>
+        request(path, {
+          method: "PUT",
+          headers: { cookie },
+          body: JSON.stringify({ ...draft, body, expectedUpdatedAt }),
+        }),
+      ),
+    );
+    expect(responses.map((response) => response.status).sort()).toEqual([
+      204, 409,
+    ]);
+    const [stored] =
+      await client`select body, updated_at from notification.template where id = ${id}`;
+    const winner =
+      responses[0]!.status === 204 ? "First writer" : "Second writer";
+    expect(stored.body).toBe(winner);
+    const obsolete = await request(path, {
+      method: "PUT",
+      headers: { cookie },
+      body: JSON.stringify({ ...draft, expectedUpdatedAt }),
+    });
+    expect(obsolete.status).toBe(409);
+    const fresh = await request(path, {
+      method: "PUT",
+      headers: { cookie },
+      body: JSON.stringify({
+        ...draft,
+        body: "Fresh revision",
+        expectedUpdatedAt: new Date(stored.updated_at).toISOString(),
+      }),
+    });
+    expect(fresh.status).toBe(204);
+    const [revised] =
+      await client`select body, updated_at from notification.template where id = ${id}`;
+    expect(revised.body).toBe("Fresh revision");
+    expect(new Date(revised.updated_at).getTime()).toBeGreaterThan(
+      new Date(stored.updated_at).getTime(),
+    );
+    const missing = await request(
+      `/api/notifications/templates/${crypto.randomUUID()}`,
+      {
+        method: "PUT",
+        headers: { cookie },
+        body: JSON.stringify({ ...draft, expectedUpdatedAt }),
+      },
+    );
+    expect(missing.status).toBe(404);
+  } finally {
+    await client`delete from notification.template where id = ${id}`;
+  }
+});
+
+test("custom roles persist, reject duplicates and stale grants, and archive", async () => {
+  const cookie = await adminCookie("super-admin");
+  const input = {
+    key: `qa-${crypto.randomUUID()}`,
+    name: `QA ${crypto.randomUUID()}`,
+    description: "Integration scope",
+    permissions: ["domain:administer"],
+  };
+  const send = (path: string, method: string, body?: unknown) =>
+    request(path, {
+      method,
+      headers: { cookie },
+      body: body === undefined ? undefined : JSON.stringify(body),
+    });
+  const created = await send("/api/access-control/roles", "POST", input);
+  expect(created.status).toBe(201);
+  const { data: role } = await created.json();
+  expect(role.key).toBe(input.key);
+  expect((await send("/api/access-control/roles", "POST", input)).status).toBe(
+    409,
+  );
+  const changed = await send(`/api/access-control/roles/${role.id}`, "PATCH", {
+    ...input,
+    name: `${input.name} revised`,
+  });
+  expect(changed.status).toBe(200);
+  expect((await changed.json()).data.name).toBe(`${input.name} revised`);
+  const session = await (
+    await request("/api/auth/get-session", { headers: { cookie } })
+  ).json();
+  await app.get<Database>(DATABASE).$client`
+    update auth.session set created_at = now() - interval '16 minutes' where id = ${session.session.id}
+  `;
+  expect(
+    (await send(`/api/access-control/roles/${role.id}`, "DELETE")).status,
+  ).toBe(403);
+  await app.get<Database>(DATABASE).$client`
+    update auth.session set created_at = now() where id = ${session.session.id}
+  `;
+  expect(
+    (await send(`/api/access-control/roles/${role.id}`, "DELETE")).status,
+  ).toBe(200);
+  expect(
+    (await send(`/api/access-control/roles/${role.id}`, "PATCH", input)).status,
+  ).toBe(404);
+});
+
+test("templates validate and persist create, edit, publish, version and delete across channels", async () => {
+  const cookie = await adminCookie();
+  const send = (path: string, method: string, body?: unknown) =>
+    request(path, {
+      method,
+      headers: { cookie },
+      body: body === undefined ? undefined : JSON.stringify(body),
+    });
+  expect((await send("/api/notifications/templates", "POST", {})).status).toBe(
+    400,
+  );
+  for (const channel of ["email", "sms", "whatsapp"] as const) {
+    const key = `qa.${crypto.randomUUID().replaceAll("-", "")}`;
+    const draft = {
+      key,
+      channel,
+      locale: "en",
+      body: channel === "whatsapp" ? "qa_welcome" : "Hello {{name}}",
+      subject: "QA welcome",
+      variables: ["name"],
+      secrets: [],
+    };
+    const created = await send("/api/notifications/templates", "POST", draft);
+    expect(created.status).toBe(201);
+    const { id, version } = await created.json();
+    expect(version).toBe(1);
+    const initial = await (
+      await send(`/api/notifications/templates?q=${key}`, "GET")
+    ).json();
+    const updatedAt = initial.data.find(
+      (row: { id: string }) => row.id === id,
+    ).updatedAt;
+    expect(
+      (
+        await send(`/api/notifications/templates/${id}`, "PUT", {
+          ...draft,
+          expectedUpdatedAt: updatedAt,
+          body: channel === "whatsapp" ? "qa_updated" : "Updated {{name}}",
+        })
+      ).status,
+    ).toBe(204);
+    const listed = await (
+      await send(`/api/notifications/templates?q=${key}`, "GET")
+    ).json();
+    expect(listed.data.find((row: { id: string }) => row.id === id).body).toBe(
+      channel === "whatsapp" ? "qa_updated" : "Updated {{name}}",
+    );
+    expect(
+      (await send(`/api/notifications/templates/${id}/publish`, "POST")).status,
+    ).toBe(204);
+    expect(
+      (
+        await send(`/api/notifications/templates/${id}`, "PUT", {
+          ...draft,
+          expectedUpdatedAt: updatedAt,
+        })
+      ).status,
+    ).toBe(404);
+    expect(
+      (await send(`/api/notifications/templates/${id}`, "DELETE")).status,
+    ).toBe(404);
+    const next = await send("/api/notifications/templates", "POST", draft);
+    const nextDraft = await next.json();
+    expect(nextDraft.version).toBe(2);
+    expect(
+      (await send(`/api/notifications/templates/${nextDraft.id}`, "DELETE"))
+        .status,
+    ).toBe(204);
+  }
+});
+
+test("subsidiaries, teams, positions, scoped assignments and emergency access persist", async () => {
+  const cookie = await adminCookie("super-admin");
+  const send = (path: string, method: string, body?: unknown) =>
+    request(path, {
+      method,
+      headers: { cookie },
+      body: body === undefined ? undefined : JSON.stringify(body),
+    });
+  const session = await (await send("/api/auth/get-session", "GET")).json();
+  const userId = session.user.id;
+  expect(
+    (
+      await send("/api/auth-management/subsidiaries", "POST", {
+        name: "QA",
+        slug: "Invalid slug",
+      })
+    ).status,
+  ).toBe(400);
+  const subsidiary = await send("/api/auth-management/subsidiaries", "POST", {
+    name: "QA scope",
+    slug: `qa-${crypto.randomUUID()}`,
+  });
+  expect(subsidiary.status).toBe(201);
+  const organizationId = (await subsidiary.json()).data.id;
+  const team = await send(
+    `/api/auth-management/subsidiaries/${organizationId}/teams`,
+    "POST",
+    { name: "Engineering" },
+  );
+  expect(team.status).toBe(201);
+  const teamId = (await team.json()).data.id;
+  const positionPath = `/api/directory/positions/group/${userId}`;
+  expect(
+    (await send(positionPath, "PUT", { title: "QA manager" })).status,
+  ).toBe(200);
+  expect(
+    (
+      await send(positionPath, "PUT", {
+        title: "QA manager",
+        managerUserId: userId,
+      })
+    ).status,
+  ).toBe(400);
+  expect((await send(positionPath, "PUT", { title: " " })).status).toBe(400);
+  const colleague = await issueAccount("QaCyclePassword123!");
+  const colleagueLogin = await signIn(colleague.email, colleague.password);
+  expect(colleagueLogin.status).toBe(200);
+  const colleagueId = (await colleagueLogin.json()).user.id;
+  expect(
+    (
+      await send(positionPath, "PUT", {
+        title: "QA manager",
+        managerUserId: colleagueId,
+      })
+    ).status,
+  ).toBe(200);
+  expect(
+    (
+      await send(`/api/directory/positions/group/${colleagueId}`, "PUT", {
+        title: "QA colleague",
+        managerUserId: userId,
+      })
+    ).status,
+  ).toBe(400);
+  expect((await send(positionPath, "DELETE")).status).toBe(200);
+  const own = `/api/access-control/me?organizationId=${organizationId}&teamId=${teamId}`;
+  expect((await (await send(own, "GET")).json()).data.permissions).toEqual([]);
+  const input = {
+    organizationId,
+    teamId: null,
+    scope: "subsidiary",
+    roleId: "system-domain-administrator",
+    userId,
+  };
+  const assignment = await send(
+    "/api/access-control/assignments",
+    "POST",
+    input,
+  );
+  expect(assignment.status).toBe(201);
+  const assignmentId = (await assignment.json()).data.id;
+  const foreignSubsidiary = await send(
+    "/api/auth-management/subsidiaries",
+    "POST",
+    {
+      name: "Foreign scope",
+      slug: `qa-foreign-${crypto.randomUUID()}`,
+    },
+  );
+  expect(foreignSubsidiary.status).toBe(201);
+  const foreignId = (await foreignSubsidiary.json()).data.id;
+  const foreignTeam = await send(
+    `/api/auth-management/subsidiaries/${foreignId}/teams`,
+    "POST",
+    { name: "Foreign team" },
+  );
+  expect(foreignTeam.status).toBe(201);
+  const foreignTeamId = (await foreignTeam.json()).data.id;
+  const mismatched = await send(
+    `/api/access-control/me?organizationId=${organizationId}&teamId=${foreignTeamId}`,
+    "GET",
+  );
+  expect(mismatched.status).toBe(200);
+  expect((await mismatched.json()).data.permissions).toEqual([]);
+
+  expect((await (await send(own, "GET")).json()).data.permissions).toContain(
+    "domain:administer",
+  );
+  expect(
+    (await send(`/api/access-control/assignments/${assignmentId}`, "DELETE"))
+      .status,
+  ).toBe(200);
+  expect((await (await send(own, "GET")).json()).data.permissions).toEqual([]);
+  const sibling = await send(
+    `/api/auth-management/subsidiaries/${organizationId}/teams`,
+    "POST",
+    { name: "QA sibling" },
+  );
+  expect(sibling.status).toBe(201);
+  const siblingId = (await sibling.json()).data.id;
+  expect(
+    (
+      await send("/api/auth/organization/set-active", "POST", {
+        organizationId,
+      })
+    ).status,
+  ).toBe(200);
+  expect(
+    (
+      await send("/api/auth/organization/add-team-member", "POST", {
+        teamId,
+        userId,
+      })
+    ).status,
+  ).toBe(200);
+  const narrow = await send("/api/access-control/assignments", "POST", {
+    ...input,
+    scope: "team",
+    teamId,
+  });
+  expect(narrow.status).toBe(201);
+  const narrowId = (await narrow.json()).data.id;
+  expect((await (await send(own, "GET")).json()).data.permissions).toContain(
+    "domain:administer",
+  );
+  expect(
+    (
+      await (
+        await send(
+          `/api/access-control/me?organizationId=${organizationId}&teamId=${siblingId}`,
+          "GET",
+        )
+      ).json()
+    ).data.permissions,
+  ).toEqual([]);
+  expect(
+    (
+      await send("/api/auth/organization/remove-team-member", "POST", {
+        teamId,
+        userId,
+      })
+    ).status,
+  ).toBe(200);
+  expect((await (await send(own, "GET")).json()).data.permissions).toEqual([]);
+  expect(
+    (
+      await send("/api/auth/organization/add-team-member", "POST", {
+        teamId,
+        userId,
+      })
+    ).status,
+  ).toBe(200);
+  // Restoring membership does not revive the grant revoked on departure.
+  expect((await (await send(own, "GET")).json()).data.permissions).toEqual([]);
+  expect(
+    (await send(`/api/access-control/assignments/${narrowId}`, "DELETE"))
+      .status,
+  ).toBe(404);
+  const elevationInput = {
+    organizationId,
+    teamId,
+    scope: "team",
+    permission: "domain:administer",
+    reason: "QA emergency recovery",
+  };
+  expect(
+    (
+      await send("/api/access-control/break-glass", "POST", {
+        ...elevationInput,
+        reason: " ",
+      })
+    ).status,
+  ).toBe(400);
+  const elevation = await send(
+    "/api/access-control/break-glass",
+    "POST",
+    elevationInput,
+  );
+  expect(elevation.status).toBe(201);
+  const elevationId = (await elevation.json()).data.id;
+  expect(
+    (
+      await (await send("/api/access-control/break-glass", "GET")).json()
+    ).data.map((item: { id: string }) => item.id),
+  ).toContain(elevationId);
+  const otherSessionCookie = await adminCookie("super-admin", true, userId);
+  const otherSession = await request("/api/access-control/break-glass", {
+    headers: { cookie: otherSessionCookie },
+  });
+  expect(otherSession.status).toBe(200);
+  expect((await otherSession.json()).data).toEqual([]);
+  expect(
+    (
+      await request(`/api/access-control/break-glass/${elevationId}`, {
+        method: "DELETE",
+        headers: { cookie: otherSessionCookie },
+      })
+    ).status,
+  ).toBe(404);
+  expect((await (await send(own, "GET")).json()).data.permissions).toContain(
+    "domain:administer",
+  );
+  const sql = app.get<Database>(DATABASE).$client;
+  const auditEvents = await sql`
+    select type from directory.auth_audit_event where actor_id = ${userId}
+  `;
+  expect(auditEvents.map((event: { type: string }) => event.type)).toContain(
+    "access.break-glass.activated",
+  );
+  expect(auditEvents.map((event: { type: string }) => event.type)).toContain(
+    "access.break-glass.used",
+  );
+  await sql`update access_control.break_glass_elevation set expires_at = now() - interval '1 second' where id = ${elevationId}`;
+  expect(
+    (await (await send("/api/access-control/break-glass", "GET")).json()).data,
+  ).toEqual([]);
+  expect((await (await send(own, "GET")).json()).data.permissions).toEqual([]);
+  await sql`update access_control.break_glass_elevation set expires_at = now() + interval '1 minute' where id = ${elevationId}`;
+  expect(
+    (await send(`/api/access-control/break-glass/${elevationId}`, "DELETE"))
+      .status,
+  ).toBe(200);
+  expect((await (await send(own, "GET")).json()).data.permissions).toEqual([]);
+});
+
+test("concurrent template creation returns a saved draft or a retryable conflict", async () => {
+  const cookie = await adminCookie();
+  const draft = {
+    key: `qa.${crypto.randomUUID().replaceAll("-", "")}`,
+    channel: "email",
+    locale: "en",
+    body: "Concurrent draft",
+    subject: "QA concurrency",
+    variables: [],
+    secrets: [],
+  };
+  const responses = await Promise.all(
+    Array.from({ length: 4 }, () =>
+      request("/api/notifications/templates", {
+        method: "POST",
+        headers: { cookie },
+        body: JSON.stringify(draft),
+      }),
+    ),
+  );
+  expect(responses.some((response) => response.status === 201)).toBe(true);
+  for (const response of responses)
+    expect([201, 409]).toContain(response.status);
+});
+
+test("webhooks verify original JSON bytes and reject altered or unsigned payloads", async () => {
+  const raw = '{ "entry" : [] }';
+  const signature = `sha256=${createHmac("sha256", testEnv.WHATSAPP_APP_SECRET).update(raw).digest("hex")}`;
+  const signed = await request("/api/notifications/webhooks/meta", {
+    method: "POST",
+    headers: { "x-hub-signature-256": signature },
+    body: raw,
+  });
+  expect(signed.status).toBe(204);
+  expect(
+    (
+      await request("/api/notifications/webhooks/meta", {
+        method: "POST",
+        headers: { "x-hub-signature-256": signature },
+        body: JSON.stringify({ entry: [] }),
+      })
+    ).status,
+  ).toBe(401);
+  expect(
+    (
+      await request("/api/notifications/webhooks/meta", {
+        method: "POST",
+        body: raw,
+      })
+    ).status,
+  ).toBe(401);
+  expect(
+    (
+      await request("/api/notifications/webhooks/unknown", {
+        method: "POST",
+        body: raw,
+      })
+    ).status,
+  ).toBe(404);
+});
+
+test("super-admin impersonation restores the operator and deletion removes access", async () => {
+  const issued = await issueAccount("issued-password-12");
+  const initial = await signIn(issued.email, issued.password);
+  const userId = (await initial.json()).user.id;
+  const changed = await request("/api/auth/change-password", {
+    method: "POST",
+    headers: { cookie: sessionCookie(initial)! },
+    body: JSON.stringify({
+      currentPassword: issued.password,
+      newPassword: "private-password-12",
+      revokeOtherSessions: true,
+    }),
+  });
+  expect(changed.status).toBe(200);
+  const operatorCookie = await adminCookie("super-admin");
+  const operator = await (
+    await request("/api/auth/get-session", {
+      headers: { cookie: operatorCookie },
+    })
+  ).json();
+  const impersonated = await request("/api/auth/admin/impersonate-user", {
+    method: "POST",
+    headers: { cookie: operatorCookie },
+    body: JSON.stringify({ userId }),
+  });
+  expect(impersonated.status).toBe(200);
+  const cookieJar = new Map(
+    impersonated.headers.getSetCookie().map((value) => {
+      const cookie = value.split(";", 1)[0]!;
+      const separator = cookie.indexOf("=");
+      return [cookie.slice(0, separator), cookie.slice(separator + 1)] as const;
+    }),
+  );
+  const cookies = [...cookieJar]
+    .map(([name, value]) => `${name}=${value}`)
+    .join("; ");
+  const session = await (
+    await request("/api/auth/get-session", { headers: { cookie: cookies } })
+  ).json();
+  expect(session.user.id).toBe(userId);
+  expect(session.session.impersonatedBy).toBe(operator.user.id);
+  const impersonationEvents = await app.get<Database>(DATABASE).$client`
+    select actor_id from directory.auth_audit_event where target_user_id = ${userId} and type = 'user.impersonated'
+  `;
+  expect(
+    impersonationEvents.map((event: { actor_id: string }) => event.actor_id),
+  ).toContain(operator.user.id);
+  const stopped = await request("/api/auth/admin/stop-impersonating", {
+    method: "POST",
+    headers: { cookie: cookies },
+    body: "{}",
+  });
+  expect(stopped.status).toBe(200);
+  const restoredCookie = sessionCookie(stopped)!;
+  expect(
+    (
+      await (
+        await request("/api/auth/get-session", {
+          headers: { cookie: restoredCookie },
+        })
+      ).json()
+    ).user.id,
+  ).toBe(operator.user.id);
+  const deleted = await request("/api/auth/admin/remove-user", {
+    method: "POST",
+    headers: { cookie: restoredCookie },
+    body: JSON.stringify({ userId }),
+  });
+  expect(deleted.status).toBe(200);
+  expect((await signIn(issued.email, "private-password-12")).status).toBe(401);
+});
+
+test("password recovery, impersonation and deletion reject stale operator sessions", async () => {
+  const cookie = await adminCookie("super-admin");
+  const current = await (
+    await request("/api/auth/get-session", { headers: { cookie } })
+  ).json();
+  const employee = await issueAccount("RecoveryGuardPassword123!");
+  const target = await (await signIn(employee.email, employee.password)).json();
+  await app.get<Database>(DATABASE)
+    .$client`update auth.session set created_at = now() - interval '16 minutes' where id = ${current.session.id}`;
+  for (const path of ["set-user-password", "impersonate-user", "remove-user"]) {
+    const response = await request(`/api/auth/admin/${path}`, {
+      method: "POST",
+      headers: { cookie },
+      body: JSON.stringify({
+        userId: target.user.id,
+        newPassword: "ReplacementPassword123!",
+      }),
+    });
+    expect(response.status).toBe(403);
+    expect((await response.json()).code).toBe("SESSION_NOT_FRESH");
+  }
+  expect((await signIn(employee.email, employee.password)).status).toBe(200);
+});
+
+test("privileged access reviews require an independent reviewer and an active privileged target", async () => {
+  const cookie = await adminCookie("access-reviewer");
+  const self = await (
+    await request("/api/auth/get-session", { headers: { cookie } })
+  ).json();
+  const review = (id: string) =>
+    request(`/api/directory/access-reviews/${id}`, {
+      method: "POST",
+      headers: { cookie },
+      body: "{}",
+    });
+  expect((await review(self.user.id)).status).toBe(403);
+  expect((await review(`missing-${crypto.randomUUID()}`)).status).toBe(404);
+  const targetCookie = await adminCookie("admin");
+  const target = await (
+    await request("/api/auth/get-session", {
+      headers: { cookie: targetCookie },
+    })
+  ).json();
+  expect((await review(target.user.id)).status).toBe(201);
+  const [stored] = await app.get<Database>(DATABASE)
+    .$client`select reviewed_by from directory.privileged_access_review where user_id = ${target.user.id}`;
+  expect(stored.reviewed_by).toBe(self.user.id);
+});
+
+test("business reviews persist, reject stale and self decisions, and retain emergency history after session deletion", async () => {
+  const cookie = await adminCookie("super-admin");
+  const send = (path: string, body?: unknown, useCookie = cookie) =>
+    request(path, {
+      method: body === undefined ? "GET" : "POST",
+      headers: { cookie: useCookie },
+      body: body === undefined ? undefined : JSON.stringify(body),
+    });
+  const operator = await (await send("/api/auth/get-session")).json();
+  const subsidiary = await send("/api/auth-management/subsidiaries", {
+    name: "Review scope",
+    slug: `review-${crypto.randomUUID()}`,
+  });
+  expect(subsidiary.status).toBe(201);
+  const organizationId = (await subsidiary.json()).data.id;
+  const assignment = await send("/api/access-control/assignments", {
+    organizationId,
+    scope: "subsidiary",
+    roleId: "system-domain-administrator",
+    userId: operator.user.id,
+  });
+  expect(assignment.status).toBe(201);
+  const assignmentId = (await assignment.json()).data.id;
+  const subjects = (await (await send("/api/access-control/reviews")).json())
+    .data;
+  const subject = subjects.find(
+    (row: { id: string }) => row.id === assignmentId,
+  );
+  expect(subject.eligible).toBe(true);
+  const input = {
+    decision: "confirmed",
+    note: "Manager confirmed responsibility in case 123",
+    snapshot: subject.snapshot,
+  };
+  const path = `/api/access-control/reviews/assignment/${assignmentId}`;
+  expect((await send(path, input)).status).toBe(403);
+  const reviewer = await adminCookie("access-reviewer");
+  expect(
+    (await send(path, { ...input, snapshot: "outdated" }, reviewer)).status,
+  ).toBe(409);
+  expect((await send(path, input, reviewer)).status).toBe(201);
+  const reviewed = (
+    await (
+      await send("/api/access-control/reviews", undefined, reviewer)
+    ).json()
+  ).data.find((row: { id: string }) => row.id === assignmentId);
+  expect(reviewed.review.decision).toBe("confirmed");
+  const sql = app.get<Database>(DATABASE).$client;
+  await sql`update access_control.access_assignment set expires_at = now() + interval '1 day' where id = ${assignmentId}`;
+  const changed = (
+    await (
+      await send("/api/access-control/reviews", undefined, reviewer)
+    ).json()
+  ).data.find((row: { id: string }) => row.id === assignmentId);
+  expect(changed.review).toBeNull();
+  const activation = await send("/api/access-control/break-glass", {
+    organizationId,
+    scope: "subsidiary",
+    permission: "domain:administer",
+    reason: "Restore a reviewed configuration",
+  });
+  expect(activation.status).toBe(201);
+  const elevationId = (await activation.json()).data.id;
+  await sql`update access_control.break_glass_elevation set expires_at = now() - interval '1 second' where id = ${elevationId}`;
+  await sql`delete from auth.session where id = ${operator.session.id}`;
+  const retained = (
+    await (
+      await send("/api/access-control/reviews", undefined, reviewer)
+    ).json()
+  ).data.find((row: { id: string }) => row.id === elevationId);
+  expect(retained.eligible).toBe(true);
+  expect(
+    (
+      await send(
+        `/api/access-control/reviews/emergency/${elevationId}`,
+        { ...input, decision: "flagged", snapshot: retained.snapshot },
+        reviewer,
+      )
+    ).status,
+  ).toBe(201);
+  const [stored] =
+    await sql`select decision from access_control.access_review where subject_id = ${elevationId}`;
+  expect(stored.decision).toBe("flagged");
+});
+
+test("domain links use immutable team ids, survive renames, and require current membership", async () => {
+  const cookie = await adminCookie("super-admin");
+  const send = (
+    path: string,
+    method = "GET",
+    body?: unknown,
+    authCookie = cookie,
+  ) =>
+    request(path, {
+      method,
+      headers: { cookie: authCookie },
+      body: body === undefined ? undefined : JSON.stringify(body),
+    });
+  const operator = await (await send("/api/auth/get-session")).json();
+  const created = await send("/api/auth-management/subsidiaries", "POST", {
+    name: "Bound domain",
+    slug: `binding-${crypto.randomUUID()}`,
+  });
+  const organizationId = (await created.json()).data.id;
+  const team = await send(
+    `/api/auth-management/subsidiaries/${organizationId}/teams`,
+    "POST",
+    { name: "Engineering" },
+  );
+  const teamId = (await team.json()).data.id;
+  expect(
+    (
+      await send("/api/auth/organization/set-active", "POST", {
+        organizationId,
+      })
+    ).status,
+  ).toBe(200);
+  expect(
+    (
+      await send("/api/auth/organization/add-team-member", "POST", {
+        teamId,
+        userId: operator.user.id,
+      })
+    ).status,
+  ).toBe(200);
+  const mine = async () =>
+    (await (await send("/api/access-control/domains")).json()).data.filter(
+      (row: { teamId: string }) => row.teamId === teamId,
+    );
+  expect(await mine()).toEqual([]);
+  const path = `/api/access-control/teams/${teamId}/domain`;
+  const reviewer = await adminCookie("access-reviewer");
+  expect(
+    (await send(path, "PUT", { domainSlug: "engineering" }, reviewer)).status,
+  ).toBe(403);
+  expect((await send(path, "PUT", { domainSlug: "invented" })).status).toBe(
+    400,
+  );
+  expect((await send(path, "PUT", { domainSlug: "engineering" })).status).toBe(
+    200,
+  );
+  expect(
+    (await mine()).map((row: { domainSlug: string }) => row.domainSlug),
+  ).toEqual(["engineering"]);
+  expect(
+    (
+      await send("/api/auth/organization/update-team", "POST", {
+        teamId,
+        data: { name: "Platform delivery" },
+      })
+    ).status,
+  ).toBe(200);
+  expect(
+    (await mine()).map((row: { domainSlug: string }) => row.domainSlug),
+  ).toEqual(["engineering"]);
+  const foreign = await send(
+    "/api/access-control/domains",
+    "GET",
+    undefined,
+    reviewer,
+  );
+  expect((await foreign.json()).data).toEqual([]);
+  expect(
+    (
+      await send("/api/auth/organization/remove-team-member", "POST", {
+        teamId,
+        userId: operator.user.id,
+      })
+    ).status,
+  ).toBe(200);
+  expect(await mine()).toEqual([]);
+});
+
+test("recovery delivery reports missing, suppressed and failed destinations without losing the handover outcome", async () => {
+  const hook = app.get(OnboardingHook);
+  const sender = app.get<NotificationSender>(NOTIFICATION_SENDER);
+  const send = spyOn(sender, "send");
+  const log = spyOn(Logger.prototype, "error").mockImplementation(() => {});
+  const account = {
+    email: "recovery@tagaroa.com",
+    name: "Recovery fixture",
+    personalEmail: "recovery@personal.example",
+  };
+  const password = "FixtureRecoveryPassword123!";
+  try {
+    expect(
+      await hook.deliverRecoveryPassword(
+        { ...account, personalEmail: null },
+        password,
+        "missing-address",
+      ),
+    ).toEqual({
+      destination: null,
+      queued: false,
+      reason: "No personal address is on file",
+    });
+    expect(send).not.toHaveBeenCalled();
+
+    send.mockResolvedValue({ id: "suppressed", status: "suppressed" });
+    expect(
+      await hook.deliverRecoveryPassword(account, password, "suppressed"),
+    ).toEqual({
+      destination: account.personalEmail,
+      queued: false,
+      reason: "That address is suppressed",
+    });
+
+    for (const failure of [new Error(`Queue rejected ${password}`), password]) {
+      send.mockRejectedValue(failure);
+      const outcome = await hook.deliverRecoveryPassword(
+        account,
+        password,
+        "failed",
+      );
+      expect(outcome).toEqual({
+        destination: account.personalEmail,
+        queued: false,
+        reason: "The notification could not be queued",
+      });
+      expect(JSON.stringify(outcome)).not.toContain(password);
+      expect(JSON.stringify(log.mock.calls)).not.toContain(password);
+    }
+    expect(log).toHaveBeenCalledTimes(2);
+
+    send.mockResolvedValue({ id: "queued", status: "queued" });
+    expect(
+      await hook.deliverRecoveryPassword(account, password, "queued"),
+    ).toEqual({
+      destination: account.personalEmail,
+      queued: true,
+    });
+    expect(send).toHaveBeenLastCalledWith({
+      channel: "email",
+      key: "account.password-reset",
+      to: account.personalEmail,
+      variables: { email: account.email, name: account.name, password },
+      idempotencyKey: "factor-recovery:queued",
+    });
+  } finally {
+    send.mockRestore();
+    log.mockRestore();
+  }
+});
+
+test("factor recovery requires independent verification, replaces credentials once and revokes every old factor and session", async () => {
+  const issued = await issueAccount("LostFactorsPassword123!");
+  const login = await signIn(issued.email, issued.password);
+  const person = await login.json();
+  const sql = app.get<Database>(DATABASE).$client;
+  await sql`update auth."user" set must_change_password = false, two_factor_enabled = true, role = 'admin' where id = ${person.user.id}`;
+  await sql`insert into auth.two_factor (id, user_id, secret, backup_codes) values (${crypto.randomUUID()}, ${person.user.id}, 'fixture-secret', 'fixture-backup')`;
+  await sql`insert into auth.verification (id, identifier, value, expires_at, created_at, updated_at) values (${crypto.randomUUID()}, ${`trust-device-${crypto.randomUUID()}`}, ${person.user.id}, now() + interval '1 day', now(), now())`;
+  await sql`insert into auth.passkey (id, user_id, public_key, credential_id, counter, device_type, backed_up) values (${crypto.randomUUID()}, ${person.user.id}, 'fixture-public-key', ${crypto.randomUUID()}, 0, 'singleDevice', false)`;
+  const requester = await adminCookie("super-admin");
+  const reviewer = await adminCookie("super-admin");
+  const send = (path: string, body: unknown, cookie = requester) =>
+    request(path, {
+      method: "POST",
+      headers: { cookie },
+      body: JSON.stringify(body),
+    });
+  const input = {
+    reason: "Employee lost all authentication factors",
+    evidence: "HR callback and manager verified; case REC-123",
+    identityVerified: true,
+  };
+  const path = `/api/auth-management/users/${person.user.id}/factor-recovery`;
+  expect((await send(path, { ...input, identityVerified: false })).status).toBe(
+    400,
+  );
+  const requested = await send(path, input);
+  expect(requested.status).toBe(201);
+  const recoveryId = (await requested.json()).data.id;
+  const approvePath = `/api/auth-management/recoveries/${recoveryId}/approve`;
+  await sql`update auth.two_factor set failed_verification_count = 1 where user_id = ${person.user.id}`;
+  expect((await send(approvePath, input)).status).toBe(403);
+  expect(
+    (await send(approvePath, input, await adminCookie("helpdesk"))).status,
+  ).toBe(403);
+  const approvals = await Promise.all([
+    send(approvePath, input, reviewer),
+    send(approvePath, input, reviewer),
+  ]);
+  expect(approvals.map((response) => response.status).sort()).toEqual([
+    201, 409,
+  ]);
+  expect(
+    approvals
+      .find((response) => response.status === 201)!
+      .headers.get("cache-control"),
+  ).toBe("no-store");
+  const completed = await approvals
+    .find((response) => response.status === 201)!
+    .json();
+  expect(completed.data.temporaryPassword.length).toBeGreaterThanOrEqual(24);
+  expect((await signIn(issued.email, issued.password)).status).toBe(401);
+  const replacement = await signIn(
+    issued.email,
+    completed.data.temporaryPassword,
+  );
+  expect(replacement.status).toBe(200);
+  const recovered = await replacement.json();
+  expect(recovered.user.mustChangePassword).toBe(true);
+  expect(recovered.user.twoFactorEnabled).toBe(false);
+  expect(
+    await (
+      await request("/api/auth/get-session", {
+        headers: { cookie: sessionCookie(login)! },
+      })
+    ).json(),
+  ).toBeNull();
+  expect(
+    await sql`select id from auth.two_factor where user_id = ${person.user.id}`,
+  ).toHaveLength(0);
+  expect(
+    await sql`select id from auth.verification where value = ${person.user.id}`,
+  ).toHaveLength(0);
+  expect(
+    await sql`select id from auth.passkey where user_id = ${person.user.id}`,
+  ).toHaveLength(0);
+  const stored =
+    await sql`select * from identity_operations.factor_recovery where id = ${recoveryId}`;
+  expect(JSON.stringify(stored)).not.toContain(
+    completed.data.temporaryPassword,
+  );
+  expect(stored[0].approved_by).toBeTruthy();
+  const recoveredCookie = sessionCookie(replacement)!;
+  expect(
+    (await request("/api/directory", { headers: { cookie: recoveredCookie } }))
+      .status,
+  ).toBe(403);
+  const changed = await request("/api/auth/change-password", {
+    method: "POST",
+    headers: { cookie: recoveredCookie },
+    body: JSON.stringify({
+      currentPassword: completed.data.temporaryPassword,
+      newPassword: "RecoveredAdminPassword123!",
+      revokeOtherSessions: true,
+    }),
+  });
+  expect(changed.status).toBe(200);
+  const stillBlocked = await request("/api/directory", {
+    headers: { cookie: sessionCookie(changed) ?? recoveredCookie },
+  });
+  expect(stillBlocked.status).toBe(403);
+  expect((await stillBlocked.json()).code).toBe(
+    "PRIVILEGED_TWO_FACTOR_REQUIRED",
+  );
+});
+
+test("stale recovery evidence cannot reset a changed account and a new verified request may replace it", async () => {
+  const targetCookie = await adminCookie("admin");
+  const person = await (
+    await request("/api/auth/get-session", {
+      headers: { cookie: targetCookie },
+    })
+  ).json();
+  const sql = app.get<Database>(DATABASE).$client;
+  // Test-helper users have no password account; add a fixture credential without enabling login.
+  await sql`insert into auth.account (id, account_id, provider_id, user_id, password, created_at, updated_at) values (${crypto.randomUUID()}, ${person.user.id}, 'credential', ${person.user.id}, 'fixture-hash', now(), now())`;
+  const cookie = await adminCookie("helpdesk");
+  const approver = await adminCookie("super-admin");
+  const input = {
+    reason: "Lost registered authenticator",
+    evidence: "Verified manager callback; case REC-456",
+    identityVerified: true,
+  };
+  const path = `/api/auth-management/users/${person.user.id}/factor-recovery`;
+  const send = (url: string, authCookie: string) =>
+    request(url, {
+      method: "POST",
+      headers: { cookie: authCookie },
+      body: JSON.stringify(input),
+    });
+  const created = await send(path, cookie);
+  expect(created.status).toBe(201);
+  const id = (await created.json()).data.id;
+  await sql`update auth."user" set name = 'Changed while pending' where id = ${person.user.id}`;
+  expect(
+    (await send(`/api/auth-management/recoveries/${id}/approve`, approver))
+      .status,
+  ).toBe(409);
+  const replacementRequest = await send(path, cookie);
+  expect(replacementRequest.status).toBe(201);
+  const replacementId = (await replacementRequest.json()).data.id;
+  await sql`update identity_operations.factor_recovery set expires_at = now() - interval '1 second' where id = ${replacementId}`;
+  expect(
+    (
+      await send(
+        `/api/auth-management/recoveries/${replacementId}/approve`,
+        approver,
+      )
+    ).status,
+  ).toBe(409);
+  expect(
+    (
+      await (
+        await request("/api/auth/get-session", {
+          headers: { cookie: targetCookie },
+        })
+      ).json()
+    ).user.id,
+  ).toBe(person.user.id);
+});
+
+test("offboarding atomically suspends identity and removes memberships, sessions and business grants", async () => {
+  const cookie = await adminCookie("super-admin");
+  const targetCookie = await adminCookie("user");
+  const person = await (
+    await request("/api/auth/get-session", {
+      headers: { cookie: targetCookie },
+    })
+  ).json();
+  const send = (path: string, body: unknown) =>
+    request(path, {
+      method: "POST",
+      headers: { cookie },
+      body: JSON.stringify(body),
+    });
+  const subsidiary = await send("/api/auth-management/subsidiaries", {
+    name: "Offboard scope",
+    slug: `offboard-${crypto.randomUUID()}`,
+  });
+  const organizationId = (await subsidiary.json()).data.id;
+  expect(
+    (
+      await send(
+        `/api/auth-management/subsidiaries/${organizationId}/members`,
+        { userId: person.user.id },
+      )
+    ).status,
+  ).toBe(201);
+  const grant = await send("/api/access-control/assignments", {
+    userId: person.user.id,
+    organizationId,
+    scope: "subsidiary",
+    roleId: "system-domain-administrator",
+  });
+  expect(grant.status).toBe(201);
+  const assignmentId = (await grant.json()).data.id;
+  const offboard = `/api/auth-management/users/${person.user.id}/offboard`;
+  expect(
+    (await send(offboard, { reason: "HR authorized departure; case OFF-123" }))
+      .status,
+  ).toBe(201);
+  expect(
+    (await send(offboard, { reason: "HR authorized departure; case OFF-123" }))
+      .status,
+  ).toBe(201);
+  const sql = app.get<Database>(DATABASE).$client;
+  const [stored] =
+    await sql`select banned, role from auth."user" where id = ${person.user.id}`;
+  expect(stored.banned).toBe(true);
+  expect(stored.role).toBe("user");
+  expect(
+    await sql`select id from auth.member where user_id = ${person.user.id}`,
+  ).toHaveLength(0);
+  expect(
+    await sql`select id from auth.session where user_id = ${person.user.id}`,
+  ).toHaveLength(0);
+  const [assignment] =
+    await sql`select revoked_at from access_control.access_assignment where id = ${assignmentId}`;
+  expect(assignment.revoked_at).not.toBeNull();
+});
+
+test("subsidiary ownership cannot bypass group identity policy and temporary operators cannot use native admin routes", async () => {
+  const cookie = await adminCookie("super-admin");
+  const me = await (
+    await request("/api/auth/get-session", { headers: { cookie } })
+  ).json();
+  const created = await request("/api/auth-management/subsidiaries", {
+    method: "POST",
+    headers: { cookie },
+    body: JSON.stringify({
+      name: "Owner policy",
+      slug: `owner-policy-${crypto.randomUUID()}`,
+    }),
+  });
+  expect(created.status).toBe(201);
+  const organizationId = (await created.json()).data.id;
+  const sql = app.get<Database>(DATABASE).$client;
+  await sql`update auth."user" set role = 'user' where id = ${me.user.id}`;
+  const denied = await request("/api/auth/organization/create-team", {
+    method: "POST",
+    headers: { cookie },
+    body: JSON.stringify({ organizationId, name: "Unauthorized team" }),
+  });
+  expect(denied.status).toBe(403);
+  expect((await denied.json()).code).toBe("IDENTITY_ADMIN_REQUIRED");
+  expect(
+    (
+      await request("/api/auth/organization/list-user-teams", {
+        headers: { cookie },
+      })
+    ).status,
+  ).toBe(200);
+  await sql`update auth."user" set role = 'super-admin', must_change_password = true where id = ${me.user.id}`;
+  for (const path of [
+    "/api/auth/admin/list-users",
+    "/api/auth/organization/list-user-teams",
+  ]) {
+    const response = await request(path, { headers: { cookie } });
+    expect(response.status).toBe(403);
+    expect((await response.json()).code).toBe("PASSWORD_CHANGE_REQUIRED");
+  }
 });

@@ -7,5 +7,11 @@ export default defineConfig({
   dialect: "postgresql",
   out: "./drizzle",
   schema: "./src/schema.registry.ts",
-  schemaFilter: ["auth"],
+  schemaFilter: [
+    "access_control",
+    "auth",
+    "identity_operations",
+    "directory",
+    "notification",
+  ],
 });

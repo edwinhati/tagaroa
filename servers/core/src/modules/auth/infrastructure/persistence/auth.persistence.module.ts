@@ -4,7 +4,7 @@ import { Module } from "@nestjs/common";
 import {
   DATABASE,
   type Database,
-} from "../../../../shared/database/database.module";
+} from "../../../../platform/database/database.module";
 import * as schema from "./drizzle/schema";
 
 export interface AuthRepository {
@@ -20,8 +20,9 @@ const repository = (
 ): AuthRepository => ({
   adapter: drizzleAdapter(database, {
     provider: "pg",
-    schema: supportsJoins ? schema : undefined,
+    schema,
     schemaName: "auth",
+    transaction: supportsJoins,
   }),
   supportsJoins,
 });

@@ -7,7 +7,7 @@ import {
 import { AllowAnonymous } from "@thallesp/nestjs-better-auth";
 import { sql } from "drizzle-orm";
 
-import { DATABASE, type Database } from "./shared/database/database.module";
+import { DATABASE, type Database } from "./platform/database/database.module";
 
 @Controller("health")
 @AllowAnonymous()
