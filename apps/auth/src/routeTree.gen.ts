@@ -11,6 +11,7 @@
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as LockedOutRouteImport } from './routes/locked-out'
+import { Route as ReauthRouteImport } from './routes/reauth'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
@@ -22,31 +23,40 @@ const LockedOutRoute = LockedOutRouteImport.update({
   path: '/locked-out',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ReauthRoute = ReauthRouteImport.update({
+  id: '/reauth',
+  path: '/reauth',
+  getParentRoute: () => rootRouteImport,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/locked-out': typeof LockedOutRoute
+  '/reauth': typeof ReauthRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/locked-out': typeof LockedOutRoute
+  '/reauth': typeof ReauthRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
   '/locked-out': typeof LockedOutRoute
+  '/reauth': typeof ReauthRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/' | '/locked-out'
+  fullPaths: '/' | '/locked-out' | '/reauth'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/locked-out'
-  id: '__root__' | '/' | '/locked-out'
+  to: '/' | '/locked-out' | '/reauth'
+  id: '__root__' | '/' | '/locked-out' | '/reauth'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   LockedOutRoute: typeof LockedOutRoute
+  ReauthRoute: typeof ReauthRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -65,12 +75,20 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof LockedOutRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/reauth': {
+      id: '/reauth'
+      path: '/reauth'
+      fullPath: '/reauth'
+      preLoaderRoute: typeof ReauthRouteImport
+      parentRoute: typeof rootRouteImport
+    }
   }
 }
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   LockedOutRoute: LockedOutRoute,
+  ReauthRoute: ReauthRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

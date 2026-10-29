@@ -4,7 +4,15 @@ import { authClient } from "./auth-client";
 
 /** What `authClient.getSession()` hands back, narrowed to the part routes read. */
 export type SessionState =
-  | { user?: { mustChangePassword?: boolean } }
+  | {
+      user?: {
+        email?: string;
+        id?: string;
+        mustChangePassword?: boolean;
+        role?: string | null;
+        twoFactorEnabled?: boolean | null;
+      };
+    }
   | null
   | undefined;
 
@@ -37,12 +45,22 @@ export const sessionQueryOptions = queryOptions({
 export type Destination =
   | { to: "form" }
   | { to: "choose-password" }
+  | { to: "secure-account" }
   | { to: "workspace" };
 
 /** Nobody signs in twice: an existing session skips the form. */
 export function signInDestination(session: SessionState): Destination {
   if (!session?.user) return { to: "form" };
-  return session.user.mustChangePassword
-    ? { to: "choose-password" }
-    : { to: "workspace" };
+  if (session.user.mustChangePassword) return { to: "choose-password" };
+  const privileged = (session.user.role ?? "")
+    .split(",")
+    .some((role) =>
+      ["access-reviewer", "helpdesk", "admin", "super-admin"].includes(
+        role.trim(),
+      ),
+    );
+  if (privileged && !session.user.twoFactorEnabled) {
+    return { to: "secure-account" };
+  }
+  return { to: "workspace" };
 }

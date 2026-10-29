@@ -1,6 +1,6 @@
 import { afterAll, describe, expect, test } from "bun:test";
 
-import { attemptAuth, postSignInTarget } from "./auth-client";
+import { attemptAuth, authClient, postSignInTarget } from "./auth-client";
 
 const previousWindow = Object.getOwnPropertyDescriptor(globalThis, "window");
 
@@ -17,9 +17,9 @@ describe("postSignInTarget", () => {
   });
   process.env.VITE_TRUSTED_REDIRECT_ORIGINS =
     "http://localhost:3002, http://localhost:3003";
-  // Cleared rather than inherited from .env, so the fallback these tests assert
-  // is the built-in one and not whatever this machine points at.
-  delete process.env.VITE_POST_SIGNIN_URL;
+  // Set here rather than inherited from .env, so the fallback these tests assert
+  // is the one they configured and not whatever this machine's door points at.
+  process.env.VITE_POST_SIGNIN_URL = "http://localhost:3000";
 
   test("accepts same-origin redirects", () => {
     expect(postSignInTarget("/workspace")).toBe(
@@ -33,14 +33,46 @@ describe("postSignInTarget", () => {
     );
   });
 
-  test("falls back for missing, untrusted, or invalid redirects", () => {
-    expect(postSignInTarget()).toBe("/");
-    expect(postSignInTarget("https://example.com/workspace")).toBe("/");
-    expect(postSignInTarget("http://[")).toBe("/");
+  test("falls back to the workspace for missing, untrusted, or invalid redirects", () => {
+    expect(postSignInTarget()).toBe("http://localhost:3000");
+    expect(postSignInTarget("https://example.com/workspace")).toBe(
+      "http://localhost:3000",
+    );
+    expect(postSignInTarget("http://[")).toBe("http://localhost:3000");
   });
 });
 
 describe("attemptAuth", () => {
+  test("a stalled authentication transport aborts and reports a retryable error", async () => {
+    let aborted = false;
+    const fetch = Object.assign(
+      (_input: RequestInfo | URL, init?: RequestInit) =>
+        new Promise<Response>((_resolve, reject) => {
+          init?.signal?.addEventListener(
+            "abort",
+            () => {
+              aborted = true;
+              reject(new DOMException("Timed out", "AbortError"));
+            },
+            { once: true },
+          );
+        }),
+      { preconnect: globalThis.fetch.preconnect },
+    );
+    const result = await attemptAuth(
+      () =>
+        authClient.signIn.email({
+          email: "timeout@tagaroa.test",
+          password: "timeout-password-12",
+          fetchOptions: { customFetchImpl: fetch },
+        }),
+      "Failed.",
+    );
+    expect(aborted).toBe(true);
+    expect(result.failure).toBe(
+      "Can't reach the sign-in service. Try again in a moment.",
+    );
+  }, 30_000);
   test("passes the data through when the call succeeds", async () => {
     expect(
       await attemptAuth(async () => ({ data: { id: "user" } }), "Failed."),

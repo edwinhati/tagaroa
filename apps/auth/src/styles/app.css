@@ -1,177 +1,102 @@
+/* The face tagaroa.css names. */
+@import "@fontsource-variable/geist";
+@import "@fontsource-variable/geist-mono";
+
 @import "tailwindcss";
 @import "@repo/ui/globals.css";
+@import "@repo/ui/tagaroa.css";
 
 @source "../";
 @source "../../../../packages/ui/src";
 
-/* The Tagaroa workspace — restrained operator world.
-   Warm bone ground, hairline structure, one sea-ink accent, no cards. */
-
-:root {
-  --font-sans:
-    "SF Pro Text", "SF Pro Display", "Geist Sans", "Helvetica Neue", system-ui,
-    sans-serif;
-  --font-mono:
-    ui-monospace, "SF Mono", "Geist Mono", "JetBrains Mono", monospace;
-
-  --background: oklch(0.984 0.007 88);
-  --foreground: oklch(0.235 0.01 250);
-  --card: oklch(1 0 0);
-  --card-foreground: oklch(0.22 0.006 80);
-  --popover: oklch(1 0 0);
-  --popover-foreground: oklch(0.22 0.006 80);
-  --primary: oklch(0.21 0.006 80);
-  --primary-foreground: oklch(0.985 0.003 92);
-  --secondary: oklch(0.955 0.004 90);
-  --secondary-foreground: oklch(0.22 0.006 80);
-  --muted: oklch(0.955 0.004 90);
-  --muted-foreground: oklch(0.535 0.012 250);
-  --accent: oklch(0.955 0.004 90);
-  --accent-foreground: oklch(0.22 0.006 80);
-  --destructive: oklch(0.502 0.152 26);
-  --border: oklch(0.895 0.008 240);
-  --input: oklch(0.872 0.011 240);
-  --sea: oklch(0.525 0.118 222);
-  --ring: var(--sea);
-  --radius: 0.375rem;
-
-  /* The water, as plain RGB triples — the shader reads these, not oklch. */
-  --tide-base: 249 248 244;
-  --tide-light: 156 168 176;
-
-  --ease-out: cubic-bezier(0.23, 1, 0.32, 1);
+/* The door is roomier than the product: wider fields, a softer error. */
+[data-slot="input"],
+[data-slot="input-group-control"] {
+  padding-inline: 0.75rem;
 }
 
-.dark {
-  --background: oklch(0.209 0.016 252);
-  --foreground: oklch(0.938 0.004 92);
-  --card: oklch(0.246 0.017 252);
-  --card-foreground: oklch(0.938 0.004 92);
-  --popover: oklch(0.246 0.017 252);
-  --popover-foreground: oklch(0.938 0.004 92);
-  --primary: oklch(0.938 0.004 92);
-  --primary-foreground: oklch(0.196 0.011 236);
-  --secondary: oklch(0.284 0.017 252);
-  --secondary-foreground: oklch(0.938 0.004 92);
-  --muted: oklch(0.284 0.017 252);
-  --muted-foreground: oklch(0.712 0.018 248);
-  --accent: oklch(0.284 0.017 252);
-  --accent-foreground: oklch(0.938 0.004 92);
-  --destructive: oklch(0.704 0.152 24);
-  --border: oklch(1 0 0 / 11%);
-  --input: oklch(1 0 0 / 18%);
-  --sea: oklch(0.775 0.115 205);
-  --ring: var(--sea);
-  --tide-base: 22 26 33;
-  --tide-light: 108 132 146;
+[data-slot="alert"] {
+  gap: 0.5rem;
+  padding: 0.625rem 0.75rem;
+  border-radius: 1rem;
+  border-color: color-mix(in oklch, var(--destructive) 25%, transparent);
+  background: color-mix(in oklch, var(--destructive) 8%, transparent);
 }
 
-@media (prefers-color-scheme: dark) {
-  :root:not(.light) {
-    --background: oklch(0.209 0.016 252);
-    --foreground: oklch(0.938 0.004 92);
-    --card: oklch(0.246 0.017 252);
-    --card-foreground: oklch(0.938 0.004 92);
-    --popover: oklch(0.246 0.017 252);
-    --popover-foreground: oklch(0.938 0.004 92);
-    --primary: oklch(0.938 0.004 92);
-    --primary-foreground: oklch(0.196 0.011 236);
-    --secondary: oklch(0.284 0.017 252);
-    --secondary-foreground: oklch(0.938 0.004 92);
-    --muted: oklch(0.284 0.017 252);
-    --muted-foreground: oklch(0.712 0.018 248);
-    --accent: oklch(0.284 0.017 252);
-    --accent-foreground: oklch(0.938 0.004 92);
-    --destructive: oklch(0.704 0.152 24);
-    --border: oklch(1 0 0 / 11%);
-    --input: oklch(1 0 0 / 18%);
-    --sea: oklch(0.775 0.115 205);
-    --ring: var(--sea);
-    --tide-base: 22 26 33;
-    --tide-light: 108 132 146;
-  }
-}
-
-@theme inline {
-  --color-sea: var(--sea);
-}
-
-/* Browser surfaces belong to the design, not to the browser. */
-::selection {
-  background: color-mix(in oklch, var(--sea), transparent 78%);
-  color: var(--foreground);
-}
-
-html {
-  scrollbar-color: var(--input) transparent;
-  scrollbar-width: thin;
-  color-scheme: light dark;
-}
-
-body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: var(--font-sans);
-  -webkit-font-smoothing: antialiased;
-  text-rendering: optimizeLegibility;
-}
-
-input,
-textarea {
-  caret-color: var(--sea);
-}
-
-a {
-  text-underline-offset: 0.25em;
-  text-decoration-thickness: from-font;
-}
-
-/* The tide's own ground, visible for the frame before WebGL paints and forever
-   if the context never arrives. */
+/* Slow currents keep the empty panel alive without pulling focus from the form.
+   Opacities sit high enough to read as two broad currents on bone, still quiet
+   enough not to compete with the credential fields. */
 .tide {
-  background: radial-gradient(
-    120% 80% at 50% 50%,
-    rgb(var(--tide-base)) 30%,
-    color-mix(in oklch, rgb(var(--tide-light)), rgb(var(--tide-base)) 72%) 100%
+  isolation: isolate;
+  overflow: hidden;
+  background:
+    radial-gradient(
+      90% 70% at 12% 8%,
+      rgb(var(--tide-light) / 28%),
+      transparent 68%
+    ),
+    linear-gradient(
+      145deg,
+      rgb(var(--tide-base)),
+      color-mix(in oklch, var(--background), rgb(var(--tide-light)) 8%)
+    );
+}
+
+.tide::before,
+.tide::after {
+  position: absolute;
+  content: "";
+  inset: -30%;
+  will-change: transform;
+}
+
+.tide::before {
+  background:
+    radial-gradient(
+      ellipse 38% 32% at 24% 28%,
+      rgb(var(--tide-light) / 46%),
+      transparent 72%
+    ),
+    radial-gradient(
+      ellipse 34% 42% at 76% 68%,
+      rgb(var(--tide-light) / 34%),
+      transparent 74%
+    );
+  animation: tide-drift 18s var(--ease-in-out) infinite alternate;
+}
+
+.tide::after {
+  background: repeating-radial-gradient(
+    ellipse at 52% 112%,
+    transparent 0 8%,
+    rgb(var(--tide-light) / 16%) 8.2% 8.7%,
+    transparent 9% 12.5%
   );
+  opacity: 0.88;
+  animation: tide-swell 24s var(--ease-in-out) infinite alternate;
 }
 
-/* Route changes crossfade instead of cutting. */
-::view-transition-old(root),
-::view-transition-new(root) {
-  animation-duration: 220ms;
-  animation-timing-function: var(--ease-out);
-}
-
-/* Errors arrive from under the line they belong to, never teleport. */
-@keyframes rise-in {
+@keyframes tide-drift {
   from {
-    opacity: 0;
-    transform: translateY(-4px);
+    transform: translate3d(-4%, -2%, 0) scale(1);
+  }
+  to {
+    transform: translate3d(4%, 3%, 0) scale(1.08);
   }
 }
 
-.rise-in {
-  animation: rise-in 180ms var(--ease-out) both;
+@keyframes tide-swell {
+  from {
+    transform: translate3d(0, 3%, 0) scale(1.02);
+  }
+  to {
+    transform: translate3d(-2%, -3%, 0) scale(1.1);
+  }
 }
 
-/* Numerals in meta rows line up like a ledger. */
-.tabular {
-  font-variant-numeric: tabular-nums;
-}
-
-/* Every fade survives, every movement goes: an error still announces itself by
-   appearing, and route changes cut rather than crossfade. The tide freezes
-   itself — see tide.tsx. */
 @media (prefers-reduced-motion: reduce) {
-  @keyframes rise-in {
-    from {
-      opacity: 0;
-    }
-  }
-
-  ::view-transition-old(root),
-  ::view-transition-new(root) {
+  .tide::before,
+  .tide::after {
     animation: none;
   }
 }
