@@ -1,0 +1,705 @@
+/* The face tagaroa.css names. Variable builds — one file each, every weight
+   from 100 to 900, so the 500 the type scale asks for is a real weight rather
+   than one the browser synthesises out of 400. */
+@import "@fontsource-variable/geist";
+@import "@fontsource-variable/geist-mono";
+
+@import "tailwindcss";
+@import "@repo/ui/globals.css";
+@import "@repo/ui/tagaroa.css";
+
+@source "../";
+@source "../../../../packages/ui/src";
+@source "../../../../packages/shell/src";
+
+/* macOS renders text heavier than drawn; the correction belongs once, at the
+   root, never per component. */
+html {
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* A table is read down a column, so its figures have to line up. */
+table {
+  font-variant-numeric: tabular-nums;
+}
+
+/* Product navigation should respond immediately. The shared route crossfade is
+   useful on the door, but adds delay to a back office used all day. */
+::view-transition-old(root),
+::view-transition-new(root) {
+  animation: none;
+}
+
+/* Work queue: attention band beside recent activity. */
+.work-queue {
+  display: grid;
+  grid-template-columns: minmax(0, 1.15fr) minmax(0, 1fr);
+}
+
+.work-queue-attention {
+  position: relative;
+  overflow: hidden;
+  background: color-mix(in oklch, var(--status-warning-tint) 55%, var(--card));
+  border-inline-end: 1px solid var(--border);
+}
+
+.work-queue-rail {
+  position: absolute;
+  inset-block: 0;
+  inset-inline-start: 0;
+  width: 3px;
+  background: linear-gradient(
+    180deg,
+    color-mix(in oklch, var(--status-warning-text) 75%, transparent) 0%,
+    color-mix(in oklch, var(--sea) 55%, var(--status-warning-text)) 55%,
+    color-mix(in oklch, var(--status-warning-text) 35%, transparent) 100%
+  );
+  opacity: 0.7525;
+  animation: work-queue-rail-breathe 3.6s var(--ease-in-out) infinite;
+}
+
+.work-queue-attention-body {
+  padding-inline-start: calc(1rem + 3px);
+}
+
+.work-queue-callout {
+  border-color: color-mix(
+    in oklch,
+    var(--status-warning-line) 58%,
+    var(--border)
+  );
+  box-shadow: 0 0 15.2px
+    color-mix(in oklch, var(--status-warning-text) 14.3%, transparent);
+  background:
+    radial-gradient(
+      120% 80% at 0% 50%,
+      color-mix(in oklch, var(--status-warning-tint) 48%, transparent),
+      transparent 70%
+    ),
+    color-mix(in oklch, var(--card) 65%, transparent);
+}
+
+.work-queue-progress {
+  height: 2px;
+  overflow: hidden;
+  border-radius: 999px;
+  background: var(--muted);
+}
+
+.work-queue-progress > span {
+  display: block;
+  height: 100%;
+  width: 100%;
+  transform: scaleX(var(--work-queue-progress, 0));
+  transform-origin: left center;
+  border-radius: inherit;
+  background: linear-gradient(
+    90deg,
+    var(--status-warning-text),
+    color-mix(in oklch, var(--sea) 60%, var(--status-warning-text))
+  );
+  transition: transform 220ms var(--ease-out);
+}
+
+.work-queue-row {
+  opacity: 0.874;
+  transition: opacity 160ms var(--ease-out);
+}
+
+.work-queue-row:hover {
+  opacity: 1;
+}
+
+@keyframes work-queue-rail-breathe {
+  0%,
+  100% {
+    opacity: 0.585;
+    filter: saturate(0.95);
+  }
+  50% {
+    opacity: 0.835;
+    filter: saturate(1.15);
+  }
+}
+
+@media (max-width: 900px) {
+  .work-queue {
+    grid-template-columns: 1fr;
+  }
+
+  .work-queue-attention {
+    border-inline-end: 0;
+    border-bottom: 1px solid var(--border);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .work-queue-progress > span,
+  .work-queue-row {
+    transition: none;
+  }
+
+  .work-queue-rail {
+    animation: none;
+    opacity: 0.7625;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  [data-slot="alert-dialog-content"],
+  [data-slot="alert-dialog-overlay"],
+  [data-slot="dialog-content"],
+  [data-slot="dropdown-menu-content"],
+  [data-slot="sheet-content"],
+  [data-slot="sheet-overlay"] {
+    animation: none;
+    transition: none;
+  }
+}
+
+/* Notification channels: one meter card per provider. */
+.ch-meter {
+  display: flex;
+  flex-direction: column;
+  gap: 0.625rem;
+}
+
+.ch-meter-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.525rem;
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.ch-meter-row {
+  display: flex;
+  flex-direction: column;
+  gap: 0.55rem;
+  padding: 0.7rem 0.75rem;
+  border: 1px solid var(--border);
+  border-radius: var(--panel-radius);
+  background: color-mix(in oklch, var(--card) 88%, transparent);
+  transition: border-color 160ms var(--ease-out);
+}
+
+.ch-meter-row:hover {
+  border-color: color-mix(in oklch, var(--sea) 35%, var(--border));
+}
+
+.ch-meter-top {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem 1rem;
+}
+
+.ch-meter-identity {
+  display: flex;
+  align-items: center;
+  gap: 0.65rem;
+  min-width: 0;
+}
+
+.ch-meter-pip {
+  width: 0.45rem;
+  height: 0.45rem;
+  flex-shrink: 0;
+  border-radius: 50%;
+  background: var(--status-success-text);
+  box-shadow: 0 0 0 3px
+    color-mix(in oklch, var(--status-success-text) 12.1%, transparent);
+}
+
+.ch-meter-pip[data-ready="false"] {
+  background: var(--status-warning-text);
+  box-shadow: 0 0 0 3px
+    color-mix(in oklch, var(--status-warning-text) 15.4%, transparent);
+}
+
+.ch-meter-warn {
+  font-size: 12px;
+  color: var(--status-warning-text);
+}
+
+.ch-meter-counts {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem 1rem;
+  font-size: 12px;
+  color: var(--muted-foreground);
+}
+
+.ch-meter-counts .ch-meter-n {
+  color: var(--foreground);
+  font-variant-numeric: tabular-nums;
+}
+
+.ch-meter-ribbon {
+  display: flex;
+  height: 0.42rem;
+  overflow: hidden;
+  border-radius: 999px;
+  background: color-mix(in oklch, var(--muted) 70%, transparent);
+}
+
+.ch-meter-seg {
+  height: 100%;
+  min-width: 0;
+  transition: flex-grow 220ms var(--ease-out);
+}
+
+.ch-meter-seg[data-kind="queued"] {
+  background: color-mix(in oklch, var(--status-info-text) 62%, transparent);
+}
+
+.ch-meter-seg[data-kind="sent"] {
+  background: color-mix(in oklch, var(--status-success-text) 67%, transparent);
+}
+
+.ch-meter-seg[data-kind="failed"] {
+  background: color-mix(in oklch, var(--status-danger-text) 72%, transparent);
+}
+
+.ch-meter-seg[data-kind="suppressed"] {
+  background: color-mix(in oklch, var(--muted-foreground) 51.5%, transparent);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ch-meter-row,
+  .ch-meter-seg {
+    transition: none;
+  }
+}
+
+/* Notification overview: delivery totals as set figures. */
+.notify-totals {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  gap: 0.85rem 1.35rem;
+  margin: 0;
+  padding: 0.8rem 1rem 0.85rem;
+  border-bottom: 1px solid var(--border);
+  color: var(--muted-foreground);
+}
+
+.notify-total {
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+  min-width: 4.5rem;
+}
+
+.notify-total-count {
+  color: var(--foreground);
+  font-size: 1.375rem;
+  font-weight: 400;
+  letter-spacing: -0.02em;
+  line-height: 1;
+  font-variant-numeric: tabular-nums;
+}
+
+.notify-total-count.is-live {
+  font-weight: 500;
+}
+
+.notify-total-label {
+  font-size: 0.6875rem;
+  letter-spacing: 0.06em;
+  line-height: 1.3;
+}
+
+.notify-total-aside {
+  letter-spacing: 0;
+}
+
+.notify-total.is-failed .notify-total-count {
+  color: var(--status-danger-text);
+  font-weight: 500;
+}
+
+/* Notification overview: fourteen-day volume, legend aligned to the start. */
+.notify-volume {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  padding: 1rem;
+}
+
+.notify-volume-title,
+.notify-volume-range {
+  margin: 0;
+}
+
+.notify-volume-title {
+  font-size: 0.8125rem;
+  font-weight: 500;
+  line-height: 1.3;
+  color: var(--foreground);
+}
+
+.notify-volume-range {
+  margin-top: 0.125rem;
+  font-size: 0.78rem;
+  line-height: 1.4;
+  color: var(--muted-foreground);
+}
+
+.notify-volume .recharts-cartesian-axis-tick-value {
+  font-size: 0.6875rem;
+  font-variant-numeric: tabular-nums;
+}
+
+.notify-volume .recharts-cartesian-grid-horizontal line:first-child {
+  stroke: color-mix(in oklch, var(--border) 35%, transparent);
+}
+
+.notify-volume .recharts-legend-wrapper > div {
+  justify-content: flex-start;
+  padding-top: 0.5rem;
+}
+
+.notify-volume .recharts-legend-wrapper > div > div > div {
+  width: 0.7rem;
+  height: 2px;
+  border-radius: 0;
+}
+
+.notify-volume-foot {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  font-size: 0.78rem;
+  font-variant-numeric: tabular-nums;
+}
+
+.notify-volume-sum {
+  font-weight: 500;
+  line-height: 1.4;
+  color: var(--foreground);
+}
+
+.notify-volume-note {
+  line-height: 1.3;
+  color: var(--muted-foreground);
+}
+
+/* Templates: message index beside the wording being read. */
+.template-split {
+  --pad: 0.85rem;
+  display: grid;
+  grid-template-columns: minmax(14rem, 18rem) minmax(0, 1fr);
+  gap: 1.5rem;
+  align-items: start;
+  min-width: 0;
+}
+
+.template-index {
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  min-width: 0;
+}
+
+.template-index-key {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.2rem;
+  width: 100%;
+  padding: var(--pad) calc(var(--pad) * 0.9);
+  border: 1px solid transparent;
+  border-radius: var(--radius);
+  background: transparent;
+  color: var(--foreground);
+  text-align: left;
+  cursor: pointer;
+  transition: background-color 150ms var(--ease-out);
+}
+
+.template-index-key:hover {
+  background: color-mix(in oklch, var(--muted) 55%, transparent);
+}
+
+.template-index-key:focus-visible {
+  outline: 2px solid var(--ring);
+  outline-offset: 2px;
+}
+
+.template-index-key[aria-current="true"] {
+  background: var(--card);
+  border-color: var(--border);
+  box-shadow: var(--panel-shadow);
+}
+
+.template-index-name {
+  font-family: var(--font-mono);
+  font-size: 0.78rem;
+  letter-spacing: -0.01em;
+  overflow-wrap: anywhere;
+}
+
+.template-index-meta,
+.template-when {
+  font-size: 0.75rem;
+  color: var(--muted-foreground);
+}
+
+.template-when {
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.01em;
+  white-space: nowrap;
+}
+
+.template-read {
+  min-width: 0;
+  padding: calc(var(--pad) * 1.35) calc(var(--pad) * 1.55);
+  border: 1px solid var(--border);
+  border-radius: var(--panel-radius);
+  background: var(--card);
+  color: var(--card-foreground);
+  box-shadow: var(--panel-shadow);
+}
+
+.template-read-meta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.65rem 0.9rem;
+}
+
+.template-read h2 {
+  margin: 0.9rem 0 0;
+  max-width: 40rem;
+  font-size: 1.375rem;
+  font-weight: 500;
+  letter-spacing: -0.02em;
+  line-height: 1.25;
+  text-wrap: balance;
+}
+
+.template-body {
+  margin: 0.75rem 0 0;
+  max-width: 68ch;
+  font-size: 0.8125rem;
+  line-height: 1.55;
+  color: var(--foreground);
+  white-space: pre-line;
+  text-wrap: pretty;
+}
+
+.template-read-side {
+  margin-left: auto;
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+@media (max-width: 720px) {
+  .template-split {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .template-index-key,
+  .row-hover,
+  .row-hover-bg,
+  .register-table tbody td,
+  .roles-hier tbody td {
+    transition: none;
+  }
+}
+
+/* Register rows. The wash keeps a gutter, and the negative margin cancels
+   that padding so resting type stays aligned with the section. */
+.row-hover {
+  margin-inline: -0.625rem;
+  border-radius: var(--radius);
+  padding-block: 0.7rem;
+  padding-inline: 0.625rem;
+  transition: background-color 150ms var(--ease-out);
+}
+
+.row-hover:hover,
+.row-hover:focus-within,
+.row-hover-bg:hover,
+.row-hover-bg:focus-within,
+.register-table tbody tr:hover td,
+.register-table tbody tr:focus-within td,
+.roles-hier tbody tr:hover td,
+.roles-hier tbody tr:focus-within td {
+  background-color: color-mix(in oklch, var(--foreground) 7%, transparent);
+}
+
+.row-hover-bg {
+  transition: background-color 150ms var(--ease-out);
+}
+
+/* Identity role table: header rule, then a rounded wash with a gutter. */
+.register-table {
+  border-collapse: separate;
+  border-spacing: 0 2px;
+}
+
+.register-table th,
+.register-table td {
+  padding-inline: 1rem;
+  vertical-align: top;
+}
+
+.register-table th:first-child,
+.register-table td:first-child {
+  padding-inline-start: 0.625rem;
+}
+
+.register-table th:last-child,
+.register-table td:last-child {
+  padding-inline-end: 0.625rem;
+}
+
+.register-table thead th {
+  padding-top: 0.35rem;
+  padding-bottom: 0.7rem;
+  border-bottom: 1px solid color-mix(in oklch, var(--border) 65%, transparent);
+}
+
+.register-table tbody td {
+  padding-block: 0.65rem;
+  transition: background-color 150ms var(--ease-out);
+}
+
+.register-table tbody td:first-child {
+  border-start-start-radius: var(--radius);
+  border-end-start-radius: var(--radius);
+}
+
+.register-table tbody td:last-child {
+  border-start-end-radius: var(--radius);
+  border-end-end-radius: var(--radius);
+}
+
+/* Role library: name leads, key stays a caption, permissions stay in ink. */
+.roles-hier {
+  overflow-x: auto;
+  padding-inline: 0.25rem;
+  scrollbar-width: thin;
+  scrollbar-color: color-mix(in oklch, var(--muted-foreground) 42%, transparent)
+    transparent;
+}
+
+.roles-hier table {
+  width: 100%;
+  min-width: 48rem;
+  border-collapse: separate;
+  border-spacing: 0 2px;
+  text-align: left;
+  font-size: 13px;
+}
+
+.roles-hier ::selection {
+  background: color-mix(in oklch, var(--sea) 32%, transparent);
+  color: var(--foreground);
+}
+
+.roles-hier th,
+.roles-hier td {
+  padding-inline: 0.75rem;
+  vertical-align: top;
+}
+
+.roles-hier th:first-child,
+.roles-hier td:first-child {
+  padding-inline-start: 0.5rem;
+  border-start-start-radius: var(--radius);
+  border-end-start-radius: var(--radius);
+}
+
+.roles-hier th:last-child,
+.roles-hier td:last-child {
+  padding-inline-end: 0.5rem;
+  border-start-end-radius: var(--radius);
+  border-end-end-radius: var(--radius);
+}
+
+.roles-hier thead th {
+  padding-top: 0.4rem;
+  padding-bottom: 0.85rem;
+  vertical-align: bottom;
+  border-bottom: 1px solid color-mix(in oklch, var(--border) 45%, transparent);
+}
+
+.roles-hier tbody td {
+  padding-top: 0.85rem;
+  padding-bottom: 0.8rem;
+  transition: background-color 150ms var(--ease-out);
+}
+
+.roles-hier .roles-hier-role {
+  max-width: 18rem;
+}
+
+.roles-hier .roles-hier-name {
+  font-size: 0.875rem;
+  font-weight: 600;
+  letter-spacing: -0.015em;
+  line-height: 1.35;
+  color: var(--foreground);
+}
+
+.roles-hier .roles-hier-key {
+  margin-top: 0.105rem;
+  font-size: 0.788125rem;
+  line-height: 1.35;
+}
+
+.roles-hier .roles-hier-desc {
+  margin-top: 0.45rem;
+  max-width: 36ch;
+  font-size: 12.5px;
+  line-height: 1.45;
+  color: var(--muted-foreground);
+  text-wrap: pretty;
+}
+
+.roles-hier .roles-hier-perm {
+  max-width: 28rem;
+  font-size: 13px;
+  line-height: 1.4;
+  color: var(--foreground);
+  text-wrap: pretty;
+}
+
+.roles-hier .roles-hier-count {
+  font-size: 13px;
+  font-weight: 500;
+  letter-spacing: -0.02em;
+  line-height: 1.35;
+  font-variant-numeric: tabular-nums;
+  color: var(--muted-foreground);
+}
+
+.roles-hier .roles-hier-marks {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.2rem 0.9rem;
+}
+
+.roles-hier .roles-hier-actions {
+  width: 1px;
+  white-space: nowrap;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .roles-hier tbody td {
+    transition: none;
+  }
+}
