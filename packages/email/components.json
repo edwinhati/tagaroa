@@ -1,0 +1,22 @@
+{
+  "$schema": "https://ui.shadcn.com/schema.json",
+  "style": "new-york",
+  "rsc": false,
+  "tsx": true,
+  "tailwind": {
+    "config": "",
+    "css": "src/theme/email.css",
+    "baseColor": "neutral",
+    "cssVariables": true
+  },
+  "aliases": {
+    "components": "@/theme",
+    "lib": "@/theme",
+    "ui": "@/theme",
+    "utils": "@/theme/utils",
+    "hooks": "@/theme"
+  },
+  "registries": {
+    "@emailcn": "https://emailcn.run/r/{name}.json"
+  }
+}

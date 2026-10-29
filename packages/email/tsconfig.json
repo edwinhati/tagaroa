@@ -1,0 +1,17 @@
+{
+  "extends": "@repo/typescript-config/react-library.json",
+  "compilerOptions": {
+    "declaration": false,
+    "declarationMap": false,
+    // Shipped as source and read by Bun, never emitted, so imports resolve the
+    // way Bun resolves them — and the way `shadcn add` writes them.
+    "module": "preserve",
+    "moduleResolution": "bundler",
+    "types": ["bun"],
+    "paths": {
+      "@/*": ["./src/*"]
+    }
+  },
+  "include": ["."],
+  "exclude": ["node_modules"]
+}

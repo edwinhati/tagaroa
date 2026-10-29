@@ -1,0 +1,687 @@
+/* The Tagaroa design tokens: shared by every app under apps/. Warm bone ground,
+   lifted cards (solid --card on deeper --background), one sea-ink accent.
+   Compact controls (~32px). Import after @repo/ui/globals.css. */
+
+:root {
+  color-scheme: light;
+
+  /* fontsource ships Geist as "Geist Variable" / "Geist Mono Variable": the
+     older "Geist Sans" / "Geist Mono" names resolve to nothing. An app still
+     has to @import @fontsource-variable/geist to ship the face; the package
+     itself ships no CSS. */
+  --font-sans:
+    "Geist Variable", "SF Pro Text", "Helvetica Neue", system-ui, sans-serif;
+  --font-mono:
+    "Geist Mono Variable", ui-monospace, "SF Mono", "JetBrains Mono", monospace;
+
+  --background: oklch(0.984 0.007 88);
+  --foreground: oklch(0.235 0.01 250);
+  --card: oklch(1 0 0);
+  --card-foreground: oklch(0.22 0.006 80);
+  --popover: oklch(1 0 0);
+  --popover-foreground: oklch(0.22 0.006 80);
+  --primary: oklch(0.21 0.006 80);
+  --primary-foreground: oklch(0.985 0.003 92);
+  --secondary: oklch(0.955 0.004 90);
+  --secondary-foreground: oklch(0.22 0.006 80);
+  --muted: oklch(0.955 0.004 90);
+  --muted-foreground: oklch(0.5 0.012 250);
+  --accent: oklch(0.955 0.004 90);
+  --accent-foreground: oklch(0.22 0.006 80);
+  --destructive: oklch(0.502 0.152 26);
+  --border: oklch(0.895 0.008 240);
+  --input: oklch(0.655 0.011 240);
+  --sea: oklch(0.525 0.118 222);
+  --ring: var(--sea);
+  --radius: 0.5rem;
+
+  /* The standing column is a plane, not a tint. shadcn's defaults are a cool
+     neutral, and one step of cool grey beside this warm bone reads as dirt
+     rather than as a second surface: so the sidebar takes the ground's own hue,
+     one step down. */
+  --sidebar: oklch(0.968 0.007 88);
+  --sidebar-foreground: var(--foreground);
+  --sidebar-primary: var(--foreground);
+  --sidebar-primary-foreground: var(--background);
+  --sidebar-accent: oklch(0.936 0.006 88);
+  --sidebar-accent-foreground: var(--foreground);
+  --sidebar-border: var(--border);
+  --sidebar-ring: var(--sea);
+
+  /* Tide-panel colours, stored as RGB triples for gradient alpha channels. */
+  --tide-base: 249 248 244;
+  --tide-light: 156 168 176;
+
+  /* Status vocabulary: a product state maps to one of five triplets, never
+     picks its own colour. Chroma stays inside the palette so a status never
+     out-shouts --sea. */
+  --status-neutral-tint: oklch(0.955 0.004 90);
+  --status-neutral-line: oklch(0.895 0.008 240);
+  --status-neutral-text: oklch(0.5 0.012 250);
+  --status-info-tint: oklch(0.955 0.018 222);
+  --status-info-line: oklch(0.875 0.042 222);
+  --status-info-text: oklch(0.47 0.098 222);
+  --status-success-tint: oklch(0.955 0.02 155);
+  --status-success-line: oklch(0.87 0.048 155);
+  --status-success-text: oklch(0.455 0.088 155);
+  --status-warning-tint: oklch(0.96 0.03 75);
+  --status-warning-line: oklch(0.875 0.06 75);
+  --status-warning-text: oklch(0.47 0.098 75);
+  --status-danger-tint: oklch(0.958 0.018 26);
+  --status-danger-line: oklch(0.88 0.045 26);
+  --status-danger-text: oklch(0.502 0.152 26);
+
+  --ease-out: cubic-bezier(0.23, 1, 0.32, 1);
+  --ease-in-out: cubic-bezier(0.77, 0, 0.175, 1);
+
+  /* Panel Rule: soft lift on a deeper ground (product register). Door stays
+     flat. Applied via data-slot rules so packages/ui/src/components stays
+     shadcn-regenerable. */
+  --panel-radius: 0.75rem;
+  /* Layered soft lift: near contact + soft bloom (light ops cards). */
+  --panel-shadow:
+    0 1px 2px oklch(0 0 0 / 0.04), 0 4px 12px oklch(0 0 0 / 0.035);
+  /* Supabase-class density: small controls, not 36px shadcn defaults. */
+  --control-height: 1.75rem;
+  --control-font: 0.75rem;
+}
+
+.dark {
+  color-scheme: dark;
+
+  --background: oklch(0.185 0.016 252);
+  --foreground: oklch(0.938 0.004 92);
+
+  /* In dark the column lifts off the ground rather than sinking into it, and
+     keeps the ground's own blue-leaning hue. */
+  --sidebar: oklch(0.205 0.016 252);
+  --sidebar-foreground: oklch(0.938 0.004 92);
+  --sidebar-primary: oklch(0.938 0.004 92);
+  --sidebar-primary-foreground: oklch(0.185 0.016 252);
+  --sidebar-accent: oklch(0.255 0.017 252);
+  --sidebar-accent-foreground: oklch(0.938 0.004 92);
+  --sidebar-border: oklch(1 0 0 / 10%);
+  --sidebar-ring: oklch(0.775 0.115 205);
+  --card: oklch(0.228 0.017 252);
+  --card-foreground: oklch(0.938 0.004 92);
+  --popover: oklch(0.228 0.017 252);
+  --popover-foreground: oklch(0.938 0.004 92);
+  --primary: oklch(0.938 0.004 92);
+  --primary-foreground: oklch(0.185 0.016 252);
+  --secondary: oklch(0.268 0.017 252);
+  --secondary-foreground: oklch(0.938 0.004 92);
+  --muted: oklch(0.268 0.017 252);
+  --muted-foreground: oklch(0.712 0.018 248);
+  --accent: oklch(0.268 0.017 252);
+  --accent-foreground: oklch(0.938 0.004 92);
+  --destructive: oklch(0.704 0.152 24);
+  --border: oklch(1 0 0 / 9%);
+  --input: oklch(1 0 0 / 28%);
+  --sea: oklch(0.775 0.115 205);
+  --ring: var(--sea);
+  --tide-base: 18 22 28;
+  --tide-light: 108 132 146;
+
+  /* Dark tints are the text colour mixed into the ground (~82%), not a second
+     palette: color-mix(in oklch, var(--status-*-text), var(--background) 82%). */
+  --status-neutral-tint: oklch(0.284 0.017 252);
+  --status-neutral-line: oklch(1 0 0 / 11%);
+  --status-neutral-text: oklch(0.712 0.018 248);
+  --status-info-tint: oklch(0.285 0.036 222);
+  --status-info-line: oklch(0.775 0.115 205 / 35%);
+  --status-info-text: oklch(0.775 0.115 205);
+  --status-success-tint: oklch(0.282 0.04 155);
+  --status-success-line: oklch(0.78 0.105 155 / 35%);
+  --status-success-text: oklch(0.78 0.105 155);
+  --status-warning-tint: oklch(0.292 0.048 75);
+  --status-warning-line: oklch(0.812 0.115 75 / 35%);
+  --status-warning-text: oklch(0.812 0.115 75);
+  --status-danger-tint: oklch(0.288 0.045 26);
+  --status-danger-line: oklch(0.704 0.152 24 / 35%);
+  --status-danger-text: oklch(0.704 0.152 24);
+
+  --panel-shadow: 0 1px 2px oklch(0 0 0 / 0.45), 0 4px 16px oklch(0 0 0 / 0.28);
+}
+
+/* The three text sizes this app uses, named so nothing new gets invented.
+   Panel radius remaps stock `rounded-xl` / `rounded-2xl` (cards, dialogs,
+   toasts) to the Panel Rule 12px without editing shadcn component files. */
+@theme inline {
+  --text-2xs: 0.78rem;
+  --text-2xs--line-height: 1.45;
+  --text-xs: 0.8125rem;
+  --text-xs--line-height: 1.5;
+  --text-sm: 0.875rem;
+  --text-sm--line-height: 1.55;
+
+  --radius-xl: 0.75rem;
+  --radius-2xl: 0.75rem;
+}
+
+/* Browser surfaces belong to the design, not to the browser. */
+::selection {
+  background: color-mix(in oklch, var(--sea), transparent 78%);
+  color: var(--foreground);
+}
+
+html {
+  scrollbar-color: var(--input) transparent;
+  scrollbar-width: thin;
+}
+
+body {
+  /* Notched phones in landscape: keep the layout margins clear of the cutout. */
+  padding-inline: env(safe-area-inset-left) env(safe-area-inset-right);
+  padding-block-end: env(safe-area-inset-bottom);
+  background: var(--background);
+  color: var(--foreground);
+  font-family: var(--font-sans);
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+
+input,
+textarea {
+  caret-color: var(--sea);
+}
+
+/* Every focus ring in this app is a box-shadow over `outline: none`, and neither
+   survives forced colours. Hand the indicator back to the system palette. */
+@media (forced-colors: active) {
+  :focus-visible {
+    outline: 2px solid CanvasText;
+    outline-offset: 2px;
+  }
+}
+
+a {
+  text-underline-offset: 0.25em;
+  text-decoration-thickness: from-font;
+}
+
+/* Route changes crossfade instead of cutting. */
+::view-transition-old(root),
+::view-transition-new(root) {
+  animation-duration: 220ms;
+  animation-timing-function: var(--ease-out);
+}
+
+/* Errors arrive from under the line they belong to, never teleport. */
+@keyframes rise-in {
+  from {
+    opacity: 0;
+    transform: translateY(-4px);
+  }
+}
+
+.rise-in {
+  animation: rise-in 180ms var(--ease-out) both;
+}
+
+/* Popovers open with a slight overshoot. Exit stays on the stock fade-out.
+   Extra [data-side] outranks the animate-in utility on the same element. */
+@keyframes popover-spring {
+  from {
+    opacity: 0;
+    transform: scale(0.9);
+  }
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  [data-slot="popover-content"][data-open][data-side] {
+    animation: popover-spring 320ms
+      linear(
+        0,
+        0.2 4%,
+        0.55 9%,
+        0.86 15%,
+        1.04 21%,
+        1.08 27%,
+        1.05 35%,
+        1.01 46%,
+        0.995 58%,
+        1
+      )
+      both;
+  }
+}
+
+/* Numerals in meta rows line up like a ledger. */
+.tabular {
+  font-variant-numeric: tabular-nums;
+}
+
+/* Use data-slot overrides so shadcn regeneration preserves product styles. */
+
+/* Compact density: stock default controls are h-9 / size-9 (~36px).
+   Product default reads like Supabase "small": 28px, 12px type. */
+[data-slot="button"] {
+  font-size: var(--control-font);
+  line-height: 1.25;
+  font-weight: 500;
+  border-radius: var(--radius);
+  transition-property:
+    background-color, border-color, color, box-shadow, transform, scale,
+    translate, opacity;
+  --tw-shadow: 0 0 #0000;
+  box-shadow: none;
+}
+
+[data-slot="button"].h-8,
+[data-slot="button"].h-9 {
+  height: var(--control-height);
+  min-height: var(--control-height);
+  gap: 0.25rem;
+  padding-inline: 0.5rem;
+}
+
+[data-slot="button"].size-8,
+[data-slot="button"].size-9 {
+  width: var(--control-height);
+  height: var(--control-height);
+  min-width: var(--control-height);
+  min-height: var(--control-height);
+}
+
+[data-slot="button"] svg:not([class*="size-"]) {
+  width: 0.875rem;
+  height: 0.875rem;
+}
+
+/* Press feedback: scale 0.96 instead of stock 1px translate nudge. */
+
+[data-slot="button"]:active:not([aria-haspopup]):not(:disabled),
+[data-slot="sidebar-menu-button"]:active:not(:disabled),
+[data-slot="tabs-trigger"]:active:not(:disabled),
+[data-slot="dropdown-menu-item"]:active:not([data-disabled]) {
+  scale: 0.96;
+  translate: none;
+}
+
+[data-slot="dropdown-menu-item"] {
+  transition: scale 150ms var(--ease-out);
+}
+
+/* Dense icon controls stay visually small; hit area reaches 40×40. */
+[data-slot="button"].size-6,
+[data-slot="button"].size-7,
+[data-slot="button"].size-8,
+[data-slot="button"].size-9 {
+  position: relative;
+}
+
+[data-slot="button"].size-6::before {
+  content: "";
+  position: absolute;
+  inset: -10px;
+}
+
+[data-slot="button"].size-7::before,
+[data-slot="button"].size-8::before {
+  content: "";
+  position: absolute;
+  inset: -6px;
+}
+
+[data-slot="button"].size-9::before {
+  content: "";
+  position: absolute;
+  inset: -4px;
+}
+
+[data-slot="input"],
+[data-slot="textarea"],
+[data-slot="native-select"],
+[data-slot="select-trigger"],
+[data-slot="input-group"] {
+  box-shadow: none;
+  font-size: var(--control-font);
+}
+
+[data-slot="input"],
+[data-slot="textarea"],
+[data-slot="native-select"],
+[data-slot="select-trigger"].h-8,
+[data-slot="select-trigger"].h-9,
+[data-slot="input-group"].h-8,
+[data-slot="input-group"].h-9 {
+  height: var(--control-height);
+  min-height: var(--control-height);
+}
+
+[data-slot="textarea"] {
+  height: auto;
+  min-height: 4.5rem;
+}
+
+[data-slot="tabs-trigger"] {
+  height: var(--control-height);
+  font-size: var(--control-font);
+}
+
+[data-slot="tabs-trigger"]:not([data-active]):not(:hover) {
+  color: color-mix(in oklab, var(--foreground) 75%, transparent);
+}
+
+/* Standing plane: dense nav like a studio ops sidebar. */
+[data-slot="sidebar-menu-button"] {
+  height: 1.75rem;
+  min-height: 1.75rem;
+  font-size: 0.75rem;
+  font-weight: 450;
+  letter-spacing: -0.01em;
+}
+
+[data-slot="sidebar-menu-button"] svg:not([class*="size-"]) {
+  width: 0.875rem;
+  height: 0.875rem;
+}
+
+[data-slot="sidebar-group-label"] {
+  font-size: 0.6875rem;
+  letter-spacing: 0.04em;
+}
+
+/* Tables: quiet headers, compact rows (receding secondary type). */
+[data-slot="table"] {
+  font-size: 0.8125rem;
+}
+
+[data-slot="table-head"] {
+  height: 2rem;
+  font-size: 0.6875rem;
+}
+
+[data-slot="table-cell"] {
+  padding-block: 0.4rem;
+}
+
+/* Touch targets occupy real space so adjacent hit areas cannot overlap. */
+@media (max-width: 767px), (pointer: coarse) {
+  :root {
+    --control-height: 2.75rem;
+  }
+
+  [data-slot="button"],
+  [data-slot="input-group-button"],
+  [data-slot="sidebar-menu-button"],
+  [data-slot="sidebar-trigger"],
+  [data-slot="tabs-trigger"],
+  [data-slot="select-trigger"],
+  [data-slot="dropdown-menu-item"] {
+    min-height: var(--control-height);
+    min-width: var(--control-height);
+  }
+
+  [data-slot="button"]::before,
+  [data-slot="input-group-button"]::before {
+    content: none;
+  }
+
+  [data-slot="field"] a {
+    display: inline-flex;
+    min-height: var(--control-height);
+    align-items: center;
+  }
+}
+
+/* Lifted panels: cards + modal / sheet / menu shells. */
+[data-slot="card"],
+[data-slot="dialog-content"],
+[data-slot="alert-dialog-content"],
+[data-slot="sheet-content"],
+[data-slot="popover-content"],
+[data-slot="hover-card-content"],
+[data-slot="dropdown-menu-content"],
+[data-slot="dropdown-menu-sub-content"],
+[data-slot="select-content"],
+[data-slot="combobox-content"],
+[data-slot="context-menu-content"],
+[data-slot="context-menu-sub-content"],
+[data-slot="menubar-content"],
+[data-slot="menubar-sub-content"],
+[data-slot="toast"],
+[data-slot="command"] {
+  border-radius: var(--panel-radius);
+  border: 1px solid var(--border);
+  box-shadow: var(--panel-shadow);
+  --tw-ring-shadow: 0 0 #0000;
+  --tw-ring-width: 0px;
+}
+
+/* Command palette sits inside a dialog shell: don't double the lift. */
+[data-slot="dialog-content"] [data-slot="command"] {
+  border: none;
+  box-shadow: none;
+  border-radius: inherit;
+}
+
+[data-slot="card"] {
+  --card-spacing: 1rem;
+}
+
+[data-slot="card"][data-size="sm"] {
+  --card-spacing: 0.75rem;
+}
+
+[data-slot="dialog-content"],
+[data-slot="alert-dialog-content"] {
+  gap: 1rem;
+  padding: 1rem;
+}
+
+[data-slot="dialog-header"],
+[data-slot="alert-dialog-header"] {
+  gap: 0.375rem;
+}
+
+[data-slot="dialog-title"],
+[data-slot="alert-dialog-title"] {
+  font-size: 0.875rem;
+  line-height: 1.25;
+}
+
+[data-slot="dialog-description"],
+[data-slot="alert-dialog-description"] {
+  font-size: 0.8125rem;
+  line-height: 1.5;
+}
+
+[data-slot="dialog-close"],
+[data-slot="sheet-close"] {
+  top: 0.75rem;
+  right: 0.75rem;
+}
+
+/* Tables: header rule + row hover; no ledger of body borders. */
+[data-slot="table-body"] > [data-slot="table-row"] {
+  border-bottom-width: 0;
+}
+
+[data-slot="table-body"] > [data-slot="table-row"]:hover {
+  background-color: color-mix(in oklch, var(--muted) 50%, transparent);
+}
+
+/* Named treatments. Apps ask for these by attribute instead of restyling a
+   component with className; `shadcn/no-restyle` enforces that. */
+
+/* Flat checkbox: drop stock shadow-xs, keep the focus ring. */
+[data-slot="checkbox"] {
+  --tw-shadow: 0 0 #0000;
+}
+
+/* data-tone="muted": a secondary action that recedes until hovered or focused. */
+[data-slot="button"][data-tone="muted"] {
+  color: var(--muted-foreground);
+}
+
+[data-slot="button"][data-tone="muted"]:hover,
+[data-slot="button"][data-tone="muted"]:focus-visible {
+  color: var(--foreground);
+}
+
+/* data-bare: a search field inside a toolbar that already draws the edge. */
+[data-slot="input"][data-bare] {
+  border-width: 0;
+  background: transparent;
+  padding-inline: 0;
+}
+
+/* data-status: a badge speaks the status vocabulary, never its own colours. */
+[data-slot="badge"][data-status] {
+  border-color: var(--badge-line);
+  background: var(--badge-tint);
+  color: var(--badge-text);
+}
+
+[data-slot="badge"][data-status="neutral"] {
+  --badge-tint: var(--status-neutral-tint);
+  --badge-line: var(--status-neutral-line);
+  --badge-text: var(--status-neutral-text);
+}
+
+[data-slot="badge"][data-status="info"] {
+  --badge-tint: var(--status-info-tint);
+  --badge-line: var(--status-info-line);
+  --badge-text: var(--status-info-text);
+}
+
+[data-slot="badge"][data-status="success"] {
+  --badge-tint: var(--status-success-tint);
+  --badge-line: var(--status-success-line);
+  --badge-text: var(--status-success-text);
+}
+
+[data-slot="badge"][data-status="warning"] {
+  --badge-tint: var(--status-warning-tint);
+  --badge-line: var(--status-warning-line);
+  --badge-text: var(--status-warning-text);
+}
+
+[data-slot="badge"][data-status="danger"] {
+  --badge-tint: var(--status-danger-tint);
+  --badge-line: var(--status-danger-line);
+  --badge-text: var(--status-danger-text);
+}
+
+/* People are rounded squares, not circles. */
+[data-slot="avatar"],
+[data-slot="avatar"]::after,
+[data-slot="avatar-image"],
+[data-slot="avatar-fallback"] {
+  border-radius: 0.375rem;
+}
+
+[data-slot="avatar-fallback"] {
+  font-weight: 500;
+}
+
+[data-slot="avatar"][data-size="sm"] [data-slot="avatar-fallback"] {
+  font-size: 0.6875rem;
+}
+
+[data-slot="breadcrumb-list"] {
+  font-size: 0.8125rem;
+}
+
+/* A sidebar button that opened a menu stays lit while the menu is up. */
+[data-slot="sidebar-menu-button"][data-popup-open] {
+  background: var(--sidebar-accent);
+  color: var(--sidebar-accent-foreground);
+}
+
+/* data-rail: the icon rail marks its current group more softly. */
+[data-rail]
+  [data-slot="sidebar-menu-button"][data-active]:not([data-active="false"]) {
+  background: color-mix(in oklch, var(--sidebar-accent) 60%, transparent);
+}
+
+/* data-nav="context": the context column marks the current page with a
+   hairline on its left edge. */
+[data-slot="sidebar-menu-button"][data-nav="context"] {
+  border-radius: calc(var(--radius) * 0.6);
+  padding-inline: 0.625rem;
+  font-size: 0.8125rem;
+  color: var(--muted-foreground);
+}
+
+[data-slot="sidebar-menu-button"][data-nav="context"]:hover {
+  color: var(--sidebar-accent-foreground);
+}
+
+[data-slot="sidebar-menu-button"][data-nav="context"]::before {
+  content: "";
+  position: absolute;
+  inset-block: 0.375rem;
+  left: 0;
+  width: 1px;
+  border-radius: 0;
+  background: transparent;
+}
+
+[data-slot="sidebar-menu-button"][data-nav="context"][data-active]:not(
+    [data-active="false"]
+  ) {
+  background: color-mix(in oklch, var(--sidebar-accent) 45%, transparent);
+  font-weight: 500;
+  color: var(--foreground);
+}
+
+[data-slot="sidebar-menu-button"][data-nav="context"][data-active]:not(
+    [data-active="false"]
+  )::before {
+  background: var(--primary);
+}
+
+/* Every fade survives, every movement goes: an error still announces itself by
+   appearing, and route changes cut rather than crossfade. */
+@media (prefers-reduced-motion: reduce) {
+  @keyframes rise-in {
+    from {
+      opacity: 0;
+    }
+  }
+
+  ::view-transition-old(root),
+  ::view-transition-new(root) {
+    animation: none;
+  }
+}
+
+/* Account settings keeps its compact composition inside the shared token layer. */
+[data-account-settings] [data-slot="tabs"] {
+  gap: 0;
+}
+[data-account-settings] [data-slot="avatar-fallback"] {
+  font-size: 0.8125rem;
+  font-weight: 500;
+  letter-spacing: -0.025em;
+  color: var(--foreground);
+}
+[data-account-settings] [data-slot="tabs-list"] {
+  gap: 0;
+  padding: 0 1.25rem;
+  border-radius: 0;
+  border-bottom: 1px solid var(--border);
+  background: transparent;
+}
+[data-account-settings] [data-slot="tabs-trigger"] {
+  padding-inline: 0.25rem;
+  font-size: 0.75rem;
+  font-weight: 500;
+  border-radius: 0;
+}
+[data-account-settings] [data-slot="tabs-trigger"]::after {
+  height: 2px;
+  bottom: -1px !important;
+  background: var(--foreground);
+}
+[data-account-settings] [data-slot="dialog-close"] {
+  top: 0.875rem;
+  right: 0.875rem;
+}
+
+/* Toast content is measured to size its parent; percentage height creates a resize loop. */
+[data-slot="toast-content"] {
+  height: auto;
+}
