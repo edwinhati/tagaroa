@@ -2237,6 +2237,55 @@
       "checkConstraints": {},
       "isRLSEnabled": false
     },
+    "hr.employee_account": {
+      "name": "employee_account",
+      "schema": "hr",
+      "columns": {
+        "employee": {
+          "name": "employee",
+          "type": "text",
+          "primaryKey": true,
+          "notNull": true
+        },
+        "user_id": {
+          "name": "user_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "linked_at": {
+          "name": "linked_at",
+          "type": "timestamp",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {
+        "employee_account_user_id_user_id_fk": {
+          "name": "employee_account_user_id_user_id_fk",
+          "tableFrom": "employee_account",
+          "tableTo": "user",
+          "schemaTo": "auth",
+          "columnsFrom": ["user_id"],
+          "columnsTo": ["id"],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {
+        "employee_account_user_id_unique": {
+          "name": "employee_account_user_id_unique",
+          "nullsNotDistinct": false,
+          "columns": ["user_id"]
+        }
+      },
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
     "notification.message": {
       "name": "message",
       "schema": "notification",
@@ -2814,6 +2863,7 @@
     "access_control": "access_control",
     "auth": "auth",
     "directory": "directory",
+    "hr": "hr",
     "notification": "notification",
     "identity_operations": "identity_operations"
   },

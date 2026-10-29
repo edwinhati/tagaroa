@@ -54,6 +54,17 @@ export const TIMELINE_DEPTH = 200;
  * answer, not an approximation of one: an entry in the newest `depth` overall
  * is in the newest `depth` of the source it came from.
  */
+/**
+ * Who did something nobody signed in to do. A null actor is either a system of
+ * record acting — which always names itself in the detail — or an operator
+ * whose account was since deleted, which the foreign key also nulls.
+ */
+const SYSTEM_ACTORS = ["Frappe HR"] as const;
+
+const unattributed = (detail: string | null): string =>
+  SYSTEM_ACTORS.find((system) => detail?.includes(system)) ??
+  "Deleted operator";
+
 export const timeline = (
   events: readonly TrailEntry[],
   signIns: readonly SignIn[],
@@ -65,7 +76,8 @@ export const timeline = (
   return [
     ...events.map((event) => ({
       actor:
-        (event.actorId && emailOf.get(event.actorId)) ?? "Deleted operator",
+        (event.actorId && emailOf.get(event.actorId)) ??
+        unattributed(event.detail),
       at: event.createdAt,
       detail: event.detail,
       id: event.id,

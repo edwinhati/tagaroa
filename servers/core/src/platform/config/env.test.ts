@@ -56,3 +56,28 @@ test("production single-origin shorthand never includes development origins", ()
   });
   expect(env.PASSKEY_ORIGINS).toEqual(["https://auth.company.example"]);
 });
+
+test("Frappe HR is all or nothing, with a strong secret and HTTPS in production", () => {
+  const frappe = {
+    FRAPPE_API_KEY: "key",
+    FRAPPE_API_SECRET: "secret",
+    FRAPPE_URL: "https://hr.company.example",
+    FRAPPE_WEBHOOK_SECRET: "s".repeat(32),
+  };
+  expect(validateEnv({ ...production, ...frappe }).FRAPPE_URL).toBe(
+    "https://hr.company.example",
+  );
+  expect(() =>
+    validateEnv({ ...production, ...frappe, FRAPPE_API_SECRET: undefined }),
+  ).toThrow("must be set together");
+  expect(() =>
+    validateEnv({ ...production, ...frappe, FRAPPE_WEBHOOK_SECRET: "short" }),
+  ).toThrow("at least 32 characters");
+  expect(() =>
+    validateEnv({
+      ...production,
+      ...frappe,
+      FRAPPE_URL: "http://hr.company.example",
+    }),
+  ).toThrow("HTTPS in production");
+});

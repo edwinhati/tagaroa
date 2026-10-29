@@ -31,6 +31,13 @@ export interface AppEnv {
   WHATSAPP_API_VERSION: string;
   WHATSAPP_APP_SECRET?: string;
   WHATSAPP_VERIFY_TOKEN?: string;
+
+  // Frappe HR, the employee record of truth. All four or none: without them
+  // nothing is synced and the webhook refuses every request.
+  FRAPPE_URL?: string;
+  FRAPPE_API_KEY?: string;
+  FRAPPE_API_SECRET?: string;
+  FRAPPE_WEBHOOK_SECRET?: string;
 }
 
 const required = (config: Record<string, unknown>, key: string): string => {
@@ -199,6 +206,27 @@ export const validateEnv = (config: Record<string, unknown>): AppEnv => {
     "TWILIO_FROM",
   ]);
   allOrNothing(config, ["WHATSAPP_PHONE_NUMBER_ID", "WHATSAPP_TOKEN"]);
+  allOrNothing(config, [
+    "FRAPPE_URL",
+    "FRAPPE_API_KEY",
+    "FRAPPE_API_SECRET",
+    "FRAPPE_WEBHOOK_SECRET",
+  ]);
+  const frappeUrl = optional(config, "FRAPPE_URL");
+  // The webhook can cause an account to be issued or offboarded, so its secret
+  // is held to the same floor as the session secret, and in production the API
+  // key never crosses the network in clear.
+  const frappeSecret = optional(config, "FRAPPE_WEBHOOK_SECRET");
+  if (frappeSecret !== undefined && frappeSecret.length < 32) {
+    throw new Error("FRAPPE_WEBHOOK_SECRET must be at least 32 characters");
+  }
+  if (
+    frappeUrl !== undefined &&
+    nodeEnv === "production" &&
+    new URL(validUrl(frappeUrl, "FRAPPE_URL")).protocol !== "https:"
+  ) {
+    throw new Error("FRAPPE_URL must use HTTPS in production");
+  }
 
   return {
     BETTER_AUTH_SECRET: secret,
@@ -243,5 +271,10 @@ export const validateEnv = (config: Record<string, unknown>): AppEnv => {
     WHATSAPP_PHONE_NUMBER_ID: optional(config, "WHATSAPP_PHONE_NUMBER_ID"),
     WHATSAPP_TOKEN: optional(config, "WHATSAPP_TOKEN"),
     WHATSAPP_VERIFY_TOKEN: optional(config, "WHATSAPP_VERIFY_TOKEN"),
+
+    FRAPPE_API_KEY: optional(config, "FRAPPE_API_KEY"),
+    FRAPPE_API_SECRET: optional(config, "FRAPPE_API_SECRET"),
+    FRAPPE_URL: frappeUrl && validUrl(frappeUrl, "FRAPPE_URL"),
+    FRAPPE_WEBHOOK_SECRET: optional(config, "FRAPPE_WEBHOOK_SECRET"),
   };
 };

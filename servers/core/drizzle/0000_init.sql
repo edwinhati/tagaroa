@@ -4,6 +4,8 @@ CREATE SCHEMA "auth";
 --> statement-breakpoint
 CREATE SCHEMA "directory";
 --> statement-breakpoint
+CREATE SCHEMA "hr";
+--> statement-breakpoint
 CREATE SCHEMA "notification";
 --> statement-breakpoint
 CREATE SCHEMA "identity_operations";
@@ -238,6 +240,13 @@ CREATE TABLE "directory"."privileged_access_review" (
 	"reviewed_by" text
 );
 --> statement-breakpoint
+CREATE TABLE "hr"."employee_account" (
+	"employee" text PRIMARY KEY NOT NULL,
+	"user_id" text NOT NULL,
+	"linked_at" timestamp DEFAULT now() NOT NULL,
+	CONSTRAINT "employee_account_user_id_unique" UNIQUE("user_id")
+);
+--> statement-breakpoint
 CREATE TABLE "notification"."message" (
 	"id" text PRIMARY KEY NOT NULL,
 	"key" text NOT NULL,
@@ -332,6 +341,7 @@ ALTER TABLE "directory"."person_position" ADD CONSTRAINT "person_position_create
 ALTER TABLE "directory"."person_position" ADD CONSTRAINT "person_position_updated_by_user_id_fk" FOREIGN KEY ("updated_by") REFERENCES "auth"."user"("id") ON DELETE set null ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "directory"."privileged_access_review" ADD CONSTRAINT "privileged_access_review_user_id_user_id_fk" FOREIGN KEY ("user_id") REFERENCES "auth"."user"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "directory"."privileged_access_review" ADD CONSTRAINT "privileged_access_review_reviewed_by_user_id_fk" FOREIGN KEY ("reviewed_by") REFERENCES "auth"."user"("id") ON DELETE set null ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "hr"."employee_account" ADD CONSTRAINT "employee_account_user_id_user_id_fk" FOREIGN KEY ("user_id") REFERENCES "auth"."user"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "notification"."message" ADD CONSTRAINT "message_template_id_template_id_fk" FOREIGN KEY ("template_id") REFERENCES "notification"."template"("id") ON DELETE set null ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "notification"."template" ADD CONSTRAINT "template_updated_by_user_id_fk" FOREIGN KEY ("updated_by") REFERENCES "auth"."user"("id") ON DELETE set null ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "identity_operations"."factor_recovery" ADD CONSTRAINT "factor_recovery_user_id_user_id_fk" FOREIGN KEY ("user_id") REFERENCES "auth"."user"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint

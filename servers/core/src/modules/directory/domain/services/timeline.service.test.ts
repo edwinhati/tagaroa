@@ -64,6 +64,33 @@ describe("timeline", () => {
     });
   });
 
+  test("an act by HR is attributed to HR, not to a deleted operator", () => {
+    const [issued, removed] = timeline(
+      [
+        {
+          actorId: null,
+          createdAt: NOW,
+          detail: "grace@example.com from Frappe HR HR-EMP-00001",
+          id: "e1",
+          targetUserId: "u2",
+          type: "user.created",
+        },
+        {
+          actorId: null,
+          createdAt: new Date(NOW.getTime() - 1),
+          detail: "Former operator's grant",
+          id: "e2",
+          targetUserId: "u2",
+          type: "user.role.updated",
+        },
+      ],
+      [],
+      people,
+    );
+    expect(issued).toMatchObject({ actor: "Frappe HR" });
+    expect(removed).toMatchObject({ actor: "Deleted operator" });
+  });
+
   test("keeps the newest of the merge, not the newest of each source", () => {
     const at = (minute: number) =>
       new Date(Date.UTC(2026, 2, 12, 8, minute, 0));

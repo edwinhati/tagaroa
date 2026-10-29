@@ -73,6 +73,11 @@ Three things about the shape are worth knowing before adding to it:
 - **Attention** — a fact about a person an operator should act on: a temporary password
   still unchanged, an address unverified for a week, membership of no subsidiary. A banned
   account raises none; it is already the answer.
+- **HR record** — a Frappe HR Employee, the record of who works here. It drives two things
+  only: an ordinary account for an active employee who has none, and offboarding on the
+  relieving date of one who has left. See ADR 0004.
+- **Employee link** (`hr.employee_account`) — which account belongs to which HR record, by
+  Frappe's employee id rather than by address. One record, one account, both ways.
 - **Access review** — an operator's weekly confirmation that one privileged account is still
   intentional. Stale when the person's auth row has changed since, so a role edit returns
   them to the queue. The week starts Monday, UTC.

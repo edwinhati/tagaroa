@@ -6,6 +6,7 @@ export * from "./modules/audit/infrastructure/persistence/drizzle/schema";
 export * from "./modules/access-control/infrastructure/persistence/drizzle/schema";
 export * from "./modules/auth/infrastructure/persistence/drizzle/schema";
 export * from "./modules/directory/infrastructure/persistence/drizzle/schema";
+export * from "./modules/hr/infrastructure/persistence/drizzle/schema";
 export * from "./modules/notification/infrastructure/persistence/drizzle/schema";
 
 export * from "./modules/auth/operations.schema";

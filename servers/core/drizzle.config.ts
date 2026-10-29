@@ -12,6 +12,7 @@ export default defineConfig({
     "auth",
     "identity_operations",
     "directory",
+    "hr",
     "notification",
   ],
 });

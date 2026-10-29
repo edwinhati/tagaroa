@@ -9,6 +9,7 @@ import { AuthModule } from "./modules/auth/auth.module";
 import { PrivilegedMfaInterceptor } from "./modules/auth/privileged-mfa.interceptor";
 import { TemporaryPasswordInterceptor } from "./modules/auth/temporary-password.interceptor";
 import { DirectoryModule } from "./modules/directory/directory.module";
+import { HrModule } from "./modules/hr/hr.module";
 import { NotificationModule } from "./modules/notification/notification.module";
 import { validateEnv } from "./platform/config/env";
 import { DatabaseModule } from "./platform/database/database.module";
@@ -23,6 +24,7 @@ import * as databaseSchema from "./schema.registry";
     AuthModule,
     AccessControlModule,
     DirectoryModule,
+    HrModule,
     NotificationModule,
   ],
   providers: [
