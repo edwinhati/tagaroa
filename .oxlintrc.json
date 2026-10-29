@@ -1,4 +1,98 @@
 {
   "$schema": "./node_modules/oxlint/configuration_schema.json",
-  "plugins": ["unicorn", "typescript", "oxc", "react"]
+  "plugins": ["unicorn", "typescript", "oxc", "react", "jsx-a11y"],
+  "jsPlugins": ["@shadcn/lint"],
+  "settings": {
+    "shadcn": {
+      "ui": "@repo/ui/components",
+      "note": "Named treatments (data-tone, data-status, data-bare, data-nav) live in packages/ui/src/styles/tagaroa.css."
+    }
+  },
+  "rules": {
+    "jsx-a11y/label-has-associated-control": [
+      "error",
+      {
+        "assert": "either",
+        "depth": 3,
+        "controlComponents": [
+          "Checkbox",
+          "Input",
+          "InputOTP",
+          "NativeSelect",
+          "PasswordInput",
+          "RadioGroup",
+          "Select",
+          "Switch",
+          "Textarea"
+        ]
+      }
+    ],
+    "jsx-a11y/no-noninteractive-tabindex": [
+      "error",
+      { "roles": ["region", "tabpanel"] }
+    ],
+    "jsx-a11y/anchor-has-content": "off",
+    "jsx-a11y/control-has-associated-label": "off",
+    "jsx-a11y/no-autofocus": "off",
+    "jsx-a11y/prefer-tag-over-role": "off",
+    "shadcn/no-restyle": [
+      "error",
+      {
+        "allow": ["layout", "rise-in"],
+        "contracts": [
+          {
+            "pattern": "^\\w+(Title|Description|Label|Error|Page)$",
+            "allow": ["layout", "typography", "gap-*", "rise-in"]
+          },
+          {
+            "pattern": "^(Sidebar|Sidebar(Header|Footer|Group|Menu)|(Dialog|Sheet)(Header|Footer|Content)|Field|FieldGroup|FieldContent|Item|ItemGroup|Empty)$",
+            "allow": [
+              "layout",
+              "spacing",
+              "border",
+              "border-t",
+              "border-b",
+              "border-r",
+              "border-t-0",
+              "border-border",
+              "border-sidebar-border"
+            ]
+          },
+          {
+            "pattern": "^DropdownMenuLabel$",
+            "allow": ["layout", "spacing", "typography"]
+          },
+          {
+            "pattern": "^Collapsible(Trigger|Content)$",
+            "allow": [
+              "layout",
+              "spacing",
+              "typography",
+              "color",
+              "shape",
+              "effects",
+              "motion"
+            ]
+          },
+          { "pattern": "^Skeleton$", "allow": ["layout", "shape"] },
+          { "pattern": "^Input$", "allow": ["layout", "font-mono"] },
+          { "pattern": "^SelectTrigger$", "allow": ["layout", "border-dashed"] }
+        ]
+      }
+    ]
+  },
+  "overrides": [
+    {
+      "files": ["packages/ui/src/components/**", "packages/ui/src/blocks/**"],
+      "rules": { "shadcn/no-restyle": "off" }
+    },
+    {
+      "files": ["packages/ui/src/components/**", ".design-sync/previews/**"],
+      "rules": {
+        "jsx-a11y/click-events-have-key-events": "off",
+        "jsx-a11y/label-has-associated-control": "off",
+        "jsx-a11y/no-noninteractive-element-interactions": "off"
+      }
+    }
+  ]
 }

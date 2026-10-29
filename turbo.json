@@ -27,9 +27,18 @@
     },
     "dev": {
       "cache": false,
-      "persistent": true
+      "persistent": true,
+      "env": [
+        "IMPECCABLE_LIVE",
+        "IMPECCABLE_LIVE_COPY_AGENT",
+        "IMPECCABLE_LIVE_COPY_AGENT_MODEL",
+        "IMPECCABLE_LIVE_COPY_AGENT_EFFORT",
+        "IMPECCABLE_LIVE_COPY_AGENT_TIMEOUT_MS"
+      ]
     },
-    "test": {},
+    "test": {
+      "dependsOn": ["^test"]
+    },
     "test:integration": {
       "cache": false
     },

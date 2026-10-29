@@ -1,0 +1,11 @@
+[install]
+# Only install versions published at least three days ago, so a compromised
+# release has time to be caught and pulled before it reaches this repo. In
+# seconds rather than "3d": `devEngines` still allows Bun 1.4.2, which predates
+# unit strings.
+#
+# An urgent fix can skip the wait with `minimumReleaseAgeExcludes`. List exact
+# versions (`name@1.2.3`), never a bare name, which would exempt every future
+# release as well. A release often pins same-day siblings, and those need
+# listing too.
+minimumReleaseAge = 259200

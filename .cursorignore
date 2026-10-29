@@ -1,0 +1,23 @@
+# Deps and build output
+node_modules/
+dist/
+build/
+.next/
+out/
+.turbo/
+.vercel/
+coverage/
+
+# Lockfile
+bun.lock
+
+# Generated
+**/routeTree.gen.ts
+graphify-out/
+.impeccable/
+
+# Secrets
+.env
+.env.*
+!.env.example
+*.pem
