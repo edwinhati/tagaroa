@@ -1,0 +1,75 @@
+[
+  {
+    "prompt": "Audit the dashboard UI in apps/workspace for design problems and write an implementation plan.",
+    "expect": ["improve-ui"]
+  },
+  {
+    "prompt": "Review the components in packages/ui against the web interface guidelines.",
+    "expect": ["web-design-guidelines", "improve-ui"]
+  },
+  {
+    "prompt": "Add a spring animation to the popover when it opens.",
+    "expect": ["animate"]
+  },
+  {
+    "prompt": "This scroll-linked animation janks and I think it is layout thrashing. Fix the performance.",
+    "expect": ["fixing-motion-performance"]
+  },
+  {
+    "prompt": "Pick a type scale and pair two typefaces for the marketing page.",
+    "expect": ["better-typography"]
+  },
+  {
+    "prompt": "Make this custom dropdown keyboard accessible and fix its focus management.",
+    "expect": ["better-accessibility"]
+  },
+  {
+    "prompt": "Add a shadcn dialog component to packages/ui.",
+    "expect": ["shadcn"]
+  },
+  {
+    "prompt": "Rename the variable `tmp` to `sessionToken` in apps/auth/src/lib/auth-client.ts.",
+    "expect": []
+  },
+  {
+    "prompt": "Review the changes on this branch since main against our coding standards and the spec.",
+    "expect": ["code-review"]
+  },
+  {
+    "prompt": "Debug this: the login endpoint intermittently returns 500 and I cannot find why.",
+    "expect": ["diagnosing-bugs"]
+  },
+  {
+    "prompt": "Let's do this test-first: write the failing test for a rate limiter, then implement it.",
+    "expect": ["tdd"]
+  },
+  {
+    "prompt": "Resolve the merge conflicts in the rebase I am in the middle of.",
+    "expect": ["resolving-merge-conflicts"]
+  },
+  {
+    "prompt": "Build a throwaway prototype so I can see whether a kanban state model feels right.",
+    "expect": ["prototype"]
+  },
+  {
+    "prompt": "Research how Better Auth handles organization invites and write the findings to a markdown file.",
+    "expect": ["research"]
+  },
+  {
+    "prompt": "What is the current TanStack Router API for defining a pathless layout route, and what changed in recent versions?",
+    "expect": ["find-docs"]
+  },
+  {
+    "prompt": "Where should the seam go to make this module deeper and more testable?",
+    "expect": ["codebase-design"]
+  },
+  {
+    "prompt": "Update CONTEXT.md so the glossary defines subsidiary versus team.",
+    "expect": ["domain-modeling"]
+  },
+  {
+    "prompt": "What does the admit() function in packages/shell return?",
+    "expect": []
+  },
+  { "prompt": "Fix the typo 'recieve' in README.md.", "expect": [] }
+]
