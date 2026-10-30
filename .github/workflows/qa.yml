@@ -67,3 +67,18 @@ jobs:
             apps/admin/test-results
             .e2e
           retention-days: 7
+
+  # Opens a "QA failed on main" issue for Rex in Multica. Skipped for PRs, which their author fixes.
+  notify-multica:
+    needs: [checks, workflows]
+    if: failure() && github.event_name != 'pull_request'
+    runs-on: ubuntu-24.04
+    steps:
+      - env:
+          WEBHOOK: ${{ secrets.MULTICA_QA_WEBHOOK }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          curl -fsS -X POST "$WEBHOOK" \
+            -H 'Content-Type: application/json' \
+            -H "Idempotency-Key: qa-${{ github.run_id }}-${{ github.run_attempt }}" \
+            -d "{\"event\":\"${{ github.event_name }}\",\"sha\":\"${{ github.sha }}\",\"run_url\":\"$RUN_URL\"}"
