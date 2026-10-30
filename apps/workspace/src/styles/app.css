@@ -1,0 +1,11 @@
+/* The face tagaroa.css names. */
+@import "@fontsource-variable/geist";
+@import "@fontsource-variable/geist-mono";
+
+@import "tailwindcss";
+@import "@repo/ui/globals.css";
+@import "@repo/ui/tagaroa.css";
+
+@source "../";
+@source "../../../../packages/ui/src";
+@source "../../../../packages/shell/src";

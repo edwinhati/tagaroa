@@ -97,6 +97,70 @@
         "vite": "8.3.5",
       },
     },
+    "apps/workspace": {
+      "name": "@apps/workspace",
+      "version": "0.0.0",
+      "dependencies": {
+        "@fontsource-variable/geist": "^5.3.0",
+        "@fontsource-variable/geist-mono": "^5.3.0",
+        "@repo/shell": "*",
+        "@repo/ui": "*",
+        "@ridemountainpig/svgl-react": "^1.0.18",
+        "@tanstack/react-query": "5.104.5",
+        "@tanstack/react-router": "1.170.46",
+        "@tanstack/react-start": "1.169.4",
+        "lucide-react": "^1.61.0",
+        "react": "19.3.1",
+        "react-dom": "19.3.1",
+      },
+      "devDependencies": {
+        "@repo/typescript-config": "*",
+        "@tailwindcss/vite": "^4.3.3",
+        "@tanstack/devtools-vite": "0.8.5",
+        "@tanstack/react-devtools": "0.10.13",
+        "@tanstack/react-query-devtools": "5.104.5",
+        "@tanstack/react-router-devtools": "1.167.2",
+        "@types/bun": "1.4.4",
+        "@types/node": "26.6.5",
+        "@types/react": "19.3.0",
+        "@types/react-dom": "19.3.0",
+        "@vitejs/plugin-react": "6.1.2",
+        "tailwindcss": "^4",
+        "typescript": "7.0.2",
+        "vite": "8.3.5",
+      },
+    },
+    "domains/engineering": {
+      "name": "@domains/engineering",
+      "version": "0.0.0",
+      "dependencies": {
+        "@fontsource-variable/geist": "^5.3.0",
+        "@fontsource-variable/geist-mono": "^5.3.0",
+        "@repo/shell": "*",
+        "@repo/ui": "*",
+        "@tanstack/react-query": "5.104.5",
+        "@tanstack/react-router": "1.170.46",
+        "@tanstack/react-start": "1.169.4",
+        "react": "19.3.1",
+        "react-dom": "19.3.1",
+      },
+      "devDependencies": {
+        "@repo/typescript-config": "*",
+        "@tailwindcss/vite": "^4.3.3",
+        "@tanstack/devtools-vite": "0.8.5",
+        "@tanstack/react-devtools": "0.10.13",
+        "@tanstack/react-query-devtools": "5.104.5",
+        "@tanstack/react-router-devtools": "1.167.2",
+        "@types/bun": "1.4.4",
+        "@types/node": "26.6.5",
+        "@types/react": "19.3.0",
+        "@types/react-dom": "19.3.0",
+        "@vitejs/plugin-react": "6.1.2",
+        "tailwindcss": "^4",
+        "typescript": "7.0.2",
+        "vite": "8.3.5",
+      },
+    },
     "packages/contracts": {
       "name": "@repo/contracts",
       "version": "0.0.0",
@@ -232,6 +296,8 @@
 
     "@apps/auth": ["@apps/auth@workspace:apps/auth"],
 
+    "@apps/workspace": ["@apps/workspace@workspace:apps/workspace"],
+
     "@axe-core/playwright": ["@axe-core/playwright@4.14.0", "", { "dependencies": { "axe-core": "~4.14.0" }, "peerDependencies": { "playwright-core": ">= 1.0.0" } }, "sha512-SGUhG5PIHd2eMdpgBF2PyQLOhX+qyDR2PT4cmoS4Qk2ak+jX/rrSvst9l0PGv5WTHolKpUMvVmoHpr4cZgf1RQ=="],
 
     "@babel/code-frame": ["@babel/code-frame@7.29.7", "", { "dependencies": { "@babel/helper-validator-identifier": "^7.29.7", "js-tokens": "^4.0.0", "picocolors": "^1.1.1" } }, "sha512-Aup7aUOfpbAUg2ROOJN6Iw5f9DMBlzu0mIkm/malLQFN/YQgO48wCj0Kxa3sEHJvPVFg7siR+qRInwXd2qhQKw=="],
@@ -345,6 +411,8 @@
     "@corvu/utils": ["@corvu/utils@0.4.2", "", { "dependencies": { "@floating-ui/dom": "^1.6.11" }, "peerDependencies": { "solid-js": "^1.8" } }, "sha512-Ox2kYyxy7NoXdKWdHeDEjZxClwzO4SKM8plAaVwmAJPxHMqA0rLOoAsa+hBDwRLpctf+ZRnAd/ykguuJidnaTA=="],
 
     "@date-fns/tz": ["@date-fns/tz@1.5.0", "", {}, "sha512-lwYN/vDPeNRULcepoE/LO2Pgx+7/RV+S9ARfbc9lr2DtGkOD7pAiruHvbR1RX3Qyf6ja47EWJDMsNK5vK08DJg=="],
+
+    "@domains/engineering": ["@domains/engineering@workspace:domains/engineering"],
 
     "@drizzle-team/brocli": ["@drizzle-team/brocli@0.10.2", "", {}, "sha512-z33Il7l5dKjUgGULTqBsQBQwckHh5AbIuxhdsIxDDiZAzBOrZO6q9ogcWC65kU382AfynTfgNumVcNIjuIua6w=="],
 

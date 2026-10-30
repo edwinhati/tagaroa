@@ -1,0 +1,62 @@
+{
+  "$schema": "https://turborepo.dev/microfrontends/schema.json",
+  "options": { "localProxyPort": 3000 },
+  "applications": {
+    "@apps/workspace": { "development": { "local": { "port": 3002 } } },
+    "@domains/engineering": {
+      "development": { "local": { "port": 3010 } },
+      "routing": [
+        { "group": "domains", "paths": ["/engineering", "/engineering/:path*"] }
+      ]
+    },
+    "@domains/finance": {
+      "development": { "local": { "port": 3011 } },
+      "routing": [
+        { "group": "domains", "paths": ["/finance", "/finance/:path*"] }
+      ]
+    },
+    "@domains/industry": {
+      "development": { "local": { "port": 3012 } },
+      "routing": [
+        { "group": "domains", "paths": ["/industry", "/industry/:path*"] }
+      ]
+    },
+    "@domains/logistic": {
+      "development": { "local": { "port": 3013 } },
+      "routing": [
+        { "group": "domains", "paths": ["/logistic", "/logistic/:path*"] }
+      ]
+    },
+    "@domains/marketing": {
+      "development": { "local": { "port": 3014 } },
+      "routing": [
+        { "group": "domains", "paths": ["/marketing", "/marketing/:path*"] }
+      ]
+    },
+    "@domains/operation": {
+      "development": { "local": { "port": 3015 } },
+      "routing": [
+        { "group": "domains", "paths": ["/operation", "/operation/:path*"] }
+      ]
+    },
+    "@domains/research": {
+      "development": { "local": { "port": 3016 } },
+      "routing": [
+        { "group": "domains", "paths": ["/research", "/research/:path*"] }
+      ]
+    },
+    "@domains/sales": {
+      "development": { "local": { "port": 3017 } },
+      "routing": [{ "group": "domains", "paths": ["/sales", "/sales/:path*"] }]
+    },
+    "@domains/supply-chain": {
+      "development": { "local": { "port": 3018 } },
+      "routing": [
+        {
+          "group": "domains",
+          "paths": ["/supply-chain", "/supply-chain/:path*"]
+        }
+      ]
+    }
+  }
+}

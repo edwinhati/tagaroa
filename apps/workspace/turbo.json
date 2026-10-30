@@ -1,0 +1,11 @@
+{
+  "extends": ["//"],
+  "boundaries": {
+    "implicitDependencies": ["better-auth"]
+  },
+  "tasks": {
+    "build": {
+      "env": ["VITE_AUTH_URL", "VITE_AUTH_BASE_URL", "VITE_ADMIN_URL"]
+    }
+  }
+}
