@@ -10,7 +10,9 @@ A small status or count label attached to something else.
 badge takes that triplet's tint, line and text from `tagaroa.css`:
 
 ```jsx
-<Badge data-status="success" variant="outline">Active</Badge>
+<Badge data-status="success" variant="outline">
+  Active
+</Badge>
 ```
 
 Map every product state to one of the five; never invent a sixth colour, and never use

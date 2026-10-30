@@ -107,7 +107,9 @@ Three things about the shape are worth knowing before adding to it:
   Inserted in the caller's transaction; delivered later by the **dispatcher**. Its `payload`
   is rendered at enqueue and kept forever, so anything the wording declares a **secret**
   stays in it as a `{{name}}` placeholder and its value waits in `secrets` instead — cleared
-  by the same statement that marks the message sent, suppressed or finally failed.
+  by the same statement that marks the message sent, suppressed or finally failed. The
+  carrier reassembles the real text in memory; a row whose secrets are gone refuses to be
+  sent again rather than deliver a literal placeholder.
 - **Suppression** — a destination the workspace has stopped writing to, and why. Checked at
   enqueue and again at send.
 - **Secret** — a template variable whose value must never be written down: `password`, on

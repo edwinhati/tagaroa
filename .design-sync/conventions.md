@@ -13,6 +13,7 @@ Read this before composing anything. A screen that breaks these looks generic no
 clean the markup is.
 
 **Content is the design.**
+
 - Use real, specific content: named people, IDs, dates, consequences. "Bram de Vries · invited
   2 days ago, not yet accepted", not "John Doe · Lorem ipsum". "2 people keep access through
   Platform", not "Some users affected".
@@ -23,6 +24,7 @@ clean the markup is.
 - Empty, loading and error states name the cause and the next action.
 
 **Every screen fits one of five patterns.**
+
 - **Register:** a table inside one work surface, tabular counts, one primary action, the row is
   the link.
 - **Object detail:** breadcrumb, the object's name, a status chip, mono meta (ID, created), tabs
@@ -34,6 +36,7 @@ clean the markup is.
   change asks for a reason.
 
 **The named rules.**
+
 - **Panel Rule.** One lifted work surface (`Card`) per major region. Tables, lists and forms live
   inside it, separated by hairlines. Never nest a card in a card, never tile a row of equal cards,
   never put content in gray washes (`bg-muted/40` panels). Sidebars, toolbars and filter rows stay
@@ -155,16 +158,26 @@ naming every subcomponent that composes inside it.
 
 ```jsx
 const {
-  Badge, Button, Card, Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
+  Badge,
+  Button,
+  Card,
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
 } = window.TagaroaUI;
 
 const num = { fontVariantNumeric: "tabular-nums" };
 
-<div className="bg-background text-foreground p-6 flex flex-col gap-6">
-  <div className="flex items-center justify-between gap-4">
+<div className="p-6 gap-6 flex flex-col bg-background text-foreground">
+  <div className="gap-4 flex items-center justify-between">
     <div>
       <h2 className="text-lg font-medium">Access reviews</h2>
-      <p className="text-sm text-muted-foreground">3 of 12 overdue · quarter closes 30 Sep</p>
+      <p className="text-sm text-muted-foreground">
+        3 of 12 overdue · quarter closes 30 Sep
+      </p>
     </div>
     <Button size="sm">Start next review</Button>
   </div>
@@ -183,29 +196,41 @@ const num = { fontVariantNumeric: "tabular-nums" };
         <TableRow>
           <TableCell>
             <div className="font-medium">Domain administrators</div>
-            <div className="text-xs text-muted-foreground font-mono">AR-0412</div>
+            <div className="text-xs font-mono text-muted-foreground">
+              AR-0412
+            </div>
           </TableCell>
           <TableCell>
             <div>Supply chain</div>
-            <div className="text-xs text-muted-foreground">Inherited by 4 teams</div>
+            <div className="text-xs text-muted-foreground">
+              Inherited by 4 teams
+            </div>
           </TableCell>
           <TableCell style={num}>27</TableCell>
           <TableCell>
-            <Badge data-status="danger" variant="outline">Overdue 6 days</Badge>
+            <Badge data-status="danger" variant="outline">
+              Overdue 6 days
+            </Badge>
           </TableCell>
         </TableRow>
         <TableRow>
           <TableCell>
             <div className="font-medium">Emergency access grants</div>
-            <div className="text-xs text-muted-foreground font-mono">AR-0415</div>
+            <div className="text-xs font-mono text-muted-foreground">
+              AR-0415
+            </div>
           </TableCell>
           <TableCell>
             <div>Group</div>
-            <div className="text-xs text-muted-foreground">2 activations this quarter</div>
+            <div className="text-xs text-muted-foreground">
+              2 activations this quarter
+            </div>
           </TableCell>
           <TableCell style={num}>2</TableCell>
           <TableCell>
-            <Badge data-status="info" variant="outline">In review</Badge>
+            <Badge data-status="info" variant="outline">
+              In review
+            </Badge>
           </TableCell>
         </TableRow>
       </TableBody>

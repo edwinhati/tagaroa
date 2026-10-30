@@ -1,73 +1,89 @@
 ---
 name: Tagaroa Workspace
-description: A live water surface in neutral tones — the form sits in the calm at its centre, the tide moves at the edges.
+description: Quiet work on warm ground. Soft lifted surfaces for product ops, a quieter door for sign-in.
 colors:
   bone: "oklch(0.984 0.007 88)"
-  ink: "oklch(0.22 0.006 80)"
+  ink: "oklch(0.235 0.01 250)"
   ink-strong: "oklch(0.21 0.006 80)"
-  muted: "oklch(0.545 0.006 85)"
-  hairline: "oklch(0.898 0.005 88)"
-  field-rule: "oklch(0.878 0.005 88)"
+  muted: "oklch(0.5 0.012 250)"
+  hairline: "oklch(0.895 0.008 240)"
+  field-rule: "oklch(0.655 0.011 240)"
   sea: "oklch(0.525 0.118 222)"
+  card: "oklch(1 0 0)"
+  panel-shadow: "0 1px 2px oklch(0 0 0 / 0.04)"
   tide-base: "rgb(249 248 244)"
   tide-light: "rgb(156 168 176)"
-  tide-base-dark: "rgb(22 26 33)"
+  tide-base-dark: "rgb(18 22 28)"
   tide-light-dark: "rgb(108 132 146)"
   destructive: "oklch(0.502 0.152 26)"
-  bone-dark: "oklch(0.209 0.016 252)"
+  bone-dark: "oklch(0.185 0.016 252)"
   ink-dark: "oklch(0.938 0.004 92)"
-  muted-dark: "oklch(0.678 0.011 232)"
-  hairline-dark: "oklch(1 0 0 / 11%)"
+  muted-dark: "oklch(0.712 0.018 248)"
+  hairline-dark: "oklch(1 0 0 / 9%)"
   sea-dark: "oklch(0.775 0.115 205)"
+  card-dark: "oklch(0.228 0.017 252)"
+  panel-shadow-dark: "0 1px 2px oklch(0 0 0 / 0.35)"
 typography:
   display:
-    fontFamily: "SF Pro Text, SF Pro Display, Geist Sans, Helvetica Neue, system-ui, sans-serif"
+    fontFamily: "Geist Variable, SF Pro Text, Helvetica Neue, system-ui, sans-serif"
     fontSize: "clamp(1.5rem, 2.4vw, 1.95rem)"
     fontWeight: 500
     lineHeight: 1.12
     letterSpacing: "-0.03em"
   body:
-    fontFamily: "SF Pro Text, SF Pro Display, Geist Sans, Helvetica Neue, system-ui, sans-serif"
+    fontFamily: "Geist Variable, SF Pro Text, Helvetica Neue, system-ui, sans-serif"
     fontSize: "0.875rem"
     fontWeight: 400
-    lineHeight: 1.6
+    lineHeight: 1.55
     letterSpacing: "normal"
   label:
-    fontFamily: "SF Pro Text, Geist Sans, system-ui, sans-serif"
+    fontFamily: "Geist Variable, SF Pro Text, system-ui, sans-serif"
     fontSize: "0.8125rem"
     fontWeight: 500
     lineHeight: 1.4
     letterSpacing: "normal"
   hint:
-    fontFamily: "SF Pro Text, Geist Sans, system-ui, sans-serif"
+    fontFamily: "Geist Mono Variable, ui-monospace, SF Mono, JetBrains Mono, monospace"
     fontSize: "0.78rem"
     fontWeight: 400
     lineHeight: 1.4
     letterSpacing: "normal"
   meta:
-    fontFamily: "ui-monospace, SF Mono, Geist Mono, JetBrains Mono, monospace"
+    fontFamily: "Geist Mono Variable, ui-monospace, SF Mono, JetBrains Mono, monospace"
     fontSize: "0.775rem"
     fontWeight: 400
     lineHeight: 1.4
     letterSpacing: "0.12em"
+  column:
+    fontFamily: "Geist Variable, SF Pro Text, system-ui, sans-serif"
+    fontSize: "0.6875rem"
+    fontWeight: 500
+    lineHeight: 1.4
+    letterSpacing: "0.06em"
+  metric:
+    fontFamily: "Geist Variable, SF Pro Text, system-ui, sans-serif"
+    fontSize: "1.375rem"
+    fontWeight: 400
+    lineHeight: 1
+    letterSpacing: "-0.02em"
 rounded:
   none: "0px"
-  sm: "0.225rem"
-  md: "0.3rem"
-  lg: "0.375rem"
-  panel: "1rem"
+  sm: "0.375rem"
+  md: "0.5rem"
+  lg: "0.625rem"
+  panel: "0.75rem"
 spacing:
   field-inner: "6px"
   field-gap: "20px"
   panel-pad: "20px"
   heading-gap: "24px"
+  section-gap: "24px"
 components:
   button-primary:
     backgroundColor: "{colors.ink-strong}"
     textColor: "{colors.bone}"
     rounded: "{rounded.md}"
-    height: "36px"
-    width: "100%"
+    height: "28px"
   button-primary-hover:
     backgroundColor: "oklch(0.32 0.006 80)"
     textColor: "{colors.bone}"
@@ -75,10 +91,10 @@ components:
     backgroundColor: "transparent"
     textColor: "{colors.ink}"
     rounded: "{rounded.md}"
-    height: "36px"
+    height: "28px"
     padding: "0 12px"
-  panel:
-    backgroundColor: "{colors.bone}"
+  work-surface:
+    backgroundColor: "{colors.card}"
     rounded: "{rounded.panel}"
     padding: "20px"
   meta-row:
@@ -91,274 +107,259 @@ components:
 
 ## Overview
 
-**Creative North Star: "The calm at the centre of the tide"**
+**Creative North Star: "Quiet work on warm ground."**
 
-Tagaroa is the god of the sea, and the surface is literally that: a live water
-surface — domain-warped noise sharpened into caustic light — rendered in WebGL across the
-whole viewport. It is never still. The form sits in the calm at its centre, where a radial
-falloff quiets the water so nothing competes with reading or typing; the motion lives at the
-edges, in peripheral vision.
+**Dial: ENERGY 1 / RHYTHM 2 / MOTION 1**
 
-The palette stays neutral on purpose. The water is graphite and silver on bone in light,
-slate and cold light on near-black in dark — the interest comes from the surface being alive,
-not from colour. Nothing is a card, nothing floats on a shadow, and there is no second pane:
-one continuous ground, one column of content.
+Tagaroa is a calm ops product on warm bone, not a dark developer costume and not a flat shadcn wash.
+Identity is three things repeated: the three-bar mark, warm ground (never pure white or pure black),
+and sea only where the keyboard is.
 
-Density is low and deliberate. The auth surface is a door someone passes through in fifteen
-seconds; every element on it either identifies whose workspace this is or accepts a
-credential. Nothing else earns a place — an operator signing in does not need to be told the
-session cap, the hostname, or that the company invites its own staff.
+Light is the authored product language. Dark is a first-class peer of the same system, re-grounded
+on blue-leaning charcoal so a card can lift above the page. The sign-in door stays quieter than
+admin and workspace: flat inset panels and the tide motif live there alone.
 
-Color is almost entirely absent. A single sea-ink accent, drawn from the name (Tagaroa, the
-Austronesian god of the sea), appears only where the keyboard is: the rule under a focused
-field, the caret, the selection, a hovered link. Nothing else in the system is allowed to
-use it, which is what makes focus unmistakable without a glowing box.
+**Key characteristics**
 
-**Key Characteristics:**
+- Product work sits on one soft lifted surface (`bg-card`, thin border, `--panel-shadow`).
+- Door stays flat: bordered inset panels, no work-surface shadow.
+- Warm bone ground, charcoal ink, ink-filled primary actions.
+- Sea reserved for focus, caret, selection, and link hover.
+- Status uses five triplets plus label and shape, never colour alone.
+- Geist for reading; mono only for literal strings. Counts stay sans with tabular figures.
+- Forms stay compact (~28px, Supabase-class density). Collection screens earn section air.
 
-- Two matching bordered panels are the only structure; shadows and dividers are absent by rule.
-- Warm bone ground, warm charcoal ink — never pure white, never pure black.
-- One accent, reserved for the focused element and browser surfaces.
-- Mono is reserved for operational metadata and numbers, never for atmosphere.
-- Two panes: one does the work, one carries the mark at scale. Neither explains itself.
+## Where the system lives
+
+This document is the **group design system**. Every app under `apps/` and `domains/` builds from it.
+The Door chapter below is the auth surface only.
+
+- **Tokens are the truth.** Values live in `packages/ui/src/styles/tagaroa.css`. A literal colour or
+  radius in an app is a defect; missing values change the token file.
+- **Components are `@repo/ui`**, imported per file (`@repo/ui/components/button`). No root export,
+  no second library. Do not edit `packages/ui/src/components/` for craft (shadcn regenerates them).
+  Put Tagaroa overrides in `tagaroa.css` and composition in apps or domains.
+- **Foundation board** (nine artboards) lives in `.design-sync/foundation/`, published as
+  Tagaroa Design Foundation. `node emit.mjs` regenerates `.dc.html` and `canvas.json` from
+  `sections-*.mjs`. Never hand-edit a `.dc.html`.
+- **Status vocabulary:** five triplets
+  (`--status-{neutral,info,success,warning,danger}-{tint,line,text}`). `Badge` and `Alert`
+  expose matching variants. Map a product state to one of five; do not invent a sixth colour.
+
+## Named rules
+
+**The Keyboard Rule.** Sea appears only where the keyboard currently is: focus ring, caret,
+selection, hovered link. Never a button fill, never a decorative wash, never a chart series.
+
+**The Elevation Rule.** Two registers:
+
+1. **Door:** flat bordered inset panels on the page ground. No `--panel-shadow`. Depth comes from
+   inset placement and the tide gradients.
+2. **Product** (admin, workspace, domains): the primary work surface lifts once
+   (`bg-card`, `border-border`, `--panel-shadow`, `--panel-radius`). Sidebar, filter bars, and
+   table rows stay flat. Do not nest cards inside cards. Floating chrome (popover, dialog, toast)
+   may use the same soft lift; it marks "above the page," not decoration.
+
+**The Panel Rule.** Product structure is that lifted work surface, or open space. Content does not
+live in gray washes or bare `border-y` / `divide-y` ledgers. Hairlines inside a work surface are
+fine for table headers and row separators. Enforce in `tagaroa.css` and app composition.
+
+_Scoped exception:_ `apps/admin`'s standing column is a plane (`--sidebar`, one step off the page
+in the same warm hue). The current section is a filled rounded rect, not a bordered card. Still
+no nested cards; still no second border weight.
+
+**The Chromatic Rule.** Core palette is bone, ink, hairline, field rule, plus one accent (sea) and
+destructive for failures. Primary actions fill with ink (`--primary`), never sea and never a
+generic blue. Status chips use the five triplets with text and shape (or an icon). Do not add a
+category rainbow (Design / Frontend / Backend style) unless a real domain taxonomy ships later.
+
+**The Small Control Rule.** Prefer Supabase-class density: controls stay small
+(~28px / `sm`), type around 12px, icons ~14px. If a control needs to be bigger to be
+noticed, the problem is the space around it. Add air between sections; never scale the
+box. Collection screens still breathe (`~24px` section gaps) without enlarging chrome.
 
 ## Colors
 
-A warm achromatic system with a single cool accent — the only saturated thing on screen.
+Warm achromatic system. Sea is the only saturated brand accent, and it stays on the keyboard.
 
-### Primary
+### Neutrals
 
-- **Tide base / light** (`rgb(249 248 244)` → `rgb(156 168 176)` light,
-  `rgb(22 26 33)` → `rgb(108 132 146)` dark): the two ends of the water. Stored as RGB
-  triples rather than oklch because the shader consumes them directly.
-- **Sea** (`oklch(0.525 0.118 222)` light / `oklch(0.775 0.115 205)` dark): The focus ring
-  under an active field, the caret, text selection, link hover. Never a background, never a
-  button fill, never decoration.
+- **Bone** (`oklch(0.984 0.007 88)`, `--background`): page ground.
+- **Card** (`oklch(1 0 0)`, `--card`): lifted work surface in light; in dark,
+  `oklch(0.228 0.017 252)` so the card sits above the ground.
+- **Ink** (`oklch(0.235 0.01 250)`, `--foreground`): body and headings. Primary button uses
+  `--primary` (`oklch(0.21 0.006 80)`), a half-step darker and warmer.
+- **Muted** (`oklch(0.5 0.012 250)`, `--muted-foreground`): supporting copy. Must stay ≥4.5:1
+  on bone for text at 13px and above.
+- **Hairline** (`oklch(0.895 0.008 240)`, `--border`): panel edges and dividers.
+- **Field rule** (`oklch(0.655 0.011 240)`, `--input`): resting input border, darker than a divider
+  so a field reads as interactive at rest.
 
-### Neutral
+### Accent and semantic
 
-- **Bone** (`oklch(0.978 0.004 92)`): The page ground. Warm off-white; pure white is used
-  only for popover surfaces inherited from `@repo/ui`.
-- **Ink** (`oklch(0.22 0.006 80)`): Body and heading text, and the primary button fill.
-  Warm charcoal, never `#000`.
-- **Muted** (`oklch(0.545 0.006 85)`): Supporting sentences, mono meta labels, hints.
-- **Hairline** (`oklch(0.898 0.005 88)`): Input borders and both panel borders.
-- **Field rule** (`oklch(0.878 0.005 88)`): The resting underline of an input — one step
-  darker than a divider, so a field reads as interactive at rest.
+- **Sea** (`oklch(0.525 0.118 222)` light / `oklch(0.775 0.115 205)` dark): focus, caret, selection,
+  link hover only.
+- **Destructive** (`oklch(0.502 0.152 26)`): field and form failure. Action chrome uses it as a tint,
+  not a solid red block.
+- **Status triplets:** product state chips and page alerts. Pair colour with label and marker shape.
 
-### Semantic
+### Tide (door only)
 
-- **Destructive** (`oklch(0.502 0.152 26)`): Field errors, form failure text, and the 1px
-  rule beside a failed submission.
-
-### Dark
-
-The same system re-grounded on a blue-leaning charcoal (`oklch(0.209 0.016 252)`) — never
-black, which read as grim rather than serious — with hairlines at 11% white and the accent
-lifted for contrast.
+`--tide-base` / `--tide-light` as RGB triples for gradient alpha. Light:
+`249 248 244` → `156 168 176`. Dark: `18 22 28` → `108 132 146`. Decorative; never product chrome.
 
 ### Theme
 
-Three states: **system** (the default, following `prefers-color-scheme`), **light**, and
-**dark**. A forced choice adds `.light` or `.dark` to `<html>` and persists in
-`localStorage` under `tagaroa-theme`; a boot script in `<head>` applies it before first
-paint, so a forced theme never flashes. The control is a single icon button in the top-right
-of the form pane that cycles light → dark → system; its icon is the _current_ state, and its
-`aria-label` names both that state and the next one.
+Three states: **system** (default, `prefers-color-scheme`), **light**, **dark**. Forced choice adds
+`.light` or `.dark` on `<html>`, persists under `tagaroa-theme`, applied by a boot script before
+first paint. Product and door both support the toggle; both modes must remain complete.
 
-### Named Rules
+### Elevation tokens
 
-**The Keyboard Rule.** Sea appears only where the keyboard currently is — the focused
-field's rule, the caret, the selection. If the accent shows up anywhere a keyboard cannot
-be, it is wrong.
-
-**The One Line Rule.** Structure is a 1px hairline or it is nothing. No card, no shadow, no
-second border weight, no nested container. Elevation is declared once, and here it is
-declared as _none_.
+- `--panel-radius`: `0.75rem` (12px) for product work surfaces, dialogs, toasts.
+- `--panel-shadow`: `0 1px 2px oklch(0 0 0 / 0.04)` light;
+  `0 1px 2px oklch(0 0 0 / 0.35)` dark. One soft step. No glow stacks. No shadow on every control.
 
 ## Typography
 
-**Display / Body Font:** SF Pro Text with SF Pro Display, Geist Sans, Helvetica Neue,
-system-ui fallbacks
-**Label/Mono Font:** ui-monospace with SF Mono, Geist Mono, JetBrains Mono fallbacks
+**Sans:** Geist Variable (SF Pro Text, Helvetica Neue, system-ui). Apps must
+`@import "@fontsource-variable/geist"` (and geist-mono) in their own `app.css`.
 
-**Character:** A workhorse system sans doing all the reading, paired with a mono that is
-allowed out only for facts — policy rows, hosts, character counts. The pairing has no
-editorial ambition; its job is to be unnoticed at the moment someone is typing a password.
-Inter, Roboto, and the geometric-grotesk defaults are deliberately excluded.
+**Mono:** Geist Mono Variable, only for literal strings (keys, IDs, destinations, secrets, hard
+field rules). Counts and clocks stay in the UI sans with `tabular-nums`.
+
+Inter, Roboto, and geometric-grotesk defaults are excluded. Geist is chosen as a quiet workhorse
+that stays out of the way while someone types a password or scans a register.
 
 ### Hierarchy
 
-- **Screen title** (500, 1.6rem, 1.15, -0.02em): One per screen, naming the action
-  ("Sign in", "Accept invitation") or the state ("This reset link has expired").
-- **Supporting sentence** (400, 0.95rem, 1.6): Optional, and omitted whenever the title is
-  self-evident. When present it states what happens next or what went wrong, in one line —
-  never two.
-- **Field label** (500, 0.82rem): Above every input, always visible — placeholders are never
-  used as labels.
-- **Field hint** (mono, 0.68rem, muted): Right-aligned on the label row. Carries the rule
-  before the user can break it ("12 characters minimum").
-- **Screen title** carries the company name where it matters ("Sign in to Tagaroa"), so no
-  wordmark lockup is needed anywhere on the surface.
+- **Display** (door): 500, `clamp(1.5rem, 2.4vw, 1.95rem)`, 1.12, −0.03em. One per auth screen.
+- **Page title** (product): ~18px / 600 / −0.02em. Names the work, not the brand.
+- **Body:** 0.875rem / 400 / 1.55 (`--text-sm`).
+- **Label:** 0.8125rem / 500 (`--text-xs`). Always visible; placeholders are never labels.
+- **Hint:** mono, 0.78rem (`--text-2xs`), muted, on the label row when it states a hard rule.
+- **Column header:** 0.6875rem / 500 / 0.06em / uppercase. Tables only.
+- **Metric** (`apps/admin`): 1.375rem sans tabular. Figures only.
 
-## Layout
+Secondary type must recede: muted weight and colour, not a second loud size.
 
-Modelled on Claude's sign-in page, which is the reference for this composition.
+## Layout and density
 
-- **Full-width header:** the mark at 18px left, the theme control right. It spans the
-  viewport and belongs to neither column.
-- **Two equal columns from `lg`,** inset from the page edge and from each other by the same
-  gap the header uses. The left column centres a 21rem stack — display line, supporting
-  sentence, then the form's panel. The right column is the water.
-- **The water panel is inset, not flush.** Rounded 16px, 1px border, with real margin on
-  every side. A pane running edge to edge reads as a template; an inset panel reads as an
-  object placed on the page, which is the whole difference.
-- **Below `lg` the water panel is dropped** and the left column takes the screen. The header
-  and the panel'd form are unchanged, so there is no second design to maintain.
-- **Calm radius** is `-0.35` — negative, meaning no calm at all. Nothing sits over the water
-  any more, so it runs alive edge to edge.
-- **Rhythm:** 24px under the display line, 20px between fields, 6px inside a field group,
-  20px of padding inside the panel. More space above a heading than below it, everywhere.
+- **Product:** page pad 16–24px (24–32px from ≥1280). Section gap ~24px on collection screens.
+  One primary action per view. Prefer one work surface over stacks of equal cards.
+- **Admin sidebar:** plane exception above; expanded width 16rem.
+- **Workspace / domains:** `@repo/shell` header chrome; no copied sidebars.
+- **Door:** see Door chapter (21rem form column, tide inset beside it from `lg`).
+
+## Shapes and scale
+
+| Role                   | Token                 | Value             |
+| ---------------------- | --------------------- | ----------------- |
+| Tight / badge-adjacent | `--radius` ×0.75 → sm | `0.375rem` (6px)  |
+| Controls and inputs    | `--radius` (md)       | `0.5rem` (8px)    |
+| Alerts / mid shells    | lg                    | `0.625rem` (10px) |
+| Work surface / panel   | `--panel-radius`      | `0.75rem` (12px)  |
+| Door form and tide     | hand                  | `1rem` (16px)     |
+
+Base `--radius` is `0.5rem`. Controls share md and `--control-height` (~28px). Nothing is a
+pill button. Status chips may use a fuller radius than controls; they still are not marketing
+capsules.
 
 ## Motion
 
-Three animations exist on this surface. Anything beyond them is a defect, not a feature.
+Dial MOTION 1: hover, focus, and feedback only on product surfaces.
 
-- **Tokens:** `--ease-out: cubic-bezier(0.23, 1, 0.32, 1)`, `--duration-feedback: 140ms`,
-  `--duration-ui: 200ms`. Nothing declares its own curve.
-- **Focus ring** (150ms, `--ease-out`): inherited from `@repo/ui`'s Input transition on
-  `color` and `box-shadow`. A transition, not keyframes, so tabbing quickly through fields
-  retargets instead of restarting.
-- **Error entry** (`rise-in`, 180ms, `--ease-out`): field and form errors fade up 4px into
-  place, so a message that changes the form's height never teleports.
-- **Route change** (220ms crossfade, `--ease-out`): navigation between auth screens runs
-  through the View Transitions API — TanStack Router's `viewTransition` on every in-app
-  `Link`, styled with `::view-transition-old(root)` / `::view-transition-new(root)`. Crossfade
-  only; nothing slides.
-- **The tide** (continuous, ~0.05 time scale): the one thing on this surface that never
-  stops. It is atmosphere, not feedback, and it now lives in its own panel with no content
-  over it — so it may run freely without competing with anything being read or typed. An
-  earlier version of this document banned all continuous motion here; the tide is the
-  deliberate exception, and the separate panel is what earns it.
-- **Reduced motion** keeps every fade and drops every movement: `rise-in` becomes opacity
-  only, route crossfades are removed, and the tide freezes to one still frame — the water is
-  still there, it simply stops moving.
+Shared tokens: `--ease-out`, `--ease-in-out`, feedback ~140ms, UI ~200ms, route ~220ms.
+Focus ring transitions colour and box-shadow so tabbing retargets. Errors may use a short
+`rise-in` (opacity + 4px). Route changes crossfade via View Transitions; nothing slides.
+Long ambient motion (tide 18s / 24s) is door-only. `prefers-reduced-motion` keeps fades and drops
+movement.
 
-## Elevation & Depth
+## Components (system)
 
-No shadows. There is no shadow token. Depth comes from the water, which is real rather than
-simulated, and from two flat bordered panels sitting on the page ground. `@repo/ui` components that ship with
-`shadow-xs` have it removed at the call site rather than re-themed.
+### Work surface
 
-## Shapes & scale
-
-Controls are small and quiet; the space comes from what surrounds them, not from their size.
-
-- Inputs and the primary button share one radius (`--radius-md`, ~4.8px) and one height:
-  **36px** on pointer devices, **40px** below `sm` so a finger still has a target.
-- The content column is **21rem (336px)** — narrow enough that the water reads as the page
-  and the form as an object placed on it.
-- Nothing is a pill, and no element on the auth surface exceeds that radius.
-
-### Type scale
-
-Small controls, one display line. The range is short on purpose.
-
-| Role                                 | Size                                        |
-| ------------------------------------ | ------------------------------------------- |
-| Display line                         | clamp(1.5rem, 2.4vw, 1.95rem), 500, -0.03em |
-| Supporting sentence                  | 0.875rem / 14px                             |
-| Input text, button label             | 0.875rem / 14px                             |
-| Field label                          | 0.8125rem / 13px, 500                       |
-| Supporting sentence, footnote, links | 0.8125rem / 13px                            |
-| Field hint, error                    | 0.775–0.78rem                               |
-
-**The Small Control Rule.** If a control needs to be bigger to be noticed, the problem is
-the space around it, not its size. Add air; never scale the box.
-
-## Components
-
-### Field
-
-Label row (13px label left, optional hint or link right), then a bordered 36px input on a
-faint `--input/25` fill, then an error line when invalid. Focus is a sea ring drawn by `@repo/ui`'s Input from `--ring`;
-invalid fields swap border and ring to destructive. Placeholders are examples
-(`you@tagaroa.com`), never a substitute for the label, which is always visible.
+Primary product container: `bg-card`, 1px `border-border`, `--panel-shadow`, `--panel-radius`,
+comfortable padding. One per major region. Tables live inside it; rows do not cast shadows.
 
 ### Primary button
 
-Full width of the working column and the same height as the inputs — 36px on pointer
-devices, 40px below `sm` — ink fill on bone text, smallest radius, no
-shadow. Disabled during submission with the verb switched to its progressive form
-("Signing in…"). Inherits `@repo/ui`'s 1px active translate.
+Ink fill, bone text, md radius, control height, no shadow. Names the outcome
+("Create a role", "Email me a link"), not the mechanism. One primary per view.
 
-### Form error
+### Field
 
-A single destructive 1px rule on the inline-start edge with the message beside it. It names
-the problem and the recovery in one sentence; it never renders an error code alone.
+Visible label, optional mono hint, bordered input, sea focus ring from `--ring`. Invalid swaps
+to destructive. Validate on blur; report on submit.
+
+### Status
+
+`Badge` / `Alert` variants map to the five triplets. Always include readable text; prefer a
+marker shape when greyscale must still work.
 
 ### Mark
 
-Three vertical bars in a 100-unit square (`@repo/ui/components/logo`), drawn in
-`currentColor` so it inherits the ink of whatever it sits in. It reads as ruled columns —
-the same structure the page is built from. On an auth screen it appears once, at 22px in
-the top-left, with no wordmark and no tagline beside it; the screen title carries the
-company name instead ("Sign in to Tagaroa").
+Three vertical bars (`@repo/ui/blocks/logo`) in `currentColor`. Auth: 22px corner mark, company
+name in the screen title. Product: same mark language in shell chrome; no decorative wordmark lockup.
 
-### Panel
+## Door
 
-The form's container: 1px border, 16px radius, `--card/60` fill, 20px padding. It exists so
-the form reads as one object under the display line, the way Claude encloses its inputs. It
-is the only container on the content side — nothing nests inside it.
+Auth alone. North star locally: a quiet door beside the tide. Operator passes through in about
+fifteen seconds. Every element identifies whose workspace this is or accepts a credential.
 
-### The tide
+### Composition
 
-A fragment shader (`src/components/tide.tsx`): five octaves of value-noise fBm, domain-warped
-twice, with the level sets sharpened by `pow(1 - |sin(f)|, 3.4)` into caustic lines. One
-full-screen triangle, one draw call, DPR capped at 1.5. Its two colours come from
-`--tide-base` and `--tide-light` as plain RGB triples, so the theme decides what the water is
-made of and the shader never parses a colour.
+- Full-width header: mark left, theme control right.
+- From `lg`: two equal columns. Left centres a 21rem stack (display, optional sentence, form panel).
+  Right is the tide panel.
+- Tide and form panels are inset, 16px radius, 1px border, flat (no `--panel-shadow`).
+- Below `lg`, drop the tide; keep header and form panel.
 
-It pauses on a hidden tab, freezes to a single frame under `prefers-reduced-motion`, and
-falls back to a radial gradient in the same two tokens when WebGL is unavailable. It starts
-mid-tide, never from a flat field. When its panel is hidden below `lg` the canvas measures
-zero and the loop stops rather than rendering into an empty buffer.
+### Tide
 
-The panel carries the radius on the canvas itself rather than clipping it with
-`overflow-hidden`: a clipped WebGL layer forces a compositor mask that costs real frames.
+Two radial gradient layers between `--tide-base` and `--tide-light`, transform-only drift.
+Hidden below `lg`. No content over the tide. Omitted from the accessibility tree.
 
-### State screens
+### Door motion
 
-An expired link, an incomplete invitation, and a sent reset all render as title + sentence +
-one text link, in the same column as the form. No illustration, no icon, no empty-state art.
+Focus ring, error `rise-in`, route crossfade, tide drift. Nothing else.
 
-## Do's and Don'ts
+### Door do and don't
+
+**Do:** state constraints before violation; theme selection, caret, scrollbar, focus from this
+palette; keep the working column short; say who does what; cut lines an operator already knows.
+
+**Don't:** put sea anywhere the keyboard cannot go; brand the credential screen beyond mark + title;
+add a third container; offer self-serve sign-up; promise mail the server cannot send; use mono as
+costume; put product work-surface shadows on the door.
+
+## Product patterns
+
+Screens pick a pattern and fill it. A screen that fits none is a design conversation first.
+
+- **Register:** table, tabular counts, one primary, row is the link.
+- **Object detail:** breadcrumb, status chip, mono meta, tabs for one object.
+- **Review queue:** default filter needs a person; approve is default; reason on refuse.
+- **Console:** list + detail; payloads in mono; retry is outline.
+- **Administration:** form ≤576px; scope shows inheritance; privileged needs reason + fresh MFA.
+
+No opening row of invented stat cards. Charts answer a named question or they do not ship.
+
+## Do's and don'ts
 
 **Do**
 
-- State a constraint before the user can violate it (password length, breach rejection,
-  single-use links).
-- Theme the browser's own surfaces — selection, caret, scrollbar, focus — from this palette.
-- Let the working column stay short. A door that scrolls has failed.
-- Keep controls small and let emptiness do the work. Supabase's dashboard is the reference
-  for this register: 13–14px type, 36px controls, a narrow column, and a great deal of
-  nothing around it.
-- Say who does what. "We check new passwords against known breaches", not "breached
-  passwords are rejected" — the system owns its actions.
-- Name the outcome on a button, not the mechanism: "Email me a link", not "Send reset link".
-- Cut any line an operator already knows. Session caps, hostnames, and "accounts are
-  created from an invitation" are facts about the system, not help for the person signing
-  in.
+- Take colour, radius, elevation, and type from tokens.
+- Lift one work surface on product pages; leave chrome flat.
+- Keep status in the five triplets with text (and shape when useful).
+- Give collection screens section air without enlarging controls.
+- Ship empty, loading, and error states that name cause and next action.
 
 **Don't**
 
-- Don't introduce a card, panel, shadow, or second border weight.
-- Don't put the accent anywhere the keyboard cannot go.
-- Don't brand the credential screen — a 22px mark in the corner and the company's name in
-  the screen title is the whole identity treatment. The tide carries no message.
-- Don't put content over the water. It has its own panel; text lives in the other column.
-  If something ever must sit on it, raise the calm radius rather than dimming the water.
-- Don't add a third container. Two exist, they match, and that is the system.
-- Don't offer a sign-up path, a social provider, or any language implying self-serve access.
-- Don't promise an email that the server has no sender configured to send.
-- Don't use mono as a "technical" costume; it carries data or it doesn't appear.
+- Stretch door flatness across admin and workspace, or product shadows across the door.
+- Use sea on buttons, fills, or decoration.
+- Add category rainbow chips or a second brand accent.
+- Nest cards, glow everything, or float every component.
+- Clone Linear, Vercel, or another product's overall look.
+- Edit shadcn component sources for Tagaroa craft.

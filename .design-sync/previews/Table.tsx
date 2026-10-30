@@ -29,7 +29,9 @@ export const Directory = () => (
           <TableCell>Platform</TableCell>
           <TableCell>Domain administrator</TableCell>
           <TableCell>
-            <Badge data-status="success" variant="outline">Active</Badge>
+            <Badge data-status="success" variant="outline">
+              Active
+            </Badge>
           </TableCell>
         </TableRow>
         <TableRow>
@@ -37,7 +39,9 @@ export const Directory = () => (
           <TableCell>Supply chain</TableCell>
           <TableCell>Member</TableCell>
           <TableCell>
-            <Badge data-status="info" variant="outline">Invited</Badge>
+            <Badge data-status="info" variant="outline">
+              Invited
+            </Badge>
           </TableCell>
         </TableRow>
         <TableRow>
@@ -45,7 +49,9 @@ export const Directory = () => (
           <TableCell>Finance</TableCell>
           <TableCell>Member</TableCell>
           <TableCell>
-            <Badge data-status="danger" variant="outline">Suspended</Badge>
+            <Badge data-status="danger" variant="outline">
+              Suspended
+            </Badge>
           </TableCell>
         </TableRow>
         <TableRow>
@@ -53,7 +59,9 @@ export const Directory = () => (
           <TableCell>Platform</TableCell>
           <TableCell>Super-admin</TableCell>
           <TableCell>
-            <Badge data-status="success" variant="outline">Active</Badge>
+            <Badge data-status="success" variant="outline">
+              Active
+            </Badge>
           </TableCell>
         </TableRow>
       </TableBody>
