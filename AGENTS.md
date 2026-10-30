@@ -16,6 +16,10 @@ Default vocabulary: `needs-triage`, `needs-info`, `ready-for-agent`, `ready-for-
 
 Multi-context: a root `CONTEXT-MAP.md` points at one `CONTEXT.md` per workspace. See `docs/agents/domain.md`.
 
+### Multica
+
+How agents run against this repo: server, agents, workflow, PR linking, autopilots. See `docs/agents/multica.md`.
+
 ## Frontend apps
 
 Every app under `apps/` runs its dev server through the shared wrapper, so
