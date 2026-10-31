@@ -1240,6 +1240,10 @@ test("a super administrator creates, edits and archives a business role with key
     await dialog.getByLabel("Name", { exact: true }).fill(name);
     await dialog.getByLabel("Description").fill("QA explicit scoped access");
     await dialog.getByRole("checkbox").first().check();
+    // Axe would otherwise catch Save mid re-render at disabled opacity.
+    await expect(
+      dialog.getByRole("button", { name: "Save role" }),
+    ).toBeEnabled();
     await expect(
       new AxeBuilder({ page })
         .include('[data-slot="dialog-content"]')
@@ -1693,7 +1697,7 @@ test("business reviews, independent factor recovery and offboarding work through
     await page.getByRole("option", { name: targetEmail, exact: true }).click();
     await expect(
       page.getByRole("button", {
-        name: `Actions for ${targetEmail} in ${teamName}`,
+        name: `Remove ${targetEmail} from ${teamName}`,
         exact: true,
       }),
     ).toBeVisible();

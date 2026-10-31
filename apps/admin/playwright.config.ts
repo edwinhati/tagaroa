@@ -10,7 +10,7 @@ export default defineConfig({
   // Both files update MFA on the same seeded operator.
   workers: 1,
   forbidOnly: Boolean(process.env.CI),
-  retries: process.env.CI ? 2 : 0,
+  retries: process.env.CI ? 1 : 0,
   reporter: process.env.CI ? "github" : "line",
   use: {
     baseURL: adminOrigin,

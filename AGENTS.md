@@ -6,7 +6,7 @@ Bun + Turborepo monorepo. Workspaces: `apps/*`, `packages/*`, `servers/*`.
 
 ### Issue tracker
 
-Issues live as GitHub issues in `edwinhati/tagaroa-next`, managed with the `gh` CLI. See `docs/agents/issue-tracker.md`.
+Issues live as GitHub issues in `edwinhati/tagaroa`, managed with the `gh` CLI. See `docs/agents/issue-tracker.md`.
 
 ### Triage labels
 

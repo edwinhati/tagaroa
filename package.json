@@ -19,7 +19,7 @@
     "format:fix": "oxfmt .",
     "lint": "oxlint --deny-warnings .",
     "lint:fix": "oxlint --fix --deny-warnings .",
-    "prepare": "hk install",
+    "prepare": "[ -n \"$CI\" ] || hk install",
     "test": "turbo run test",
     "test:e2e": "node scripts/test-playwright.mjs",
     "test:e2e:headed": "bun run test:e2e --headed --project=chromium",
