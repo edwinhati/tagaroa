@@ -289,3 +289,13 @@ groups:
         annotations:
           summary: Tagaroa prod is down
           description: The public probe of the instance label has failed for 3 minutes.
+      - alert: TagaroaRestoreTestStale
+        expr: >-
+          time() - max_over_time(pgbackrest_restore_test_last_success_timestamp_seconds[41d]) > 40 * 86400
+          or absent_over_time(pgbackrest_restore_test_last_success_timestamp_seconds[40d])
+        labels:
+          team: tagaroa
+          severity: warning
+        annotations:
+          summary: PostgreSQL restore verification is overdue
+          description: No successful isolated restore test has been recorded in 40 days.

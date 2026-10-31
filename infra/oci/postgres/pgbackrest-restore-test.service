@@ -1,0 +1,11 @@
+[Unit]
+Description=Verify the latest pgBackRest backup in an isolated database
+Requires=docker.service
+After=docker.service network-online.target
+
+[Service]
+Type=oneshot
+ExecStart=/bin/bash /home/docker/postgres/pgbackrest/restore-test.sh
+TimeoutStartSec=30min
+Nice=10
+IOSchedulingClass=idle
