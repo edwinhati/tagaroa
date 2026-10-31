@@ -1,45 +1,51 @@
-# Issue tracker: GitHub
+# Issue tracker: Multica
 
-Issues and specs for this repo live as GitHub issues. Use the `gh` CLI for all operations.
+Issues and specs for this repo live in Multica (workspace "Tagaroa"), not GitHub Issues. Use the `multica` CLI for all issue operations; run `multica issue --help` for the full list. IDs look like `ISSUE-12`. The workflow, statuses, and PR linking are in `docs/agents/multica.md`.
+
+Add `--output json` when parsing output; `issue create`, `label create` and `issue assign` already default to JSON.
 
 ## Conventions
 
-- **Create an issue**: `gh issue create --title "..." --body "..."`. Use a heredoc for multi-line bodies.
-- **Read an issue**: `gh issue view <number> --comments`, filtering comments by `jq` and also fetching labels.
-- **List issues**: `gh issue list --state open --json number,title,body,labels,comments --jq '[.[] | {number, title, body, labels: [.labels[].name], comments: [.comments[].body]}]'` with appropriate `--label` and `--state` filters.
-- **Comment on an issue**: `gh issue comment <number> --body "..."`
-- **Apply / remove labels**: `gh issue edit <number> --add-label "..."` / `--remove-label "..."`
-- **Close**: `gh issue close <number> --comment "..."`
+- **Create an issue**: `multica issue create --title "..." --description-file <path>`. Write multi-line bodies to a file inside the working directory first. Add `--priority`, `--status` or `--assignee` as needed.
+- **Read an issue**: `multica issue get <id> --output json`, then `multica issue comment list <id> --output json` for the comments.
+- **List issues**: `multica issue list --status <status> --output json`, with `--assignee`, `--priority` or `--limit` as needed. Labels come back on each issue in JSON.
+- **Search issues**: `multica issue search "<query>"` (titles, descriptions and comments). Add `--include-closed` to include done and cancelled issues.
+- **Comment on an issue**: `multica issue comment add <id> --content-file <path>`.
+- **Apply / remove labels**: `multica issue label add <id> <label-id>` / `multica issue label remove <id> <label-id>`. Labels are addressed by ID, so find it with `multica label list`.
+- **Change status**: `multica issue status <id> <status>`, where status is a key: `backlog`, `todo`, `in_progress`, `in_review`, `blocked`, `done`, `cancelled`.
+- **Close**: `multica issue comment add <id> --content-file <path>`, then `multica issue status <id> done` (or `cancelled`; add `--duplicate-of <original>` for a duplicate).
+- **Assign**: `multica issue assign <id> --to <name>`. Assigning to an agent starts a run unless you pass `--no-start`.
 
-Infer the repo from `git remote -v`; `gh` does this automatically when run inside a clone.
+The CLI uses the workspace and project from its configured environment; no repo inference is needed.
 
 ## Pull requests as a triage surface
 
 **PRs as a request surface: no.** _(Set to `yes` if this repo treats external PRs as feature requests; `/triage` reads this flag.)_
 
-When set to `yes`, PRs run through the same labels and states as issues, using the `gh pr` equivalents:
+PRs stay on GitHub, so this section still uses `gh pr`. When set to `yes`, PRs run through the same labels and states as issues:
 
 - **Read a PR**: `gh pr view <number> --comments` and `gh pr diff <number>` for the diff.
 - **List external PRs for triage**: `gh pr list --state open --json number,title,body,labels,author,authorAssociation,comments` then keep only `authorAssociation` of `CONTRIBUTOR`, `FIRST_TIME_CONTRIBUTOR`, or `NONE` (drop `OWNER`/`MEMBER`/`COLLABORATOR`).
 - **Comment / label / close**: `gh pr comment`, `gh pr edit --add-label`/`--remove-label`, `gh pr close`.
 
-GitHub shares one number space across issues and PRs, so a bare `#42` may be either: resolve with `gh pr view 42` and fall back to `gh issue view 42`.
+`gh` PR numbers (`#42`) and Multica issue IDs (`ISSUE-12`) are separate; link a PR to its issue as described in `docs/agents/multica.md`.
 
 ## When a skill says "publish to the issue tracker"
 
-Create a GitHub issue.
+Create a Multica issue with `multica issue create`. Never open a GitHub issue.
 
 ## When a skill says "fetch the relevant ticket"
 
-Run `gh issue view <number> --comments`.
+Run `multica issue get <id> --output json` and `multica issue comment list <id> --output json`.
 
 ## Wayfinding operations
 
-Used by `/wayfinder`. The **map** is a single issue with **child** issues as tickets.
+Used by `/wayfinder`. The **map** is a single parent issue with **child** issues as tickets.
 
-- **Map**: a single issue labelled `wayfinder:map`, holding the Notes / Decisions-so-far / Fog body. `gh issue create --label wayfinder:map`.
-- **Child ticket**: an issue linked to the map as a GitHub sub-issue (`gh api` on the sub-issues endpoint). Where sub-issues aren't enabled, add the child to a task list in the map body and put `Part of #<map>` at the top of the child body. Labels: `wayfinder:<type>` (`research`/`prototype`/`grilling`/`task`). Once claimed, the ticket is assigned to the driving dev.
-- **Blocking**: GitHub's **native issue dependencies**, the canonical, UI-visible representation. Add an edge with `gh api --method POST repos/<owner>/<repo>/issues/<child>/dependencies/blocked_by -F issue_id=<blocker-db-id>`, where `<blocker-db-id>` is the blocker's numeric **database id** (`gh api repos/<owner>/<repo>/issues/<n> --jq .id`, _not_ the `#number` or `node_id`). GitHub reports `issue_dependencies_summary.blocked_by` (open blockers only, the live gate). Where dependencies aren't available, fall back to a `Blocked by: #<n>, #<n>` line at the top of the child body. A ticket is unblocked when every blocker is closed.
-- **Frontier query**: list the map's open children (`gh issue list --state open`, scoped to the map's sub-issues / task list), drop any with an open blocker (`issue_dependencies_summary.blocked_by > 0`, or an open issue in the `Blocked by` line) or an assignee; first in map order wins.
-- **Claim**: `gh issue edit <n> --add-assignee @me`, the session's first write.
-- **Resolve**: `gh issue comment <n> --body "<answer>"`, then `gh issue close <n>`, then append a context pointer (gist + link) to the map's Decisions-so-far.
+- **Map**: a single issue labelled `wayfinder:map`, holding the Notes / Decisions-so-far / Fog body. `multica issue create --title "..." --description-file <path>`, then attach the label with `multica issue label add`.
+- **Child ticket**: `multica issue create --parent <map> --title "..." --description-file <path>`. Labels: `wayfinder:<type>` (`research`/`prototype`/`grilling`/`task`). Once claimed, the ticket is assigned to the driving dev. List a map's children with `multica issue children <map> --output json`.
+- **Labels**: the `wayfinder:*` labels don't exist in Multica yet. Create each on first use with `multica label create --name "wayfinder:map" --color "#3b82f6"`, then attach it by ID.
+- **Blocking**: Multica has no dependency edges. Put a `Blocked by: ISSUE-n, ISSUE-n` line at the top of the child body. A ticket is unblocked when every blocker is `done`. Use `--stage <N>` only when the ordering is a strict sequence of groups: a stage's tickets all finish before the parent is woken, which doesn't express per-ticket blockers.
+- **Frontier query**: `multica issue children <map> --output json`, drop any that is `done` or `cancelled`, assigned, or has a `Blocked by` blocker that isn't `done`; first in map order wins.
+- **Claim**: `multica issue assign <n> --to <your-name> --no-start`, the session's first write.
+- **Resolve**: `multica issue comment add <n> --content-file <path>` with the answer, then `multica issue status <n> done`, then append a context pointer (gist + link) to the map's Decisions-so-far.
