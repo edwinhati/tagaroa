@@ -61,8 +61,8 @@ jobs:
           export LOG="$RUNNER_TEMP/deploy.log"
           echo "LOG=$LOG" >> "$GITHUB_ENV"
           : > "$LOG"
-          sha=$(git rev-parse --verify "${RUN_SHA:-${INPUT_SHA:-origin/main}}^{commit}")
-          git fetch --quiet origin main
+          [[ -z "$INPUT_SHA" || "$INPUT_SHA" =~ ^[a-f0-9]{40}$ ]] || { echo "::error::Use a full commit SHA."; exit 1; }
+          sha=$(git rev-parse --verify --end-of-options "${RUN_SHA:-${INPUT_SHA:-origin/main}}^{commit}")
           if ! git merge-base --is-ancestor "$sha" origin/main; then
             echo "::error::$sha is not on main; refusing to deploy it."
             exit 1
