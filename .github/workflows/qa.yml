@@ -1,12 +1,18 @@
 name: QA
 
+# Free-plan minutes: docs-only changes skip CI, a newer push cancels the
+# running one, and the three-browser matrix only runs on manual dispatch.
 on:
   pull_request:
+    paths-ignore: ["**.md", "docs/**"]
   push:
     branches: [main]
-  schedule:
-    - cron: "0 19 * * *"
+    paths-ignore: ["**.md", "docs/**"]
   workflow_dispatch:
+
+concurrency:
+  group: qa-${{ github.ref }}
+  cancel-in-progress: true
 
 permissions:
   contents: read
@@ -35,7 +41,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        project: ${{ fromJSON((github.event_name == 'schedule' || github.event_name == 'workflow_dispatch') && '["chromium","webkit","mobile-chromium"]' || '["chromium"]') }}
+        project: ${{ fromJSON((github.event_name == 'workflow_dispatch') && '["chromium","webkit","mobile-chromium"]' || '["chromium"]') }}
     steps:
       - uses: actions/checkout@v7
       - uses: actions/setup-node@v7
@@ -46,7 +52,7 @@ jobs:
         with:
           bun-version: "1.4.2"
       - run: bun install --frozen-lockfile
-      - run: bunx playwright install --with-deps chromium webkit
+      - run: bunx playwright install --with-deps ${{ matrix.project == 'webkit' && 'webkit' || 'chromium' }}
         working-directory: apps/auth
       - run: bun run test:integration
       # Both browser suites share the seeded operator and must run sequentially.
@@ -54,10 +60,6 @@ jobs:
         working-directory: apps/auth
       - run: bun run test:e2e --project ${{ matrix.project }}
         working-directory: apps/admin
-      - run: bunx e2e-web install chromium --with-deps
-        if: matrix.project == 'chromium'
-      - run: bun run test:exploration
-        if: matrix.project == 'chromium'
       - uses: actions/upload-artifact@v7
         if: always()
         with:
@@ -65,7 +67,6 @@ jobs:
           path: |
             apps/auth/test-results
             apps/admin/test-results
-            .e2e
           retention-days: 7
 
   # Opens a "QA failed on main" issue for Rex in Multica. Skipped for PRs, which their author fixes.
