@@ -1,0 +1,277 @@
+groups:
+  - name: vm-and-postgres
+    rules:
+      - alert: HostExporterDown
+        expr: up{job="node"} == 0
+        for: 2m
+        labels:
+          severity: critical
+        annotations:
+          summary: Host metrics unavailable
+          description: VictoriaMetrics cannot scrape node-exporter.
+      - alert: PostgreSQLExporterDown
+        expr: up{job="postgres"} == 0
+        for: 2m
+        labels:
+          severity: critical
+        annotations:
+          summary: PostgreSQL exporter is unavailable
+          description: VictoriaMetrics cannot scrape postgres-exporter.
+      - alert: PostgreSQLUnavailable
+        expr: pg_up == 0
+        for: 1m
+        labels:
+          severity: critical
+        annotations:
+          summary: PostgreSQL unavailable
+          description: postgres-exporter cannot collect PostgreSQL metrics.
+      - alert: PostgreSQLExporterScrapeFailed
+        expr: pg_exporter_last_scrape_error > 0
+        for: 2m
+        labels:
+          severity: critical
+        annotations:
+          summary: PostgreSQL metric collection failing
+          description: postgres-exporter cannot collect database statistics.
+      - alert: HostCPUHigh
+        expr:
+          100 * (1 - avg by (instance) (rate(node_cpu_seconds_total{mode="idle"}[5m])))
+          > 90
+        for: 10m
+        labels:
+          severity: warning
+        annotations:
+          summary: Host CPU above 90%
+          description: CPU usage has remained high for 10 minutes.
+      - alert: HostMemoryLow
+        expr: node_memory_MemAvailable_bytes / node_memory_MemTotal_bytes < 0.10
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: Host available memory below 10%
+          description: Less than 10% of host memory is available.
+      - alert: HostRootFilesystemLow
+        expr:
+          node_filesystem_avail_bytes{mountpoint="/",fstype!~"tmpfs|overlay"} / node_filesystem_size_bytes{mountpoint="/",fstype!~"tmpfs|overlay"}
+          < 0.15
+        for: 10m
+        labels:
+          severity: warning
+        annotations:
+          summary: Root filesystem below 15% free
+          description: Host root filesystem capacity is running low.
+      - alert: HostRootFilesystemCritical
+        expr:
+          node_filesystem_avail_bytes{mountpoint="/",fstype!~"tmpfs|overlay"} / node_filesystem_size_bytes{mountpoint="/",fstype!~"tmpfs|overlay"}
+          < 0.08
+        for: 5m
+        labels:
+          severity: critical
+        annotations:
+          summary: Root filesystem below 8% free
+          description: Host root filesystem is close to full.
+      - alert: PostgreSQLConnectionsHigh
+        expr: sum(pg_stat_database_numbackends) / pg_settings_max_connections > 0.80
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: PostgreSQL connections above 80%
+          description: Client connections are approaching the connection limit.
+      - alert: PostgreSQLLongTransaction
+        expr: max(pg_stat_activity_max_tx_duration{state="active"}) > 300
+        for: 2m
+        labels:
+          severity: warning
+        annotations:
+          summary: PostgreSQL active transaction older than 5 minutes
+          description: Check for an unexpectedly long-running transaction.
+      - alert: ValkeyExporterDown
+        expr: up{job="valkey"} == 0
+        for: 2m
+        labels:
+          severity: critical
+        annotations:
+          summary: Valkey metrics are unavailable
+          description: VictoriaMetrics cannot scrape valkey-exporter.
+      - alert: BlackboxProbeFailed
+        expr: probe_success{job=~"blackbox_http|blackbox_tcp"} == 0
+        for: 2m
+        labels:
+          severity: warning
+        annotations:
+          summary: An internal service probe is failing
+          description: Check the service named by the instance label.
+      - alert: PublicAppProbeFailed
+        expr: probe_success{job="blackbox_http", service=~"tms-.*"} == 0
+        for: 2m
+        labels:
+          severity: critical
+        annotations:
+          summary: A public TMS endpoint is failing
+          description: A user-facing TMS endpoint stopped answering through the edge. Check the DigitalOcean site agent, the stack, and this probe's path.
+      - alert: AppContainerStopped
+        expr: app_container_running == 0
+        for: 2m
+        labels:
+          severity: critical
+        annotations:
+          summary: A DigitalOcean application container is not running
+          description: The container named by the container label has been stopped for two minutes. Check the TMS stack on tagaroa-server-do-sgp1.
+      - alert: PublicAppProbeTlsExpiring
+        expr: probe_ssl_earliest_cert_expiry{job="blackbox_http", service=~"tms-.*"} - time() < 14 * 24 * 3600
+        for: 1h
+        labels:
+          severity: warning
+        annotations:
+          summary: A public TMS certificate expires within 14 days
+          description: ACME renewal appears to be failing for a TMS domain.
+      - alert: BlackboxExporterDown
+        expr: up{job=~"blackbox_http|blackbox_tcp"} == 0
+        for: 2m
+        labels:
+          severity: critical
+        annotations:
+          summary: Blackbox exporter is unavailable
+          description: VictoriaMetrics cannot scrape the probe exporter.
+  - name: postgres-maintenance
+    rules:
+      - alert: PostgresDetailCollectorFailed
+        expr:
+          tagaroa_pg_details_success == 0 or time() - tagaroa_pg_details_timestamp_seconds
+          > 180
+        for: 3m
+        labels:
+          severity: warning
+        annotations:
+          summary: PostgreSQL detail collection failed or is stale
+      - alert: PostgresBlockedSessions
+        expr: tagaroa_pg_blocked > 0
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: Database sessions blocked for five minutes
+      - alert: PostgresTransactionIdAge
+        expr: tagaroa_pg_xid_age > 150000000
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: Database transaction ID age approaching freeze threshold
+      - alert: PostgresIdleTransaction
+        expr: tagaroa_pg_idle_age > 300
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: Idle transaction older than five minutes
+  - name: valkey
+    rules:
+      - alert: ValkeyUnavailable
+        expr: redis_up{job="valkey"} == 0
+        for: 1m
+        labels:
+          severity: critical
+        annotations:
+          summary: Valkey is unavailable
+      - alert: ValkeyMemoryHigh
+        expr:
+          redis_memory_used_bytes{job="valkey"} / redis_memory_max_bytes{job="valkey"}
+          > 0.80
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: Valkey memory exceeds 80% of its limit
+      - alert: ValkeyMemoryCritical
+        expr:
+          redis_memory_used_bytes{job="valkey"} / redis_memory_max_bytes{job="valkey"}
+          > 0.95
+        for: 2m
+        labels:
+          severity: critical
+        annotations:
+          summary: Valkey memory exceeds 95%; new writes may be rejected
+      - alert: ValkeyAOFWriteFailed
+        expr: redis_aof_last_write_status{job="valkey"} != 1
+        for: 1m
+        labels:
+          severity: critical
+        annotations:
+          summary: Valkey append-only writes failed
+      - alert: ValkeyAOFRewriteFailed
+        expr: redis_aof_last_bgrewrite_status{job="valkey"} != 1
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: Valkey append-only rewrite failed
+      - alert: ValkeyRDBSaveFailed
+        expr: redis_rdb_last_bgsave_status{job="valkey"} != 1
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: Valkey snapshot save failed
+      - alert: ValkeyConnectionsRejected
+        expr: increase(redis_rejected_connections_total{job="valkey"}[5m]) > 0
+        for: 1m
+        labels:
+          severity: warning
+        annotations:
+          summary: Valkey rejected connections
+      - alert: ValkeyCommandsRejected
+        expr: sum(increase(redis_commands_rejected_calls_total{job="valkey"}[5m])) > 0
+        for: 1m
+        labels:
+          severity: warning
+        annotations:
+          summary: Valkey rejected commands; inspect ACLs and memory
+      - alert: ValkeyUnexpectedEvictions
+        expr: increase(redis_evicted_keys_total{job="valkey"}[5m]) > 0
+        for: 1m
+        labels:
+          severity: warning
+        annotations:
+          summary: Valkey evicted keys despite the configured noeviction policy
+      - alert: ValkeyPersistenceDisabled
+        expr: redis_aof_enabled{job="valkey"} == 0
+        for: 2m
+        labels:
+          severity: critical
+        annotations:
+          summary: Valkey append-only persistence is disabled
+  - name: digitalocean-connectivity
+    rules:
+      - alert: DigitalOceanTelemetryMissing
+        expr: absent_over_time(up{host="tagaroa-server-do-sgp1",job="node"}[5m])
+        for: 2m
+        labels:
+          severity: warning
+        annotations:
+          summary: DigitalOcean telemetry has stopped arriving
+      - alert: PangolinPrivateResourceUnavailable
+        expr: pangolin_private_resource_reachable{host="tagaroa-server-do-sgp1"} == 0
+        for: 2m
+        labels:
+          severity: warning
+        annotations:
+          summary: DigitalOcean cannot reach a Pangolin private resource
+      - alert: PangolinConnectivityCollectorStale
+        expr:
+          time() - pangolin_connectivity_collector_timestamp_seconds{host="tagaroa-server-do-sgp1"}
+          > 120
+        for: 2m
+        labels:
+          severity: warning
+        annotations:
+          summary: DigitalOcean private connectivity collector is stale
+      - alert: PangolinContainerStopped
+        expr: pangolin_container_running{host="tagaroa-server-do-sgp1"} == 0
+        for: 1m
+        labels:
+          severity: warning
+        annotations:
+          summary: DigitalOcean Pangolin container is stopped
