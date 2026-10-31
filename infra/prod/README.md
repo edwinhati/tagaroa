@@ -16,7 +16,10 @@ Complete ISSUE-7 before merging/enabling the deployment workflows:
   `tagaroa`. Use shell-quoted assignments for `OCIR_USERNAME` and `OCIR_TOKEN`.
 - Configure the production `.env`, dedicated `tagaroa` database/role, Resend
   delivery and webhook, DNS and Pangolin resources from the issue specification.
-- Install ARM64 emulation once on CT105, then verify an ARM64 container starts.
+- Install `infra/runner/tagaroa-binfmt.openrc` as
+  `/etc/init.d/tagaroa-binfmt` on CT105, mode 0755, and enable it with
+  `rc-update add tagaroa-binfmt default`. It mounts binfmt in the persistent LXC
+  namespace before registering the emulator. ARM64 execution was verified there.
 - Establish the named recovery operators and verify their real MFA enrollment.
   First-admin bootstrap alone does not satisfy the security preflight. Complete
   controlled onboarding before attempting a normal release; keep the public
