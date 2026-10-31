@@ -28,6 +28,16 @@ done
 FAIL_STEP=never-match
 sh "$tmp/deploy.sh" new-core new-web
 grep -q CORE_IMAGE=new-core "$tmp/.release.env"
+rm -f "$tmp/.release.env" "$tmp/.release.env.previous"
+FAIL_STEP='run --rm --no-deps preflight'
+for attempt in 1 2; do
+  rm -f "$ONCE" "$TRACE"
+  if sh "$tmp/deploy.sh" first-core first-web > "$tmp/log" 2>&1; then
+    echo "First-release preflight passed unexpectedly on attempt $attempt" >&2; exit 1
+  fi
+  test ! -f "$tmp/.release.env"
+  if grep -q 'up -d --wait --wait-timeout 240' "$TRACE"; then echo 'Unverified images were started'; exit 1; fi
+done
 for event in pull_request pull_request_target issue_comment; do
   if GITHUB_EVENT_NAME=$event GITHUB_REF=refs/heads/main sh "$root/../runner/hooks/job-started.sh" > "$tmp/log" 2>&1; then
     echo "Runner accepted untrusted event: $event" >&2; exit 1
