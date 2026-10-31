@@ -6,7 +6,7 @@ Bun + Turborepo monorepo. Workspaces: `apps/*`, `packages/*`, `servers/*`.
 
 ### Issue tracker
 
-Issues live as GitHub issues in `edwinhati/tagaroa`, managed with the `gh` CLI. See `docs/agents/issue-tracker.md`.
+Issues live in Multica (IDs like `ISSUE-12`), managed with the `multica` CLI; PRs stay on GitHub. See `docs/agents/issue-tracker.md`, and `docs/agents/multica.md` for the workflow and PR linking.
 
 ### Triage labels
 
