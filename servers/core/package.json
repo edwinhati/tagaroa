@@ -37,6 +37,7 @@
   },
   "devDependencies": {
     "@nestjs/schematics": "12.0.10",
+    "@repo/test-support": "*",
     "@repo/typescript-config": "*",
     "@types/bun": "1.4.4",
     "@types/node": "26.6.5",

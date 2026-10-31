@@ -6,9 +6,9 @@
       "name": "tagaroa",
       "devDependencies": {
         "@ai-sdk/openai-compatible": "3.0.77",
-        "@axe-core/playwright": "^4.14.0",
         "@changesets/cli": "3.0.3",
         "@e2e-dev/web": "0.15.3",
+        "@repo/test-support": "*",
         "@shadcn/lint": "^0.2.3",
         "@types/node": "26.6.5",
         "ai": "7.0.152",
@@ -43,7 +43,9 @@
         "zod": "4.6.7",
       },
       "devDependencies": {
+        "@axe-core/playwright": "^4.14.0",
         "@playwright/test": "1.64.1",
+        "@repo/test-support": "*",
         "@repo/typescript-config": "*",
         "@tailwindcss/vite": "^4.3.3",
         "@tanstack/devtools-vite": "0.8.5",
@@ -82,7 +84,9 @@
         "zod": "4.6.7",
       },
       "devDependencies": {
+        "@axe-core/playwright": "^4.14.0",
         "@playwright/test": "1.64.1",
+        "@repo/test-support": "*",
         "@repo/typescript-config": "*",
         "@tailwindcss/vite": "^4.3.3",
         "@tanstack/devtools-vite": "0.8.5",
@@ -210,6 +214,15 @@
         "vite": "8.3.5",
       },
     },
+    "packages/test-support": {
+      "name": "@repo/test-support",
+      "version": "0.0.0",
+      "devDependencies": {
+        "@repo/typescript-config": "*",
+        "@types/bun": "1.4.4",
+        "typescript": "7.0.2",
+      },
+    },
     "packages/typescript-config": {
       "name": "@repo/typescript-config",
       "version": "0.0.0",
@@ -269,6 +282,7 @@
       },
       "devDependencies": {
         "@nestjs/schematics": "12.0.10",
+        "@repo/test-support": "*",
         "@repo/typescript-config": "*",
         "@types/bun": "1.4.4",
         "@types/node": "26.6.5",
@@ -859,6 +873,8 @@
     "@repo/email": ["@repo/email@workspace:packages/email"],
 
     "@repo/shell": ["@repo/shell@workspace:packages/shell"],
+
+    "@repo/test-support": ["@repo/test-support@workspace:packages/test-support"],
 
     "@repo/typescript-config": ["@repo/typescript-config@workspace:packages/typescript-config"],
 
