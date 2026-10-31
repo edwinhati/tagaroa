@@ -3,8 +3,10 @@ import { describe, expect, test } from "bun:test";
 import {
   bindDomainBody,
   breakGlassBody,
+  createRoleBody,
   grantAssignmentBody,
   myPermissionsQuery,
+  reviewAccessBody,
   updateAssignmentBody,
 } from "./access-control.schemas";
 
@@ -126,8 +128,21 @@ describe("the other access-control bodies", () => {
       organizationId: "o",
       teamId: null,
     });
+    expect(myPermissionsQuery.parse({ organizationId: "o" }).teamId).toBeNull();
     expect(myPermissionsQuery.safeParse({}).error?.issues[0]!.message).toBe(
       "Subsidiary is required.",
     );
   });
+});
+
+test("a missing service-checked field reaches the service as undefined", () => {
+  expect(createRoleBody.parse({})).toEqual({});
+  expect(reviewAccessBody.parse({})).toEqual({});
+  expect(
+    breakGlassBody.parse({
+      organizationId: "o",
+      permission: "p",
+      scope: "subsidiary",
+    }).reason,
+  ).toBeUndefined();
 });

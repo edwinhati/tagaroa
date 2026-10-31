@@ -85,7 +85,7 @@ export const breakGlassBody = z
       organizationId: required("Subsidiary"),
       permission: required("Permission"),
       // The service owns the reason's length rule.
-      reason: z.unknown(),
+      reason: z.unknown().optional(),
       teamId: z.unknown().optional(),
     },
     OBJECT_BODY,
@@ -96,14 +96,16 @@ export type BreakGlassBody = z.output<typeof breakGlassBody>;
 
 // The role and review fields are cleaned and checked in the service (trimmed
 // text, key format, permission catalogue), so these schemas only fix the shape.
+// Zod 4 rejects a missing `z.unknown()` key, so each is `.optional()`: an absent
+// field reaches the service and gets its sentence, as before.
 
 /** `POST /access-control/roles`. */
 export const createRoleBody = z.object(
   {
-    description: z.unknown(),
-    key: z.unknown(),
-    name: z.unknown(),
-    permissions: z.unknown(),
+    description: z.unknown().optional(),
+    key: z.unknown().optional(),
+    name: z.unknown().optional(),
+    permissions: z.unknown().optional(),
   },
   OBJECT_BODY,
 );
@@ -117,7 +119,11 @@ export type UpdateRoleBody = z.output<typeof updateRoleBody>;
 
 /** `POST /access-control/reviews/:kind/:subjectId`. */
 export const reviewAccessBody = z.object(
-  { decision: z.unknown(), note: z.unknown(), snapshot: z.unknown() },
+  {
+    decision: z.unknown().optional(),
+    note: z.unknown().optional(),
+    snapshot: z.unknown().optional(),
+  },
   OBJECT_BODY,
 );
 
@@ -140,6 +146,7 @@ export const myPermissionsQuery = z.object({
   organizationId: required("Subsidiary"),
   teamId: z
     .unknown()
+    .optional()
     .transform((value) =>
       typeof value === "string" && value.trim().length > 0
         ? value.trim()

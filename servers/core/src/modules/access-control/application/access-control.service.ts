@@ -140,10 +140,10 @@ export class AccessControlService implements AccessControl {
 
   async createRole(
     input: {
-      description: unknown;
-      key: unknown;
-      name: unknown;
-      permissions: unknown;
+      description?: unknown;
+      key?: unknown;
+      name?: unknown;
+      permissions?: unknown;
     },
     actor: AccessActor,
     now = new Date(),
@@ -176,7 +176,7 @@ export class AccessControlService implements AccessControl {
 
   async updateRole(
     id: string,
-    input: { description: unknown; name: unknown; permissions: unknown },
+    input: { description?: unknown; name?: unknown; permissions?: unknown },
     actor: AccessActor,
     now = new Date(),
   ) {
@@ -395,7 +395,7 @@ export class AccessControlService implements AccessControl {
     input: {
       organizationId: string;
       permission: string;
-      reason: unknown;
+      reason?: unknown;
       scope: AccessScopeType;
       teamId: string | null;
     },
