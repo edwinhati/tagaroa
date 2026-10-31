@@ -1,0 +1,322 @@
+services:
+  postgres-exporter:
+    image: quay.io/prometheuscommunity/postgres-exporter:latest
+    container_name: postgres-exporter
+    restart: unless-stopped
+    logging:
+      driver: json-file
+      options:
+        max-size: 10m
+        max-file: "3"
+    command:
+      - --collector.stat_statements
+      - --collector.stat_user_tables
+      - --collector.statio_user_tables
+      - --collector.statio_user_indexes
+      - --collector.database_wraparound
+      - --collector.long_running_transactions
+      - --collector.postmaster
+      - --collector.process_idle
+      - --collector.stat_activity_autovacuum
+      - --collector.stat_checkpointer
+      - --collector.buffercache_summary
+    environment:
+      DATA_SOURCE_URI: postgres:5432/postgres?sslmode=disable
+      DATA_SOURCE_USER: postgres_exporter
+      DATA_SOURCE_PASS: ${POSTGRES_EXPORTER_PASSWORD}
+    networks:
+      - postgres_backend
+      - monitoring_backend
+  postgres-pangolin-exporter:
+    image: quay.io/prometheuscommunity/postgres-exporter:latest
+    container_name: postgres-pangolin-exporter
+    restart: unless-stopped
+    logging:
+      driver: json-file
+      options:
+        max-size: 10m
+        max-file: "3"
+    command:
+      - --collector.stat_user_tables
+      - --collector.statio_user_tables
+      - --collector.statio_user_indexes
+    environment:
+      DATA_SOURCE_URI: postgres:5432/pangolin?sslmode=disable
+      DATA_SOURCE_USER: postgres_exporter
+      DATA_SOURCE_PASS: ${POSTGRES_EXPORTER_PASSWORD}
+    networks:
+      - postgres_backend
+      - monitoring_backend
+  pgbouncer:
+    image: pgbouncer/pgbouncer:latest
+    container_name: pgbouncer
+    restart: unless-stopped
+    logging:
+      driver: json-file
+      options:
+        max-size: 10m
+        max-file: "3"
+    group_add:
+      - "986"
+    security_opt:
+      - no-new-privileges:true
+    environment:
+      DATABASES_HOST: postgres
+      PGBOUNCER_LISTEN_ADDR: 0.0.0.0
+      PGBOUNCER_LISTEN_PORT: "6432"
+      PGBOUNCER_AUTH_TYPE: scram-sha-256
+      PGBOUNCER_AUTH_FILE: /etc/pgbouncer/userlist.txt
+      PGBOUNCER_AUTH_USER: pgbouncer_auth
+      PGBOUNCER_AUTH_QUERY: SELECT username, password FROM pgbouncer_auth.lookup($$1)
+      PGBOUNCER_AUTH_DBNAME: postgres
+      PGBOUNCER_ADMIN_USERS: pgbouncer_exporter
+      PGBOUNCER_STATS_USERS: pgbouncer_exporter
+      PGBOUNCER_POOL_MODE: transaction
+      PGBOUNCER_MAX_CLIENT_CONN: "100"
+      PGBOUNCER_DEFAULT_POOL_SIZE: "10"
+      PGBOUNCER_RESERVE_POOL_SIZE: "5"
+      PGBOUNCER_IGNORE_STARTUP_PARAMETERS: extra_float_digits
+      PGBOUNCER_SERVER_RESET_QUERY: DISCARD ALL
+    volumes:
+      - ./pgbouncer/userlist.txt:/etc/pgbouncer/userlist.txt:ro
+    networks:
+      - postgres_backend
+  pgbouncer-exporter:
+    image: prometheuscommunity/pgbouncer-exporter:latest
+    container_name: pgbouncer-exporter
+    restart: unless-stopped
+    logging:
+      driver: json-file
+      options:
+        max-size: 10m
+        max-file: "3"
+    environment:
+      PGBOUNCER_EXPORTER_CONNECTION_STRING: postgres://pgbouncer_exporter:${PGBOUNCER_EXPORTER_PASSWORD}@pgbouncer:6432/pgbouncer?sslmode=disable
+    networks:
+      - postgres_backend
+      - monitoring_backend
+  node-exporter:
+    image: quay.io/prometheus/node-exporter:latest
+    container_name: node-exporter
+    restart: unless-stopped
+    logging:
+      driver: json-file
+      options:
+        max-size: 10m
+        max-file: "3"
+    pid: host
+    uts: host
+    read_only: true
+    security_opt:
+      - no-new-privileges:true
+    command:
+      - --path.procfs=/host/proc
+      - --path.sysfs=/host/sys
+      - --path.rootfs=/host
+      - --web.listen-address=:9100
+      - --collector.textfile.directory=/textfile
+    volumes:
+      - /proc:/host/proc:ro
+      - /sys:/host/sys:ro
+      - /:/host:ro,rslave
+      - ./textfile:/textfile:ro
+    networks:
+      - monitoring_backend
+  blackbox-exporter:
+    image: quay.io/prometheus/blackbox-exporter:latest
+    container_name: blackbox-exporter
+    restart: unless-stopped
+    logging:
+      driver: json-file
+      options:
+        max-size: 10m
+        max-file: "3"
+    command:
+      - --config.file=/etc/blackbox/blackbox.yml
+    volumes:
+      - ./blackbox.yml:/etc/blackbox/blackbox.yml:ro
+    networks:
+      - monitoring_backend
+      - oci_egress
+      - postgres_backend
+      - redis_backend
+  grafana:
+    image: grafana/grafana:latest
+    container_name: grafana
+    restart: unless-stopped
+    logging:
+      driver: json-file
+      options:
+        max-size: 10m
+        max-file: "3"
+    ports:
+      - 127.0.0.1:3000:3000
+    environment:
+      GF_SECURITY_ADMIN_USER: admin
+      GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_ADMIN_PASSWORD}
+      GF_USERS_ALLOW_SIGN_UP: "false"
+      GOGC: "75"
+      GOMEMLIMIT: 384MiB
+    volumes:
+      - grafana_data:/var/lib/grafana
+      - ./provisioning/datasources/prometheus.yaml:/etc/grafana/provisioning/datasources/prometheus.yaml:ro
+      - ./provisioning/datasources/loki.yaml:/etc/grafana/provisioning/datasources/loki.yaml:ro
+      - ./provisioning/dashboards:/etc/grafana/provisioning/dashboards:ro
+      - ./dashboards:/var/lib/grafana/dashboards:ro
+      - ./provisioning/dashboards:/etc/grafana/provisioning/dashboards:ro
+      - ./dashboards:/var/lib/grafana/dashboards:ro
+      - ./provisioning/datasources/traces.yaml:/etc/grafana/provisioning/datasources/traces.yaml:ro
+    networks:
+      - monitoring_backend
+      - grafana_access
+      - pangolin_default
+  victoriatraces:
+    image: victoriametrics/victoria-traces:latest
+    container_name: victoriatraces
+    restart: unless-stopped
+    command:
+      - -storageDataPath=/storage
+      - -retentionPeriod=7d
+      - -retention.maxDiskSpaceUsageBytes=1GiB
+      - -memory.allowedBytes=256MiB
+    environment:
+      GOGC: "75"
+      GOMEMLIMIT: 384MiB
+    volumes:
+      - victoriatraces_data:/storage
+    networks:
+      - monitoring_backend
+      - tracing_backend
+    logging:
+      driver: json-file
+      options:
+        max-size: 10m
+        max-file: "3"
+  victoriametrics:
+    image: victoriametrics/victoria-metrics:latest
+    restart: unless-stopped
+    command:
+      - -storageDataPath=/storage
+      - -retentionPeriod=15d
+      - -promscrape.config=/etc/victoriametrics/scrape.yml
+      - -memory.allowedBytes=256MiB
+      - -dedup.minScrapeInterval=30s
+    networks:
+      - monitoring_backend
+      - telemetry_access
+    logging: &id001
+      driver: json-file
+      options:
+        max-size: 10m
+        max-file: "3"
+    environment:
+      GOGC: "75"
+      GOMEMLIMIT: 384MiB
+    volumes:
+      - victoriametrics_data:/storage
+      - ./victoriametrics/scrape.yml:/etc/victoriametrics/scrape.yml:ro
+    container_name: victoriametrics
+    ports:
+      - 127.0.0.1:8428:8428
+  vmalert:
+    image: victoriametrics/vmalert:latest
+    restart: unless-stopped
+    command:
+      - -rule=/etc/vmalert/alerts.yml
+      - -datasource.url=http://victoriametrics:8428
+      - -remoteWrite.url=http://victoriametrics:8428
+      - -remoteRead.url=http://victoriametrics:8428
+      - -notifier.url=http://alertmanager:9093
+      - -evaluationInterval=30s
+    networks:
+      - monitoring_backend
+    logging: *id001
+    environment:
+      GOGC: "75"
+      GOMEMLIMIT: 384MiB
+    volumes:
+      - ./alerts.yml:/etc/vmalert/alerts.yml:ro
+    container_name: vmalert
+  alertmanager:
+    image: prom/alertmanager:latest
+    container_name: alertmanager
+    restart: unless-stopped
+    command:
+      - --config.file=/etc/alertmanager/alertmanager.yml
+      - --storage.path=/alertmanager
+      - --cluster.listen-address=
+    volumes:
+      - ./alertmanager/alertmanager.yml:/etc/alertmanager/alertmanager.yml:ro
+      - ./alertmanager/ops-webhook-url:/etc/alertmanager/ops-webhook-url:ro
+      - alertmanager_data:/alertmanager
+    networks:
+      - monitoring_backend
+      - oci_egress
+    logging: *id001
+  victorialogs:
+    image: victoriametrics/victoria-logs:latest
+    restart: unless-stopped
+    command:
+      - -storageDataPath=/storage
+      - -retentionPeriod=7d
+      - -retention.maxDiskSpaceUsageBytes=1GiB
+      - -memory.allowedBytes=256MiB
+    networks:
+      - monitoring_backend
+      - telemetry_access
+    logging: *id001
+    environment:
+      GOGC: "75"
+      GOMEMLIMIT: 384MiB
+    volumes:
+      - victorialogs_data:/storage
+    container_name: victorialogs
+    ports:
+      - 127.0.0.1:9428:9428
+  vector:
+    image: timberio/vector:latest-alpine
+    container_name: vector
+    restart: unless-stopped
+    command:
+      - --config
+      - /etc/vector/vector.yaml
+    volumes:
+      - ./vector/vector.yaml:/etc/vector/vector.yaml:ro
+      - /var/lib/docker/containers:/var/lib/docker/containers:ro
+      - /var/log:/host/var/log:ro
+      - vector_data:/var/lib/vector
+    networks:
+      - monitoring_backend
+    logging: *id001
+    environment:
+      VECTOR_THREADS: "2"
+volumes:
+  grafana_data: null
+  victoriatraces_data: {}
+  victoriametrics_data: {}
+  victorialogs_data: {}
+  vector_data: {}
+  alertmanager_data: {}
+networks:
+  postgres_backend:
+    external: true
+    name: postgres_backend
+  oci_egress:
+    external: true
+    name: oci_egress
+  monitoring_backend:
+    name: monitoring_backend
+    internal: true
+  redis_backend:
+    external: true
+    name: redis_backend
+  tracing_backend:
+    name: tracing_backend
+    internal: true
+  grafana_access:
+    name: grafana_access
+  pangolin_default:
+    external: true
+    name: pangolin_default
+  telemetry_access:
+    name: telemetry_access

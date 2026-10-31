@@ -121,6 +121,8 @@ takes the oldest. For it:
   named operators and a second super-admin.
 - **First release:** there is no prod yet, so the first brief covers all of `main`.
   Approve it like any other.
+  Once it is Done, expire the `TagaroaProdDown` Alertmanager silence on the VM
+  (`infra/oci/monitoring/README.md`) so prod outages reach Rex.
 
 ## Secrets (GitHub repo secrets, self-hosted runner only)
 

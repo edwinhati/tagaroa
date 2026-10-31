@@ -68,7 +68,7 @@ hand; the VM copy must match the repo.
 `POST $MULTICA_OPS_WEBHOOK`, `Content-Type: application/json`,
 `Idempotency-Key: <kind>-<unique run id>`, body
 `{"kind": "...", "env": "dev|prod", "sha": "...", "step": "...", "log_tail": "...", "run_url": "..."}`
-(omit what does not apply). `log_tail` is at most 50 lines with secrets scrubbed (never
+(omit what does not apply). `infra/ops/ops-alert.sh` sends it; use it rather than hand-built `curl`. `log_tail` is at most 50 lines with secrets scrubbed (never
 send `.env` contents).
 
 ## Done when
