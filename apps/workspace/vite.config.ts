@@ -5,6 +5,9 @@ import viteReact from "@vitejs/plugin-react";
 import { defineConfig } from "vite";
 
 export default defineConfig({
+  // The SPA prerender serves the build on `localhost` and fetches it on
+  // 127.0.0.1. Where localhost resolves to ::1 first (Docker), that misses.
+  preview: { host: true },
   server: {
     // Turborepo's microfrontends proxy hands the real port through
     // TURBO_MFE_PORT on the dev script; this is the standalone default.

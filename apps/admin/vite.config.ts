@@ -7,6 +7,9 @@ import { defineConfig } from "vite";
 export default defineConfig({
   // No `base`: this app answers on its own origin, not on a path of the
   // workspace's. It is not in `microfrontends.json` and the proxy never sees it.
+  // The SPA prerender serves the build on `localhost` and fetches it on
+  // 127.0.0.1. Where localhost resolves to ::1 first (Docker), that misses.
+  preview: { host: true },
   server: {
     port: 3003,
     // Vite walks to the next free port when this one is taken, which puts the

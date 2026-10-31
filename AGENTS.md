@@ -16,6 +16,10 @@ Default vocabulary: `needs-triage`, `needs-info`, `ready-for-agent`, `ready-for-
 
 Multi-context: a root `CONTEXT-MAP.md` points at one `CONTEXT.md` per workspace. See `docs/agents/domain.md`.
 
+### CI
+
+GitHub Actions minutes are limited (free plan), so run QA locally with the `local-ci` skill before opening or updating a PR that changes code: `bunx run-local-ci run --quiet -w .github/workflows/qa.yml --pause-on-failure`. If it fails, fix and `retry` until it passes; don't report the work as done before then. Skip it for changes that only touch `**.md` or `docs/**`. Never run another workflow with it.
+
 ## Frontend apps
 
 Every app under `apps/` runs its dev server through the shared wrapper, so
