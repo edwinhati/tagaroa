@@ -1,0 +1,19 @@
+# Only team="tagaroa" alerts notify anyone: they open an issue for Rex through the
+# "Ops alert" Multica autopilot. Everything else goes nowhere, as before.
+route:
+  receiver: "null"
+  routes:
+    - matchers:
+        - team="tagaroa"
+      receiver: multica-ops
+      group_by: [alertname]
+      group_wait: 1m
+      repeat_interval: 24h
+
+receivers:
+  - name: "null"
+  - name: multica-ops
+    webhook_configs:
+      # The webhook URL is a secret: mode 0600 on the VM, never in git.
+      - url_file: /etc/alertmanager/ops-webhook-url
+        send_resolved: false

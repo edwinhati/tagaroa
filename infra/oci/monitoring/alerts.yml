@@ -22,6 +22,7 @@ groups:
         for: 1m
         labels:
           severity: critical
+          team: tagaroa
         annotations:
           summary: PostgreSQL unavailable
           description: postgres-exporter cannot collect PostgreSQL metrics.
@@ -275,3 +276,18 @@ groups:
           severity: warning
         annotations:
           summary: DigitalOcean Pangolin container is stopped
+  - name: tagaroa
+    rules:
+      # team: tagaroa routes to the "Ops alert" Multica autopilot (alertmanager.yml).
+      - alert: TagaroaProdDown
+        # ponytail: stays silent until prod has answered once in the last 14 days, so the
+        # probe can be installed before the first release; drop the "and" once prod is live.
+        expr: probe_success{job="tagaroa-prod"} == 0 and on(instance)
+          max_over_time(probe_success{job="tagaroa-prod"}[14d]) == 1
+        for: 3m
+        labels:
+          team: tagaroa
+          severity: critical
+        annotations:
+          summary: Tagaroa prod is down
+          description: The public probe of the instance label has failed for 3 minutes.
