@@ -13,6 +13,7 @@ import {
 import { Roles, Session, type UserSession } from "@thallesp/nestjs-better-auth";
 
 import { SessionOnly } from "../../../platform/http/session-only.decorator";
+import { ZodBody } from "../../../platform/http/zod-body";
 import {
   AccessControlService,
   type AccessActor,
@@ -23,6 +24,10 @@ import {
   ACCESS_SCOPE_TYPES,
   type AccessScopeType,
 } from "../domain/access-policy";
+import {
+  grantAssignmentBody,
+  type GrantAssignmentBody,
+} from "./access-control.schemas";
 
 const ACCESS_READ_ROLES = [
   "helpdesk",
@@ -203,23 +208,11 @@ export class AccessControlController {
   @Post("assignments")
   @Roles(["admin", "super-admin"])
   async grantAssignment(
-    @Body() value: unknown,
+    @Body(new ZodBody(grantAssignmentBody)) body: GrantAssignmentBody,
     @Session() session: UserSession,
   ) {
-    const body = asRecord(value);
-    const scope = scopeOf(body.scope);
     return {
-      data: await this.access.grantAssignment(
-        {
-          expiresAt: expirationOf(body.expiresAt),
-          organizationId: requiredId(body.organizationId, "Subsidiary"),
-          roleId: requiredId(body.roleId, "Role"),
-          scope,
-          teamId: scope === "team" ? requiredId(body.teamId, "Team") : null,
-          userId: requiredId(body.userId, "Person"),
-        },
-        actorOf(session),
-      ),
+      data: await this.access.grantAssignment(body, actorOf(session)),
     };
   }
 
