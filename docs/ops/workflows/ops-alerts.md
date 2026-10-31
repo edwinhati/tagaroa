@@ -33,7 +33,7 @@ that hand-off is the brief. Rex never changes prod.
   - Read `kind` and the payload first.
   - `prod-down`: diagnose **read-only** over `ssh ubuntu@168.107.65.35`:
     `docker compose -p tagaroa-prod ps`, `docker logs --since 30m` for core and web,
-    `curl -s https://api.tagaroa.cc/api/health/live`, `cat /home/tagaroa/apps/.release.env`
+    `curl -s https://tagaroa.cc/api/health/live`, `cat /home/tagaroa/apps/.release.env`
     (what is deployed, and when), `docker ps` health of `postgres` and `pangolin`. Do not
     restart, roll back, edit files or run migrations.
   - `dev-deploy-failed`: open the run URL, find the failing step, reproduce locally if it
@@ -50,7 +50,7 @@ Keep the source of every file below in the repo under `infra/oci/monitoring/`, i
 hand; the VM copy must match the repo.
 
 - **Probe:** a blackbox-exporter job `tagaroa-prod` (module `http_2xx`, 30 s interval)
-  for `https://api.tagaroa.cc/api/health/live` and `https://app.tagaroa.cc/`. Add it
+  for `https://tagaroa.cc/api/health/live` and `https://app.tagaroa.cc/`. Add it
   where the existing scrape config lives, next to the current blackbox targets.
 - **Rule** in `/etc/vmalert/alerts.yml`: `TagaroaProdDown`,
   `probe_success{job="tagaroa-prod"} == 0` for `3m`, labels `team: tagaroa`,

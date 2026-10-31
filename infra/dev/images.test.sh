@@ -26,7 +26,7 @@ DATABASE_URL=postgresql://postgres:fixture-password@postgres:5432/tagaroa
 NODE_ENV=production
 PORT=8080
 BETTER_AUTH_SECRET=image-test-secret-at-least-thirty-two-characters
-BETTER_AUTH_URL=https://api.dev.tagaroa.cc
+BETTER_AUTH_URL=https://dev.tagaroa.cc
 TRUSTED_ORIGINS=https://auth.dev.tagaroa.cc,https://admin.dev.tagaroa.cc,https://app.dev.tagaroa.cc
 PASSKEY_ORIGINS=https://auth.dev.tagaroa.cc,https://app.dev.tagaroa.cc
 PASSKEY_RP_ID=dev.tagaroa.cc
@@ -58,7 +58,7 @@ until docker exec "$id-core" bun -e "fetch('http://localhost:8080/api/health/liv
   sleep 1
 done
 docker exec "$id-core" bun -e '
-for (const [host,path,type] of [["auth.dev.tagaroa.cc","/","text/html"],["admin.dev.tagaroa.cc","/","text/html"],["app.dev.tagaroa.cc","/","text/html"],["app.dev.tagaroa.cc","/engineering","text/html"],["api.dev.tagaroa.cc","/api/health/live","application/json"]]) {
+for (const [host,path,type] of [["auth.dev.tagaroa.cc","/","text/html"],["admin.dev.tagaroa.cc","/","text/html"],["app.dev.tagaroa.cc","/","text/html"],["app.dev.tagaroa.cc","/engineering","text/html"],["dev.tagaroa.cc","/api/health/live","application/json"]]) {
   const r = await fetch("http://web"+path,{headers:{host}});
   if(r.status!==200 || !r.headers.get("content-type")?.startsWith(type)) throw new Error(host+path+": "+r.status);
   console.log("PASS "+host+path);
