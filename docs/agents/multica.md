@@ -31,6 +31,7 @@ The GitHub App `tagaroa-multica` is read-only: it observes PRs but never pushes 
 Both run as Rex.
 
 - **Weekly dependency check:** Mondays 09:00 Asia/Jakarta.
+- **Weekly QA:** Sundays 01:00 UTC (08:00 Asia/Jakarta), running Chromium, WebKit, and mobile Chromium. Pushes and PRs run Chromium only; manual dispatch also runs all three.
 - **QA failed on main:** the `notify-multica` job in `.github/workflows/qa.yml` calls the autopilot's webhook through the repo secret `MULTICA_QA_WEBHOOK`.
 
 ## Labels
