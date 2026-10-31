@@ -16,10 +16,6 @@ Default vocabulary: `needs-triage`, `needs-info`, `ready-for-agent`, `ready-for-
 
 Multi-context: a root `CONTEXT-MAP.md` points at one `CONTEXT.md` per workspace. See `docs/agents/domain.md`.
 
-### Multica
-
-How agents run against this repo: server, agents, workflow, PR linking, autopilots. See `docs/agents/multica.md`.
-
 ## Frontend apps
 
 Every app under `apps/` runs its dev server through the shared wrapper, so
@@ -61,6 +57,7 @@ Read the matching file before working in that area; they are not loaded automati
 - `docs/agents/design-system.md`: Claude Design bundle, `@repo/ui` import map, and where product styling lives. Read before pasting a Claude Design screen into the repo, or before editing anything under `packages/ui`.
 - `docs/agents/workspace-domains.md`: the workspace shell, microfrontends proxy, ports, and how to add a domain front end. Read before adding or changing a front end under `apps/` or `domains/`, `microfrontends.json`, or `packages/shell`.
 - `docs/agents/administration.md`: identity vs domain administration, `AccessControlModule`, and what is built. Read before touching `apps/admin`, `servers/core` access-control or directory code, or admission/role logic in `packages/shell`.
+- `docs/agents/multica.md`: how coding agents run against this repo through Multica: agents, workflow, PR linking, autopilots. Read before changing `.github/workflows/qa.yml`'s `notify-multica` job or an agent skill.
 
 <!-- BEGIN:turborepo-agent-rules -->
 

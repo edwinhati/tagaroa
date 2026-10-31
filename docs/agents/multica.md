@@ -31,7 +31,7 @@ The GitHub App `tagaroa-multica` is read-only: it observes PRs but never pushes 
 Both run as Rex.
 
 - **Weekly dependency check:** Mondays 09:00 Asia/Jakarta.
-- **QA failed on main:** the `notify-multica` job in `.github/workflows/qa.yml` calls the autopilot's webhook through the repo secret `MULTICA_QA_WEBHOOK`. The job is added by PR #3 and may not be on `main` yet.
+- **QA failed on main:** the `notify-multica` job in `.github/workflows/qa.yml` calls the autopilot's webhook through the repo secret `MULTICA_QA_WEBHOOK`.
 
 ## Labels
 
