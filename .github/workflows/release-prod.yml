@@ -1,0 +1,45 @@
+name: Release prod
+on:
+  schedule:
+    - cron: "*/5 * * * *"
+  workflow_dispatch:
+concurrency:
+  group: release-prod
+  cancel-in-progress: false
+permissions:
+  contents: read
+  actions: read
+jobs:
+  release:
+    runs-on: [self-hosted, tagaroa]
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: main
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Release approved brief
+        shell: bash
+        env:
+          MULTICA_SERVER_URL: https://multica.engineering.tagaroa.cc
+          MULTICA_WORKSPACE_ID: 146a9d46-1689-41e0-a8f4-20c8468b372f
+          MULTICA_TOKEN: ${{ secrets.MULTICA_TOKEN }}
+          OCIR_USERNAME: ${{ secrets.OCIR_USERNAME }}
+          OCIR_TOKEN: ${{ secrets.OCIR_TOKEN }}
+          OCIR_NAMESPACE: ${{ vars.OCIR_NAMESPACE }}
+          PROD_SSH_KEY: ${{ secrets.PROD_SSH_KEY }}
+          PROD_SSH_KNOWN_HOSTS: ${{ secrets.PROD_SSH_KNOWN_HOSTS }}
+          GITHUB_TOKEN: ${{ github.token }}
+          MULTICA_OPS_WEBHOOK: ${{ secrets.MULTICA_OPS_WEBHOOK }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          cp infra/release/release.sh "$RUNNER_TEMP/tagaroa-release.sh"
+          bash "$RUNNER_TEMP/tagaroa-release.sh"
+      - name: Forget credentials
+        if: always()
+        shell: bash
+        run: |
+          multica auth logout || true
+          docker logout sin.ocir.io || true
+          rm -f ~/.ssh/id_ed25519 ~/.ssh/known_hosts
