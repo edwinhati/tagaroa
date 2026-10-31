@@ -94,8 +94,9 @@ Raw notes on where Tagaroa runs and the tools around it. Workflow specs live in
   already covers it (`tms.dev.tagaroa.cc` resolves, so check for `*.dev` first).
 - Out of scope for now: encrypting backups, keeping more than one full, copying
   backups outside the OCI account.
-- Hostnames: prod `auth.` `admin.` `app.` `api.tagaroa.cc`, passkey RP ID `tagaroa.cc`;
-  dev `auth.` `admin.` `app.` `api.dev.tagaroa.cc`, RP ID `dev.tagaroa.cc`.
+- Hostnames: prod `auth.` `admin.` `app.tagaroa.cc` plus the API at `tagaroa.cc/api`,
+  passkey RP ID `tagaroa.cc`; dev `auth.` `admin.` `app.dev.tagaroa.cc` plus the API at
+  `dev.tagaroa.cc/api`, RP ID `dev.tagaroa.cc`.
   DNS is on Cloudflare; everything public resolves to the edge (168.107.65.35).
 - Builds: a self-hosted GitHub Actions runner, in Docker on CT 105
   (`ghcr.io/actions/actions-runner`, host docker socket mounted), runs only pushes to

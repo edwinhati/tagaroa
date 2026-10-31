@@ -42,7 +42,7 @@ All files below are new and live in the repo; the workflow is `.github/workflows
 2. **Web image** `10.10.10.14:8080/tagaroa/web-dev:<sha>`, from `infra/web/Dockerfile`.
    The four SPAs bake their URLs in at build time, so the web image is per-environment.
    - Build args (all `https://`), for dev:
-     - `VITE_AUTH_BASE_URL` = `https://api.dev.tagaroa.cc` (all four apps)
+     - `VITE_AUTH_BASE_URL` = `https://dev.tagaroa.cc` (all four apps)
      - `VITE_AUTH_URL` = `https://auth.dev.tagaroa.cc` (admin, workspace, engineering)
      - `VITE_WORKSPACE_URL` = `https://app.dev.tagaroa.cc` (admin)
      - `VITE_ADMIN_URL` = `https://admin.dev.tagaroa.cc` (workspace, engineering)
@@ -58,7 +58,8 @@ All files below are new and live in the repo; the workflow is `.github/workflows
      - `http://app.{$BASE_DOMAIN}` → `/engineering*` from the engineering build (its Vite
        `base` is `/engineering`), everything else from the workspace build; SPA fallback
        within each
-     - `http://api.{$BASE_DOMAIN}` → `reverse_proxy core:8080`, request body limit 10 MB
+     - `http://{$BASE_DOMAIN}` → `/api/*` to `reverse_proxy core:8080` (request body limit
+       10 MB), anything else 404
      - Hashed assets `Cache-Control: public, max-age=31536000, immutable`; `index.html`
        `no-store`.
    - This replaces Turborepo's microfrontends proxy, which is dev-server only.
@@ -94,10 +95,10 @@ One-time setup, done by whoever implements this (needs root on CT 105):
 - `.env` keys (values set by hand once; see `servers/core/.env.example`):
   `NODE_ENV=production`, `PORT=8080`, `POSTGRES_PASSWORD`, `DATABASE_URL`
   (→ `postgres:5432/tagaroa`), `BETTER_AUTH_SECRET` (new, random),
-  `BETTER_AUTH_URL=https://api.dev.tagaroa.cc`,
+  `BETTER_AUTH_URL=https://dev.tagaroa.cc`,
   `TRUSTED_ORIGINS=https://auth.dev.tagaroa.cc,https://admin.dev.tagaroa.cc,https://app.dev.tagaroa.cc`,
   `PASSKEY_ORIGINS=https://auth.dev.tagaroa.cc,https://app.dev.tagaroa.cc`,
-  `PASSKEY_RP_ID=dev.tagaroa.cc`, `NOTIFICATION_WEBHOOK_URL=https://api.dev.tagaroa.cc/api/notifications/webhooks`
+  `PASSKEY_RP_ID=dev.tagaroa.cc`, `NOTIFICATION_WEBHOOK_URL=https://dev.tagaroa.cc/api/notifications/webhooks`
   (confirm the exact shape `.env.example` expects), `RESEND_API_KEY` (dev key),
   `RESEND_FROM=Tagaroa Dev <dev-no-reply@tagaroa.cc>`, `RESEND_WEBHOOK_SECRET`.
   No Twilio, WhatsApp or Frappe in dev.
@@ -112,8 +113,8 @@ One-time setup, done by whoever implements this (needs root on CT 105):
      (`docs/security/access-control-rollout.md`, "Rollback"), so old code keeps working.
 - **Pangolin:** four resources on site "PVE Home", all → `10.10.10.5:22830`:
   `auth.dev.tagaroa.cc`, `admin.dev.tagaroa.cc`, `app.dev.tagaroa.cc`,
-  `api.dev.tagaroa.cc`. VPN-only, the same rule shape as Multica's web pages: bypass the
-  NetBird gateway IP `172.25.250.3`, block everything else. On `api.dev` only, also
+  `dev.tagaroa.cc` (the API, under `/api`). VPN-only, the same rule shape as Multica's web pages: bypass the
+  NetBird gateway IP `172.25.250.3`, block everything else. On `dev.tagaroa.cc` only, also
   bypass `/api/notifications/webhooks/*` so Resend's delivery webhooks arrive (they are
   signed and checked by core).
 - **First admin:** add `servers/core/scripts/bootstrap-admin.ts <email>`. It creates the
@@ -123,7 +124,7 @@ One-time setup, done by whoever implements this (needs root on CT 105):
   Run once on dev: `docker compose run --rm core bun scripts/bootstrap-admin.ts <email>`.
 - **Email:** create a Resend account, verify `tagaroa.cc` (DNS records in Cloudflare;
   the free plan allows one domain, shared by both environments), create a dev API key
-  and the dev webhook pointing at `https://api.dev.tagaroa.cc/api/notifications/webhooks/resend`.
+  and the dev webhook pointing at `https://dev.tagaroa.cc/api/notifications/webhooks/resend`.
 
 ## Steps (each run)
 
@@ -133,7 +134,7 @@ One-time setup, done by whoever implements this (needs root on CT 105):
 3. Copy `infra/dev/compose.yml` and `infra/dev/deploy.sh` into `/home/tagaroa/apps`
    and run `deploy.sh` with the two image references.
 4. Smoke check against `http://10.10.10.5:22830` with `Host:` headers:
-   `api.dev.tagaroa.cc` `/api/health/live` → 200; `app.`, `auth.`, `admin.` `/` → 200
+   `dev.tagaroa.cc` `/api/health/live` → 200; `app.`, `auth.`, `admin.` `/` → 200
    HTML; `app.` `/engineering` → 200 HTML. Fail the run on any miss.
 5. Hand off to the release loop: create or update the release brief
    (`release-prod.md`, "Brief"). The run is done when the brief is current.

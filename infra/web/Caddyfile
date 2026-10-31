@@ -1,0 +1,57 @@
+# Replaces Turborepo's microfrontends proxy, which is dev-server only.
+# Pangolin terminates TLS and forwards the original Host, so plain HTTP here.
+{
+	auto_https off
+	admin off
+}
+
+(spa) {
+	encode zstd gzip
+	# Hashed build output: a missing one is a 404, never the app shell.
+	handle /assets/* {
+		header Cache-Control "public, max-age=31536000, immutable"
+		file_server
+	}
+	# TanStack Start's SPA mode emits _shell.html, not index.html.
+	handle {
+		header Cache-Control "no-store"
+		try_files {path} /_shell.html
+		file_server
+	}
+}
+
+http://auth.{$BASE_DOMAIN} {
+	root * /srv/auth
+	import spa
+}
+
+http://admin.{$BASE_DOMAIN} {
+	root * /srv/admin
+	import spa
+}
+
+http://app.{$BASE_DOMAIN} {
+	# Engineering is built with base /engineering, so its assets live there too.
+	handle /engineering* {
+		uri strip_prefix /engineering
+		root * /srv/engineering
+		import spa
+	}
+	handle {
+		root * /srv/workspace
+		import spa
+	}
+}
+
+# The API shares the bare domain: tagaroa.cc/api, dev.tagaroa.cc/api.
+http://{$BASE_DOMAIN} {
+	handle /api/* {
+		request_body {
+			max_size 10MB
+		}
+		reverse_proxy core:8080
+	}
+	handle {
+		respond 404
+	}
+}

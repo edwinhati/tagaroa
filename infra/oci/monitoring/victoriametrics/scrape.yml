@@ -80,7 +80,7 @@ scrape_configs:
         - http_2xx
     static_configs:
       - targets:
-          - https://api.tagaroa.cc/api/health/live
+          - https://tagaroa.cc/api/health/live
           - https://app.tagaroa.cc/
     relabel_configs:
       - source_labels:
