@@ -1,6 +1,6 @@
 /* The Tagaroa design tokens: shared by every app under apps/. Warm bone ground,
    lifted cards (solid --card on deeper --background), one sea-ink accent.
-   Compact controls (~32px). Import after @repo/ui/globals.css. */
+   Compact controls (~28px). Import after @repo/ui/globals.css. */
 
 :root {
   color-scheme: light;
