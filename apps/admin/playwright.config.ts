@@ -2,13 +2,17 @@ import { defineConfig, devices } from "@playwright/test";
 
 const adminOrigin = "http://localhost:13003";
 const coreOrigin = "http://localhost:18080";
+// Each worker signs in as its own seeded operator (`e2e/operator.ts`), so this
+// is also the number of operators the core service seeds. CI stays serial: a
+// 4-vCPU Actions runner already hosts four Vite dev servers compiling on
+// demand, and every extra browser starves them until 5 s waits time out.
+const workers = process.env.CI ? 1 : 4;
 
 export default defineConfig({
   testDir: "./e2e",
   testMatch: "**/*.e2e.ts",
-  fullyParallel: false,
-  // Both files update MFA on the same seeded operator.
-  workers: 1,
+  fullyParallel: true,
+  workers,
   forbidOnly: Boolean(process.env.CI),
   retries: process.env.CI ? 1 : 0,
   reporter: process.env.CI ? "github" : "line",
@@ -18,8 +22,7 @@ export default defineConfig({
   },
   webServer: [
     {
-      command:
-        "E2E_CORE_PORT=18080 E2E_TRUSTED_ORIGINS=http://localhost:13001,http://localhost:13003,http://localhost:13002 bun run start:e2e",
+      command: `E2E_CORE_PORT=18080 E2E_OPERATORS=${workers} E2E_TRUSTED_ORIGINS=http://localhost:13001,http://localhost:13003,http://localhost:13002 bun run start:e2e`,
       cwd: "../../servers/core",
       reuseExistingServer: false,
       timeout: 120_000,

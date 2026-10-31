@@ -4,16 +4,13 @@ import type { BrowserContext } from "@playwright/test";
 import { SQL } from "bun";
 
 import { authenticatorCode } from "../../../servers/core/test/totp";
+import { operator } from "./operator";
 
 const adminOrigin = "http://localhost:13003";
 const coreOrigin = "http://localhost:18080";
 const databaseUrl =
   process.env.TEST_DATABASE_URL ??
   "postgresql://tagaroa:tagaroa@127.0.0.1:5432/tagaroa_test";
-const operator = {
-  email: "e2e-admin@tagaroa.test",
-  password: "e2e-admin-password-12",
-};
 
 test.beforeEach(async ({ page, context }) => {
   // Development overlays can cover controls; they are absent in production.

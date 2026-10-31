@@ -19,6 +19,16 @@ const e2eAdmin = {
 };
 
 /**
+ * `apps/admin/e2e/operator.ts` repeats this naming. A parallel browser suite
+ * seeds one operator per Playwright worker (`E2E_OPERATORS`) so the tests that
+ * change an operator's MFA, role or sessions never share one.
+ */
+const operatorFor = (index: number) => ({
+  ...e2eAdmin,
+  email: `e2e-admin-${index}@tagaroa.test`,
+});
+
+/**
  * Seeded through a throwaway auth instance rather than the service's own: the
  * product closes `/sign-up/email` everywhere, and this is the account that
  * would otherwise have nobody to issue it.
@@ -34,13 +44,22 @@ export async function seedE2eAdmin(): Promise<void> {
   });
   const { internalAdapter } = await auth.$context;
 
-  // Replaced rather than reused: a half-written account from an interrupted run
-  // would otherwise survive every later start, signing in with no password.
-  const existing = await internalAdapter.findUserByEmail(e2eAdmin.email);
-  if (existing) await internalAdapter.deleteUser(existing.user.id);
+  const operators = [
+    e2eAdmin,
+    ...Array.from({ length: Number(process.env.E2E_OPERATORS ?? 0) }, (_, i) =>
+      operatorFor(i),
+    ),
+  ];
+  for (const operator of operators) {
+    // Replaced rather than reused: a half-written account from an interrupted
+    // run would otherwise survive every later start, signing in with no
+    // password.
+    const existing = await internalAdapter.findUserByEmail(operator.email);
+    if (existing) await internalAdapter.deleteUser(existing.user.id);
 
-  const { user } = await auth.api.signUpEmail({ body: e2eAdmin });
-  await internalAdapter.updateUser(user.id, { role: "admin" });
+    const { user } = await auth.api.signUpEmail({ body: operator });
+    await internalAdapter.updateUser(user.id, { role: "admin" });
+  }
 
   await client.close();
 }
