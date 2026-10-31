@@ -17,6 +17,7 @@ import {
   type QueryRecord,
 } from "../../../platform/http/collection";
 import { SessionOnly } from "../../../platform/http/session-only.decorator";
+import { ZodBody } from "../../../platform/http/zod-body";
 import type {
   DirectorySubsidiary,
   DirectoryTeam,
@@ -31,6 +32,7 @@ import { ListLinkedAccountsUseCase } from "../application/use-cases/list-linked-
 import { ManagePositionUseCase } from "../application/use-cases/manage-position.use-case";
 import { ReadPersonalEmailUseCase } from "../application/use-cases/read-personal-email.use-case";
 import { RecordAccessReviewUseCase } from "../application/use-cases/record-access-review.use-case";
+import { savePositionBody, type SavePositionBody } from "./directory.schemas";
 
 const DIRECTORY_READ_ROLES = [
   "access-reviewer",
@@ -107,17 +109,13 @@ export class DirectoryController {
   @Roles(["admin", "super-admin"])
   async saveGroupPosition(
     @Param("userId") userId: string,
-    @Body() body: { managerUserId?: unknown; title?: unknown },
+    @Body(new ZodBody(savePositionBody)) body: SavePositionBody,
     @Session() session: UserSession,
   ) {
     return {
       data: await this.managePosition.save({
         actorId: session.user.id,
-        managerUserId:
-          typeof body.managerUserId === "string" &&
-          body.managerUserId.length > 0
-            ? body.managerUserId
-            : null,
+        managerUserId: body.managerUserId,
         organizationId: null,
         title: body.title,
         userId,
@@ -145,17 +143,13 @@ export class DirectoryController {
   async saveSubsidiaryPosition(
     @Param("organizationId") organizationId: string,
     @Param("userId") userId: string,
-    @Body() body: { managerUserId?: unknown; title?: unknown },
+    @Body(new ZodBody(savePositionBody)) body: SavePositionBody,
     @Session() session: UserSession,
   ) {
     return {
       data: await this.managePosition.save({
         actorId: session.user.id,
-        managerUserId:
-          typeof body.managerUserId === "string" &&
-          body.managerUserId.length > 0
-            ? body.managerUserId
-            : null,
+        managerUserId: body.managerUserId,
         organizationId,
         title: body.title,
         userId,
