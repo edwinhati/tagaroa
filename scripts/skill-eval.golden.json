@@ -68,8 +68,19 @@
     "expect": ["domain-modeling"]
   },
   {
+    "prompt": "Design and build a new landing page for a Tagaroa marketing site from scratch.",
+    "expect": ["hallmark"]
+  },
+  {
+    "prompt": "Add a members table with a filter bar to the admin dashboard in apps/admin.",
+    "expect": []
+  },
+  {
     "prompt": "What does the admit() function in packages/shell return?",
     "expect": []
   },
-  { "prompt": "Fix the typo 'recieve' in README.md.", "expect": [] }
+  {
+    "prompt": "Fix the typo 'recieve' in README.md.",
+    "expect": []
+  }
 ]

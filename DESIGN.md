@@ -10,23 +10,24 @@ colors:
   field-rule: "oklch(0.655 0.011 240)"
   sea: "oklch(0.525 0.118 222)"
   card: "oklch(1 0 0)"
-  panel-shadow: "0 1px 2px oklch(0 0 0 / 0.04)"
+  wash: "oklch(0.955 0.004 90)"
   tide-base: "rgb(249 248 244)"
   tide-light: "rgb(156 168 176)"
   tide-base-dark: "rgb(18 22 28)"
   tide-light-dark: "rgb(108 132 146)"
   destructive: "oklch(0.502 0.152 26)"
+  destructive-dark: "oklch(0.704 0.152 24)"
   bone-dark: "oklch(0.185 0.016 252)"
   ink-dark: "oklch(0.938 0.004 92)"
   muted-dark: "oklch(0.712 0.018 248)"
   hairline-dark: "oklch(1 0 0 / 9%)"
   sea-dark: "oklch(0.775 0.115 205)"
   card-dark: "oklch(0.228 0.017 252)"
-  panel-shadow-dark: "0 1px 2px oklch(0 0 0 / 0.35)"
+  wash-dark: "oklch(0.268 0.017 252)"
 typography:
   display:
     fontFamily: "Geist Variable, SF Pro Text, Helvetica Neue, system-ui, sans-serif"
-    fontSize: "clamp(1.5rem, 2.4vw, 1.95rem)"
+    fontSize: "1.95rem"
     fontWeight: 500
     lineHeight: 1.12
     letterSpacing: "-0.03em"
@@ -35,19 +36,19 @@ typography:
     fontSize: "0.875rem"
     fontWeight: 400
     lineHeight: 1.55
-    letterSpacing: "normal"
+    letterSpacing: "0em"
   label:
     fontFamily: "Geist Variable, SF Pro Text, system-ui, sans-serif"
     fontSize: "0.8125rem"
     fontWeight: 500
     lineHeight: 1.4
-    letterSpacing: "normal"
+    letterSpacing: "0em"
   hint:
     fontFamily: "Geist Mono Variable, ui-monospace, SF Mono, JetBrains Mono, monospace"
     fontSize: "0.78rem"
     fontWeight: 400
     lineHeight: 1.4
-    letterSpacing: "normal"
+    letterSpacing: "0em"
   meta:
     fontFamily: "Geist Mono Variable, ui-monospace, SF Mono, JetBrains Mono, monospace"
     fontSize: "0.775rem"
@@ -87,6 +88,24 @@ components:
   button-primary-hover:
     backgroundColor: "oklch(0.32 0.006 80)"
     textColor: "{colors.bone}"
+  button-secondary:
+    backgroundColor: "{colors.wash}"
+    textColor: "{colors.ink-strong}"
+    rounded: "{rounded.md}"
+    height: "28px"
+  button-outline:
+    backgroundColor: "{colors.bone}"
+    textColor: "{colors.ink-strong}"
+    rounded: "{rounded.md}"
+    height: "28px"
+  button-ghost:
+    textColor: "{colors.ink-strong}"
+    rounded: "{rounded.md}"
+    height: "28px"
+  button-destructive:
+    textColor: "{colors.destructive}"
+    rounded: "{rounded.md}"
+    height: "28px"
   field-input:
     backgroundColor: "transparent"
     textColor: "{colors.ink}"
@@ -217,8 +236,10 @@ first paint. Product and door both support the toggle; both modes must remain co
 ### Elevation tokens
 
 - `--panel-radius`: `0.75rem` (12px) for product work surfaces, dialogs, toasts.
-- `--panel-shadow`: `0 1px 2px oklch(0 0 0 / 0.04)` light;
-  `0 1px 2px oklch(0 0 0 / 0.35)` dark. One soft step. No glow stacks. No shadow on every control.
+- `--panel-shadow`: `0 1px 2px oklch(0 0 0 / 0.04), 0 4px 12px oklch(0 0 0 / 0.035)` light;
+  `0 1px 2px oklch(0 0 0 / 0.45), 0 4px 16px oklch(0 0 0 / 0.28)` dark. One soft step (contact
+  plus bloom). No glow stacks. No shadow on every control: buttons, inputs, and checkboxes pin
+  `box-shadow: none`.
 
 ## Typography
 
@@ -233,7 +254,7 @@ that stays out of the way while someone types a password or scans a register.
 
 ### Hierarchy
 
-- **Display** (door): 500, `clamp(1.5rem, 2.4vw, 1.95rem)`, 1.12, −0.03em. One per auth screen.
+- **Display** (door): 500, `clamp(1.5rem, 2.4vw, 1.95rem)` (frontmatter holds the 1.95rem ceiling), 1.12, −0.03em. One per auth screen.
 - **Page title** (product): ~18px / 600 / −0.02em. Names the work, not the brand.
 - **Body:** 0.875rem / 400 / 1.55 (`--text-sm`).
 - **Label:** 0.8125rem / 500 (`--text-xs`). Always visible; placeholders are never labels.
@@ -275,6 +296,32 @@ Focus ring transitions colour and box-shadow so tabbing retargets. Errors may us
 Long ambient motion (tide 18s / 24s) is door-only. `prefers-reduced-motion` keeps fades and drops
 movement.
 
+Two motion details are part of the system. Press feedback: buttons, tabs, sidebar buttons, and menu
+items scale to 0.96 while pressed (150ms, `--ease-out`). Popovers open with one spring overshoot
+(`popover-spring`, scale 0.9 → 1, 320ms), motion-safe only; exit stays a plain fade.
+
+## Token map
+
+How the names in this file land in shadcn's variables (`packages/ui/src/styles/tagaroa.css`).
+Use it when adding a component or restyling one; never invent a variable for a role listed here.
+
+| Role here       | shadcn variable                                                   |
+| --------------- | ----------------------------------------------------------------- |
+| bone            | `--background`                                                    |
+| ink             | `--foreground`                                                    |
+| ink-strong      | `--primary`, `--card-foreground`, `--popover-foreground`          |
+| bone on primary | `--primary-foreground`                                            |
+| wash            | `--secondary`, `--muted`, `--accent` (one value, three roles)     |
+| muted           | `--muted-foreground`                                              |
+| card            | `--card`, `--popover`                                             |
+| hairline        | `--border`                                                        |
+| field-rule      | `--input`                                                         |
+| sea             | `--sea`, `--ring`                                                 |
+| destructive     | `--destructive`                                                   |
+| standing plane  | `--sidebar-*`                                                     |
+| five triplets   | `--status-{neutral,info,success,warning,danger}-{tint,line,text}` |
+| panel-radius    | `--panel-radius`, remapped onto `rounded-xl` / `rounded-2xl`      |
+
 ## Components (system)
 
 ### Work surface
@@ -286,6 +333,20 @@ comfortable padding. One per major region. Tables live inside it; rows do not ca
 
 Ink fill, bone text, md radius, control height, no shadow. Names the outcome
 ("Create a role", "Email me a link"), not the mechanism. One primary per view.
+
+### Button variants and states
+
+- **Secondary:** `wash` fill, ink text; hover mixes 5% ink into the fill. The quiet second action.
+- **Outline:** bone fill, hairline border (field rule in dark); hover washes to `wash`. Console retry uses it.
+- **Ghost:** no fill; hover washes to `wash`.
+- **Destructive:** a tint, not a solid red block: `destructive` at 10% fill (20% dark), destructive text.
+- **Link:** primary text, underline on hover.
+- **Hover** on the primary dims the ink fill to 80%. **Focus-visible** is a 3px ring of `sea` at 50% plus a
+  `sea` border. **Invalid** swaps both to destructive. **Disabled** is 50% opacity with no pointer events.
+- **Sizes:** default and `sm` are both the 28px control height; `xs` is 24px; icon buttons are
+  28px squares with the hit area reaching 40px. The density override does not touch `lg` or
+  `icon-lg` (40px); the Small Control Rule says to add air rather than reach for them.
+- **Variants carry no shadow** (outline included; the stock `shadow-xs` is flattened).
 
 ### Field
 
@@ -363,3 +424,32 @@ No opening row of invented stat cards. Charts answer a named question or they do
 - Nest cards, glow everything, or float every component.
 - Clone Linear, Vercel, or another product's overall look.
 - Edit shadcn component sources for Tagaroa craft.
+
+## Responsive
+
+- **Touch:** below 768px or on a coarse pointer, `--control-height` becomes 2.75rem (44px) and
+  buttons, tabs, selects, sidebar buttons, and menu items take it as a minimum size. The extra
+  hit-area pseudo-elements switch off, because the controls now occupy real space.
+- **Door:** the tide panel is hidden below `lg`; header and form panel remain.
+- **Product:** page padding steps up from 16–24px to 24–32px at 1280px.
+- **Notched screens:** the body pads for the safe-area insets.
+
+## Known gaps
+
+- `button-primary-hover` in the frontmatter is a hand-picked value. The component dims the primary
+  to 80% (`hover:bg-primary/80`), which lands lighter. Treat the component as truth.
+- The header comment in `tagaroa.css` still says "compact controls (~32px)". The token is 28px.
+- Status triplets live in `tagaroa.css` only. The frontmatter lists none of the fifteen values,
+  so an export of this file will not emit them.
+- Radius steps in "Shapes and scale" were not re-verified against the installed Base UI style
+  (`base-vega`); check them before pinning a new component to one.
+
+## Iteration guide
+
+1. Change the value in `packages/ui/src/styles/tagaroa.css` first; it is the truth.
+2. Mirror it here in the same change: frontmatter, the Token map row, and the prose that cites it.
+3. A new variant or state goes under "Components (system)" with its states, not only in code.
+4. Add a rule to Do's and don'ts only when a reviewer would reject the opposite.
+5. Lint and export before committing: `npx @google/design.md lint DESIGN.md`, then
+   `npx @google/design.md export --format css-tailwind DESIGN.md`. npm refuses to run inside this
+   repo (`devEngines` requires bun), so run both on a copy outside it.

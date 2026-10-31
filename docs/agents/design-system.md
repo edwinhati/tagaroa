@@ -47,3 +47,15 @@ on `--background` (warm bone).
 actually ships. The package ships no CSS, so a new app has to
 `@import "@fontsource-variable/geist"` and `geist-mono` in its own `app.css` to get the face —
 it does not need to redeclare `--font-sans` (see `.design-sync/NOTES.md`).
+
+## DESIGN.md
+
+`DESIGN.md` at the repo root is the design language: tokens, named rules, component states, and
+a token map to shadcn's variables. `tagaroa.css` is still the truth for values; change it first,
+then mirror the change in `DESIGN.md` (see its Iteration guide).
+
+The `shadcn` skill's "Design Systems from DESIGN.md" flow (`design-system.md` inside the skill)
+scaffolds a **new standalone app** with `init --no-monorepo`. Do not run it in this repo. Use it
+only to prototype a showcase page in a scratch directory. In the repo, the skill's token and
+state mapping tables are a reference for editing `tagaroa.css` — never restyle
+`packages/ui/src/components/` by hand.
