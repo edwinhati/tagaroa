@@ -54,6 +54,8 @@ UI implementation routes through skills: `animate` for new motion,
 ARIA work (dropdowns, menus, dialogs, custom widgets), `shadcn` for adding or changing `packages/ui` components. Load the matching skill
 before writing the code.
 
+`hallmark` is for new marketing sites and standalone pages only. Product screens in `apps/` and `domains/` are built from `@repo/ui` and Claude Design (`docs/agents/design-system.md`), so never use `hallmark` there unless the user names it.
+
 ## Architecture notes
 
 Read the matching file before working in that area; they are not loaded automatically.
