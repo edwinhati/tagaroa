@@ -76,7 +76,7 @@ cat > "$tmp/bin/curl" <<'SH'
 #!/bin/sh
 case "$*" in
   *workflow_runs* | *actions/workflows/qa.yml*) echo '{"workflow_runs":[{}]}' ;;
-  *api.tagaroa.cc*) echo '200 application/json' ;;
+  *tagaroa.cc/api/*) echo '200 application/json' ;;
   *auth.tagaroa.cc*) echo "200 ${VERIFY_TYPE:-text/html}" ;;
   *engineering*) ;;
   *webhook.invalid*) ;;

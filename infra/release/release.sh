@@ -76,7 +76,7 @@ step=build
 printf '%s' "$OCIR_TOKEN" | docker login sin.ocir.io --username "$OCIR_USERNAME" --password-stdin
 docker buildx build --platform linux/arm64 --push -f servers/core/Dockerfile -t "$core" .
 docker buildx build --platform linux/arm64 --push -f infra/web/Dockerfile -t "$web" \
-  --build-arg VITE_AUTH_BASE_URL=https://api.tagaroa.cc \
+  --build-arg VITE_AUTH_BASE_URL=https://tagaroa.cc \
   --build-arg VITE_AUTH_URL=https://auth.tagaroa.cc \
   --build-arg VITE_WORKSPACE_URL=https://app.tagaroa.cc \
   --build-arg VITE_ADMIN_URL=https://admin.tagaroa.cc \
@@ -90,11 +90,11 @@ deployed=1
 # shellcheck disable=SC2029
 ssh "$host" "sh /home/tagaroa/apps/deploy.sh '$core' '$web'" >> "$log" 2>&1
 step=verify
-for domain in auth admin app api; do
+for domain in auth.tagaroa.cc admin.tagaroa.cc app.tagaroa.cc tagaroa.cc; do
   path=/; expected=text/html
-  if [[ "$domain" == api ]]; then path=/api/health/live; expected=application/json; fi
+  if [[ "$domain" == tagaroa.cc ]]; then path=/api/health/live; expected=application/json; fi
   result=$(curl --retry 5 --retry-delay 2 --retry-all-errors --fail --silent --show-error \
-    -o /dev/null -w '%{http_code} %{content_type}' "https://$domain.tagaroa.cc$path")
+    -o /dev/null -w '%{http_code} %{content_type}' "https://$domain$path")
   [[ "$result" == "200 $expected"* ]] || { echo "$domain smoke check failed: $result" >> "$log"; exit 1; }
 done
 curl --retry 5 --retry-all-errors --fail --silent --show-error -o /dev/null https://app.tagaroa.cc/engineering
