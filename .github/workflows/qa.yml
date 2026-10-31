@@ -1,7 +1,7 @@
 name: QA
 
 # Free-plan minutes: docs-only changes skip CI, a newer push cancels the
-# running one, and the three-browser matrix only runs on manual dispatch.
+# running one, and the three-browser matrix runs manually and weekly on Sundays.
 on:
   pull_request:
     paths-ignore: ["**.md", "docs/**"]
@@ -9,6 +9,8 @@ on:
     branches: [main]
     paths-ignore: ["**.md", "docs/**"]
   workflow_dispatch:
+  schedule:
+    - cron: "0 1 * * 0" # Sundays 01:00 UTC (08:00 Asia/Jakarta).
 
 concurrency:
   group: qa-${{ github.ref }}
@@ -41,7 +43,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        project: ${{ fromJSON((github.event_name == 'workflow_dispatch') && '["chromium","webkit","mobile-chromium"]' || '["chromium"]') }}
+        project: ${{ fromJSON((github.event_name == 'workflow_dispatch' || github.event_name == 'schedule') && '["chromium","webkit","mobile-chromium"]' || '["chromium"]') }}
     steps:
       - uses: actions/checkout@v7
       - uses: actions/setup-node@v7
