@@ -9,6 +9,8 @@ started=$(date +%s)
 id="pgrestore-$started-$$"
 scratch=$(mktemp -d)
 chmod 755 "$scratch"
+# Every phase logs to the alert log; fds 3 and 4 keep the journal for the summary.
+exec 3>&1 4>&2 >"$scratch/restore.log" 2>&1
 step=prepare
 finish() {
   result=$?
@@ -21,14 +23,20 @@ finish() {
   if docker network inspect "$id" >/dev/null 2>&1; then
     docker network rm "$id" >/dev/null || result=1
   fi
+  exec >&3 2>&4
   if [ "$result" -ne 0 ]; then
     echo "Restore test failed at $step (exit $result)"
-    find "$scratch/pgbackrest-log" -type f -name '*.log' -exec tail -n 30 {} \; >> "$scratch/restore.log" 2>/dev/null || true
-    cp "$scratch/restore.log" "$root/restore-test-last.log"
+    # pgBackRest logs first, so the alert's last 50 lines end with the failing phase.
+    {
+      find "$scratch/pgbackrest-log" -type f -name '*.log' -exec tail -n 30 {} \; 2>/dev/null || true
+      cat "$scratch/restore.log"
+      echo "Restore test failed at $step (exit $result)"
+    } > "$scratch/alert.log"
+    cp "$scratch/alert.log" "$root/restore-test-last.log"
     MULTICA_OPS_WEBHOOK=$(cat /home/docker/monitoring/alertmanager/ops-webhook-url)
     export MULTICA_OPS_WEBHOOK
     bash "$root/ops-alert.sh" --kind restore-test-failed --env prod --id "$id" \
-      --step "$step" --log "$scratch/restore.log" || echo 'Failed to deliver restore alert' >&2
+      --step "$step" --log "$scratch/alert.log" || echo 'Failed to deliver restore alert' >&2
   else
     echo "Restore test passed in $(($(date +%s) - started)) seconds"
   fi
@@ -38,9 +46,8 @@ finish() {
 trap finish EXIT
 trap 'exit 130' INT
 trap 'exit 143' TERM
-: > "$scratch/restore.log"
 stanza=${RESTORE_TEST_STANZA:-main}
-[[ "$stanza" =~ ^[a-zA-Z0-9_-]+$ ]] || { echo 'Invalid stanza' >> "$scratch/restore.log"; exit 1; }
+[[ "$stanza" =~ ^[a-zA-Z0-9_-]+$ ]] || { echo 'Invalid stanza'; exit 1; }
 required=$(docker exec postgres psql -U postgres -Atc "SELECT count(*) FROM pg_database WHERE datname='tagaroa'")
 docker volume create "$id" >/dev/null
 docker network create "$id" >/dev/null
@@ -76,7 +83,7 @@ YAML
 step=restore-and-verify
 # The override replaces ALL live volumes and networks, including log/spool.
 docker compose -p "$id" -f compose.yaml -f "$scratch/override.yml" run \
-  --rm --no-deps --name "$id" postgres sh /restore-container.sh > "$scratch/restore.log" 2>&1
+  --rm --no-deps --name "$id" postgres sh /restore-container.sh
 step=backup-age
 python3 - "$scratch/result/backup-info.json" <<'PY'
 import json, sys, time
@@ -93,4 +100,4 @@ step=record-metric
 address=$(docker inspect victoriametrics --format '{{(index .NetworkSettings.Networks "monitoring_backend").IPAddress}}')
 printf 'pgbackrest_restore_test_last_success_timestamp_seconds %s\n' "$(date +%s)" \
   | curl --fail --silent --show-error --max-time 30 --data-binary @- \
-      "http://$address:8428/api/v1/import/prometheus" >> "$scratch/restore.log" 2>&1
+      "http://$address:8428/api/v1/import/prometheus"

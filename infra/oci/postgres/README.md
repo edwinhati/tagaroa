@@ -28,7 +28,8 @@ RESTORE_TEST_STANZA=verification-missing-stanza bash /home/docker/postgres/pgbac
 ```
 
 This intentionally fails and opens one Ops alert issue. Inspect its payload and
-close it as a test. A successful run records a timestamp in VictoriaMetrics;
+close it as a test. `sh infra/oci/postgres/restore-test.test.sh` checks
+locally, with Docker stubbed, that failure alerts carry each phase's error. A successful run records a timestamp in VictoriaMetrics;
 `last_over_time(pgbackrest_restore_test_last_success_timestamp_seconds[41d])`
 reads it between monthly runs. The alert uses a range query so a single imported
 sample remains visible for the full monitoring window. Apply the updated
