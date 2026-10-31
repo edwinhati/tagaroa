@@ -76,6 +76,36 @@ Raw notes on where Tagaroa runs and the tools around it. Workflow specs live in
   so the cookie name carries the domain (`__Secure-better-auth.<domain>.session_token`)
   to keep it from shadowing dev's; the dev box still receives prod session tokens of
   anyone signed in to both. `infra/dev/images.test.sh` checks the shared session.
+  - Scope review (ISSUE-30, 2026-11-01). Every Better Auth cookie gets the domain, not
+    only `session_token`: also `dont_remember`, `two_factor`, `trust_device` (30 days),
+    `admin_session` (impersonation) and the passkey challenge. All are `HttpOnly`,
+    `Secure`, `SameSite=Lax`, `Path=/` (`better-auth/dist/cookies/index.mjs`).
+  - `Domain=tagaroa.cc` is sent to every host under it, not just dev: `*.dev.tagaroa.cc`
+    (Tagaroa dev and the other CT 105 stacks, e.g. `tms.dev`), `multica.engineering`,
+    `git.engineering`, `*.service.tagaroa.cc`. The edge sees it too (it terminates TLS),
+    which is unavoidable.
+  - What a stolen prod token does: replay from anywhere is full account takeover for up
+    to 7 days. Origin checks don't help: Better Auth checks `Origin` only when a cookie is
+    present and a script sets any `Origin`; `bearer()` accepts the token with no cookie
+    at all. Only `freshAge` (15 min) gates the sensitive changes. Who can steal it: any
+    backend on those hosts, including a merged-but-unreleased `main` commit running on
+    dev, so the release approval does not protect prod. Dev-host XSS cannot read the
+    cookie (`HttpOnly`), and browser CSRF into prod is refused (CORS, Nest
+    `enableCsrfProtection` and Better Auth all use prod `TRUSTED_ORIGINS`; `SameSite`
+    gives nothing because dev and prod are the same site). A prod passkey assertion
+    from a dev origin fails the passkey origin check. Any host under `tagaroa.cc` can
+    still plant cookies for `Domain=tagaroa.cc`, which can shadow prod's or force a
+    session (`__Secure-` doesn't stop that; `__Host-` would, but it forbids `Domain`).
+  - Decision proposed: serve prod from its own zone (e.g. API `work.tagaroa.cc/api`,
+    apps `auth.` `admin.` `app.work.tagaroa.cc`), so prod's cookie is
+    `Domain=work.tagaroa.cc`, like dev's. No code change (the domain comes from
+    `BETTER_AUTH_URL`); DNS, Pangolin resources, prod env and build args only. The
+    passkey RP ID can stay `tagaroa.cc` if prod passkeys exist. Do it before prod has
+    users. Rejected: host-only cookies (breaks sign-in across hosts, and three sessions
+    per person fills `MAX_CONCURRENT_SESSIONS`); a separate dev domain (protects dev
+    only, not Multica, GitLab or the services); accepting the risk (VPN-only still
+    leaves the dev box holding admin tokens). Single origin with a `__Host-` cookie is
+    the end state if cookie planting from other hosts ever matters.
 
 ## Decisions so far (2026-10-31)
 
