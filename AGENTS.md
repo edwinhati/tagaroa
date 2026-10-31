@@ -6,7 +6,7 @@ Bun + Turborepo monorepo. Workspaces: `apps/*`, `packages/*`, `servers/*`.
 
 ### Issue tracker
 
-Issues live in Multica (IDs like `ISSUE-12`), managed with the `multica` CLI; PRs stay on GitHub. See `docs/agents/issue-tracker.md`, and `docs/agents/multica.md` for the workflow and PR linking.
+Issues live in Multica (IDs like `ISSUE-12`), managed with the `multica` CLI; PRs stay on GitHub. See `docs/agents/issue-tracker.md`, and `docs/agents/multica.md` for the workflow and PR linking. Always put the issue ID in the branch name and the PR title (e.g. `agent/mika/issue-12-…`, `ISSUE-12: …`); without it the PR isn't linked and the issue never closes on merge.
 
 ### Triage labels
 
