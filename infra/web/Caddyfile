@@ -43,9 +43,15 @@ http://app.{$BASE_DOMAIN} {
 	}
 }
 
-http://api.{$BASE_DOMAIN} {
-	request_body {
-		max_size 10MB
+# The API shares the bare domain: tagaroa.cc/api, dev.tagaroa.cc/api.
+http://{$BASE_DOMAIN} {
+	handle /api/* {
+		request_body {
+			max_size 10MB
+		}
+		reverse_proxy core:8080
 	}
-	reverse_proxy core:8080
+	handle {
+		respond 404
+	}
 }

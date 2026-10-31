@@ -62,7 +62,7 @@ takes the oldest. For it:
      the arm64 runtime stage, so no slow emulated compile. QEMU binfmt must be installed
      once on CT 105 for the arm64 `RUN` steps that remain.
    - Web image from `infra/web/Dockerfile` with the prod build args: same as dev's with
-     `dev.` removed (`https://api.tagaroa.cc`, `https://auth.tagaroa.cc`,
+     `dev.` removed (`https://tagaroa.cc`, `https://auth.tagaroa.cc`,
      `https://app.tagaroa.cc`, `https://admin.tagaroa.cc`).
    - Push to OCI Container Registry, Singapore: `sin.ocir.io/<tenancy-namespace>/tagaroa/core:<S>`
      and `…/tagaroa/web:<S>`. Look up the tenancy namespace once and record it in
@@ -78,7 +78,7 @@ takes the oldest. For it:
    - `web` joins the external network `pangolin_default` and publishes no host port;
      env `BASE_DOMAIN=tagaroa.cc`. Compose project name `tagaroa-prod`.
 4. **Verify** from the runner through the public URLs:
-   `https://api.tagaroa.cc/api/health/live` → 200, and `/` on `auth.`, `admin.`, `app.`
+   `https://tagaroa.cc/api/health/live` → 200, and `/` on `auth.`, `admin.`, `app.`
    → 200 HTML, `app.tagaroa.cc/engineering` → 200 HTML.
 5. **Report:** comment `Released <short S>. <n> commits, <m> migrations applied.` with
    the run link, and set the issue to **Done**.
@@ -106,16 +106,16 @@ takes the oldest. For it:
   private.
 - **Prod `.env`** (0600, owner `tagaroa`): as dev's (see `deploy-dev.md`) with
   `DATABASE_URL` → `postgres:5432/tagaroa`, new `BETTER_AUTH_SECRET`,
-  `BETTER_AUTH_URL=https://api.tagaroa.cc`,
+  `BETTER_AUTH_URL=https://tagaroa.cc`,
   `TRUSTED_ORIGINS=https://auth.tagaroa.cc,https://admin.tagaroa.cc,https://app.tagaroa.cc`,
   `PASSKEY_ORIGINS=https://auth.tagaroa.cc,https://app.tagaroa.cc`, `PASSKEY_RP_ID=tagaroa.cc`,
   prod Resend key, `RESEND_FROM=Tagaroa <no-reply@tagaroa.cc>`, its own
-  `RESEND_WEBHOOK_SECRET`, `NOTIFICATION_WEBHOOK_URL` on `api.tagaroa.cc`.
+  `RESEND_WEBHOOK_SECRET`, `NOTIFICATION_WEBHOOK_URL` on `tagaroa.cc`.
 - **Pangolin:** four public resources on the OCI VM's local site
-  (`auth.`, `admin.`, `app.`, `api.tagaroa.cc`) → container `tagaroa-prod-web-1:80`;
+  (`auth.`, `admin.`, `app.tagaroa.cc`, and `tagaroa.cc` for the API under `/api`) → container `tagaroa-prod-web-1:80`;
   follow how Grafana or Arcane are published there. SSO off; the app does its own
   sign-in.
-- **Resend:** prod webhook → `https://api.tagaroa.cc/api/notifications/webhooks/resend`.
+- **Resend:** prod webhook → `https://tagaroa.cc/api/notifications/webhooks/resend`.
 - **First admin:** after the first release, run `bootstrap-admin.ts` once on the VM
   (see `deploy-dev.md`). Then follow `docs/security/access-control-rollout.md` for
   named operators and a second super-admin.

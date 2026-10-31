@@ -83,7 +83,7 @@ jobs:
               -f servers/core/Dockerfile -t "$REGISTRY/tagaroa/core:$SHA" .
             docker buildx build --platform linux/amd64 --push \
               -f infra/web/Dockerfile -t "$REGISTRY/tagaroa/web-dev:$SHA" \
-              --build-arg VITE_AUTH_BASE_URL=https://api.dev.tagaroa.cc \
+              --build-arg VITE_AUTH_BASE_URL=https://dev.tagaroa.cc \
               --build-arg VITE_AUTH_URL=https://auth.dev.tagaroa.cc \
               --build-arg VITE_WORKSPACE_URL=https://app.dev.tagaroa.cc \
               --build-arg VITE_ADMIN_URL=https://admin.dev.tagaroa.cc \
@@ -112,7 +112,7 @@ jobs:
             echo "FAIL $1$2 -> $out"; return 1
           }
           {
-            check api.dev.tagaroa.cc /api/health/live application/json
+            check dev.tagaroa.cc /api/health/live application/json
             check app.dev.tagaroa.cc / text/html
             check auth.dev.tagaroa.cc / text/html
             check admin.dev.tagaroa.cc / text/html
