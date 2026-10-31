@@ -3,9 +3,10 @@ import { defineConfig, devices } from "@playwright/test";
 const adminOrigin = "http://localhost:13003";
 const coreOrigin = "http://localhost:18080";
 // Each worker signs in as its own seeded operator (`e2e/operator.ts`), so this
-// is also the number of operators the core service seeds. A 4-vCPU Actions
-// runner already hosts four dev servers; four browsers on top starve them.
-const workers = process.env.CI ? 2 : 4;
+// is also the number of operators the core service seeds. CI stays serial: a
+// 4-vCPU Actions runner already hosts four Vite dev servers compiling on
+// demand, and every extra browser starves them until 5 s waits time out.
+const workers = process.env.CI ? 1 : 4;
 
 export default defineConfig({
   testDir: "./e2e",
