@@ -69,8 +69,13 @@ Raw notes on where Tagaroa runs and the tools around it. Workflow specs live in
   at startup. `docs/security/access-control-rollout.md`: migrate before deploying app changes.
 - Core env: `servers/core/.env.example`. Production requires HTTPS `TRUSTED_ORIGINS`,
   `PASSKEY_ORIGINS`, `PASSKEY_RP_ID`; an unconfigured notification channel fails loudly.
-- Session cookies are host-only on the API host (no cross-subdomain cookies), so dev and
-  prod can share the `tagaroa.cc` parent safely.
+- In production mode the session cookie is scoped to the `BETTER_AUTH_URL` host
+  (`Domain=dev.tagaroa.cc` on dev, `Domain=tagaroa.cc` on prod), so a sign-in on `auth.`
+  reaches `admin.`, `app.` and the API; core refuses a trusted origin outside that host.
+  Dev's cookie never reaches prod. Prod's does reach every dev host (it is the parent),
+  so the cookie name carries the domain (`__Secure-better-auth.<domain>.session_token`)
+  to keep it from shadowing dev's; the dev box still receives prod session tokens of
+  anyone signed in to both. `infra/dev/images.test.sh` checks the shared session.
 
 ## Decisions so far (2026-10-31)
 

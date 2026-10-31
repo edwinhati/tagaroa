@@ -5,6 +5,16 @@
 	admin off
 }
 
+# Every host proxies the API, so the auth door's sign-in stays same-origin.
+(api) {
+	handle /api/* {
+		request_body {
+			max_size 10MB
+		}
+		reverse_proxy core:8080
+	}
+}
+
 (spa) {
 	encode zstd gzip
 	# Hashed build output: a missing one is a 404, never the app shell.
@@ -21,16 +31,23 @@
 }
 
 http://auth.{$BASE_DOMAIN} {
-	root * /srv/auth
-	import spa
+	import api
+	handle {
+		root * /srv/auth
+		import spa
+	}
 }
 
 http://admin.{$BASE_DOMAIN} {
-	root * /srv/admin
-	import spa
+	import api
+	handle {
+		root * /srv/admin
+		import spa
+	}
 }
 
 http://app.{$BASE_DOMAIN} {
+	import api
 	# Engineering is built with base /engineering, so its assets live there too.
 	handle /engineering* {
 		uri strip_prefix /engineering
@@ -45,12 +62,7 @@ http://app.{$BASE_DOMAIN} {
 
 # The API shares the bare domain: tagaroa.cc/api, dev.tagaroa.cc/api.
 http://{$BASE_DOMAIN} {
-	handle /api/* {
-		request_body {
-			max_size 10MB
-		}
-		reverse_proxy core:8080
-	}
+	import api
 	handle {
 		respond 404
 	}

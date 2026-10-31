@@ -184,6 +184,17 @@ export const validateEnv = (config: Record<string, unknown>): AppEnv => {
         }
       }
     }
+    // The session cookie is scoped to the API host (see createAuth), so an
+    // app outside it could sign in but never see the session.
+    const apiHost = auth.hostname;
+    for (const origin of trustedOrigins) {
+      const hostname = new URL(origin).hostname;
+      if (hostname !== apiHost && !hostname.endsWith(`.${apiHost}`)) {
+        throw new Error(
+          "TRUSTED_ORIGINS must be the BETTER_AUTH_URL host or its subdomains in production",
+        );
+      }
+    }
     for (const origin of passkeyOrigins) {
       const hostname = new URL(origin).hostname;
       if (

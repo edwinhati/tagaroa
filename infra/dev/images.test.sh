@@ -58,9 +58,24 @@ until docker exec "$id-core" bun -e "fetch('http://localhost:8080/api/health/liv
   sleep 1
 done
 docker exec "$id-core" bun -e '
-for (const [host,path,type] of [["auth.dev.tagaroa.cc","/","text/html"],["admin.dev.tagaroa.cc","/","text/html"],["app.dev.tagaroa.cc","/","text/html"],["app.dev.tagaroa.cc","/engineering","text/html"],["dev.tagaroa.cc","/api/health/live","application/json"]]) {
+for (const [host,path,type] of [["auth.dev.tagaroa.cc","/","text/html"],["admin.dev.tagaroa.cc","/","text/html"],["app.dev.tagaroa.cc","/","text/html"],["app.dev.tagaroa.cc","/engineering","text/html"],["dev.tagaroa.cc","/api/health/live","application/json"],["auth.dev.tagaroa.cc","/api/health/live","application/json"],["admin.dev.tagaroa.cc","/api/health/live","application/json"],["app.dev.tagaroa.cc","/api/health/live","application/json"]]) {
   const r = await fetch("http://web"+path,{headers:{host}});
   if(r.status!==200 || !r.headers.get("content-type")?.startsWith(type)) throw new Error(host+path+": "+r.status);
   console.log("PASS "+host+path);
 }'
-echo 'PASS: image migrations, first-admin bootstrap, preflight refusal, core and SPA routing'
+# Sign in on the auth door, then read the session the way app. does: from the API host.
+password=$(sed -n 's/^Temporary password.*: //p' "$tmp/bootstrap")
+docker exec -e PASSWORD="$password" "$id-core" bun -e '
+const signIn = await fetch("http://web/api/auth/sign-in/email", {
+  method: "POST",
+  headers: { host: "auth.dev.tagaroa.cc", origin: "https://auth.dev.tagaroa.cc", "content-type": "application/json" },
+  body: JSON.stringify({ email: "first-admin@fixture.invalid", password: process.env.PASSWORD }),
+});
+const session = signIn.headers.getSetCookie().find((c) => c.startsWith("__Secure-better-auth.dev.tagaroa.cc.session_token="));
+if (!signIn.ok || !session || !/; Domain=dev\.tagaroa\.cc(;|$)/i.test(session)) throw new Error("sign-in cookie: " + signIn.status + " " + session);
+const r = await fetch("http://web/api/auth/get-session", {
+  headers: { host: "dev.tagaroa.cc", origin: "https://app.dev.tagaroa.cc", cookie: session.split(";")[0] },
+});
+if ((await r.json())?.user?.email !== "first-admin@fixture.invalid") throw new Error("no session on the API host");
+console.log("PASS auth.dev.tagaroa.cc sign-in shares its session with dev.tagaroa.cc");'
+echo 'PASS: image migrations, first-admin bootstrap, preflight refusal, core and SPA routing, shared session'

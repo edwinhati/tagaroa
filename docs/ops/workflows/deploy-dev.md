@@ -58,8 +58,9 @@ All files below are new and live in the repo; the workflow is `.github/workflows
      - `http://app.{$BASE_DOMAIN}` → `/engineering*` from the engineering build (its Vite
        `base` is `/engineering`), everything else from the workspace build; SPA fallback
        within each
-     - `http://{$BASE_DOMAIN}` → `/api/*` to `reverse_proxy core:8080` (request body limit
-       10 MB), anything else 404
+     - `http://{$BASE_DOMAIN}` → `/api/*` only, anything else 404
+     - Every host above also sends `/api/*` to `reverse_proxy core:8080` (request body
+       limit 10 MB): the auth door signs in against its own origin.
      - Hashed assets `Cache-Control: public, max-age=31536000, immutable`; `index.html`
        `no-store`.
    - This replaces Turborepo's microfrontends proxy, which is dev-server only.

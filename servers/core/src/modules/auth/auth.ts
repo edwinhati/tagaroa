@@ -729,8 +729,20 @@ export const createAuth = (repository: AuthRepository, config: AuthConfig) => {
     }
   });
 
+  // Deployed, the API sits on the bare domain (dev.tagaroa.cc/api) and the
+  // apps on its subdomains, so the session cookie is scoped to the API host to
+  // reach them all. Dev's domain is then never prod's parent `tagaroa.cc`, and
+  // the domain in the cookie name keeps prod's cookie, which dev hosts also
+  // receive, from shadowing dev's own.
+  const cookieDomain =
+    config.nodeEnv === "production" ? new URL(config.baseURL).hostname : null;
+
   return betterAuth({
     advanced: {
+      ...(cookieDomain && {
+        cookiePrefix: `better-auth.${cookieDomain}`,
+        crossSubDomainCookies: { domain: cookieDomain, enabled: true },
+      }),
       database: {
         generateId: () => crypto.randomUUID(),
         joins: repository.supportsJoins,
