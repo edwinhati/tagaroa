@@ -1,0 +1,45 @@
+# Dev stack on CT 105, copied to /home/tagaroa/apps by every deploy.
+# `.env` (secrets) stays on the box; `.release.env` (image refs) is written by deploy.sh.
+name: tagaroa-dev
+x-core: &core
+  image: ${CORE_IMAGE:?required}
+  env_file: .env
+services:
+  postgres:
+    image: postgres:18-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: tagaroa
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?required}
+      POSTGRES_DB: tagaroa
+    volumes: [postgres:/var/lib/postgresql]
+    healthcheck:
+      test: [CMD-SHELL, pg_isready -U tagaroa -d tagaroa]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+  migrate:
+    <<: *core
+    command: [bun, dist/migrate.js]
+    depends_on:
+      postgres: { condition: service_healthy }
+  preflight:
+    <<: *core
+    command: [bun, scripts/security-preflight.ts]
+    depends_on:
+      migrate: { condition: service_completed_successfully }
+  core:
+    <<: *core
+    restart: unless-stopped
+    depends_on:
+      postgres: { condition: service_healthy }
+  web:
+    image: ${WEB_IMAGE:?required}
+    restart: unless-stopped
+    environment:
+      BASE_DOMAIN: dev.tagaroa.cc
+    ports: ["22830:80"]
+    depends_on:
+      core: { condition: service_healthy }
+volumes:
+  postgres: {}

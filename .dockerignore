@@ -1,0 +1,11 @@
+.git
+**/node_modules
+**/dist
+**/.turbo
+**/.env*
+!**/.env.example
+**/test-results
+**/playwright-report
+.e2e
+.impeccable
+.agents
