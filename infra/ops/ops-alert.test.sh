@@ -11,6 +11,8 @@ cat >>"$log" <<'LOG'
 DATABASE_URL=postgres://tagaroa:hunter2@postgres:5432/tagaroa
 BETTER_AUTH_SECRET=abc123
   "password": "p4ss", api_key: k3y
+password="alph4 b3ta" PASSWORD=g4mma,d3lta
+client_secret: 'eps1lon!z3ta' (rotated)
 curl -H "Authorization: Bearer tok3n" https://x/api/webhooks/autopilots/wh-s3cret
 using token mul_abcdefgh12345 and re_ABCDEFGH_123 in configure_database_step
 quote " backslash \ tab	end
@@ -19,11 +21,11 @@ LOG
 out=$(sh "$dir/ops-alert.sh" --dry-run --kind dev-deploy-failed --id 1-1 --env dev \
   --sha abc --step 'Deploy "dev"' --run-url https://github.com/x --log "$log")
 
-for secret in hunter2 abc123 p4ss k3y tok3n wh-s3cret abcdefgh12345 ABCDEFGH_123 'noise 10"'; do
+for secret in hunter2 abc123 p4ss k3y alph4 b3ta g4mma d3lta eps1lon z3ta rotated tok3n wh-s3cret abcdefgh12345 ABCDEFGH_123 'noise 10"'; do
   case $out in *"$secret"*) echo "FAIL: leaked $secret"; exit 1 ;; esac
 done
-# The last 50 lines are noise 17..60 plus the 6 lines above.
-case $out in *'"log_tail":"noise 17\n'*) ;; *) echo "FAIL: not the last 50 lines"; exit 1 ;; esac
+# The last 50 lines are noise 19..60 plus the 8 lines above.
+case $out in *'"log_tail":"noise 19\n'*) ;; *) echo "FAIL: not the last 50 lines"; exit 1 ;; esac
 case $out in *'configure_database_step'*) ;; *) echo "FAIL: over-scrubbed"; exit 1 ;; esac
 case $out in *'"step":"Deploy \"dev\""'*) ;; *) echo "FAIL: escaping"; exit 1 ;; esac
 
@@ -31,4 +33,5 @@ if command -v python3 >/dev/null; then
   printf '%s' "$out" | python3 -c 'import json,sys; d=json.load(sys.stdin); assert d["kind"]=="dev-deploy-failed" and len(d["log_tail"].splitlines())==50, d'
 fi
 if sh "$dir/ops-alert.sh" --dry-run --kind nope --id 1 2>/dev/null; then echo "FAIL: bad kind accepted"; exit 1; fi
+if sh "$dir/ops-alert.sh" --dry-run --kind prod-down --id 1 --log "$log.missing" 2>/dev/null; then echo "FAIL: missing log accepted"; exit 1; fi
 echo "ops-alert ok"

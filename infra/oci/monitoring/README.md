@@ -19,3 +19,18 @@ Not in git: `.env`, and `alertmanager/ops-webhook-url`, the "Ops alert" webhook 
 
 Alerts labelled `team: tagaroa` go to Rex through Alertmanager; all others go to a null
 receiver.
+
+## Before the first prod release
+
+Prod does not exist yet, so `TagaroaProdDown` fires as soon as it is installed. An
+Alertmanager silence on `alertname="TagaroaProdDown"` (30 days from 2026-10-31, comment
+names ISSUE-10) keeps Rex from getting an issue a day. The first prod release expires it:
+
+```sh
+A="sudo docker exec alertmanager amtool --alertmanager.url=http://localhost:9093"
+$A silence query alertname=TagaroaProdDown
+$A silence expire <id>
+```
+
+If prod is still not live when it runs out, Rex gets a daily issue; extend it with
+`$A silence update <id> --duration=720h`.

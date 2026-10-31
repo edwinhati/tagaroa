@@ -280,10 +280,8 @@ groups:
     rules:
       # team: tagaroa routes to the "Ops alert" Multica autopilot (alertmanager.yml).
       - alert: TagaroaProdDown
-        # ponytail: stays silent until prod has answered once in the last 14 days, so the
-        # probe can be installed before the first release; drop the "and" once prod is live.
-        expr: probe_success{job="tagaroa-prod"} == 0 and on(instance)
-          max_over_time(probe_success{job="tagaroa-prod"}[14d]) == 1
+        # Silenced in Alertmanager until the first prod release (see README.md).
+        expr: probe_success{job="tagaroa-prod"} == 0
         for: 3m
         labels:
           team: tagaroa

@@ -28,14 +28,15 @@ case $kind in
 esac
 [ -n "$id" ] || { echo "ops-alert: --id is required" >&2; exit 2; }
 
-# Credentials in URLs, key=value / key: value pairs, bearer tokens and known token prefixes.
+# Credentials in URLs, bearer tokens and known token prefixes. After a secret-looking key
+# (key=value, key: value) the rest of the line goes, so no part of a quoted or listed value leaks.
 scrub() {
   sed -E \
     -e 's#(://)[^/@[:space:]]+@#\1***@#g' \
     -e 's#(/api/webhooks/autopilots/)[^[:space:]"]+#\1***#g' \
     -e 's#(([Aa]uthorization|[Cc]ookie)"?[[:space:]]*[:=][[:space:]]*).*#\1***#' \
     -e 's#([Bb]earer[[:space:]]+)[^[:space:]"]+#\1***#g' \
-    -e 's#([A-Za-z0-9_]*([Ss][Ee][Cc][Rr][Ee][Tt]|[Tt][Oo][Kk][Ee][Nn]|[Pp][Aa][Ss][Ss][Ww]?[Oo]?[Rr]?[Dd]|[Aa][Pp][Ii]_?[Kk][Ee][Yy]|[Pp][Rr][Ii][Vv][Aa][Tt][Ee]_?[Kk][Ee][Yy])[A-Za-z0-9_]*"?[[:space:]]*[:=][[:space:]]*"?)[^[:space:],"]+#\1***#g' \
+    -e 's#([A-Za-z0-9_]*([Ss][Ee][Cc][Rr][Ee][Tt]|[Tt][Oo][Kk][Ee][Nn]|[Pp][Aa][Ss][Ss][Ww]?[Oo]?[Rr]?[Dd]|[Aa][Pp][Ii]_?[Kk][Ee][Yy]|[Pp][Rr][Ii][Vv][Aa][Tt][Ee]_?[Kk][Ee][Yy])[A-Za-z0-9_]*"?[[:space:]]*[:=][[:space:]]*).*#\1***#' \
     -e 's#(^|[^A-Za-z0-9])(mul|re|ghp|gho|ghs|github_pat)_[A-Za-z0-9_]{8,}#\1\2_***#g'
 }
 
@@ -53,7 +54,11 @@ for field in env sha step run_url; do
   eval "value=\$$field"
   [ -z "$value" ] || body="$body,\"$field\":$(printf '%s' "$value" | json_str)"
 done
-[ -z "$log" ] || body="$body,\"log_tail\":$(tail -n 50 "$log" | scrub | json_str)"
+if [ -n "$log" ]; then
+  # A plain assignment, so set -e stops here when the log cannot be read.
+  log_tail=$(tail -n 50 -- "$log")
+  body="$body,\"log_tail\":$(printf '%s\n' "$log_tail" | scrub | json_str)"
+fi
 body="$body}"
 
 if [ -n "$dry_run" ]; then
