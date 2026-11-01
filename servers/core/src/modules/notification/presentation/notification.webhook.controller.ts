@@ -16,6 +16,7 @@ import {
 import { asObject } from "@repo/contracts";
 import { AllowAnonymous } from "@thallesp/nestjs-better-auth";
 
+import { ZodBody } from "../../../platform/http/zod-body";
 import { RecordReceiptsUseCase } from "../application/use-cases/record-receipts.use-case";
 import {
   isProviderName,
@@ -36,6 +37,16 @@ import {
   resendReceipts,
   twilioReceipts,
 } from "../infrastructure/webhooks/receipt.parsers";
+import {
+  metaNotification,
+  resendEvent,
+  twilioStatusCallback,
+} from "./notification.webhook.schemas";
+
+/** Applied only once the signature has passed: an unsigned body is never parsed. */
+const resendBody = new ZodBody(resendEvent);
+const twilioBody = new ZodBody(twilioStatusCallback);
+const metaBody = new ZodBody(metaNotification);
 
 /**
  * What Express leaves on the request. `@thallesp/nestjs-better-auth` parses
@@ -137,7 +148,7 @@ export class NotificationWebhookController {
           timestamp: header(request, "svix-timestamp"),
         });
       if (!verified) throw new UnauthorizedException();
-      return resendReceipts(request.body);
+      return resendReceipts(resendBody.transform(request.body));
     }
 
     if (provider === "twilio") {
@@ -151,7 +162,7 @@ export class NotificationWebhookController {
           url: `${this.secrets.baseUrl}/twilio`,
         });
       if (!verified) throw new UnauthorizedException();
-      return twilioReceipts(params);
+      return twilioReceipts(twilioBody.transform(params));
     }
 
     const verified =
@@ -162,6 +173,6 @@ export class NotificationWebhookController {
         signature: header(request, "x-hub-signature-256"),
       });
     if (!verified) throw new UnauthorizedException();
-    return metaReceipts(request.body);
+    return metaReceipts(metaBody.transform(request.body));
   }
 }
