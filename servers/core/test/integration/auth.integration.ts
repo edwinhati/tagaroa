@@ -610,6 +610,223 @@ test("concurrent sign-ins retain at most three usable sessions", async () => {
   ).toBe(true);
 });
 
+test("concurrent sign-ins at the session cap evict the older sessions", async () => {
+  const issued = await issueAccount("concurrent-cap-password-12");
+  const older: string[] = [];
+  for (let attempt = 0; attempt < 3; attempt += 1)
+    older.push(sessionCookie(await signIn(issued.email, issued.password))!);
+  const newer = await Promise.all(
+    Array.from({ length: 3 }, () => signIn(issued.email, issued.password)),
+  );
+  const live = async (cookie: string) =>
+    Boolean(
+      await (
+        await request("/api/auth/get-session", { headers: { cookie } })
+      ).json(),
+    );
+  expect(await Promise.all(older.map(live))).toEqual([false, false, false]);
+  expect(
+    await Promise.all(newer.map((response) => live(sessionCookie(response)!))),
+  ).toEqual([true, true, true]);
+  const [{ count }] = await app.get<Database>(DATABASE).$client`
+    select count(*)::int as count from auth.session
+    where user_id = (select id from auth."user" where email = ${issued.email})
+  `;
+  expect(count).toBe(3);
+});
+
+/** Carries the session, challenge and trusted-device cookies between requests. */
+const cookieJar = () => {
+  const cookies = new Map<string, string>();
+  const header = () =>
+    [...cookies].map(([name, value]) => `${name}=${value}`).join("; ");
+  return {
+    has: (name: string) => cookies.has(`better-auth.${name}`),
+    post: async (path: string, body: unknown) => {
+      const response = await request(path, {
+        method: "POST",
+        headers: { cookie: header() },
+        body: JSON.stringify(body),
+      });
+      for (const cookie of response.headers.getSetCookie()) {
+        const [pair = "", ...attributes] = cookie.split(";");
+        const separator = pair.indexOf("=");
+        const name = pair.slice(0, separator).trim();
+        if (attributes.some((attribute) => /^\s*max-age=0$/i.test(attribute)))
+          cookies.delete(name);
+        else cookies.set(name, pair.slice(separator + 1));
+      }
+      return response;
+    },
+  };
+};
+
+const startEnrolment = async (temporaryPassword: string) => {
+  const employee = await issueAccount(temporaryPassword);
+  await app.get<Database>(DATABASE).$client`
+    update auth."user" set must_change_password = false where email = ${employee.email}
+  `;
+  const jar = cookieJar();
+  await jar.post("/api/auth/sign-in/email", employee);
+  const enable = async () => {
+    const enabled = await jar.post("/api/auth/two-factor/enable", {
+      password: employee.password,
+      method: "totp",
+    });
+    expect(enabled.status).toBe(200);
+    return (await enabled.json()) as { totpURI: string; backupCodes: string[] };
+  };
+  return { employee, jar, enable };
+};
+
+const enrolledEmployee = async (temporaryPassword: string) => {
+  const { employee, jar, enable } = await startEnrolment(temporaryPassword);
+  const factor = await enable();
+  const verified = await jar.post("/api/auth/two-factor/verify-totp", {
+    code: authenticatorCode(factor.totpURI),
+  });
+  expect(verified.status).toBe(200);
+  return { ...employee, ...factor };
+};
+
+/** Signs in with a password and expects the second-factor challenge. */
+const challenge = async (
+  employee: { email: string; password: string },
+  jar = cookieJar(),
+) => {
+  const signed = await jar.post("/api/auth/sign-in/email", employee);
+  expect(signed.status).toBe(200);
+  expect((await signed.json()).twoFactorRedirect).toBe(true);
+  return jar;
+};
+
+test("an abandoned authenticator enrolment leaves no half-enrolled factor", async () => {
+  const { employee, jar, enable } = await startEnrolment(
+    "QaAbandonPassword123!",
+  );
+  const abandoned = await enable();
+
+  // Reloading before the first code is verified must not switch MFA on.
+  const reloaded = await signIn(employee.email, employee.password);
+  expect(reloaded.status).toBe(200);
+  expect((await reloaded.json()).twoFactorRedirect).toBeUndefined();
+
+  const resumed = await enable();
+  expect(resumed.totpURI).not.toBe(abandoned.totpURI);
+  expect(
+    await app.get<Database>(DATABASE).$client`
+      select verified from auth.two_factor
+      where user_id = (select id from auth."user" where email = ${employee.email})
+    `,
+  ).toEqual([{ verified: false }]);
+  const stale = await jar.post("/api/auth/two-factor/verify-totp", {
+    code: authenticatorCode(abandoned.totpURI),
+  });
+  expect(stale.status).toBe(401);
+  expect((await stale.json()).code).toBe("INVALID_CODE");
+  const verified = await jar.post("/api/auth/two-factor/verify-totp", {
+    code: authenticatorCode(resumed.totpURI),
+  });
+  expect(verified.status).toBe(200);
+
+  const pending = await challenge(employee);
+  const staleCode = await pending.post(
+    "/api/auth/two-factor/verify-backup-code",
+    { code: abandoned.backupCodes[0] },
+  );
+  expect(staleCode.status).toBe(401);
+  expect((await staleCode.json()).code).toBe("INVALID_BACKUP_CODE");
+  const currentCode = await pending.post(
+    "/api/auth/two-factor/verify-backup-code",
+    { code: resumed.backupCodes[0] },
+  );
+  expect(currentCode.status).toBe(200);
+});
+
+test("exhausted recovery codes are refused and the authenticator still signs in", async () => {
+  const employee = await enrolledEmployee("QaExhaustPassword123!");
+  expect(employee.backupCodes).toHaveLength(10);
+  for (const code of employee.backupCodes) {
+    const used = await (
+      await challenge(employee)
+    ).post("/api/auth/two-factor/verify-backup-code", { code });
+    expect(used.status).toBe(200);
+  }
+
+  // Five misses spend a challenge. The account locks after ten consecutive
+  // misses, so an authenticator sign-in between the halves resets that count.
+  for (const codes of [
+    employee.backupCodes.slice(0, 5),
+    employee.backupCodes.slice(5),
+  ]) {
+    const pending = await challenge(employee);
+    for (const code of codes) {
+      const reused = await pending.post(
+        "/api/auth/two-factor/verify-backup-code",
+        { code },
+      );
+      expect(reused.status).toBe(401);
+      expect((await reused.json()).code).toBe("INVALID_BACKUP_CODE");
+    }
+    const spent = await pending.post("/api/auth/two-factor/verify-totp", {
+      code: authenticatorCode(employee.totpURI),
+    });
+    expect(spent.status).toBe(400);
+    expect((await spent.json()).code).toBe(
+      "TOO_MANY_ATTEMPTS_REQUEST_NEW_CODE",
+    );
+    const recovered = await (
+      await challenge(employee)
+    ).post("/api/auth/two-factor/verify-totp", {
+      code: authenticatorCode(employee.totpURI),
+    });
+    expect(recovered.status).toBe(200);
+  }
+});
+
+test("trusted devices and pending challenges stop working once expired", async () => {
+  const employee = await enrolledEmployee("QaExpiryPassword123!");
+  const client = app.get<Database>(DATABASE).$client;
+  const device = await challenge(employee);
+  const trusted = await device.post("/api/auth/two-factor/verify-totp", {
+    code: authenticatorCode(employee.totpURI),
+    trustDevice: true,
+  });
+  expect(trusted.status).toBe(200);
+  expect(device.has("trust_device")).toBe(true);
+  expect((await device.post("/api/auth/sign-out", {})).status).toBe(200);
+
+  const skipped = await device.post("/api/auth/sign-in/email", employee);
+  expect(skipped.status).toBe(200);
+  expect((await skipped.json()).twoFactorRedirect).toBeUndefined();
+  expect((await device.post("/api/auth/sign-out", {})).status).toBe(200);
+
+  // Thirty days are simulated by ageing the server-side trust record.
+  await client`
+    update auth.verification set expires_at = now() - interval '1 second'
+    where identifier like 'trust-device-%'
+    and value = (select id from auth."user" where email = ${employee.email})
+  `;
+  const pending = await challenge(employee, device);
+  await client`
+    update auth.verification set expires_at = now() - interval '1 second'
+    where value = (select id from auth."user" where email = ${employee.email})
+    and identifier not like 'trust-device-%'
+  `;
+  const expired = await pending.post("/api/auth/two-factor/verify-totp", {
+    code: authenticatorCode(employee.totpURI),
+  });
+  expect(expired.status).toBe(401);
+  expect((await expired.json()).code).toBe("INVALID_TWO_FACTOR_COOKIE");
+
+  const fresh = await (
+    await challenge(employee, pending)
+  ).post("/api/auth/two-factor/verify-totp", {
+    code: authenticatorCode(employee.totpURI),
+  });
+  expect(fresh.status).toBe(200);
+});
+
 test("template edits validate freshness and atomically reject concurrent overwrites", async () => {
   const cookie = await adminCookie();
   const draft = {
