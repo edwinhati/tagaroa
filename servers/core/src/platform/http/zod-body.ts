@@ -20,7 +20,7 @@ export class ZodBody<S extends ZodType> implements PipeTransform<
     const { issues } = result.error;
     throw new BadRequestException({
       details: issues.map(({ message, path }) => ({
-        field: path.join("."),
+        field: path.map(String).join("."),
         message,
       })),
       error: "Bad Request",
