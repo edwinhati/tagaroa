@@ -16,7 +16,7 @@ import {
 } from "@repo/ui/components/select";
 import { Textarea } from "@repo/ui/components/textarea";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { useState } from "react";
+import { type ReactNode, useState } from "react";
 
 import {
   AdminApiError,
@@ -26,6 +26,8 @@ import {
   everyPersonQueryOptions,
   recordBusinessAccessReview,
   type AccessReviewSubject,
+  type Directory,
+  type Person,
 } from "../lib/admin";
 import {
   Failed,
@@ -63,115 +65,132 @@ export function AccessReviewQueue({
     );
   return (
     <>
-      {(["assignment", "emergency"] as const).map((kind) => {
-        const subjects = (queue.data ?? []).filter((row) => row.kind === kind);
-        const pending = subjects.filter(
-          (row) => row.eligible && !row.review,
-        ).length;
-        return (
-          <SurfaceSection
-            key={kind}
-            framed={false}
-            title={
-              kind === "assignment"
-                ? "Business assignments"
-                : "Emergency access"
-            }
-            description={
-              kind === "assignment"
-                ? `${pending} pending this week. Check the responsibility, scope and duration.`
-                : `${pending} completed activations need review. Check the reason and activity trail.`
-            }
-          >
-            {subjects.length === 0 ? (
-              <Nothing
-                framed={false}
-                title={
-                  kind === "assignment"
-                    ? "No business assignments"
-                    : "No emergency access"
-                }
-              />
-            ) : (
-              <ul className="px-3 py-1">
-                {subjects.map((subject) => {
-                  const person = people.data?.find(
-                    (row) => row.id === subject.userId,
-                  );
-                  const subsidiary = directory.data?.subsidiaries.find(
-                    (row) => row.id === subject.organizationId,
-                  );
-                  const team = directory.data?.teams.find(
-                    (row) => row.id === subject.teamId,
-                  );
-                  const independent =
-                    reviewerId !== subject.userId &&
-                    reviewerId !== subject.grantedBy;
-                  return (
-                    <li
-                      key={subject.id}
-                      className="row-hover gap-3 flex flex-wrap items-center"
-                    >
-                      <div className="min-w-0 flex-1">
-                        <p className="font-medium text-[13px]">
-                          {person?.email ?? subject.userId} · {subject.label}
-                        </p>
-                        <p className="text-xs text-muted-foreground">
-                          {subsidiary?.name ?? subject.organizationId} /{" "}
-                          {team?.name ?? "All teams"} · {subject.detail}
-                        </p>
-                        {subject.review ? (
-                          <p className="text-xs text-muted-foreground">
-                            {subject.review.note}
-                          </p>
-                        ) : null}
-                      </div>
-                      {subject.review ? (
-                        <Mark
-                          label={
-                            subject.review.decision === "confirmed"
-                              ? "Confirmed"
-                              : "Flagged for action"
-                          }
-                          tone={
-                            subject.review.decision === "confirmed"
-                              ? "done"
-                              : "warn"
-                          }
-                        />
-                      ) : null}
-                      {!subject.eligible ? (
-                        <Mark
-                          label={
-                            kind === "emergency" ? "In progress" : "Inactive"
-                          }
-                          tone="away"
-                        />
-                      ) : !independent ? (
-                        <Mark label="Needs another reviewer" tone="away" />
-                      ) : canReview ? (
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          onClick={() => setSelected(subject)}
-                        >
-                          {subject.review ? "Review again" : "Review access"}
-                        </Button>
-                      ) : (
-                        <Mark label="Pending review" tone="away" />
-                      )}
-                    </li>
-                  );
-                })}
-              </ul>
-            )}
-          </SurfaceSection>
-        );
-      })}
+      {(["assignment", "emergency"] as const).map((kind) => (
+        <ReviewSection
+          key={kind}
+          kind={kind}
+          subjects={(queue.data ?? []).filter((row) => row.kind === kind)}
+        >
+          {(subject) => (
+            <ReviewSubjectRow
+              key={subject.id}
+              canReview={canReview}
+              directory={directory.data}
+              onReview={() => setSelected(subject)}
+              person={people.data?.find((row) => row.id === subject.userId)}
+              reviewerId={reviewerId}
+              subject={subject}
+            />
+          )}
+        </ReviewSection>
+      ))}
       {selected ? (
         <ReviewDialog subject={selected} onClose={() => setSelected(null)} />
       ) : null}
     </>
+  );
+}
+
+type ReviewKind = AccessReviewSubject["kind"];
+
+function ReviewSection({
+  kind,
+  subjects,
+  children,
+}: {
+  kind: ReviewKind;
+  subjects: AccessReviewSubject[];
+  children: (subject: AccessReviewSubject) => ReactNode;
+}) {
+  const pending = subjects.filter((row) => row.eligible && !row.review).length;
+  return (
+    <SurfaceSection
+      framed={false}
+      title={
+        kind === "assignment" ? "Business assignments" : "Emergency access"
+      }
+      description={
+        kind === "assignment"
+          ? `${pending} pending this week. Check the responsibility, scope and duration.`
+          : `${pending} completed activations need review. Check the reason and activity trail.`
+      }
+    >
+      {subjects.length === 0 ? (
+        <Nothing
+          framed={false}
+          title={
+            kind === "assignment"
+              ? "No business assignments"
+              : "No emergency access"
+          }
+        />
+      ) : (
+        <ul className="px-3 py-1">{subjects.map(children)}</ul>
+      )}
+    </SurfaceSection>
+  );
+}
+
+function ReviewSubjectRow({
+  canReview,
+  directory,
+  onReview,
+  person,
+  reviewerId,
+  subject,
+}: {
+  canReview: boolean;
+  directory: Directory | undefined;
+  onReview: () => void;
+  person: Person | undefined;
+  reviewerId: string | undefined;
+  subject: AccessReviewSubject;
+}) {
+  const subsidiary = directory?.subsidiaries.find(
+    (row) => row.id === subject.organizationId,
+  );
+  const team = directory?.teams.find((row) => row.id === subject.teamId);
+  const independent =
+    reviewerId !== subject.userId && reviewerId !== subject.grantedBy;
+  return (
+    <li className="row-hover gap-3 flex flex-wrap items-center">
+      <div className="min-w-0 flex-1">
+        <p className="font-medium text-[13px]">
+          {person?.email ?? subject.userId} · {subject.label}
+        </p>
+        <p className="text-xs text-muted-foreground">
+          {subsidiary?.name ?? subject.organizationId} /{" "}
+          {team?.name ?? "All teams"} · {subject.detail}
+        </p>
+        {subject.review ? (
+          <p className="text-xs text-muted-foreground">{subject.review.note}</p>
+        ) : null}
+      </div>
+      {subject.review ? (
+        <Mark
+          label={
+            subject.review.decision === "confirmed"
+              ? "Confirmed"
+              : "Flagged for action"
+          }
+          tone={subject.review.decision === "confirmed" ? "done" : "warn"}
+        />
+      ) : null}
+      {!subject.eligible ? (
+        <Mark
+          label={subject.kind === "emergency" ? "In progress" : "Inactive"}
+          tone="away"
+        />
+      ) : !independent ? (
+        <Mark label="Needs another reviewer" tone="away" />
+      ) : canReview ? (
+        <Button size="sm" variant="outline" onClick={onReview}>
+          {subject.review ? "Review again" : "Review access"}
+        </Button>
+      ) : (
+        <Mark label="Pending review" tone="away" />
+      )}
+    </li>
   );
 }
 
