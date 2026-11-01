@@ -1,9 +1,9 @@
 import AxeBuilder from "@axe-core/playwright";
 import { expect, test } from "@playwright/test";
 import type { BrowserContext } from "@playwright/test";
+import { authenticatorCode } from "@repo/test-support/totp";
 import { SQL } from "bun";
 
-import { authenticatorCode } from "../../../servers/core/test/totp";
 import { operator } from "./operator";
 
 const adminOrigin = "http://localhost:13003";

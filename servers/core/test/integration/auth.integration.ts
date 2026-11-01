@@ -9,6 +9,7 @@ import {
 import { createHmac } from "node:crypto";
 
 import { Logger, type INestApplication } from "@nestjs/common";
+import { authenticatorCode } from "@repo/test-support/totp";
 import { betterAuth } from "better-auth/minimal";
 import { admin, testUtils } from "better-auth/plugins";
 
@@ -23,7 +24,6 @@ import {
   type Database,
 } from "../../src/platform/database/database.module";
 import { prepareTestDatabase, testEnv } from "../database";
-import { authenticatorCode } from "../totp";
 
 Object.assign(process.env, testEnv);
 setDefaultTimeout(60_000);
