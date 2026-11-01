@@ -69,8 +69,26 @@ Raw notes on where Tagaroa runs and the tools around it. Workflow specs live in
   at startup. `docs/security/access-control-rollout.md`: migrate before deploying app changes.
 - Core env: `servers/core/.env.example`. Production requires HTTPS `TRUSTED_ORIGINS`,
   `PASSKEY_ORIGINS`, `PASSKEY_RP_ID`; an unconfigured notification channel fails loudly.
-- Session cookies are host-only on the API host (no cross-subdomain cookies), so dev and
-  prod can share the `tagaroa.cc` parent safely.
+- Session cookies (ISSUE-16, ISSUE-30). In production mode every Better Auth cookie is
+  host-only on the API host, `__Host-better-auth.*` (`Secure`, `Path=/`, no `Domain`):
+  `dev.tagaroa.cc` on dev, `tagaroa.cc` on prod. The browser sends it to that exact host
+  and nowhere else, so prod's never reaches dev, Multica, GitLab or any other host under
+  the zone, and `__Host-` refuses a same-named cookie a sibling host plants with a
+  `Domain`. The door (built) and every other app call core on the API host directly,
+  cross-origin but same-site, so its `SameSite=Lax` cookie goes along; core refuses a
+  production trusted origin outside the API host. One session per person per browser,
+  so `MAX_CONCURRENT_SESSIONS` is unaffected. Local dev keeps the door same-origin
+  through Vite (Brave/Safari dropped the cookie from `localhost:8080`).
+  - Checked: `infra/dev/images.test.sh` (cookie attributes, session read from the API
+    host) and `infra/dev/browsers.test.sh <core-image>`, which builds a web image for
+    `*.dev.localtest.me`, puts HTTPS in front and signs in through the door in
+    Chromium, Firefox and WebKit.
+  - Rejected: `Domain=tagaroa.cc` (sends prod tokens to every host under the zone; a
+    stolen one is account takeover for up to 7 days, `bearer()` accepts it with no
+    cookie); a prod `work.tagaroa.cc` zone (not needed); per-host sessions through each
+    app's own `/api` (three sessions per person, plus a hand-off between hosts); a single
+    origin with path routing (moves every app's base path for no extra isolation).
+  - Still true: the edge terminates TLS, so it sees every cookie.
 
 ## Decisions so far (2026-10-31)
 
