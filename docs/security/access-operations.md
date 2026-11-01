@@ -79,7 +79,7 @@ Suspected compromise requires immediate suspension and session revocation before
 2. The operation atomically suspends the account, revokes sessions and business grants, removes subsidiary/team memberships, clears identity privileges, and ends emergency access. It is safe to retry. Verify the person cannot sign in or use a previous session. Ordinary suspension also revokes business grants; restoration requires new grants.
 3. Preserve the account and audit evidence during the retention period. Account deletion requires a separate retention decision and recent sign-in; it is not the default offboarding action.
 4. Record the completion time and operator. A second operator verifies the result for privileged accounts.
-5. With Frappe HR configured, setting the employee to `Left` with a relieving date performs steps 1–2 on that date through the same operation, audited with no actor and the HR record as its source. Still record the case, verify the result, and offboard by hand anyone whose departure HR does not record.
+5. With Frappe HR configured, setting the employee to `Left` with a relieving date performs steps 1–2 on that date through the same operation, audited with no actor and the HR record as its source. It never offboards a privileged account; a super-admin does that by hand. Still record the case, verify the result, and offboard by hand anyone whose departure HR does not record.
 
 ## Weekly access review
 

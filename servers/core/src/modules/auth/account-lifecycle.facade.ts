@@ -1,6 +1,6 @@
 import { randomBytes } from "node:crypto";
 
-import { Inject, Injectable } from "@nestjs/common";
+import { ForbiddenException, Inject, Injectable } from "@nestjs/common";
 import { asObject } from "@repo/contracts";
 import { AuthService } from "@thallesp/nestjs-better-auth";
 
@@ -8,6 +8,7 @@ import {
   AUDIT_TRAIL,
   type AuditTrail,
 } from "../audit/application/audit.facade";
+import { isPrivilegedRole } from "./access-policy";
 import type { Auth } from "./auth";
 import { IdentityOperationsService } from "./identity-operations.service";
 
@@ -16,6 +17,8 @@ export const ACCOUNT_LIFECYCLE = Symbol("ACCOUNT_LIFECYCLE");
 export interface AccountState {
   id: string;
   banned: boolean;
+  /** Holds an administrative role. No system of record may adopt or retire it. */
+  privileged: boolean;
 }
 
 /**
@@ -38,7 +41,10 @@ export interface AccountLifecycle {
     personalEmail: string;
     source: string;
   }): Promise<{ id: string; onboardingQueued: boolean }>;
-  /** Suspend, drop sessions and memberships. The last super-admin is kept. */
+  /**
+   * Suspend, drop sessions and memberships. A privileged account is refused:
+   * offboarding one is a super-admin's act, never a record's.
+   */
   retire(id: string, detail: string): Promise<void>;
 }
 
@@ -94,13 +100,24 @@ export class AccountLifecycleFacade implements AccountLifecycle {
   }
 
   retire(id: string, detail: string): Promise<void> {
-    return this.identity.retire(id, detail, null);
+    return this.identity.retire(id, detail, null, (target) => {
+      if (isPrivilegedRole(target.role))
+        throw new ForbiddenException(
+          "A super administrator offboards privileged accounts.",
+        );
+    });
   }
 }
 
 const state = (user: unknown): AccountState | null => {
   const row = asObject(user);
   return typeof row?.id === "string"
-    ? { banned: row.banned === true, id: row.id }
+    ? {
+        banned: row.banned === true,
+        id: row.id,
+        privileged: isPrivilegedRole(
+          typeof row.role === "string" ? row.role : null,
+        ),
+      }
     : null;
 };
