@@ -24,6 +24,7 @@ import {
   canManageTarget,
   isPrivilegedRole,
   isSuperAdmin,
+  OWN_OPERATOR_ACCOUNT_REQUIRED,
   rolesOf,
   removesSuperAdminRole,
 } from "./access-policy";
@@ -512,12 +513,45 @@ const sessionIsFresh = (
   return Number.isFinite(age) && age >= 0 && age < 15 * 60 * 1_000;
 };
 
+/**
+ * What an impersonated session may still reach: reads, and the way back out.
+ * It acts as its target with the target's MFA state and a fresh `createdAt`, so
+ * every other write would be recorded as the impersonated person. Kept as an
+ * allowlist so a new Better Auth endpoint is refused until it is judged.
+ */
+const IMPERSONATION_ADMIN_ROUTES = new Set([
+  "/admin/stop-impersonating",
+  "/admin/list-users",
+  "/admin/get-user",
+  "/admin/list-user-sessions",
+  "/admin/has-permission",
+]);
+const IMPERSONATION_ORGANIZATION_ROUTES = new Set([
+  "/organization/set-active",
+  "/organization/set-active-team",
+  "/organization/has-permission",
+  "/organization/check-slug",
+]);
+
+const isImpersonated = (session: { session?: unknown } | null): boolean =>
+  Boolean(asObject(session?.session)?.impersonatedBy);
+
+const refuseImpersonation = (): never => {
+  throw new APIError("FORBIDDEN", {
+    code: "IMPERSONATED_SESSION",
+    message: OWN_OPERATOR_ACCOUNT_REQUIRED,
+  });
+};
+
 const enforceAdminPolicy = createAuthMiddleware(async (ctx) => {
   if (!ctx.path.startsWith("/admin/")) return;
 
   const session =
     ctx.context.session ?? (await getAuthoritativeSessionFromCtx(ctx));
   if (!session) return;
+
+  if (isImpersonated(session) && !IMPERSONATION_ADMIN_ROUTES.has(ctx.path))
+    refuseImpersonation();
 
   if (session.user.mustChangePassword === true) {
     throw new APIError("FORBIDDEN", {
@@ -627,11 +661,13 @@ const enforceOrganizationWrite = createAuthMiddleware(async (ctx) => {
         "Replace the temporary password before accessing subsidiary data.",
     });
   }
+  if (["GET", "HEAD", "OPTIONS"].includes(ctx.request.method)) return;
   if (
-    ["GET", "HEAD", "OPTIONS"].includes(ctx.request.method) ||
-    PERSONAL_ORGANIZATION_ROUTES.has(ctx.path)
+    isImpersonated(session) &&
+    !IMPERSONATION_ORGANIZATION_ROUTES.has(ctx.path)
   )
-    return;
+    refuseImpersonation();
+  if (PERSONAL_ORGANIZATION_ROUTES.has(ctx.path)) return;
   const role = session?.user.role;
   if (!session || (!isSuperAdmin(role) && !rolesOf(role).includes("admin"))) {
     throw new APIError("FORBIDDEN", {

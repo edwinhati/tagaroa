@@ -87,14 +87,14 @@ test("reviews require independence, evidence and the displayed version", async (
   };
   for (const reviewer of ["employee", "grantor"])
     await expect(
-      service.record("assignment", subject.id, input, reviewer),
+      service.record("assignment", subject.id, input, { id: reviewer }),
     ).rejects.toThrow("reviewer other than");
   await expect(
     service.record(
       "assignment",
       subject.id,
       { ...input, snapshot: "old" },
-      "reviewer",
+      { id: "reviewer" },
     ),
   ).rejects.toThrow("Access changed");
   await expect(
@@ -102,11 +102,17 @@ test("reviews require independence, evidence and the displayed version", async (
       "assignment",
       subject.id,
       { ...input, note: "" },
-      "reviewer",
+      { id: "reviewer" },
     ),
   ).rejects.toThrow("evidence");
+  await expect(
+    service.record("assignment", subject.id, input, {
+      id: "reviewer",
+      impersonatedBy: "grantor",
+    }),
+  ).rejects.toThrow("your own");
   expect(records).toHaveLength(0);
-  await service.record("assignment", subject.id, input, "reviewer");
+  await service.record("assignment", subject.id, input, { id: "reviewer" });
   expect((await service.list())[0]!.review?.decision).toBe("confirmed");
   expect(events).toEqual(["access.assignment.reviewed"]);
   const nextWeek = new Date(now.getTime() + 8 * 86400_000);
@@ -221,18 +227,18 @@ test("emergency access is independently reviewed only after completion", async (
     snapshot: subject.snapshot,
   };
   await expect(
-    service.record("emergency", subject.id, input, "operator"),
+    service.record("emergency", subject.id, input, { id: "operator" }),
   ).rejects.toThrow("reviewer other than");
   const expires = emergency.expiresAt;
   try {
     emergency.expiresAt = new Date(Date.now() + 60_000);
     await expect(
-      service.record("emergency", subject.id, input, "reviewer"),
+      service.record("emergency", subject.id, input, { id: "reviewer" }),
     ).rejects.toThrow("completed emergency");
   } finally {
     emergency.expiresAt = expires;
   }
-  await service.record("emergency", subject.id, input, "reviewer");
+  await service.record("emergency", subject.id, input, { id: "reviewer" });
   expect(
     (await service.list(new Date(now.getTime() + 8 * 86400_000))).find(
       (row) => row.kind === "emergency",

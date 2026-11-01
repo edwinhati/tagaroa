@@ -1806,3 +1806,81 @@ test("subsidiary ownership cannot bypass group identity policy and temporary ope
     expect((await response.json()).code).toBe("PASSWORD_CHANGE_REQUIRED");
   }
 });
+
+test("an impersonated session cannot review, grant or change roles as its target", async () => {
+  const operatorCookie = await adminCookie("super-admin");
+  const send = (path: string, body: unknown, cookie = operatorCookie) =>
+    request(path, {
+      method: "POST",
+      headers: { cookie },
+      body: JSON.stringify(body),
+    });
+  const sessionOf = async (cookie: string) =>
+    (await request("/api/auth/get-session", { headers: { cookie } })).json();
+  const operator = await sessionOf(operatorCookie);
+  const subsidiary = await send("/api/auth-management/subsidiaries", {
+    name: "Impersonation scope",
+    slug: `impersonation-${crypto.randomUUID()}`,
+  });
+  expect(subsidiary.status).toBe(201);
+  const assignment = await send("/api/access-control/assignments", {
+    organizationId: (await subsidiary.json()).data.id,
+    scope: "subsidiary",
+    roleId: "system-domain-administrator",
+    userId: operator.user.id,
+  });
+  expect(assignment.status).toBe(201);
+  const assignmentId = (await assignment.json()).data.id;
+  const reviewer = await sessionOf(await adminCookie("access-reviewer"));
+  const employee = await sessionOf(await adminCookie("user"));
+
+  const impersonated = await send("/api/auth/admin/impersonate-user", {
+    userId: reviewer.user.id,
+  });
+  expect(impersonated.status).toBe(200);
+  const cookie = [
+    ...new Map(
+      impersonated.headers.getSetCookie().map((value) => {
+        const pair = value.split(";", 1)[0]!;
+        return [pair.slice(0, pair.indexOf("=")), pair] as const;
+      }),
+    ).values(),
+  ].join("; ");
+  const session = await sessionOf(cookie);
+  expect(session.user.id).toBe(reviewer.user.id);
+  expect(session.session.impersonatedBy).toBe(operator.user.id);
+
+  const subject = (
+    await (
+      await request("/api/access-control/reviews", {
+        headers: { cookie: operatorCookie },
+      })
+    ).json()
+  ).data.find((row: { id: string }) => row.id === assignmentId);
+  for (const [path, body] of [
+    [
+      `/api/access-control/reviews/assignment/${assignmentId}`,
+      {
+        decision: "confirmed",
+        note: "Manager confirmed responsibility in case 123",
+        snapshot: subject.snapshot,
+      },
+    ],
+    [`/api/directory/access-reviews/${operator.user.id}`, {}],
+    ["/api/auth/admin/set-role", { userId: employee.user.id, role: "admin" }],
+  ] as const) {
+    const response = await send(path, body, cookie);
+    expect(response.status).toBe(403);
+  }
+
+  const sql = app.get<Database>(DATABASE).$client;
+  expect(
+    await sql`select 1 from access_control.access_review where subject_id = ${assignmentId}`,
+  ).toHaveLength(0);
+  expect(
+    await sql`select 1 from directory.privileged_access_review where user_id = ${operator.user.id}`,
+  ).toHaveLength(0);
+  const [target] =
+    await sql`select role from auth."user" where id = ${employee.user.id}`;
+  expect(target.role).toBe("user");
+});

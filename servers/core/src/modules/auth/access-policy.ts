@@ -1,3 +1,5 @@
+import { ForbiddenException } from "@nestjs/common";
+
 export const ADMIN_ROLE_IDS = [
   "access-reviewer",
   "helpdesk",
@@ -136,3 +138,19 @@ export const removesSuperAdminRole = (
   ![nextRole]
     .flat()
     .some((role) => typeof role === "string" && isSuperAdmin(role));
+
+export const OWN_OPERATOR_ACCOUNT_REQUIRED =
+  "Use your own MFA-protected operator account.";
+
+/**
+ * An impersonated session acts as its target, carrying the target's MFA state
+ * and a fresh `createdAt`, so it must never stand in for an operator's own act:
+ * a grant, a break-glass or an independent review would be recorded as the
+ * impersonated person.
+ */
+export const requireOwnSession = (actor: {
+  impersonatedBy?: string | null;
+}): void => {
+  if (actor.impersonatedBy)
+    throw new ForbiddenException(OWN_OPERATOR_ACCOUNT_REQUIRED);
+};
