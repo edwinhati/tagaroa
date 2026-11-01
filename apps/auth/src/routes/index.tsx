@@ -112,8 +112,9 @@ function SignIn() {
         : "sign-in",
   );
   const [temporaryPassword, setTemporaryPassword] = useState("");
-  // Session token from the sign-in body. Used when the browser dropped the
-  // cross-origin Set-Cookie and change-password has no cookie session yet.
+  // Signed session token from sign-in's `set-auth-token` header. Used when the
+  // browser dropped the cross-origin Set-Cookie and change-password has no
+  // cookie session yet.
   const [sessionToken, setSessionToken] = useState("");
 
   function leaveForWorkspace() {
@@ -236,8 +237,19 @@ export function SignInStep({
     onSubmit: async ({ value }) => {
       setFailure(null);
 
+      // The bearer plugin's signed `set-auth-token`, never the body's raw
+      // token: core accepts only a signed bearer.
+      let token = "";
       const { code, data, failure } = await attemptAuth(
-        () => authClient.signIn.email(value),
+        () =>
+          authClient.signIn.email({
+            ...value,
+            fetchOptions: {
+              onSuccess: ({ response }) => {
+                token = response.headers.get("set-auth-token") ?? "";
+              },
+            },
+          }),
         "That email and password don't match an account. Check both and try again.",
       );
 
@@ -269,14 +281,6 @@ export function SignInStep({
       const mustChange = (
         data?.user as { mustChangePassword?: boolean } | undefined
       )?.mustChangePassword;
-
-      const token =
-        data &&
-        typeof data === "object" &&
-        "token" in data &&
-        typeof (data as { token?: unknown }).token === "string"
-          ? (data as { token: string }).token
-          : "";
 
       if (mustChange) {
         onTemporaryPassword(value.password, token);

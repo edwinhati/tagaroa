@@ -557,6 +557,106 @@ test("ending other sessions preserves the current session and expired sessions a
   ).toBeNull();
 });
 
+test("operators never hold another person's session token, and a raw token is no bearer", async () => {
+  const database = app.get<Database>(DATABASE).$client;
+  const userOf = async (cookie: string): Promise<string> =>
+    (
+      await (
+        await request("/api/auth/get-session", { headers: { cookie } })
+      ).json()
+    ).user.id;
+  const sessionsOf = async (userId: string) =>
+    database<{ id: string; token: string }[]>`
+      select id, token from auth.session where user_id = ${userId}
+    `;
+  const helpdesk = await adminCookie("helpdesk");
+  const superAdmin = await adminCookie("super-admin");
+  const privileged = await adminCookie("super-admin");
+  const privilegedId = await userOf(privileged);
+  const listSessions = (cookie: string, userId: string) =>
+    request("/api/auth/admin/list-user-sessions", {
+      method: "POST",
+      headers: { cookie },
+      body: JSON.stringify({ userId }),
+    });
+
+  // Only a super administrator reads a privileged account's sessions, and
+  // even then without the secret that signs in as them.
+  expect((await listSessions(helpdesk, privilegedId)).status).toBe(403);
+  const listed = await listSessions(superAdmin, privilegedId);
+  expect(listed.status).toBe(200);
+  const { sessions } = await listed.json();
+  expect(sessions.length).toBeGreaterThan(0);
+  expect(sessions.every((row: object) => !("token" in row))).toBe(true);
+
+  // The stored token, unsigned, authenticates nowhere.
+  const [stored] = await sessionsOf(privilegedId);
+  const raw = { authorization: `Bearer ${stored!.token}` };
+  expect(
+    await (await request("/api/auth/get-session", { headers: raw })).json(),
+  ).toBeNull();
+  expect((await request("/api/directory", { headers: raw })).status).toBe(401);
+
+  // The signed `set-auth-token` still carries the temporary-password flow.
+  const issued = await issueAccount("bearer-password-12");
+  const signedIn = await signIn(issued.email, issued.password);
+  const signed = signedIn.headers.get("set-auth-token");
+  expect(signed).toContain(".");
+  const changed = await request("/api/auth/change-password", {
+    method: "POST",
+    headers: { authorization: `Bearer ${signed}` },
+    body: JSON.stringify({
+      currentPassword: issued.password,
+      newPassword: "bearer-replaced-12",
+      revokeOtherSessions: true,
+    }),
+  });
+  expect(changed.status).toBe(200);
+  expect((await changed.json()).user.mustChangePassword).toBe(false);
+
+  // Single-session revoke goes by id through core, checked against its owner.
+  expect(
+    (
+      await request("/api/auth/admin/revoke-user-session", {
+        method: "POST",
+        headers: { cookie: superAdmin },
+        body: JSON.stringify({ sessionToken: stored!.token }),
+      })
+    ).status,
+  ).toBe(404);
+  const revoke = (cookie: string, sessionId: string) =>
+    request(`/api/auth-management/sessions/${sessionId}/revoke`, {
+      method: "POST",
+      headers: { cookie },
+    });
+  const denied = await revoke(helpdesk, stored!.id);
+  expect(denied.status).toBe(403);
+  expect((await denied.json()).code).toBe(
+    "PRIVILEGED_TARGET_REQUIRES_SUPER_ADMIN",
+  );
+  expect(await sessionsOf(privilegedId)).toHaveLength(1);
+  expect((await revoke(helpdesk, crypto.randomUUID())).status).toBe(404);
+
+  const employeeId = (
+    await (await signIn(issued.email, "bearer-replaced-12")).json()
+  ).user.id;
+  const [employeeSession] = await sessionsOf(employeeId);
+  expect((await revoke(helpdesk, employeeSession!.id)).status).toBe(201);
+  expect(
+    (await sessionsOf(employeeId)).some(
+      (row) => row.id === employeeSession!.id,
+    ),
+  ).toBe(false);
+  const helpdeskId = await userOf(helpdesk);
+  expect(
+    await database`
+      select detail from directory.auth_audit_event
+      where actor_id = ${helpdeskId} and target_user_id = ${employeeId}
+        and type = 'user.session.revoked'
+    `,
+  ).toEqual([{ detail: employeeSession!.id }]);
+});
+
 test("administration read and write endpoints enforce identity roles and MFA", async () => {
   for (const [role, readAllowed, writeAllowed] of [
     ["user", false, false],
