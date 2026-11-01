@@ -10,6 +10,8 @@
   "scripts": {
     "boundaries": "turbo boundaries",
     "build": "turbo run build",
+    "changeset": "changeset",
+    "changeset:status": "changeset status",
     "check-types": "turbo run check-types && bun run check-types:exploration",
     "check-types:exploration": "tsc --noEmit --strict --skipLibCheck --target es2023 --module esnext --moduleResolution bundler --types node --lib es2023,dom e2e.config.ts tests/exploration/*.e2e.ts",
     "dev": "turbo run dev",
@@ -20,6 +22,8 @@
     "lint": "oxlint --deny-warnings .",
     "lint:fix": "oxlint --fix --deny-warnings .",
     "prepare": "[ -n \"$CI\" ] || hk install",
+    "release:tag": "changeset git-tag",
+    "release:version": "changeset version && bun install --lockfile-only",
     "test": "turbo run test",
     "test:e2e": "node scripts/test-playwright.mjs",
     "test:e2e:headed": "bun run test:e2e --headed --project=chromium",
@@ -29,6 +33,7 @@
   "devDependencies": {
     "@ai-sdk/openai-compatible": "3.0.77",
     "@axe-core/playwright": "^4.14.0",
+    "@changesets/cli": "3.0.3",
     "@e2e-dev/web": "0.15.3",
     "@shadcn/lint": "^0.2.3",
     "@types/node": "26.6.5",
