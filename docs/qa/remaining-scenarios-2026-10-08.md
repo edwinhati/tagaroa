@@ -361,3 +361,25 @@ servers and Ego task space were closed; user development servers were preserved.
 See the [workflow-edge results](workflow-edges-2026-10-09.md) and
 [scenario map](scenario-map-2026-10-09.md) for the latest 79 passing browser
 checks, two intentional skips, 39 passing integration tests and remaining gaps.
+
+## Server-side identity coverage, 1 November 2026 (ISSUE-48)
+
+The MFA and session scenarios above were browser-only, grouped into one long
+auth workflow, or only implied by the UI. These cases now also have integration
+tests in `servers/core/test/integration/auth.integration.ts`. They call the real
+Better Auth endpoints and age database records to simulate expiry, so they don't
+wait on wall-clock time or `waitForTimeout`.
+
+| Scenario                            | Integration test                                                                                                                     | What it asserts                                                                                                                                                                                                              |
+| ----------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Abandon/reload during enrolment     | an abandoned authenticator enrolment leaves no half-enrolled factor                                                                  | Before the first code is verified, sign-in stays password-only. Restarting setup reuses the single unverified factor row with a new secret. The abandoned secret and recovery codes are rejected; the replacement ones work. |
+| Recovery-code exhaustion            | exhausted recovery codes are refused and the authenticator still signs in                                                            | All ten codes work once. Each reuse returns `INVALID_BACKUP_CODE`. A challenge is spent after five misses (`TOO_MANY_ATTEMPTS_REQUEST_NEW_CODE`). Sign-in still requires the second factor, and the authenticator succeeds.  |
+| Trusted-device and challenge expiry | trusted devices and pending challenges stop working once expired                                                                     | A trusted device skips the challenge until its server record expires. An expired challenge returns `INVALID_TWO_FACTOR_COOKIE`. A fresh password and code sign-in then succeeds.                                             |
+| TOTP clock drift                    | TOTP accepts adjacent windows at rollover and rejects two-window drift (existing)                                                    | ±1 window is accepted around a 30-second rollover; ±2 windows are rejected.                                                                                                                                                  |
+| Concurrent sign-ins at the cap      | concurrent sign-ins retain at most three usable sessions (existing); concurrent sign-ins at the session cap evict the older sessions | Four simultaneous sign-ins leave three usable sessions. Three simultaneous sign-ins on top of three existing ones evict all three older sessions, keep the new ones, and leave exactly three session rows.                   |
+
+The browser workflow in `apps/auth/e2e/sign-in.e2e.ts` keeps the UI side of these
+flows: reloading the setup screen, the expired-challenge “Sign in again” recovery,
+and recovery-code entry. No browser tests were added. Not covered: real
+thirty-day waits, account-wide lockout after ten consecutive misses, and
+production rate limiting (disabled in the test environment).
