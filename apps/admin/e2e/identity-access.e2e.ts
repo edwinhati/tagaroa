@@ -231,6 +231,89 @@ test("remaining account profile and sessions recover from failed reads", async (
   });
 });
 
+test("account settings edit the display name, refuse admin-managed fields and retry a failed save", async ({
+  page,
+  isMobile,
+}) => {
+  test.setTimeout(90_000);
+  const sql = new SQL(databaseUrl);
+  const [original] =
+    await sql`select id, name, personal_email from auth."user" where email = ${operator.email}`;
+  const renamed = `QA Renamed ${test.info().project.name}`;
+  const openProfile = async () => {
+    await page.goto("http://localhost:13002/");
+    await expect(
+      page.getByRole("heading", { name: "Home", exact: true }),
+    ).toBeVisible();
+    if (isMobile) await page.locator('[data-slot="sidebar-trigger"]').click();
+    await page
+      .getByRole("button", {
+        name: `Account menu for ${operator.email.charAt(0).toUpperCase()} ${operator.email}`,
+      })
+      .click();
+    await page.getByRole("menuitem", { name: "Account settings" }).click();
+    return page.getByRole("dialog");
+  };
+  try {
+    // The self-service route takes the display name and nothing an admin owns.
+    const refused = await page.request.post(
+      `${coreOrigin}/api/auth/update-user`,
+      {
+        data: { name: "Ada", personalEmail: "ada@example.test" },
+        headers: { origin: "http://localhost:13002" },
+      },
+    );
+    expect(refused.status()).toBe(400);
+    expect((await refused.json()).message).toBe(
+      "Only your name can be changed here.",
+    );
+    const [unchanged] =
+      await sql`select name, personal_email from auth."user" where id = ${original.id}`;
+    expect(unchanged).toEqual({
+      name: original.name,
+      personal_email: original.personal_email,
+    });
+
+    const dialog = await openProfile();
+    await dialog.getByRole("button", { name: "Edit name" }).click();
+    const input = dialog.getByRole("textbox", { name: "Name" });
+    await expect(input).toBeFocused();
+    await input.fill("   ");
+    await dialog.getByRole("button", { name: "Save" }).click();
+    await expect(dialog.getByRole("alert")).toHaveText("Name is required.");
+    await expect(input).toHaveAttribute("aria-invalid", "true");
+
+    await page.route("**/api/auth/update-user", (route) => route.abort());
+    await input.fill(renamed);
+    await dialog.getByRole("button", { name: "Save" }).click();
+    await expect(dialog.getByRole("alert")).toHaveText(
+      "Your name was not saved. Check your connection and try again.",
+    );
+    await page.unroute("**/api/auth/update-user");
+    await dialog.getByRole("button", { name: "Save" }).click();
+    await expect(dialog.getByRole("status")).toHaveText("Name saved.");
+    await expect(dialog.getByRole("heading", { name: renamed })).toBeVisible();
+    await expect(dialog.getByRole("alert")).toHaveCount(0);
+
+    await page.keyboard.press("Escape");
+    await page.reload();
+    const reopened = await openProfile();
+    await expect(
+      reopened.getByRole("heading", { name: renamed }),
+    ).toBeVisible();
+    const [stored] =
+      await sql`select name from auth."user" where id = ${original.id}`;
+    expect(stored.name).toBe(renamed);
+    const audit =
+      await sql`select actor_id from directory.auth_audit_event where type = 'user.profile.updated' and target_user_id = ${original.id}`;
+    expect(audit.length).toBeGreaterThan(0);
+    expect(audit[0].actor_id).toBe(original.id);
+  } finally {
+    await sql`update auth."user" set name = ${original.name} where id = ${original.id}`;
+    await sql.close();
+  }
+});
+
 test("remaining emergency reads retry and a stale open dialog requires reauthentication", async ({
   page,
 }) => {
