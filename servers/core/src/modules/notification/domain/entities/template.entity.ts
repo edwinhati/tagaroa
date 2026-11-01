@@ -20,6 +20,17 @@ export interface TemplateProps {
 }
 
 /**
+ * Secrets the code owns, whatever the row says. Admins edit template rows, so a
+ * row's own `secrets` is only ever added to: a new wording published with
+ * `"secrets": []` must not write a temporary password into the message log an
+ * admin can read (ADR 0001).
+ */
+const REQUIRED_SECRETS: ReadonlyMap<string, readonly string[]> = new Map([
+  ["account.issued", ["password"]],
+  ["account.password-reset", ["password"]],
+]);
+
+/**
  * The wording of one message, in one language, on one channel.
  *
  * Versioned and published rather than edited in place: a message already queued
@@ -72,7 +83,12 @@ export class Template {
 
   /** The variables this wording refuses to have written down. */
   get secrets(): string[] {
-    return [...this.props.secrets];
+    return [
+      ...new Set([
+        ...this.props.secrets,
+        ...(REQUIRED_SECRETS.get(this.props.key) ?? []),
+      ]),
+    ];
   }
 
   get updatedAt(): Date {
@@ -92,7 +108,7 @@ export class Template {
     return {
       body: this.props.body,
       channel: this.props.channel,
-      secrets: [...this.props.secrets],
+      secrets: this.secrets,
       subject: this.props.subject,
       variables: [...this.props.variables],
     };

@@ -813,6 +813,56 @@ test("templates validate and persist create, edit, publish, version and delete a
   }
 });
 
+test("a password-reset wording published without secrets still keeps the password out of the message log", async () => {
+  const admin = await adminCookie();
+  const send = (path: string, method: string, body?: unknown) =>
+    request(path, {
+      method,
+      headers: { cookie: admin },
+      body: body === undefined ? undefined : JSON.stringify(body),
+    });
+  // The seeded wording, republished with nothing marked secret.
+  const created = await send("/api/notifications/templates", "POST", {
+    key: "account.password-reset",
+    channel: "email",
+    locale: "en",
+    subject: "Your Tagaroa password was reset",
+    body: "{{name}},\n\nAddress: {{email}}\nTemporary password: {{password}}",
+    variables: ["name", "email", "password"],
+    secrets: [],
+  });
+  expect(created.status).toBe(201);
+  const { id } = await created.json();
+  expect(
+    (await send(`/api/notifications/templates/${id}/publish`, "POST")).status,
+  ).toBe(204);
+
+  const employee = await issueAccount("UnmaskedFixturePassword123!");
+  const target = await (await signIn(employee.email, employee.password)).json();
+  const password = "UnmaskedResetFixture123!";
+  const reset = await request("/api/auth/admin/set-user-password", {
+    method: "POST",
+    headers: { cookie: await adminCookie("super-admin") },
+    body: JSON.stringify({ userId: target.user.id, newPassword: password }),
+  });
+  expect(reset.status).toBe(200);
+
+  const listed = await send(
+    `/api/notifications/messages?q=${encodeURIComponent(`personal.${employee.email}`)}`,
+    "GET",
+  );
+  expect(listed.status).toBe(200);
+  const messages = await listed.json();
+  expect(
+    messages.data.some(
+      (row: { key: string; body: string }) =>
+        row.key === "account.password-reset" &&
+        row.body.includes("Temporary password: {{password}}"),
+    ),
+  ).toBe(true);
+  expect(JSON.stringify(messages)).not.toContain(password);
+});
+
 test("subsidiaries, teams, positions, scoped assignments and emergency access persist", async () => {
   const cookie = await adminCookie("super-admin");
   const send = (path: string, method: string, body?: unknown) =>
