@@ -13,6 +13,7 @@ import {
   AUDIT_TRAIL,
   type AuditTrail,
 } from "../../audit/application/audit.facade";
+import { requireOwnSession } from "../../auth/access-policy";
 import {
   ACCESS_CONTROL_REPOSITORY,
   type AccessControlRepository,
@@ -132,8 +133,10 @@ export class AccessReviewService {
     kind: string,
     id: string,
     input: { snapshot?: unknown; decision?: unknown; note?: unknown },
-    reviewerId: string,
+    reviewer: { id: string; impersonatedBy?: string | null },
   ) {
+    requireOwnSession(reviewer);
+    const reviewerId = reviewer.id;
     if (kind !== "assignment" && kind !== "emergency")
       throw new BadRequestException("Unknown review type.");
     if (input.decision !== "confirmed" && input.decision !== "flagged")

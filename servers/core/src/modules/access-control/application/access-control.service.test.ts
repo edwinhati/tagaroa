@@ -671,3 +671,32 @@ test("valid scopes still require a grant or an audited super-admin elevation", a
   }
   expect(events).toEqual(["access.break-glass.used"]);
 });
+
+test("an impersonated session cannot change access as the person it impersonates", async () => {
+  const store = repository();
+  const trail = auditSpy();
+  const service = new AccessControlService(store.implementation, trail);
+  const impersonated = actor({ impersonatedBy: "other-super-admin" });
+  const breakGlass = {
+    organizationId: "subsidiary-1",
+    permission: "domain:administer",
+    reason: "Restore access after an accidental revocation.",
+    scope: "team" as const,
+    teamId: "team-1",
+  };
+  for (const attempt of [
+    () => service.grantAssignment(assignmentInput, impersonated, NOW),
+    () => service.activateBreakGlass(breakGlass, impersonated, NOW),
+    () => service.createRole(roleInput, impersonated, NOW),
+    () => service.updateRole(role.id, roleInput, impersonated, NOW),
+    () => service.archiveRole(role.id, impersonated, NOW),
+    () =>
+      service.updateAssignmentExpiry("assignment-1", null, impersonated, NOW),
+    () => service.revokeAssignment("assignment-1", impersonated, NOW),
+    () => service.endBreakGlass("elevation-1", impersonated, NOW),
+  ])
+    await expect(attempt()).rejects.toMatchObject({ status: 403 });
+  expect(store.granted).toHaveLength(0);
+  expect(store.elevations).toHaveLength(0);
+  expect(trail.record).not.toHaveBeenCalled();
+});
