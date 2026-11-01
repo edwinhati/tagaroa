@@ -8,15 +8,20 @@ import {
 import { createAuthClient } from "better-auth/react";
 
 /**
- * Always this app's origin. Never point the door at :8080 in the browser —
- * Brave/Safari drop cross-origin Set-Cookie, so sign-in looks successful while
- * getSession stays null and the workspace bounces back to the form.
+ * Deployed, the door calls core on the API host like every other app, so the
+ * session cookie is host-only there (`dev.tagaroa.cc`) and no other host under
+ * the zone ever receives it.
  *
- * Vite (and production reverse proxies) forward `/api/auth` to core.
- * `VITE_AUTH_BASE_URL` is ignored here on purpose; a leftover .env pointing at
- * 8080 was enough to recreate the loop.
+ * In local dev it stays on this app's origin and Vite forwards `/api/auth` to
+ * core: Brave/Safari dropped the Set-Cookie from `localhost:8080`, so sign-in
+ * looked successful while getSession stayed null. Cookies ignore ports, so the
+ * `localhost` cookie still reaches core for the other apps. A leftover .env
+ * pointing at 8080 was enough to recreate that loop, hence DEV ignores it.
  */
 function authBaseURL(): string {
+  if (!import.meta.env.DEV && import.meta.env.VITE_AUTH_BASE_URL) {
+    return import.meta.env.VITE_AUTH_BASE_URL;
+  }
   if (typeof window !== "undefined") return window.location.origin;
   return "http://localhost:3001";
 }
