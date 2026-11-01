@@ -729,13 +729,25 @@ export const createAuth = (repository: AuthRepository, config: AuthConfig) => {
     }
   });
 
+  // Deployed (HTTPS), every cookie is host-only on the API host: with no
+  // Domain, dev.tagaroa.cc's never leaves it and tagaroa.cc's never reaches dev,
+  // Multica or any other host under the zone. The apps call that host directly,
+  // same-site, so it is sent to them all. `__Host-` makes the browser refuse a
+  // same-named cookie planted with a Domain by a sibling host.
+  const hostOnly = config.nodeEnv === "production";
+
   return betterAuth({
     advanced: {
+      ...(hostOnly && {
+        cookiePrefix: "__Host-better-auth",
+        defaultCookieAttributes: { secure: true },
+      }),
       database: {
         generateId: () => crypto.randomUUID(),
         joins: repository.supportsJoins,
       },
-      useSecureCookies: config.nodeEnv === "production",
+      // `__Host-` above replaces Better Auth's own `__Secure-` prefix.
+      useSecureCookies: false,
     },
     appName: "Tagaroa",
     baseURL: config.baseURL,
