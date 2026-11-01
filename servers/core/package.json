@@ -16,7 +16,7 @@
     "start:e2e": "bun test/start-e2e.ts",
     "start:prod": "bun dist/main.js",
     "test": "bun test src",
-    "test:integration": "bun test ./test/integration/*.integration.ts"
+    "test:integration": "bun test --isolate ./test/integration/*.integration.ts"
   },
   "dependencies": {
     "@better-auth/drizzle-adapter": "1.7.12",
