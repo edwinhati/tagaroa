@@ -15,7 +15,7 @@ test("defaults the core service to port 8080", () => {
 const production = {
   NODE_ENV: "production",
   BETTER_AUTH_SECRET: "a".repeat(32),
-  BETTER_AUTH_URL: "https://core.company.example",
+  BETTER_AUTH_URL: "https://company.example",
   DATABASE_URL: "postgresql://tagaroa:tagaroa@localhost/tagaroa",
   TRUSTED_ORIGINS: "https://auth.company.example,https://work.company.example",
   PASSKEY_ORIGINS: "https://auth.company.example,https://work.company.example",
@@ -37,6 +37,11 @@ test("production requires explicit HTTPS origins and a compatible passkey relyin
     { TRUSTED_ORIGINS: "https://*.company.example" },
     { TRUSTED_ORIGINS: "https://auth.company.example/path" },
     { TRUSTED_ORIGINS: "https://auth.company.example?redirect=1" },
+    {
+      TRUSTED_ORIGINS:
+        "https://auth.company.example,https://work.other.example",
+    },
+    { BETTER_AUTH_URL: "https://core.company.example" },
     { PASSKEY_ORIGINS: "https://unknown.company.example" },
     { PASSKEY_ORIGINS: "http://localhost:3001" },
     { PASSKEY_RP_ID: "unrelated.example" },
