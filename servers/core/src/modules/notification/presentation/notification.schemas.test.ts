@@ -25,6 +25,19 @@ describe("templateDraftBody", () => {
     });
   });
 
+  test("trims the channel before checking it, as TemplateDraft did", () => {
+    expect(
+      templateDraftBody.parse({ ...valid, channel: " sms " }).channel,
+    ).toBe("sms");
+    expect(
+      editTemplateBody.parse({
+        ...valid,
+        channel: " sms ",
+        expectedUpdatedAt: "2026-01-01T00:00:00.123Z",
+      }).channel,
+    ).toBe("sms");
+  });
+
   test("absent or null lists and subject read as empty", () => {
     const { body, channel, key, locale } = valid;
     const rest = { body, channel, key, locale };
@@ -40,6 +53,7 @@ describe("templateDraftBody", () => {
 
   test("keeps the sentences TemplateDraft used", () => {
     expect(message({ ...valid, key: "  " })).toBe("key is required");
+    expect(message({ ...valid, channel: " " })).toBe("channel is required");
     expect(message({ ...valid, channel: "pigeon" })).toBe(
       "channel must be one of email, sms, whatsapp",
     );

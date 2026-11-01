@@ -26,9 +26,11 @@ export const templateDraftBody = z.object(
   {
     // Key order is the order issues are reported in, as `TemplateDraft` checks.
     key: required("key"),
-    channel: z.enum(NOTIFICATION_CHANNELS, {
-      error: `channel must be one of ${NOTIFICATION_CHANNELS.join(", ")}`,
-    }),
+    channel: required("channel").pipe(
+      z.enum(NOTIFICATION_CHANNELS, {
+        error: `channel must be one of ${NOTIFICATION_CHANNELS.join(", ")}`,
+      }),
+    ),
     body: required("body"),
     variables: names("variables"),
     secrets: names("secrets"),

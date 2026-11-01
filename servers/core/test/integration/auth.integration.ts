@@ -763,7 +763,7 @@ test("templates validate and persist create, edit, publish, version and delete a
       { field: "key", message: "key is required" },
       {
         field: "channel",
-        message: "channel must be one of email, sms, whatsapp",
+        message: "channel is required",
       },
       { field: "body", message: "body is required" },
       { field: "locale", message: "locale is required" },
