@@ -793,9 +793,14 @@ test("delivery reads retry, filters survive reload and message details exclude c
       page.getByRole("textbox", { name: "Search the message log" }),
     ).toHaveValue(destination);
     await page
+      // Desktop rows have a "View … to …" icon button; mobile rows are named by
+      // their visible key, status and destination.
       .getByRole("button", {
-        name: `View ${key} to ${destination}`,
-        exact: true,
+        name: new RegExp(
+          [key, destination]
+            .map((part) => part.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"))
+            .join(".*"),
+        ),
       })
       .filter({ visible: true })
       .click();
