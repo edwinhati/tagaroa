@@ -1,4 +1,4 @@
-import { expect, test } from "bun:test";
+import { expect, spyOn, test } from "bun:test";
 
 import type {
   AccountLifecycle,
@@ -58,6 +58,9 @@ const world = (records: Employee[] = [ada]) => {
     accounts,
     issued,
     links,
+    lifecycle,
+    linkRepository,
+    source,
     retired,
     sync: new SyncEmployeeUseCase(source, linkRepository, lifecycle),
   };
@@ -128,4 +131,124 @@ test("a name the source does not know changes nothing", async () => {
   const { issued, sync } = world();
   expect(await sync.execute("HR-EMP-99999", today)).toEqual({ kind: "none" });
   expect(issued).toEqual([]);
+});
+
+test("a linked account takes precedence over the current email holder", async () => {
+  const { accounts, links, lifecycle, retired, sync } = world();
+  accounts.set("linked", {
+    banned: false,
+    email: "old@tagaroa.example",
+    id: "linked",
+  });
+  accounts.set("holder", {
+    banned: false,
+    email: ada.companyEmail!,
+    id: "holder",
+  });
+  links.set(ada.name, "linked");
+  const lookup = spyOn(lifecycle, "byEmail");
+  await sync.execute({ ...ada, status: "Left", relievingDate: today }, today);
+  expect(retired).toEqual(["linked"]);
+  expect(lookup).not.toHaveBeenCalled();
+});
+
+test("a matching reverse link uses the account without relinking it", async () => {
+  const { accounts, linkRepository, sync, issued } = world();
+  accounts.set("manual", {
+    banned: false,
+    email: ada.companyEmail!,
+    id: "manual",
+  });
+  spyOn(linkRepository, "employeeFor").mockResolvedValue(ada.name);
+  const link = spyOn(linkRepository, "link");
+  expect(await sync.execute(ada, today)).toEqual({ kind: "none" });
+  expect(link).not.toHaveBeenCalled();
+  expect(issued).toEqual([]);
+});
+
+test("an active employee never restores a suspended linked account", async () => {
+  const { accounts, links, issued, retired, sync } = world();
+  accounts.set("suspended", {
+    banned: true,
+    email: ada.companyEmail!,
+    id: "suspended",
+  });
+  links.set(ada.name, "suspended");
+  expect(await sync.execute(ada, today)).toEqual({
+    kind: "none",
+    reason: "Active in HR but suspended here",
+  });
+  expect(accounts.get("suspended")!.banned).toBe(true);
+  expect(issued).toEqual([]);
+  expect(retired).toEqual([]);
+});
+
+test("missing addresses do not issue an account or look up an absent company email", async () => {
+  const { lifecycle, issued, links, sync } = world();
+  const lookup = spyOn(lifecycle, "byEmail");
+  expect((await sync.execute({ ...ada, companyEmail: null }, today)).kind).toBe(
+    "none",
+  );
+  expect(lookup).not.toHaveBeenCalled();
+  expect(
+    (await sync.execute({ ...ada, personalEmail: null }, today)).kind,
+  ).toBe("none");
+  expect(issued).toEqual([]);
+  expect(links.size).toBe(0);
+});
+
+test("a webhook re-reads the employee and propagates source failure without wedging the queue", async () => {
+  const { source, issued, sync } = world();
+  const read = spyOn(source, "employee").mockRejectedValueOnce(
+    new Error("source unavailable"),
+  );
+  await expect(sync.execute(ada.name, today)).rejects.toThrow(
+    "source unavailable",
+  );
+  expect(issued).toEqual([]);
+  expect(await sync.execute(ada.name, today)).toEqual({ kind: "issue" });
+  expect(read).toHaveBeenCalledWith(ada.name);
+  expect(issued).toHaveLength(1);
+});
+
+test("a failed link after issuance is recovered by adopting the existing account", async () => {
+  const { linkRepository, issued, links, sync } = world();
+  spyOn(linkRepository, "link").mockRejectedValueOnce(new Error("link failed"));
+  await expect(sync.execute(ada, today)).rejects.toThrow("link failed");
+  expect(links.size).toBe(0);
+  expect((await sync.execute(ada, today)).kind).toBe("none");
+  expect(issued).toHaveLength(1);
+  expect(links.get(ada.name)).toBe("user-1");
+});
+
+test("retirement includes the HR record and relieving date and runs only once", async () => {
+  const { lifecycle, sync } = world();
+  await sync.execute(ada, today);
+  const retire = spyOn(lifecycle, "retire");
+  const leaver = { ...ada, status: "Left", relievingDate: today };
+  await sync.execute(leaver, today);
+  await sync.execute(leaver, today);
+  expect(retire).toHaveBeenCalledTimes(1);
+  expect(retire).toHaveBeenCalledWith(
+    "user-1",
+    `Left per Frappe HR ${ada.name}, relieved ${today}`,
+  );
+});
+
+test("issuance forwards onboarding details and links even when onboarding was not queued", async () => {
+  const { lifecycle, links, sync } = world();
+  const issue = spyOn(lifecycle, "issue").mockResolvedValue({
+    id: "new-user",
+    onboardingQueued: false,
+  });
+  expect(await sync.execute({ ...ada, displayName: null }, today)).toEqual({
+    kind: "issue",
+  });
+  expect(issue).toHaveBeenCalledWith({
+    email: ada.companyEmail!,
+    name: ada.companyEmail!,
+    personalEmail: ada.personalEmail!,
+    source: `Frappe HR ${ada.name}`,
+  });
+  expect(links.get(ada.name)).toBe("new-user");
 });

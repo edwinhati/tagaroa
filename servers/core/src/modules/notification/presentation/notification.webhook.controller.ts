@@ -19,6 +19,7 @@ import { AllowAnonymous } from "@thallesp/nestjs-better-auth";
 import { RecordReceiptsUseCase } from "../application/use-cases/record-receipts.use-case";
 import {
   isProviderName,
+  PROVIDER_CHANNELS,
   type ProviderName,
   type Receipt,
 } from "../domain/value-objects/delivery-receipt.vo";
@@ -116,7 +117,11 @@ export class NotificationWebhookController {
     @Param("provider") provider: string,
     @Req() request: ParsedRequest,
   ): Promise<void> {
-    if (!isProviderName(provider)) throw new NotFoundException();
+    if (
+      !isProviderName(provider) ||
+      !Object.hasOwn(PROVIDER_CHANNELS, provider)
+    )
+      throw new NotFoundException();
 
     await this.recordReceipts.execute(
       provider,
