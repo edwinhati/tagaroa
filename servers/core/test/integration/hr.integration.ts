@@ -42,6 +42,9 @@ const employee = {
 /** Further employees, listed but never fetched one by one. */
 const roster: (typeof employee)[] = [];
 
+/** The startup pass must not see the roster, or it races the first test. */
+let listed = false;
+
 /** Frappe's REST API, as far as the connector reads it. */
 const frappe = Bun.serve({
   port: 0,
@@ -52,7 +55,7 @@ const frappe = Bun.serve({
     if (path === `/api/resource/Employee/${employee.name}/`)
       return Response.json({ data: employee });
     if (path === "/api/resource/Employee")
-      return Response.json({ data: [employee, ...roster] });
+      return Response.json({ data: listed ? [employee, ...roster] : [] });
     return new Response(null, { status: 404 });
   },
 });
@@ -74,6 +77,10 @@ beforeAll(async () => {
   await app.listen(0, "127.0.0.1");
   baseURL = await app.getUrl();
   db = app.get<Database>(DATABASE);
+  // The reconciler starts a pass on bootstrap; let it finish against the empty roster.
+  const reconciler = app.get(HrReconciler) as unknown as { running: boolean };
+  while (reconciler.running) await Bun.sleep(10);
+  listed = true;
 });
 
 afterAll(async () => {
