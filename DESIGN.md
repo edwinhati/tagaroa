@@ -296,15 +296,18 @@ Base `--radius` is `0.5rem`; Tailwind derives the scale from it (`globals.css`, 
 | ---------------------------------------- | ----------------------------------- | ----------------- |
 | Menu and select items (`rounded-sm`)     | `--radius-sm` = `--radius` ×0.6     | `0.3rem` (4.8px)  |
 | Avatar                                   | hand, `tagaroa.css`                 | `0.375rem` (6px)  |
-| Inputs, selects, popovers (`rounded-md`) | `--radius-md` = `--radius` ×0.8     | `0.4rem` (6.4px)  |
+| Inputs, select triggers (`rounded-md`)   | `--radius-md` = `--radius` ×0.8     | `0.4rem` (6.4px)  |
 | Buttons (all sizes)                      | `--radius`, pinned in `tagaroa.css` | `0.5rem` (8px)    |
 | Alerts, tab lists (`rounded-lg`)         | `--radius-lg` = `--radius`          | `0.5rem` (8px)    |
-| Work surface, dialog (`rounded-xl/2xl`)  | `--panel-radius`                    | `0.75rem` (12px)  |
+| Work surface, dialog, sheet, toast       | `--panel-radius`, pinned            | `0.75rem` (12px)  |
+| Popover, menu, select and combobox popup | `--panel-radius`, pinned            | `0.75rem` (12px)  |
 | Door form and tide                       | hand, `rounded-[1rem]`              | `1rem` (16px)     |
 | Badge (`rounded-4xl`)                    | `--radius` ×2.6                     | `1.3rem` (20.8px) |
 
 Controls share `--control-height` (~28px). Buttons pin `--radius` over base-vega's
 `rounded-md`, so a button sits 1.6px rounder than the input beside it. Nothing is a pill button.
+Every floating shell (popover, dropdown, select and combobox content, context menu, menubar,
+command) is pinned to `--panel-radius` with the lifted panels, whatever its stock class says.
 Status chips use a fuller radius than controls; they still are not marketing capsules.
 
 ## Motion
