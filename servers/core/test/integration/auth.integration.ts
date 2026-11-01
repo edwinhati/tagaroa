@@ -823,14 +823,24 @@ test("subsidiaries, teams, positions, scoped assignments and emergency access pe
     });
   const session = await (await send("/api/auth/get-session", "GET")).json();
   const userId = session.user.id;
-  expect(
-    (
-      await send("/api/auth-management/subsidiaries", "POST", {
-        name: "QA",
-        slug: "Invalid slug",
-      })
-    ).status,
-  ).toBe(400);
+  const invalid = await send("/api/auth-management/subsidiaries", "POST", {
+    name: " ",
+    slug: "Invalid slug",
+  });
+  expect(invalid.status).toBe(400);
+  expect(await invalid.json()).toEqual({
+    details: [
+      { field: "name", message: "Name is required." },
+      {
+        field: "slug",
+        message:
+          "Slug must contain lowercase letters, numbers, and single hyphens only.",
+      },
+    ],
+    error: "Bad Request",
+    message: "Name is required.",
+    statusCode: 400,
+  });
   const subsidiary = await send("/api/auth-management/subsidiaries", "POST", {
     name: "QA scope",
     slug: `qa-${crypto.randomUUID()}`,

@@ -1,7 +1,6 @@
 import { createHash, randomBytes, randomUUID } from "node:crypto";
 
 import {
-  BadRequestException,
   ConflictException,
   ForbiddenException,
   Inject,
@@ -21,6 +20,10 @@ import {
 } from "../audit/application/audit.facade";
 import { canManageTarget, isSuperAdmin, rolesOf } from "./access-policy";
 import { TEMPORARY_PASSWORD_LIFETIME_MS } from "./auth";
+import type {
+  ApproveRecoveryBody,
+  RequestRecoveryBody,
+} from "./auth-management.schemas";
 import {
   account,
   member,
@@ -53,17 +56,6 @@ export const requireVerifiedOperator = (actor: IdentityOperator): void => {
       code: "SESSION_NOT_FRESH",
       message: "Sign in again before changing account security.",
     });
-};
-const evidenceText = (value: unknown, label: string): string => {
-  if (
-    typeof value !== "string" ||
-    value.trim().length < 10 ||
-    value.trim().length > 500
-  )
-    throw new BadRequestException(
-      `${label} must be 10 to 500 characters. Use a case reference, never secrets.`,
-    );
-  return value.trim();
 };
 const digest = (value: unknown): string =>
   createHash("sha256").update(JSON.stringify(value)).digest("hex");
@@ -124,7 +116,7 @@ export class IdentityOperationsService {
 
   async requestRecovery(
     userId: string,
-    input: { reason?: unknown; evidence?: unknown; identityVerified?: unknown },
+    { reason, evidence }: RequestRecoveryBody,
     actor: IdentityOperator,
   ) {
     requireVerifiedOperator(actor);
@@ -138,12 +130,6 @@ export class IdentityOperationsService {
       throw new ForbiddenException(
         "Another operator must request your recovery.",
       );
-    if (input.identityVerified !== true)
-      throw new BadRequestException(
-        "Verify identity independently before requesting recovery.",
-      );
-    const reason = evidenceText(input.reason, "Recovery reason");
-    const evidence = evidenceText(input.evidence, "Verification evidence");
     const id = randomUUID();
     await this.database.transaction(async (tx) => {
       const [target] = await tx
@@ -210,7 +196,7 @@ export class IdentityOperationsService {
 
   async approveRecovery(
     id: string,
-    input: { evidence?: unknown; identityVerified?: unknown },
+    { evidence }: ApproveRecoveryBody,
     actor: IdentityOperator,
   ) {
     requireVerifiedOperator(actor);
@@ -218,11 +204,6 @@ export class IdentityOperationsService {
       throw new ForbiddenException(
         "A super administrator must approve recovery.",
       );
-    if (input.identityVerified !== true)
-      throw new BadRequestException(
-        "Independently verify identity before approval.",
-      );
-    const evidence = evidenceText(input.evidence, "Approval evidence");
     const temporaryPassword = randomBytes(24).toString("base64url");
     const password = await hashPassword(temporaryPassword);
     const target = await this.database.transaction(async (tx) => {
@@ -337,7 +318,7 @@ export class IdentityOperationsService {
     return { temporaryPassword, onboarding };
   }
 
-  async offboard(userId: string, reason: unknown, actor: IdentityOperator) {
+  async offboard(userId: string, detail: string, actor: IdentityOperator) {
     requireVerifiedOperator(actor);
     if (
       !rolesOf(actor.role).some((role) =>
@@ -349,10 +330,6 @@ export class IdentityOperationsService {
       throw new ForbiddenException(
         "Another administrator must offboard your account.",
       );
-    const detail = evidenceText(
-      reason,
-      "Offboarding reason and case reference",
-    );
     await this.retire(userId, detail, actor.id, (target) => {
       if (!canManageTarget(actor.role, target.role))
         throw new ForbiddenException(
