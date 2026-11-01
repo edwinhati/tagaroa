@@ -475,6 +475,7 @@ const adminAc = defaultAc.newRole({
 });
 
 const TARGETED_ADMIN_ROUTES = new Set([
+  "/admin/list-user-sessions",
   "/admin/set-role",
   "/admin/update-user",
   "/admin/ban-user",
@@ -727,6 +728,15 @@ export const createAuth = (repository: AuthRepository, config: AuthConfig) => {
       }
     }
 
+    // A session token is a credential. An operator needs a session's id, device
+    // and age to review or revoke it, never the secret that signs in as it.
+    if (ctx.path === "/admin/list-user-sessions") {
+      const sessions = asObject(ctx.context.returned)?.sessions;
+      if (Array.isArray(sessions)) {
+        for (const session of sessions) delete asObject(session)?.token;
+      }
+    }
+
     if (ctx.path === "/sign-in/email") {
       const returned = asObject(ctx.context.returned);
       const user = asObject(returned?.user);
@@ -797,6 +807,10 @@ export const createAuth = (repository: AuthRepository, config: AuthConfig) => {
     appName: "Tagaroa",
     baseURL: config.baseURL,
     database: repository.adapter,
+    // Revoking one session takes its token, which no operator may hold, and it
+    // never checks whose session it is. Core's
+    // `POST /auth-management/sessions/:sessionId/revoke` replaces it.
+    disabledPaths: ["/admin/revoke-user-session"],
     databaseHooks: {
       session: {
         create: {
@@ -854,10 +868,11 @@ export const createAuth = (repository: AuthRepository, config: AuthConfig) => {
         rpID: config.passkeyRpId,
         rpName: "Tagaroa",
       }),
-      // Lets the door finish onboarding with the token from sign-in when a
-      // cross-origin Set-Cookie was dropped (Brave/Safari) and no session
-      // cookie is available for change-password.
-      bearer(),
+      // Lets the door finish onboarding with the signed `set-auth-token` from
+      // sign-in when a cross-origin Set-Cookie was dropped (Brave/Safari) and no
+      // session cookie is available for change-password. Signed only: a raw
+      // session token, as stored, must never authenticate on its own.
+      bearer({ requireSignature: true }),
       // Covers /admin/create-user and /admin/set-user-password among its default
       // paths, so an issued password is checked too. It calls a third party,
       // which no test should reach and no offline machine can.

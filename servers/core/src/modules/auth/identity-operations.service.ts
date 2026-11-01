@@ -323,6 +323,33 @@ export class IdentityOperationsService {
     return { temporaryPassword, onboarding };
   }
 
+  /**
+   * One session, by id, so the operator never holds its token. The owner is
+   * read from the stored row, and the same rule as every targeted admin route
+   * keeps a privileged account's sessions to a super administrator.
+   */
+  async revokeSession(sessionId: string, actor: IdentityOperator) {
+    const [owner] = await this.database
+      .select({ id: user.id, role: user.role })
+      .from(session)
+      .innerJoin(user, eq(user.id, session.userId))
+      .where(eq(session.id, sessionId));
+    if (!owner) throw new NotFoundException("Session not found.");
+    if (!canManageTarget(actor.role, owner.role))
+      throw new ForbiddenException({
+        code: "PRIVILEGED_TARGET_REQUIRES_SUPER_ADMIN",
+        message: "Only a super administrator can manage a privileged account.",
+      });
+    await this.database.delete(session).where(eq(session.id, sessionId));
+    await this.audit.record({
+      actorId: actor.id,
+      detail: sessionId,
+      targetUserId: owner.id,
+      type: "user.session.revoked",
+    });
+    return { revoked: true };
+  }
+
   async offboard(userId: string, detail: string, actor: IdentityOperator) {
     requireVerifiedOperator(actor);
     if (

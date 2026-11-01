@@ -51,6 +51,7 @@ const eventActions: Record<string, string> = {
   "user.privileged-access.reviewed": "Confirmed privileged access for",
   "user.restored": "Restored access for",
   "user.role.updated": "Updated the role for",
+  "user.session.revoked": "Revoked a session for",
   "user.sessions.revoked": "Revoked every session for",
   "user.signed-in": "Recorded a sign-in for",
   "user.signed-in.passkey": "Recorded a passkey sign-in for",
