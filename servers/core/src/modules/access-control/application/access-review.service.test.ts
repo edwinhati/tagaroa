@@ -47,17 +47,20 @@ const emergency: EmergencyAccessRecord = {
   endedAt: null,
 };
 
-const fixture = () => {
+const fixture = (
+  assignments: AssignmentView[] = [assignment],
+  emergencies: EmergencyAccessRecord[] = [emergency],
+) => {
   const records: BusinessAccessReview[] = [];
   const events: string[] = [];
   const access = {
-    listAssignments: async () => [assignment],
+    listAssignments: async () => assignments,
   } as AccessControlRepository;
   const service = new AccessReviewService(
     access,
     {
       list: async () => records,
-      emergencies: async () => [emergency],
+      emergencies: async () => emergencies,
       record: async (review) => {
         records.push(review);
       },
@@ -115,6 +118,96 @@ test("reviews require independence, evidence and the displayed version", async (
   } finally {
     assignment.expiresAt = original;
   }
+});
+
+test("list excludes revoked assignments and marks eligibility at emergency expiry", async () => {
+  const at = new Date("2026-10-21T12:00:00Z");
+  const { service } = fixture(
+    [
+      assignment,
+      { ...assignment, id: "revoked", revokedAt: at },
+      {
+        ...assignment,
+        id: "expired",
+        active: false,
+        inactiveReason: "expired",
+        expiresAt: at,
+      },
+    ],
+    [
+      { ...emergency, id: "running", expiresAt: new Date(at.getTime() + 1) },
+      { ...emergency, id: "boundary", expiresAt: at },
+      {
+        ...emergency,
+        id: "ended",
+        expiresAt: new Date(at.getTime() + 1),
+        endedAt: at,
+      },
+    ],
+  );
+  const subjects = await service.list(at);
+  expect(subjects.map((subject) => [subject.id, subject.eligible])).toEqual([
+    [assignment.id, true],
+    ["expired", false],
+    ["running", false],
+    ["boundary", true],
+    ["ended", true],
+  ]);
+  expect(subjects[0]).toMatchObject({
+    kind: "assignment",
+    label: assignment.role.name,
+    detail: "No expiration",
+    userId: assignment.userId,
+    grantedBy: assignment.grantedBy,
+  });
+  expect(subjects[1]!.detail).toBe(`Expires ${at.toISOString()}`);
+  expect(subjects[2]).toMatchObject({
+    kind: "emergency",
+    label: emergency.permission,
+    detail: emergency.reason,
+    grantedBy: null,
+  });
+});
+
+test("list accepts only independent matching reviews from the current UTC week", async () => {
+  const at = new Date("2026-10-21T12:00:00Z");
+  const monday = new Date("2026-10-19T00:00:00Z");
+  const { service, records } = fixture();
+  const subjects = await service.list(at);
+  const subject = subjects.find((row) => row.kind === "assignment")!;
+  const review: BusinessAccessReview = {
+    id: "review",
+    kind: "assignment",
+    subjectId: subject.id,
+    snapshot: subject.snapshot,
+    decision: "confirmed",
+    note: "Approved by the manager",
+    reviewedAt: monday,
+    reviewedBy: "reviewer",
+  };
+  for (const candidate of [
+    { ...review, reviewedBy: assignment.userId },
+    { ...review, reviewedBy: assignment.grantedBy },
+    { ...review, reviewedBy: null },
+    { ...review, snapshot: "stale" },
+    { ...review, reviewedAt: new Date(monday.getTime() - 1) },
+    { ...review, subjectId: "different-assignment" },
+    { ...review, kind: "emergency" as const },
+  ]) {
+    records.splice(0, records.length, candidate);
+    expect(
+      (await service.list(at)).find((row) => row.kind === "assignment")!.review,
+    ).toBeNull();
+  }
+  records.splice(0, records.length, review);
+  expect(
+    (await service.list(at)).find((row) => row.kind === "assignment")!.review,
+  ).toEqual(review);
+  expect(
+    (await service.list(new Date("2026-10-26T00:00:00Z"))).find(
+      (row) => row.kind === "assignment",
+    )!.review,
+  ).toBeNull();
 });
 
 test("emergency access is independently reviewed only after completion", async () => {
