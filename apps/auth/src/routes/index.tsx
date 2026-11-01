@@ -40,6 +40,7 @@ import {
 } from "../lib/auth-client";
 import { errorFor, newPasswordSchema, signInSchema } from "../lib/forms";
 import { sessionQueryOptions, signInDestination } from "../lib/session";
+import { signInOutcome, twoFactorFailure } from "../lib/sign-in";
 
 const SecureAccountStep = lazy(async () => {
   const module = await import("../components/secure-account-step");
@@ -240,51 +241,37 @@ export function SignInStep({
       // The bearer plugin's signed `set-auth-token`, never the body's raw
       // token: core accepts only a signed bearer.
       let token = "";
-      const { code, data, failure } = await attemptAuth(
-        () =>
-          authClient.signIn.email({
-            ...value,
-            fetchOptions: {
-              onSuccess: ({ response }) => {
-                token = response.headers.get("set-auth-token") ?? "";
+      const outcome = signInOutcome(
+        await attemptAuth(
+          () =>
+            authClient.signIn.email({
+              ...value,
+              fetchOptions: {
+                onSuccess: ({ response }) => {
+                  token = response.headers.get("set-auth-token") ?? "";
+                },
               },
-            },
-          }),
-        "That email and password don't match an account. Check both and try again.",
+            }),
+          "That email and password don't match an account. Check both and try again.",
+        ),
       );
 
-      // Their credentials were right and the door is still shut, which is a
-      // different conversation from a wrong password. Better Auth's own words
-      // for it mention a support desk this company does not have.
-      if (code === "BANNED_USER") {
-        void navigate({ to: "/locked-out", search: { reason: "suspended" } });
-        return;
-      }
-      if (code === "TEMPORARY_PASSWORD_EXPIRED") {
-        void navigate({ to: "/locked-out", search: { reason: "expired" } });
-        return;
-      }
-
-      if (failure) {
-        setFailure(failure);
-        return;
-      }
-
-      if (
-        (data as { twoFactorRedirect?: boolean } | null | undefined)
-          ?.twoFactorRedirect
-      ) {
-        onTwoFactor();
-        return;
-      }
-
-      const mustChange = (
-        data?.user as { mustChangePassword?: boolean } | undefined
-      )?.mustChangePassword;
-
-      if (mustChange) {
-        onTemporaryPassword(value.password, token);
-        return;
+      switch (outcome.kind) {
+        case "locked-out":
+          void navigate({
+            to: "/locked-out",
+            search: { reason: outcome.reason },
+          });
+          return;
+        case "failure":
+          setFailure(outcome.failure);
+          return;
+        case "two-factor":
+          onTwoFactor();
+          return;
+        case "choose-password":
+          onTemporaryPassword(value.password, token);
+          return;
       }
 
       // Check before onDone can navigate and abort requests from this document.
@@ -536,13 +523,8 @@ export function TwoFactorStep({ onDone }: { onDone: () => void }) {
         : "Enter the current 6-digit code and try again.",
     );
     setPending(false);
-    if (result.failure)
-      setFailure(
-        result.code === "INVALID_TWO_FACTOR_COOKIE" ||
-          result.code === "TOO_MANY_ATTEMPTS_REQUEST_NEW_CODE"
-          ? "This verification is no longer valid. Sign in again."
-          : result.failure,
-      );
+    const failure = twoFactorFailure(result);
+    if (failure) setFailure(failure);
     else onDone();
   }
 

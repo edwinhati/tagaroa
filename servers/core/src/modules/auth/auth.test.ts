@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test";
 
-import { APIError } from "better-auth/api";
+import { APIError, getIP } from "better-auth/api";
 
 import type { AuthConfig } from "./auth";
 import {
@@ -351,6 +351,27 @@ test("exposes the Better Auth health endpoint", async () => {
     "open-api",
     "organization",
   ]);
+});
+
+// Pangolin forwards the client, Caddy appends Pangolin's hop. Walking right to
+// left past the trusted hops lands on the client, never on what it claimed.
+test("resolves the rate-limit IP to the client behind two trusted proxies", () => {
+  const { options } = createAuth(createAuthMetadataRepository(), {
+    ...testConfig,
+    trustedProxies: ["172.18.0.0/16", "10.0.0.0/8"],
+  });
+  const ipFor = (forwardedFor: string) =>
+    getIP(
+      new Request("http://localhost:8080/api/auth/sign-in/email", {
+        headers: { "x-forwarded-for": forwardedFor },
+      }),
+      options,
+    );
+
+  expect(ipFor("203.0.113.7, 10.0.0.4, 172.18.0.3")).toBe("203.0.113.7");
+  expect(ipFor("198.51.100.66, 203.0.113.7, 10.0.0.4, 172.18.0.3")).toBe(
+    "203.0.113.7",
+  );
 });
 
 // Asserted on the options rather than through a request: rejecting a sign-up is

@@ -18,7 +18,13 @@ import {
   AUDIT_TRAIL,
   type AuditTrail,
 } from "../audit/application/audit.facade";
-import { canManageTarget, isSuperAdmin, rolesOf } from "./access-policy";
+import {
+  canManageTarget,
+  isSuperAdmin,
+  OWN_OPERATOR_ACCOUNT_REQUIRED,
+  requireOwnSession,
+  rolesOf,
+} from "./access-policy";
 import { TEMPORARY_PASSWORD_LIFETIME_MS } from "./auth";
 import type {
   ApproveRecoveryBody,
@@ -47,10 +53,9 @@ export interface IdentityOperator {
 
 export const requireVerifiedOperator = (actor: IdentityOperator): void => {
   const age = Date.now() - actor.sessionCreatedAt.getTime();
-  if (actor.impersonatedBy || !actor.twoFactorEnabled)
-    throw new ForbiddenException(
-      "Use your own MFA-protected operator account.",
-    );
+  requireOwnSession(actor);
+  if (!actor.twoFactorEnabled)
+    throw new ForbiddenException(OWN_OPERATOR_ACCOUNT_REQUIRED);
   if (!Number.isFinite(age) || age < 0 || age >= 15 * 60_000)
     throw new ForbiddenException({
       code: "SESSION_NOT_FRESH",

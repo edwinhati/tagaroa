@@ -34,5 +34,6 @@ export const PROVIDER_CHANNELS = {
 
 export type ProviderName = keyof typeof PROVIDER_CHANNELS;
 
+/** Own keys only: `in` would also admit `constructor`, `toString`, `__proto__`. */
 export const isProviderName = (value: string): value is ProviderName =>
-  value in PROVIDER_CHANNELS;
+  Object.hasOwn(PROVIDER_CHANNELS, value);

@@ -13,7 +13,7 @@ import {
   AUDIT_TRAIL,
   type AuditTrail,
 } from "../../audit/application/audit.facade";
-import { isSuperAdmin } from "../../auth/access-policy";
+import { isSuperAdmin, requireOwnSession } from "../../auth/access-policy";
 import {
   DOMAIN_ADMINISTRATOR_ROLE,
   isPermissionKey,
@@ -43,6 +43,7 @@ export interface AccessActor {
   identityRole: string | null | undefined;
   sessionCreatedAt: Date;
   sessionId: string;
+  impersonatedBy?: string | null;
 }
 
 const cleanText = (value: unknown, label: string, maximum: number): string => {
@@ -148,6 +149,7 @@ export class AccessControlService implements AccessControl {
     actor: AccessActor,
     now = new Date(),
   ) {
+    requireOwnSession(actor);
     requireFresh(actor, now);
     const role = {
       description: cleanText(input.description, "Description", 240),
@@ -180,6 +182,7 @@ export class AccessControlService implements AccessControl {
     actor: AccessActor,
     now = new Date(),
   ) {
+    requireOwnSession(actor);
     requireFresh(actor, now);
     const existing = await this.repository.findRole(id);
     if (!existing || existing.archivedAt)
@@ -215,6 +218,7 @@ export class AccessControlService implements AccessControl {
   }
 
   async archiveRole(id: string, actor: AccessActor, now = new Date()) {
+    requireOwnSession(actor);
     requireFresh(actor, now);
     const role = await this.repository.findRole(id);
     if (!role || role.archivedAt)
@@ -273,6 +277,7 @@ export class AccessControlService implements AccessControl {
     actor: AccessActor,
     now = new Date(),
   ): Promise<AccessAssignmentRecord> {
+    requireOwnSession(actor);
     const role = await this.repository.findRole(input.roleId);
     if (!role || role.archivedAt)
       throw new NotFoundException("Role not found.");
@@ -352,6 +357,7 @@ export class AccessControlService implements AccessControl {
     actor: AccessActor,
     now = new Date(),
   ) {
+    requireOwnSession(actor);
     const assignment = (await this.repository.listAssignments()).find(
       (candidate) => candidate.id === id,
     );
@@ -380,6 +386,7 @@ export class AccessControlService implements AccessControl {
   }
 
   async revokeAssignment(id: string, actor: AccessActor, now = new Date()) {
+    requireOwnSession(actor);
     const revoked = await this.repository.revokeAssignment(id, actor.id, now);
     if (!revoked) throw new NotFoundException("Active assignment not found.");
     await this.audit.record({
@@ -402,6 +409,7 @@ export class AccessControlService implements AccessControl {
     actor: AccessActor,
     now = new Date(),
   ) {
+    requireOwnSession(actor);
     if (!isSuperAdmin(actor.identityRole)) {
       throw new ForbiddenException(
         "Only a super administrator can activate emergency access.",
@@ -446,6 +454,7 @@ export class AccessControlService implements AccessControl {
   }
 
   async endBreakGlass(id: string, actor: AccessActor, now = new Date()) {
+    requireOwnSession(actor);
     if (!(await this.repository.endElevation(id, actor.sessionId, now))) {
       throw new NotFoundException("Active emergency access not found.");
     }
