@@ -63,4 +63,19 @@ for (const [host,path,type] of [["auth.dev.tagaroa.cc","/","text/html"],["admin.
   if(r.status!==200 || !r.headers.get("content-type")?.startsWith(type)) throw new Error(host+path+": "+r.status);
   console.log("PASS "+host+path);
 }'
-echo 'PASS: image migrations, first-admin bootstrap, preflight refusal, core and SPA routing'
+# Sign in the way the door does (API host, auth. origin), then read the session as app. does.
+password=$(sed -n 's/^Temporary password.*: //p' "$tmp/bootstrap")
+docker exec -e PASSWORD="$password" "$id-core" bun -e '
+const signIn = await fetch("http://web/api/auth/sign-in/email", {
+  method: "POST",
+  headers: { host: "dev.tagaroa.cc", origin: "https://auth.dev.tagaroa.cc", "content-type": "application/json" },
+  body: JSON.stringify({ email: "first-admin@fixture.invalid", password: process.env.PASSWORD }),
+});
+const session = signIn.headers.getSetCookie().find((c) => c.startsWith("__Host-better-auth.session_token="));
+if (!signIn.ok || !session || /; Domain=/i.test(session) || !/; Secure/i.test(session) || !/; Path=\/(;|$)/i.test(session)) throw new Error("sign-in cookie: " + signIn.status + " " + session);
+const r = await fetch("http://web/api/auth/get-session", {
+  headers: { host: "dev.tagaroa.cc", origin: "https://app.dev.tagaroa.cc", cookie: session.split(";")[0] },
+});
+if ((await r.json())?.user?.email !== "first-admin@fixture.invalid") throw new Error("no session on the API host");
+console.log("PASS sign-in sets a host-only __Host- session cookie on dev.tagaroa.cc");'
+echo 'PASS: image migrations, first-admin bootstrap, preflight refusal, core and SPA routing, host-only session'

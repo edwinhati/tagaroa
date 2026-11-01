@@ -30,7 +30,7 @@ test.skipIf(Boolean(process.env.TEST_DATABASE_URL))(
         NODE_ENV: "production",
         DATABASE_URL: `postgresql://tagaroa:tagaroa@127.0.0.1:5432/${databaseName}`,
         BETTER_AUTH_SECRET: "fixture-production-secret-at-least-32-characters",
-        BETTER_AUTH_URL: "https://core.company.example",
+        BETTER_AUTH_URL: "https://company.example",
         TRUSTED_ORIGINS: "https://work.company.example",
         PASSKEY_ORIGINS: "https://work.company.example",
         PASSKEY_RP_ID: "company.example",
