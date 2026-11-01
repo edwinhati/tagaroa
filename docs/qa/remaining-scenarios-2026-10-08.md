@@ -55,6 +55,13 @@ Run browser suites sequentially because they share the isolated database and
 seeded operator. The Firefox project remains configured; excluding it here
 documents an environment failure rather than silently removing coverage.
 
+Update (2026-11-02, ISSUE-55): a macOS 27 TCC restriction causes the launch
+failure ([microsoft/playwright#42768](https://github.com/microsoft/playwright/issues/42768)).
+Neither the app nor this config is at fault. In Linux Firefox, auth passed 9 of 9
+and admin passed 23 with one Chromium-only skip. Firefox now runs in the Sunday
+QA matrix. `docs/agents/bun-playwright-testing.md` shows how to run it locally
+through Docker.
+
 ```sh
 rtk proxy bun run test:integration
 rtk proxy bun run test

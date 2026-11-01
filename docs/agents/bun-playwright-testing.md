@@ -45,6 +45,26 @@ bunx --bun --no-install playwright install --with-deps chromium
 
 Configure one `chromium` project. Add Firefox or WebKit only when cross-engine behavior is an acceptance requirement. Every configured project runs by default, so three browsers roughly multiply the browser work. [Playwright browser projects](https://playwright.dev/docs/browsers#run-tests-on-different-browsers)
 
+In this repo, `apps/auth` and `apps/admin` configure `chromium`, `firefox`, `webkit` and `mobile-chromium`. PRs run only `chromium`. All four run in the Sunday and manual matrix in `.github/workflows/qa.yml`.
+
+### Firefox on macOS 27
+
+On macOS 27, Playwright's bundled Firefox exits right after launch with `Could not find profile folder.` This happens with Playwright 1.64.1 (Firefox 157, `firefox-1555`). It also happens under Node and when Firefox is started directly with `-profile` or `-CreateProfile`. Bun, the config and the temp directory do not cause it. Gecko still reads the shared app-data directory `~/Library/Application Support/Firefox`, and macOS 27 TCC denies the terminal access to it. [microsoft/playwright#42768](https://github.com/microsoft/playwright/issues/42768) Mozilla fixed it in Firefox 158, and Playwright picks it up through a later Firefox roll. After `@playwright/test` moves to that release, run `playwright install firefox` and try a local launch again.
+
+Linux CI is not affected. Until the fix ships, run the Firefox project against a Linux browser in Docker. The image tag must match the installed `@playwright/test` version:
+
+```sh
+docker run -d --rm --name pw-firefox -p 3999:3999 --init --ipc=host \
+  mcr.microsoft.com/playwright:v1.64.1-noble \
+  npx -y playwright@1.64.1 run-server --port 3999 --host 0.0.0.0
+cd apps/auth   # then apps/admin; the two suites share the seeded operator
+CI=1 PW_TEST_CONNECT_WS_ENDPOINT=ws://127.0.0.1:3999/ PW_TEST_CONNECT_EXPOSE_NETWORK='<loopback>' \
+  bun run test:e2e --project firefox --reporter=list
+docker stop pw-firefox
+```
+
+`<loopback>` sends the browser's `localhost` traffic back to the host, where `webServer` runs core and the Vite apps. `CI=1` turns on the same single retry the CI job has. Without it, the admin suite fails on timing in both Firefox and Chromium.
+
 ## `webServer` configuration
 
 Let Playwright own the application process:
