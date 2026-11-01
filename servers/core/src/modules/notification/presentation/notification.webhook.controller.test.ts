@@ -7,7 +7,9 @@ import {
   UnauthorizedException,
 } from "@nestjs/common";
 
-import type { RecordReceiptsUseCase } from "../application/use-cases/record-receipts.use-case";
+import { RecordReceiptsUseCase } from "../application/use-cases/record-receipts.use-case";
+import type { MessageRepository } from "../domain/repositories/message.repository";
+import type { SuppressionRepository } from "../domain/repositories/suppression.repository";
 import {
   replaceableBy,
   type ProviderName,
@@ -186,18 +188,31 @@ test.each(["resend", "meta"] as const)(
   },
 );
 
-test("out-of-order Resend sent receipts retain the forward-only status rule", async () => {
-  const { controller, execute } = setup();
+test("a late sent receipt does not move a delivered message back to sent", async () => {
+  // The real use case over a store that applies the same rule as the Drizzle one.
+  const status = new Map([["email-1", "sent"]]);
+  const messages = {
+    applyReceipt: async (receipt: Receipt) => {
+      const current = status.get(receipt.providerId);
+      if (current && replaceableBy(receipt.status).includes(current))
+        status.set(receipt.providerId, receipt.status);
+    },
+  } as unknown as MessageRepository;
+  const suppressions = {
+    add: async () => {},
+  } as unknown as SuppressionRepository;
+  const controller = new NotificationWebhookController(
+    new RecordReceiptsUseCase(messages, suppressions),
+    secrets,
+  );
+
   await controller.receive("resend", resend("email.delivered"));
   await controller.receive("resend", resend("email.sent"));
   await controller.receive("resend", resend("email.delivery_delayed"));
-  expect(execute.mock.calls.map(([, receipts]) => receipts[0]!.status)).toEqual(
-    ["delivered", "sent", "sent"],
-  );
-  for (const [, receipts] of execute.mock.calls.slice(1)) {
-    expect(receipts[0]!.providerId).toBe("email-1");
-    expect(replaceableBy(receipts[0]!.status)).not.toContain("delivered");
-  }
+  expect(status.get("email-1")).toBe("delivered");
+
+  await controller.receive("resend", resend("email.bounced"));
+  expect(status.get("email-1")).toBe("bounced");
 });
 
 test("receipt storage failures propagate so the provider can retry", async () => {
