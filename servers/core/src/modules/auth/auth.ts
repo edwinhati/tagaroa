@@ -37,6 +37,8 @@ export interface AuthConfig {
   recordAudit?: (event: AuthAuditInput) => Promise<void>;
   secret: string;
   trustedOrigins: string[];
+  /** Proxy hops skipped, right to left, in `X-Forwarded-For`. */
+  trustedProxies?: string[];
 }
 
 export interface AuthAuditInput {
@@ -745,6 +747,13 @@ export const createAuth = (repository: AuthRepository, config: AuthConfig) => {
       database: {
         generateId: () => crypto.randomUUID(),
         joins: repository.supportsJoins,
+      },
+      // The rate limiter keys on this IP. Behind Pangolin and Caddy the header
+      // holds several hops, which Better Auth only resolves when it knows which
+      // of them are ours; without that every client shares one bucket.
+      ipAddress: {
+        ipAddressHeaders: ["x-forwarded-for"],
+        trustedProxies: config.trustedProxies,
       },
       // `__Host-` above replaces Better Auth's own `__Secure-` prefix.
       useSecureCookies: false,

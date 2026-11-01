@@ -40,6 +40,14 @@ Before starting a production core process, configure `BETTER_AUTH_URL` with HTTP
 
 Select the relying-party ID before enrolling production passkeys. Changing it later can require reenrollment; existing credentials cannot simply be moved to another domain. The browser also enforces WebAuthn public-suffix rules. Keep door/workspace origins in the configured lists and verify both enrollment and sign-in at their real HTTPS addresses.
 
+### Client IP for rate limiting
+
+Better Auth's rate limiter keys on the client IP from `X-Forwarded-For`; sign-in allows about 3 attempts per 10 seconds per IP. Requests reach core through Pangolin and then Caddy (`infra/web/Caddyfile`). Caddy trusts `private_ranges` and appends its peer to the header, so core receives `<client>, <Pangolin hop>`. Core skips the hops listed in `AUTH_TRUSTED_PROXIES` (IPs or CIDRs, comma-separated; default the same private ranges), reading right to left, and keys on the first address outside them. A value a client prepends sits left of that and is ignored.
+
+If Caddy stopped trusting its peer, it would replace the header with that peer. If core trusted nothing, it would reject a multi-hop header. Either way every client would share one bucket, and an anonymous caller could lock the whole company out of sign-in. Core logs `Rate limiting could not determine a client IP` when the header cannot be resolved. Check for that log after every proxy change.
+
+Verify the chain on each environment before release: sign in through the public URL from a known public address, then confirm that the new row in `auth.session` has that address in `ip_address`. A private address or an empty value there means Pangolin is not forwarding the client. If Pangolin forwards a header the client supplied without appending the client itself, the address is spoofable; fix that at Pangolin, not here.
+
 The automated migration exercise performs `pg_dump` and `pg_restore` inside the local PostgreSQL container, creates a separate restored fixture database, verifies evidence and revocation behavior, and removes both scratch databases. It does not contact a production database. Run it with `bun test ./test/integration/access-migrations.integration.ts` from `servers/core`; it is skipped when a custom `TEST_DATABASE_URL` is set.
 
 ## Read-only security preflight
