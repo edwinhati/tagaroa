@@ -16,6 +16,9 @@ import {
 } from "../../domain/repositories/employee-source.port";
 
 const SOURCE = "Frappe HR";
+const CONFLICT = "Its company email belongs to another record's account";
+const PRIVILEGED =
+  "Its account is privileged; a super-admin offboards it by hand";
 
 /**
  * Brings one account in step with one HR record: a joiner is issued an account,
@@ -25,7 +28,9 @@ const SOURCE = "Frappe HR";
  * The account is found through the link first. Without one, an account already
  * holding the company email is adopted and linked — that is how accounts issued
  * by hand before HR existed are taken over — unless it is linked to a different
- * record, which is reported rather than guessed at.
+ * record, which is reported rather than guessed at. A privileged account is
+ * never adopted or retired: whoever can edit HR is not vetted to remove an
+ * administrator, so that stays a super-admin's act.
  *
  * Calls take turns. A webhook and the hourly pass can name the same joiner at
  * once, and two issues of one address would fail on the second.
@@ -68,17 +73,14 @@ export class SyncEmployeeUseCase {
       typeof named === "string" ? await this.source.employee(named) : named;
     if (!employee) return { kind: "none" };
     const found = await this.account(employee);
-    const action =
-      found === "conflict"
-        ? {
-            kind: "none" as const,
-            reason: "Its company email belongs to another record's account",
-          }
-        : decide(employee, found, today);
+    if (typeof found === "string") return this.skip(employee, found);
+    const action = decide(employee, found, today);
+    if (action.kind === "offboard" && found?.privileged)
+      return this.skip(employee, PRIVILEGED);
 
     if (action.kind === "none" && action.reason)
       this.logger.log(`${employee.name}: ${action.reason}`);
-    if (action.kind === "offboard" && found && found !== "conflict")
+    if (action.kind === "offboard" && found)
       await this.accounts.retire(
         found.id,
         `Left per ${SOURCE} ${employee.name}` +
@@ -90,9 +92,15 @@ export class SyncEmployeeUseCase {
     return action;
   }
 
+  private skip(employee: Employee, reason: string): Action {
+    this.logger.log(`${employee.name}: ${reason}`);
+    return { kind: "none", reason };
+  }
+
+  /** The account for the record, or why none may be taken. */
   private async account(
     employee: Employee,
-  ): Promise<AccountState | null | "conflict"> {
+  ): Promise<AccountState | null | string> {
     const linked = await this.links.accountFor(employee.name);
     if (linked) return this.accounts.byId(linked);
     if (!employee.companyEmail) return null;
@@ -100,7 +108,8 @@ export class SyncEmployeeUseCase {
     const holder = await this.accounts.byEmail(employee.companyEmail);
     if (!holder) return null;
     const owner = await this.links.employeeFor(holder.id);
-    if (owner) return owner === employee.name ? holder : "conflict";
+    if (owner) return owner === employee.name ? holder : CONFLICT;
+    if (holder.privileged) return PRIVILEGED;
     await this.links.link(employee.name, holder.id);
     return holder;
   }
