@@ -1,5 +1,4 @@
 import {
-  BadRequestException,
   Body,
   Controller,
   Get,
@@ -9,7 +8,6 @@ import {
   Param,
   Post,
 } from "@nestjs/common";
-import { asObject } from "@repo/contracts";
 import {
   AuthService,
   Roles,
@@ -18,6 +16,7 @@ import {
 } from "@thallesp/nestjs-better-auth";
 import { APIError } from "better-auth/api";
 
+import { ZodBody } from "../../platform/http/zod-body";
 import {
   AUDIT_TRAIL,
   type AuditTrail,
@@ -25,28 +24,25 @@ import {
 import { ADMIN_ROLE_CATALOG, ADMIN_ROLE_IDS } from "./access-policy";
 import { createAuth, TEMPORARY_PASSWORD_LIFETIME_MS } from "./auth";
 import {
+  addMemberBody,
+  type AddMemberBody,
+  approveRecoveryBody,
+  type ApproveRecoveryBody,
+  createSubsidiaryBody,
+  type CreateSubsidiaryBody,
+  createTeamBody,
+  type CreateTeamBody,
+  offboardBody,
+  type OffboardBody,
+  requestRecoveryBody,
+  type RequestRecoveryBody,
+} from "./auth-management.schemas";
+import {
   IdentityOperationsService,
   type IdentityOperator,
 } from "./identity-operations.service";
 
 type TagaroaAuth = ReturnType<typeof createAuth>;
-
-const requiredText = (value: unknown, label: string): string => {
-  if (typeof value !== "string" || value.trim().length === 0) {
-    throw new BadRequestException(`${label} is required.`);
-  }
-  return value.trim();
-};
-
-const requiredSlug = (value: unknown): string => {
-  const slug = requiredText(value, "Slug");
-  if (!/^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(slug)) {
-    throw new BadRequestException(
-      "Slug must contain lowercase letters, numbers, and single hyphens only.",
-    );
-  }
-  return slug;
-};
 
 const operatorOf = (session: UserSession): IdentityOperator => {
   const value = session as UserSession & {
@@ -80,13 +76,13 @@ export class AuthManagementController {
   @Roles(["helpdesk", "admin", "super-admin"])
   async requestRecovery(
     @Param("userId") userId: string,
-    @Body() body: unknown,
+    @Body(new ZodBody(requestRecoveryBody)) body: RequestRecoveryBody,
     @Session() session: UserSession,
   ) {
     return {
       data: await this.operations.requestRecovery(
         userId,
-        asObject(body) ?? {},
+        body,
         operatorOf(session),
       ),
     };
@@ -97,13 +93,13 @@ export class AuthManagementController {
   @Roles(["super-admin"])
   async approveRecovery(
     @Param("id") id: string,
-    @Body() body: unknown,
+    @Body(new ZodBody(approveRecoveryBody)) body: ApproveRecoveryBody,
     @Session() session: UserSession,
   ) {
     return {
       data: await this.operations.approveRecovery(
         id,
-        asObject(body) ?? {},
+        body,
         operatorOf(session),
       ),
     };
@@ -113,15 +109,26 @@ export class AuthManagementController {
   @Roles(["admin", "super-admin"])
   async offboard(
     @Param("userId") userId: string,
-    @Body() body: unknown,
+    @Body(new ZodBody(offboardBody)) body: OffboardBody,
     @Session() session: UserSession,
   ) {
     return {
       data: await this.operations.offboard(
         userId,
-        asObject(body)?.reason,
+        body.reason,
         operatorOf(session),
       ),
+    };
+  }
+
+  @Post("sessions/:sessionId/revoke")
+  @Roles(["helpdesk", "admin", "super-admin"])
+  async revokeSession(
+    @Param("sessionId") sessionId: string,
+    @Session() session: UserSession,
+  ) {
+    return {
+      data: await this.operations.revokeSession(sessionId, operatorOf(session)),
     };
   }
 
@@ -146,11 +153,12 @@ export class AuthManagementController {
   @Post("subsidiaries")
   @Roles(["super-admin"])
   async createSubsidiary(
-    @Body() body: { name?: unknown; slug?: unknown },
+    @Body(new ZodBody(createSubsidiaryBody)) {
+      name,
+      slug,
+    }: CreateSubsidiaryBody,
     @Session() session: UserSession,
   ) {
-    const name = requiredText(body.name, "Name");
-    const slug = requiredSlug(body.slug);
     const organization = await this.auth.api.createOrganization({
       body: { name, slug, userId: session.user.id },
     });
@@ -166,11 +174,11 @@ export class AuthManagementController {
   @Roles(["admin", "super-admin"])
   async createTeam(
     @Param("organizationId") organizationId: string,
-    @Body() body: { name?: unknown },
+    @Body(new ZodBody(createTeamBody)) { name }: CreateTeamBody,
     @Session() session: UserSession,
   ) {
     const team = await this.auth.api.createTeam({
-      body: { name: requiredText(body.name, "Team name"), organizationId },
+      body: { name, organizationId },
     });
     await this.audit.record({
       actorId: session.user.id,
@@ -184,17 +192,9 @@ export class AuthManagementController {
   @Roles(["admin", "super-admin"])
   async addMember(
     @Param("organizationId") organizationId: string,
-    @Body() body: { userId?: unknown; teamId?: unknown; role?: unknown },
+    @Body(new ZodBody(addMemberBody)) { userId, teamId }: AddMemberBody,
     @Session() session: UserSession,
   ) {
-    if (body.role !== undefined && body.role !== "member") {
-      throw new BadRequestException(
-        "Only standard subsidiary membership may be assigned here.",
-      );
-    }
-    const userId = requiredText(body.userId, "Person");
-    const teamId =
-      body.teamId === undefined ? undefined : requiredText(body.teamId, "Team");
     let member;
     try {
       member = await this.auth.api.addMember({

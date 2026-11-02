@@ -1,7 +1,6 @@
 import { createHash, randomBytes, randomUUID } from "node:crypto";
 
 import {
-  BadRequestException,
   ConflictException,
   ForbiddenException,
   Inject,
@@ -19,8 +18,18 @@ import {
   AUDIT_TRAIL,
   type AuditTrail,
 } from "../audit/application/audit.facade";
-import { canManageTarget, isSuperAdmin, rolesOf } from "./access-policy";
+import {
+  canManageTarget,
+  isSuperAdmin,
+  OWN_OPERATOR_ACCOUNT_REQUIRED,
+  requireOwnSession,
+  rolesOf,
+} from "./access-policy";
 import { TEMPORARY_PASSWORD_LIFETIME_MS } from "./auth";
+import type {
+  ApproveRecoveryBody,
+  RequestRecoveryBody,
+} from "./auth-management.schemas";
 import {
   account,
   member,
@@ -44,26 +53,14 @@ export interface IdentityOperator {
 
 export const requireVerifiedOperator = (actor: IdentityOperator): void => {
   const age = Date.now() - actor.sessionCreatedAt.getTime();
-  if (actor.impersonatedBy || !actor.twoFactorEnabled)
-    throw new ForbiddenException(
-      "Use your own MFA-protected operator account.",
-    );
+  requireOwnSession(actor);
+  if (!actor.twoFactorEnabled)
+    throw new ForbiddenException(OWN_OPERATOR_ACCOUNT_REQUIRED);
   if (!Number.isFinite(age) || age < 0 || age >= 15 * 60_000)
     throw new ForbiddenException({
       code: "SESSION_NOT_FRESH",
       message: "Sign in again before changing account security.",
     });
-};
-const evidenceText = (value: unknown, label: string): string => {
-  if (
-    typeof value !== "string" ||
-    value.trim().length < 10 ||
-    value.trim().length > 500
-  )
-    throw new BadRequestException(
-      `${label} must be 10 to 500 characters. Use a case reference, never secrets.`,
-    );
-  return value.trim();
 };
 const digest = (value: unknown): string =>
   createHash("sha256").update(JSON.stringify(value)).digest("hex");
@@ -124,7 +121,7 @@ export class IdentityOperationsService {
 
   async requestRecovery(
     userId: string,
-    input: { reason?: unknown; evidence?: unknown; identityVerified?: unknown },
+    { reason, evidence }: RequestRecoveryBody,
     actor: IdentityOperator,
   ) {
     requireVerifiedOperator(actor);
@@ -138,12 +135,6 @@ export class IdentityOperationsService {
       throw new ForbiddenException(
         "Another operator must request your recovery.",
       );
-    if (input.identityVerified !== true)
-      throw new BadRequestException(
-        "Verify identity independently before requesting recovery.",
-      );
-    const reason = evidenceText(input.reason, "Recovery reason");
-    const evidence = evidenceText(input.evidence, "Verification evidence");
     const id = randomUUID();
     await this.database.transaction(async (tx) => {
       const [target] = await tx
@@ -210,7 +201,7 @@ export class IdentityOperationsService {
 
   async approveRecovery(
     id: string,
-    input: { evidence?: unknown; identityVerified?: unknown },
+    { evidence }: ApproveRecoveryBody,
     actor: IdentityOperator,
   ) {
     requireVerifiedOperator(actor);
@@ -218,11 +209,6 @@ export class IdentityOperationsService {
       throw new ForbiddenException(
         "A super administrator must approve recovery.",
       );
-    if (input.identityVerified !== true)
-      throw new BadRequestException(
-        "Independently verify identity before approval.",
-      );
-    const evidence = evidenceText(input.evidence, "Approval evidence");
     const temporaryPassword = randomBytes(24).toString("base64url");
     const password = await hashPassword(temporaryPassword);
     const target = await this.database.transaction(async (tx) => {
@@ -337,7 +323,34 @@ export class IdentityOperationsService {
     return { temporaryPassword, onboarding };
   }
 
-  async offboard(userId: string, reason: unknown, actor: IdentityOperator) {
+  /**
+   * One session, by id, so the operator never holds its token. The owner is
+   * read from the stored row, and the same rule as every targeted admin route
+   * keeps a privileged account's sessions to a super administrator.
+   */
+  async revokeSession(sessionId: string, actor: IdentityOperator) {
+    const [owner] = await this.database
+      .select({ id: user.id, role: user.role })
+      .from(session)
+      .innerJoin(user, eq(user.id, session.userId))
+      .where(eq(session.id, sessionId));
+    if (!owner) throw new NotFoundException("Session not found.");
+    if (!canManageTarget(actor.role, owner.role))
+      throw new ForbiddenException({
+        code: "PRIVILEGED_TARGET_REQUIRES_SUPER_ADMIN",
+        message: "Only a super administrator can manage a privileged account.",
+      });
+    await this.database.delete(session).where(eq(session.id, sessionId));
+    await this.audit.record({
+      actorId: actor.id,
+      detail: sessionId,
+      targetUserId: owner.id,
+      type: "user.session.revoked",
+    });
+    return { revoked: true };
+  }
+
+  async offboard(userId: string, detail: string, actor: IdentityOperator) {
     requireVerifiedOperator(actor);
     if (
       !rolesOf(actor.role).some((role) =>
@@ -349,10 +362,6 @@ export class IdentityOperationsService {
       throw new ForbiddenException(
         "Another administrator must offboard your account.",
       );
-    const detail = evidenceText(
-      reason,
-      "Offboarding reason and case reference",
-    );
     await this.retire(userId, detail, actor.id, (target) => {
       if (!canManageTarget(actor.role, target.role))
         throw new ForbiddenException(

@@ -10,6 +10,7 @@ import {
   AUDIT_TRAIL,
   type AuditTrail,
 } from "../../../audit/application/audit.facade";
+import { requireOwnSession } from "../../../auth/access-policy";
 import {
   ACCESS_REVIEW_REPOSITORY,
   type AccessReviewRepository,
@@ -35,7 +36,12 @@ export class RecordAccessReviewUseCase {
     @Inject(PERSON_REPOSITORY) private readonly people: PersonRepository,
   ) {}
 
-  async execute(userId: string, reviewerId: string): Promise<void> {
+  async execute(
+    userId: string,
+    reviewer: { id: string; impersonatedBy?: string | null },
+  ): Promise<void> {
+    requireOwnSession(reviewer);
+    const reviewerId = reviewer.id;
     if (userId === reviewerId) {
       throw new ForbiddenException(
         "Another operator must review your privileged access.",

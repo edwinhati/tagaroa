@@ -1,0 +1,113 @@
+import { expect, mock, spyOn, test } from "bun:test";
+
+import type { SQL } from "drizzle-orm";
+import { PgDialect } from "drizzle-orm/pg-core";
+
+import type { Database } from "../../../../platform/database/database.module";
+import type { ReconcileEmployeesUseCase } from "../../application/use-cases/reconcile-employees.use-case";
+import type { HrOptions } from "../config/hr.options";
+import { HrReconciler, RECONCILE_LOCK } from "./hr.reconciler";
+
+const setup = (
+  rows: { locked: boolean }[] = [{ locked: true }],
+  options: HrOptions = null,
+) => {
+  const execute = mock(async (_query: SQL) => rows);
+  const transaction = mock(
+    async (run: (tx: { execute: typeof execute }) => Promise<void>) =>
+      run({ execute }),
+  );
+  const reconcile = { execute: mock(async () => {}) };
+  const worker = new HrReconciler(
+    reconcile as unknown as ReconcileEmployeesUseCase,
+    { transaction } as unknown as Database,
+    options,
+  );
+  return { worker, execute, transaction, reconcile };
+};
+
+test("tick takes the transaction-scoped advisory lock before reconciling", async () => {
+  const { worker, execute, transaction, reconcile } = setup();
+  await worker.tick();
+  expect(transaction).toHaveBeenCalledTimes(1);
+  const query = new PgDialect().sqlToQuery(execute.mock.calls[0]![0]);
+  expect(query.sql).toBe("select pg_try_advisory_xact_lock($1) as locked");
+  expect(query.params).toEqual([RECONCILE_LOCK]);
+  expect(reconcile.execute).toHaveBeenCalledTimes(1);
+});
+
+test.each([false, undefined])(
+  "tick skips reconciliation when lock result is %j",
+  async (locked) => {
+    const { worker, reconcile } = setup(
+      locked === undefined ? [] : [{ locked }],
+    );
+    await worker.tick();
+    expect(reconcile.execute).not.toHaveBeenCalled();
+  },
+);
+
+test("overlapping ticks are skipped and the next tick runs after completion", async () => {
+  const { worker, transaction, reconcile } = setup();
+  const pass = Promise.withResolvers<void>();
+  reconcile.execute.mockReturnValueOnce(pass.promise);
+  const first = worker.tick();
+  await worker.tick();
+  expect(transaction).toHaveBeenCalledTimes(1);
+  pass.resolve();
+  await first;
+  await worker.tick();
+  expect(reconcile.execute).toHaveBeenCalledTimes(2);
+});
+
+test("a failed reconciliation is contained and does not wedge later ticks", async () => {
+  const { worker, reconcile } = setup();
+  reconcile.execute.mockRejectedValueOnce(new Error("Frappe unavailable"));
+  await expect(worker.tick()).resolves.toBeUndefined();
+  await worker.tick();
+  expect(reconcile.execute).toHaveBeenCalledTimes(2);
+});
+
+test("a transaction failure resets the running flag", async () => {
+  const { worker, transaction, reconcile } = setup();
+  transaction.mockRejectedValueOnce(new Error("database unavailable"));
+  await expect(worker.tick()).resolves.toBeUndefined();
+  await worker.tick();
+  expect(transaction).toHaveBeenCalledTimes(2);
+  expect(reconcile.execute).toHaveBeenCalledTimes(1);
+});
+
+test("unconfigured HR does not start a reconciliation", () => {
+  const { worker, transaction } = setup();
+  worker.onApplicationBootstrap();
+  worker.onModuleDestroy();
+  expect(transaction).not.toHaveBeenCalled();
+});
+
+test("configured HR ticks at startup and hourly, and clears its timer at shutdown", () => {
+  const { worker } = setup([{ locked: true }], {
+    url: "https://hr.example.test",
+    apiKey: "key",
+    apiSecret: "secret",
+    webhookSecret: "webhook",
+  });
+  const tick = spyOn(worker, "tick").mockResolvedValue(undefined);
+  const interval = spyOn(globalThis, "setInterval");
+  const clear = spyOn(globalThis, "clearInterval");
+  try {
+    worker.onApplicationBootstrap();
+    expect(tick).toHaveBeenCalledTimes(1);
+    expect(interval).toHaveBeenCalledTimes(1);
+    expect(interval.mock.calls[0]![1]).toBe(60 * 60_000);
+    const callback = interval.mock.calls[0]![0] as () => void;
+    callback();
+    expect(tick).toHaveBeenCalledTimes(2);
+    worker.onModuleDestroy();
+    expect(clear).toHaveBeenCalledWith(interval.mock.results[0]!.value);
+  } finally {
+    worker.onModuleDestroy();
+    interval.mockRestore();
+    clear.mockRestore();
+    tick.mockRestore();
+  }
+});
