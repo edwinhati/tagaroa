@@ -57,6 +57,7 @@ jobs:
       - run: bunx playwright install --with-deps ${{ matrix.project == 'mobile-chromium' && 'chromium' || matrix.project }}
         working-directory: apps/auth
       - run: bun run test:integration
+        if: matrix.project == 'chromium'
       # Both browser suites share the seeded operator and must run sequentially.
       - run: bun run test:e2e --project ${{ matrix.project }}
         working-directory: apps/auth
