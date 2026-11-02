@@ -1,7 +1,6 @@
 import { test } from "@e2e-dev/web";
+import { authenticatorCode } from "@repo/test-support/totp";
 import { expect } from "e2e";
-
-import { authenticatorCode } from "../../servers/core/test/totp";
 
 test.setup(
   "authenticate the isolated QA operator",

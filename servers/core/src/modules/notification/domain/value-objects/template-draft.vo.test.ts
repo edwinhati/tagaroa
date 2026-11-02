@@ -96,3 +96,40 @@ test("refuses an unknown channel and a malformed key", () => {
     "account.issued",
   );
 });
+
+test("accepts an SMS draft and keeps no subject", () => {
+  expect(
+    parseTemplateDraft({
+      body: "Your code is {{code}}.",
+      channel: "sms",
+      key: "account.code",
+      locale: "en",
+      subject: "Ignored",
+      variables: ["code"],
+    }),
+  ).toMatchObject({ channel: "sms", subject: null, variables: ["code"] });
+});
+
+test("refuses an SMS draft with no body", () => {
+  expect(() =>
+    parseTemplateDraft({
+      body: "  ",
+      channel: "sms",
+      key: "account.code",
+      locale: "en",
+    }),
+  ).toThrow("body is required");
+});
+
+test("refuses a missing draft, a missing locale and non-string names", () => {
+  expect(() => parseTemplateDraft(null)).toThrow("A template is required");
+  expect(() => parseTemplateDraft({ ...email, locale: undefined })).toThrow(
+    "locale is required",
+  );
+  expect(() => parseTemplateDraft({ ...email, variables: [1] })).toThrow(
+    "variables must be a list of names",
+  );
+  expect(() =>
+    parseTemplateDraft({ ...email, secrets: [1], variables: ["name"] }),
+  ).toThrow("secrets must be a list of names");
+});

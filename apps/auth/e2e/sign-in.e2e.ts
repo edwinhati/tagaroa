@@ -1,7 +1,6 @@
 import { expect, test } from "@playwright/test";
+import { authenticatorCode } from "@repo/test-support/totp";
 import { SQL } from "bun";
-
-import { authenticatorCode } from "../../../servers/core/test/totp";
 
 const coreServiceOrigin = "http://localhost:18080";
 

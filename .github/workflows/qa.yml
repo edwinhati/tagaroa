@@ -72,6 +72,8 @@ jobs:
           retention-days: 7
 
   # Opens a "QA failed on main" issue for Rex in Multica. Skipped for PRs, which their author fixes.
+  # The key is the run id alone: a rerun of the same run must not open another issue (a rerun
+  # chain opened nine, and each woke an agent that reran it again).
   notify-multica:
     needs: [checks, workflows]
     if: failure() && github.event_name != 'pull_request'
@@ -83,5 +85,5 @@ jobs:
         run: |
           curl -fsS -X POST "$WEBHOOK" \
             -H 'Content-Type: application/json' \
-            -H "Idempotency-Key: qa-${{ github.run_id }}-${{ github.run_attempt }}" \
+            -H "Idempotency-Key: qa-${{ github.run_id }}" \
             -d "{\"event\":\"${{ github.event_name }}\",\"sha\":\"${{ github.sha }}\",\"run_url\":\"$RUN_URL\"}"

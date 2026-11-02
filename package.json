@@ -32,17 +32,21 @@
   },
   "devDependencies": {
     "@ai-sdk/openai-compatible": "3.0.77",
-    "@axe-core/playwright": "^4.14.0",
     "@changesets/cli": "3.0.3",
     "@e2e-dev/web": "0.15.3",
+    "@repo/test-support": "*",
     "@shadcn/lint": "^0.2.3",
-    "@types/node": "26.6.5",
+    "@types/node": "26.6.6",
     "ai": "7.0.152",
     "e2e": "0.21.3",
-    "oxfmt": "^0.74.0",
-    "oxlint": "^1.89.0",
+    "oxfmt": "^0.75.0",
+    "oxlint": "^1.90.0",
     "turbo": "^2.11.10",
     "typescript": "7.0.2"
+  },
+  "overrides": {
+    "dompurify": "3.4.17",
+    "zod": "4.6.7"
   },
   "devEngines": {
     "packageManager": {
