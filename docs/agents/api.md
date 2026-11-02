@@ -53,8 +53,12 @@ async grantAssignment(
   service. A schema checks shape; it does not replace those.
 - Keep Zod's key order meaningful: issues are reported in the order the keys are declared.
 - `ZodBody` parses a query object the same way (`@Query(new ZodBody(schema))`).
-- Every `access-control` route parses its body this way. Move other controllers over when you touch
-  them; do not convert them in one sweep.
+- Every `access-control` route, the `PUT /directory/positions/...` routes, and template writes
+  in `notification.admin.controller.ts` parse their bodies this way. Template shape rules live
+  in `notification.schemas.ts`; domain rules stay in `TemplateDraft`. Move other controllers
+  over when you touch them; do not convert them in one sweep.
+- Signed webhooks verify their signatures over the raw bytes before parsing the decoded body
+  through `ZodBody`. Do not attach a body pipe that runs before signature verification.
 
 ## Not adopted (and why)
 

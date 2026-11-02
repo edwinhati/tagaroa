@@ -113,6 +113,7 @@ import {
   everyPersonQueryOptions,
   linkedAccountsQueryOptions,
   personSessionsQueryOptions,
+  revokeSession,
   peopleQueryOptions,
   removePosition,
   savePosition,
@@ -1036,11 +1037,7 @@ export function PersonDetails({
     false | "group" | string
   >(false);
   const revoke = useMutation({
-    mutationFn: (sessionToken: string) =>
-      write(
-        () => authClient.admin.revokeUserSession({ sessionToken }),
-        "The session was not revoked.",
-      ),
+    mutationFn: revokeSession,
     onError: announce.failed,
     onSuccess: () => {
       announce.done(`Session revoked for ${person.email}`);
@@ -1245,7 +1242,7 @@ export function PersonDetails({
                     {admin.canRevokeSessions ? (
                       <Button
                         disabled={revoke.isPending}
-                        onClick={() => revoke.mutate(session.token)}
+                        onClick={() => revoke.mutate(session.id)}
                         size="xs"
                         variant="ghost"
                       >

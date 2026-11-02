@@ -24,9 +24,14 @@ import {
   canManageTarget,
   isPrivilegedRole,
   isSuperAdmin,
+  OWN_OPERATOR_ACCOUNT_REQUIRED,
   rolesOf,
   removesSuperAdminRole,
 } from "./access-policy";
+import {
+  updateProfileBody,
+  type UpdateProfileBody,
+} from "./auth-management.schemas";
 import type { AuthRepository } from "./infrastructure/persistence/auth.persistence.module";
 
 export interface AuthConfig {
@@ -37,6 +42,8 @@ export interface AuthConfig {
   recordAudit?: (event: AuthAuditInput) => Promise<void>;
   secret: string;
   trustedOrigins: string[];
+  /** Proxy hops skipped, right to left, in `X-Forwarded-For`. */
+  trustedProxies?: string[];
 }
 
 export interface AuthAuditInput {
@@ -246,6 +253,9 @@ export const authenticationAuditEvent = (
       break;
     case "/revoke-sessions":
       type = "user.sessions.revoked";
+      break;
+    case "/update-user":
+      type = "user.profile.updated";
       break;
     default:
       return undefined;
@@ -472,6 +482,7 @@ const adminAc = defaultAc.newRole({
 });
 
 const TARGETED_ADMIN_ROUTES = new Set([
+  "/admin/list-user-sessions",
   "/admin/set-role",
   "/admin/update-user",
   "/admin/ban-user",
@@ -510,12 +521,45 @@ const sessionIsFresh = (
   return Number.isFinite(age) && age >= 0 && age < 15 * 60 * 1_000;
 };
 
+/**
+ * What an impersonated session may still reach: reads, and the way back out.
+ * It acts as its target with the target's MFA state and a fresh `createdAt`, so
+ * every other write would be recorded as the impersonated person. Kept as an
+ * allowlist so a new Better Auth endpoint is refused until it is judged.
+ */
+const IMPERSONATION_ADMIN_ROUTES = new Set([
+  "/admin/stop-impersonating",
+  "/admin/list-users",
+  "/admin/get-user",
+  "/admin/list-user-sessions",
+  "/admin/has-permission",
+]);
+const IMPERSONATION_ORGANIZATION_ROUTES = new Set([
+  "/organization/set-active",
+  "/organization/set-active-team",
+  "/organization/has-permission",
+  "/organization/check-slug",
+]);
+
+const isImpersonated = (session: { session?: unknown } | null): boolean =>
+  Boolean(asObject(session?.session)?.impersonatedBy);
+
+const refuseImpersonation = (): never => {
+  throw new APIError("FORBIDDEN", {
+    code: "IMPERSONATED_SESSION",
+    message: OWN_OPERATOR_ACCOUNT_REQUIRED,
+  });
+};
+
 const enforceAdminPolicy = createAuthMiddleware(async (ctx) => {
   if (!ctx.path.startsWith("/admin/")) return;
 
   const session =
     ctx.context.session ?? (await getAuthoritativeSessionFromCtx(ctx));
   if (!session) return;
+
+  if (isImpersonated(session) && !IMPERSONATION_ADMIN_ROUTES.has(ctx.path))
+    refuseImpersonation();
 
   if (session.user.mustChangePassword === true) {
     throw new APIError("FORBIDDEN", {
@@ -625,11 +669,13 @@ const enforceOrganizationWrite = createAuthMiddleware(async (ctx) => {
         "Replace the temporary password before accessing subsidiary data.",
     });
   }
+  if (["GET", "HEAD", "OPTIONS"].includes(ctx.request.method)) return;
   if (
-    ["GET", "HEAD", "OPTIONS"].includes(ctx.request.method) ||
-    PERSONAL_ORGANIZATION_ROUTES.has(ctx.path)
+    isImpersonated(session) &&
+    !IMPERSONATION_ORGANIZATION_ROUTES.has(ctx.path)
   )
-    return;
+    refuseImpersonation();
+  if (PERSONAL_ORGANIZATION_ROUTES.has(ctx.path)) return;
   const role = session?.user.role;
   if (!session || (!isSuperAdmin(role) && !rolesOf(role).includes("admin"))) {
     throw new APIError("FORBIDDEN", {
@@ -655,11 +701,30 @@ const enforceOrganizationWrite = createAuthMiddleware(async (ctx) => {
   }
 });
 
+/**
+ * Better Auth's self-service `/update-user` writes any `input: true` field,
+ * the admin-set personal address included, so it is held to the display name.
+ */
+export const validateProfileUpdate = (
+  path: string,
+  body: unknown,
+): UpdateProfileBody | undefined => {
+  if (path !== "/update-user") return undefined;
+  const result = updateProfileBody.safeParse(body);
+  if (result.success) return result.data;
+  throw new APIError("BAD_REQUEST", {
+    code: "PROFILE_FIELD_NOT_EDITABLE",
+    message: result.error.issues[0]!.message,
+  });
+};
+
 const validateAdminWrite = createAuthMiddleware(async (ctx) => {
   validateTemporaryPassword(ctx.path, ctx.body);
   validatePersonalEmail(ctx.path, ctx.body);
+  const profile = validateProfileUpdate(ctx.path, ctx.body);
   await enforceAdminPolicy(ctx);
   await enforceOrganizationWrite(ctx);
+  if (profile) return { context: { body: profile } };
 });
 
 /**
@@ -686,6 +751,15 @@ export const createAuth = (repository: AuthRepository, config: AuthConfig) => {
           emailVerified: true,
         });
         user.emailVerified = true;
+      }
+    }
+
+    // A session token is a credential. An operator needs a session's id, device
+    // and age to review or revoke it, never the secret that signs in as it.
+    if (ctx.path === "/admin/list-user-sessions") {
+      const sessions = asObject(ctx.context.returned)?.sessions;
+      if (Array.isArray(sessions)) {
+        for (const session of sessions) delete asObject(session)?.token;
       }
     }
 
@@ -746,12 +820,23 @@ export const createAuth = (repository: AuthRepository, config: AuthConfig) => {
         generateId: () => crypto.randomUUID(),
         joins: repository.supportsJoins,
       },
+      // The rate limiter keys on this IP. Behind Pangolin and Caddy the header
+      // holds several hops, which Better Auth only resolves when it knows which
+      // of them are ours; without that every client shares one bucket.
+      ipAddress: {
+        ipAddressHeaders: ["x-forwarded-for"],
+        trustedProxies: config.trustedProxies,
+      },
       // `__Host-` above replaces Better Auth's own `__Secure-` prefix.
       useSecureCookies: false,
     },
     appName: "Tagaroa",
     baseURL: config.baseURL,
     database: repository.adapter,
+    // Revoking one session takes its token, which no operator may hold, and it
+    // never checks whose session it is. Core's
+    // `POST /auth-management/sessions/:sessionId/revoke` replaces it.
+    disabledPaths: ["/admin/revoke-user-session"],
     databaseHooks: {
       session: {
         create: {
@@ -809,10 +894,11 @@ export const createAuth = (repository: AuthRepository, config: AuthConfig) => {
         rpID: config.passkeyRpId,
         rpName: "Tagaroa",
       }),
-      // Lets the door finish onboarding with the token from sign-in when a
-      // cross-origin Set-Cookie was dropped (Brave/Safari) and no session
-      // cookie is available for change-password.
-      bearer(),
+      // Lets the door finish onboarding with the signed `set-auth-token` from
+      // sign-in when a cross-origin Set-Cookie was dropped (Brave/Safari) and no
+      // session cookie is available for change-password. Signed only: a raw
+      // session token, as stored, must never authenticate on its own.
+      bearer({ requireSignature: true }),
       // Covers /admin/create-user and /admin/set-user-password among its default
       // paths, so an issued password is checked too. It calls a third party,
       // which no test should reach and no offline machine can.

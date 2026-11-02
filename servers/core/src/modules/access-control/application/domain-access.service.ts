@@ -10,6 +10,7 @@ import {
   AUDIT_TRAIL,
   type AuditTrail,
 } from "../../audit/application/audit.facade";
+import { requireOwnSession } from "../../auth/access-policy";
 import {
   ACCESS_CONTROL_REPOSITORY,
   type AccessControlRepository,
@@ -55,6 +56,7 @@ export class DomainAccessService {
     );
   }
   async bind(teamId: string, domainSlug: unknown, actor: AccessActor) {
+    requireOwnSession(actor);
     requireFresh(actor, new Date());
     if (
       domainSlug !== null &&

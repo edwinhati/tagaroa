@@ -110,11 +110,23 @@ test("an unsigned or mis-signed webhook is refused", async () => {
   const body = JSON.stringify({ name: employee.name });
   expect((await webhook(body, "")).status).toBe(401);
   expect((await webhook(body, sign("{}"))).status).toBe(401);
+  // An altered body is refused on its signature, before its shape is read.
+  expect((await webhook("{}", sign(body))).status).toBe(401);
+  expect(await account()).toBeUndefined();
+});
+
+test("a signed webhook without a usable name is a 400", async () => {
+  for (const body of ["{}", '{"name":""}', '{"name":42}', "[]"]) {
+    const response = await webhook(body, sign(body));
+    expect(response.status).toBe(400);
+    expect(await response.json()).toMatchObject({ statusCode: 400 });
+  }
   expect(await account()).toBeUndefined();
 });
 
 test("a joiner is issued an account the way an administrator would issue it", async () => {
-  const body = JSON.stringify({ name: employee.name });
+  // Frappe sends the fields the webhook is set up with; only `name` is read.
+  const body = JSON.stringify({ doctype: "Employee", name: employee.name });
   expect((await webhook(body, sign(body))).status).toBe(204);
 
   const issued = await account();

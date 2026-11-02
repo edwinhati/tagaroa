@@ -35,6 +35,13 @@ directions only.
   memberships and business grants removed, the last active super-admin protected.
 - **Never automatic.** An account suspended here and shown `Active` in HR stays suspended.
   `Inactive` and `Suspended` in HR change nothing. A deleted HR record changes nothing.
+- **Never privileged.** An account holding an administrative role (`isPrivilegedRole`) is
+  neither adopted by its company email nor retired, even once its record shows `Left`. The
+  sync logs the record and a super-admin offboards the account by hand, as
+  [access operations](../security/access-operations.md) requires of every privileged
+  offboard. Whoever can edit an Employee is vetted to issue ordinary accounts, not to remove
+  an administrator; without this, a record carrying an admin's address with status `Left`
+  would strip that admin outside Tagaroa's MFA and super-admin checks.
 
 An account belongs to an HR record through `hr.employee_account`, keyed by Frappe's employee
 id, not by address, so an email change in HR does not detach anyone. An account that already
@@ -56,7 +63,8 @@ Every act is audited with no actor and the HR record as its source.
   accounts — and still grants every subsidiary, team and business role.
 - The quality of the HR record becomes an access control. Whoever can set an Employee to
   `Active` with a company email can cause an ordinary account to be issued; restrict that in
-  Frappe to people operations.
+  Frappe to people operations. It can also offboard any ordinary account whose address it names,
+  but never a privileged one.
 - Transfers are not handled: a person who changes department keeps their teams here until an
   administrator moves them. Mapping Frappe's company and department onto subsidiaries and
   teams is the next step, and needs a decided mapping first.

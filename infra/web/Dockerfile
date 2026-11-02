@@ -25,9 +25,15 @@ RUN test -n "$VITE_AUTH_BASE_URL" && test -n "$VITE_AUTH_URL" \
  && for app in apps/auth apps/admin apps/workspace domains/engineering; do \
       (cd "$app" && bun run build) || exit 1; \
     done
+# The Caddyfile reads these into each app's script-src.
+RUN mkdir /csp \
+ && for app in apps/auth apps/admin apps/workspace domains/engineering; do \
+      bun infra/web/inline-script-hashes.ts "$app/dist/client/_shell.html" > "/csp/${app#*/}" || exit 1; \
+    done
 
 FROM caddy:2-alpine
 COPY infra/web/Caddyfile /etc/caddy/Caddyfile
+COPY --from=build /csp /etc/caddy/csp
 COPY --from=build /repo/apps/auth/dist/client /srv/auth
 COPY --from=build /repo/apps/admin/dist/client /srv/admin
 COPY --from=build /repo/apps/workspace/dist/client /srv/workspace
