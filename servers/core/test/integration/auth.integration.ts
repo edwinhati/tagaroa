@@ -957,6 +957,12 @@ test("template edits validate freshness and atomically reject concurrent overwri
         body: JSON.stringify({ ...draft, expectedUpdatedAt }),
       });
       expect(invalid.status).toBe(400);
+      expect((await invalid.json()).details).toEqual([
+        {
+          field: "expectedUpdatedAt",
+          message: "expectedUpdatedAt must be a valid timestamp",
+        },
+      ]);
     }
     const expectedUpdatedAt = "2026-01-01T00:00:00.123Z";
     const responses = await Promise.all(
@@ -1067,9 +1073,22 @@ test("templates validate and persist create, edit, publish, version and delete a
       headers: { cookie },
       body: body === undefined ? undefined : JSON.stringify(body),
     });
-  expect((await send("/api/notifications/templates", "POST", {})).status).toBe(
-    400,
-  );
+  const empty = await send("/api/notifications/templates", "POST", {});
+  expect(empty.status).toBe(400);
+  expect(await empty.json()).toEqual({
+    details: [
+      { field: "key", message: "key is required" },
+      {
+        field: "channel",
+        message: "channel is required",
+      },
+      { field: "body", message: "body is required" },
+      { field: "locale", message: "locale is required" },
+    ],
+    error: "Bad Request",
+    message: "key is required",
+    statusCode: 400,
+  });
   for (const channel of ["email", "sms", "whatsapp"] as const) {
     const key = `qa.${crypto.randomUUID().replaceAll("-", "")}`;
     const draft = {
