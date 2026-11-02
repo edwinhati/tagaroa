@@ -8,6 +8,7 @@ import {
   applyTemporaryPasswordLifecycle,
   authenticationAuditEvent,
   createAuth,
+  endedSessionAuditEvent,
   excessSessionTokens,
   validatePersonalEmail,
   validateProfileUpdate,
@@ -452,5 +453,48 @@ test("subsidiary departure audit uses the removed member's identity, not the req
       { memberIdOrEmail: "membership-id" },
       {},
     ),
+  ).toBeUndefined();
+});
+
+test("audits subsidiary and team edits made on Better Auth's own routes", () => {
+  expect(
+    adminAuditEvent(
+      "/organization/update",
+      { data: { name: "Renamed" }, organizationId: "subsidiary-id" },
+      { id: "subsidiary-id", name: "Renamed" },
+    ),
+  ).toEqual({ detail: "subsidiary-id", type: "subsidiary.updated" });
+  expect(
+    adminAuditEvent(
+      "/organization/update-team",
+      { data: { name: "Renamed team" }, teamId: "team-id" },
+      { id: "team-id", name: "Renamed team" },
+    ),
+  ).toEqual({ detail: "team-id", type: "team.updated" });
+  expect(
+    adminAuditEvent(
+      "/organization/remove-team",
+      { teamId: "team-id" },
+      { message: "Team removed successfully." },
+    ),
+  ).toEqual({ detail: "team-id", type: "team.removed" });
+  expect(adminAuditEvent("/organization/update", {}, null)).toBeUndefined();
+});
+
+test("audits the end of impersonation by the operator who started it", () => {
+  expect(
+    endedSessionAuditEvent("/admin/stop-impersonating", {
+      impersonatedBy: "operator-id",
+      userId: "person-id",
+    }),
+  ).toEqual({
+    actorId: "operator-id",
+    targetUserId: "person-id",
+    type: "user.impersonation.ended",
+  });
+  // Signing out, or a fourth device evicting the oldest, is not an admin act.
+  // A revoked session is audited by `IdentityOperationsService.revokeSession`.
+  expect(
+    endedSessionAuditEvent("/sign-out", { userId: "person-id" }),
   ).toBeUndefined();
 });

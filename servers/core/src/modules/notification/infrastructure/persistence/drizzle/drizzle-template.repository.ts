@@ -156,8 +156,8 @@ export class DrizzleTemplateRepository implements TemplateRepository {
       .where(eq(notificationTemplate.id, id));
   }
 
-  async deleteDraft(id: string): Promise<boolean> {
-    const deleted = await this.executor
+  async deleteDraft(id: string): Promise<Template | undefined> {
+    const [deleted] = await this.executor
       .delete(notificationTemplate)
       .where(
         and(
@@ -165,8 +165,8 @@ export class DrizzleTemplateRepository implements TemplateRepository {
           eq(notificationTemplate.status, "draft"),
         ),
       )
-      .returning({ id: notificationTemplate.id });
+      .returning();
 
-    return deleted.length > 0;
+    return deleted && templateMapper.toDomain(deleted);
   }
 }

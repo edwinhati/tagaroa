@@ -400,6 +400,49 @@ export const adminAuditEvent = (
             type: "user.team.removed",
           }
         : undefined;
+    // Better Auth answers an update with the row as it now stands.
+    case "/organization/update": {
+      const id = asObject(returned)?.id;
+      return typeof id === "string"
+        ? { detail: id, type: "subsidiary.updated" }
+        : undefined;
+    }
+    case "/organization/update-team": {
+      const id = asObject(returned)?.id;
+      return typeof id === "string"
+        ? { detail: id, type: "team.updated" }
+        : undefined;
+    }
+    case "/organization/remove-team":
+      return typeof request?.teamId === "string"
+        ? { detail: request.teamId, type: "team.removed" }
+        : undefined;
+    default:
+      return undefined;
+  }
+};
+
+/**
+ * The admin acts that end one session without naming whose it was. The request
+ * carries only the token, and the row is gone by the time the after hook runs,
+ * so these are read from the session delete hook, where the deleted row still
+ * names its owner. The token itself is never recorded.
+ */
+export const endedSessionAuditEvent = (
+  path: string | undefined,
+  session: { impersonatedBy?: unknown; userId: string },
+): AuthAuditInput | undefined => {
+  switch (path) {
+    // The ended session belongs to the person impersonated; the operator is
+    // the one it names as having started it.
+    case "/admin/stop-impersonating":
+      return typeof session.impersonatedBy === "string"
+        ? {
+            actorId: session.impersonatedBy,
+            targetUserId: session.userId,
+            type: "user.impersonation.ended",
+          }
+        : undefined;
     default:
       return undefined;
   }
@@ -658,6 +701,24 @@ const PERSONAL_ORGANIZATION_ROUTES = new Set([
   "/organization/leave",
 ]);
 
+/**
+ * The writes a browser may send to Better Auth's organization routes, each one
+ * recorded by `adminAuditEvent`. Every other write — invitations, member roles,
+ * creating a team — is refused: `apps/admin` creates subsidiaries, teams and
+ * members through the audited `auth-management` routes, and nobody is invited.
+ * Those routes call Better Auth in-process, without a request, so this check
+ * does not reach them.
+ */
+const DIRECT_ORGANIZATION_WRITES = new Set([
+  "/organization/add-member",
+  "/organization/add-team-member",
+  "/organization/remove-member",
+  "/organization/remove-team",
+  "/organization/remove-team-member",
+  "/organization/update",
+  "/organization/update-team",
+]);
+
 const enforceOrganizationWrite = createAuthMiddleware(async (ctx) => {
   if (!ctx.path.startsWith("/organization/") || !ctx.request) return;
   const session =
@@ -688,6 +749,12 @@ const enforceOrganizationWrite = createAuthMiddleware(async (ctx) => {
     throw new APIError("FORBIDDEN", {
       code: "PRIVILEGED_TWO_FACTOR_REQUIRED",
       message: "Set up two-factor authentication before changing access.",
+    });
+  }
+  if (!DIRECT_ORGANIZATION_WRITES.has(ctx.path)) {
+    throw new APIError("FORBIDDEN", {
+      code: "ORGANIZATION_WRITE_NOT_AVAILABLE",
+      message: "This subsidiary change is not available.",
     });
   }
   if (
@@ -785,6 +852,10 @@ export const createAuth = (repository: AuthRepository, config: AuthConfig) => {
       }
     }
 
+    // A failed call is answered with its error, and the after hook still runs.
+    // Nothing happened, so nothing is recorded.
+    if (ctx.context.returned instanceof Error) return;
+
     const event = adminAuditEvent(ctx.path, ctx.body, ctx.context.returned);
     const actorId =
       ctx.context.newSession?.user.id ?? ctx.context.session?.user.id;
@@ -848,6 +919,12 @@ export const createAuth = (repository: AuthRepository, config: AuthConfig) => {
             const sessions = await internalAdapter.listSessions(session.userId);
             const excess = excessSessionTokens(sessions);
             if (excess.length > 0) await internalAdapter.deleteSessions(excess);
+          },
+        },
+        delete: {
+          after: async (session, ctx) => {
+            const event = endedSessionAuditEvent(ctx?.path, session);
+            if (event && config.recordAudit) await config.recordAudit(event);
           },
         },
       },

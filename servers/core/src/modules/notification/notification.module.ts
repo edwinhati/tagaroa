@@ -2,6 +2,7 @@ import { Logger, Module } from "@nestjs/common";
 import { ConfigModule, ConfigService } from "@nestjs/config";
 
 import type { AppEnv } from "../../platform/config/env";
+import { AuditModule } from "../audit/audit.module";
 import {
   NOTIFICATION_SENDER,
   NotificationSenderFacade,
@@ -140,7 +141,7 @@ const providers = (config: Env): NotificationProviders => {
 @Module({
   controllers: [NotificationAdminController, NotificationWebhookController],
   exports: [NOTIFICATION_SENDER],
-  imports: [ConfigModule],
+  imports: [AuditModule, ConfigModule],
   providers: [
     CreateTemplateUseCase,
     DeleteTemplateUseCase,

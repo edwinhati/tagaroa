@@ -7,6 +7,10 @@ import {
   type QueryRecord,
 } from "../../../../platform/http/collection";
 import {
+  AUDIT_TRAIL,
+  type AuditTrail,
+} from "../../../audit/application/audit.facade";
+import {
   SUPPRESSION_REPOSITORY,
   type SuppressionRepository,
 } from "../../domain/repositories/suppression.repository";
@@ -146,10 +150,19 @@ export class LiftSuppressionUseCase {
   constructor(
     @Inject(SUPPRESSION_REPOSITORY)
     private readonly suppressions: SuppressionRepository,
+    @Inject(AUDIT_TRAIL) private readonly audit: AuditTrail,
   ) {}
 
-  async execute(id: string): Promise<void> {
-    const lifted = await this.suppressions.lift(id);
-    if (!lifted) throw new NotFoundException("No suppression with that id");
+  async execute(id: string, actorId: string): Promise<void> {
+    const channel = await this.suppressions.lift(id);
+    if (!channel) throw new NotFoundException("No suppression with that id");
+
+    // Delivery to that destination resumes. The destination itself stays out
+    // of the trail; the channel and the suppression id identify the act.
+    await this.audit.record({
+      actorId,
+      detail: `${channel}:${id}`,
+      type: "notification.suppression.removed",
+    });
   }
 }

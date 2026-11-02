@@ -103,14 +103,20 @@ export class NotificationAdminController {
 
   @Post("templates/:id/publish")
   @HttpCode(204)
-  async publishTemplate(@Param("id") id: string): Promise<void> {
-    await this.publishTemplateUseCase.execute(id);
+  async publishTemplate(
+    @Param("id") id: string,
+    @Session() session: UserSession,
+  ): Promise<void> {
+    await this.publishTemplateUseCase.execute(id, session.user.id);
   }
 
   @Delete("templates/:id")
   @HttpCode(204)
-  async deleteTemplate(@Param("id") id: string): Promise<void> {
-    await this.deleteTemplateUseCase.execute(id);
+  async deleteTemplate(
+    @Param("id") id: string,
+    @Session() session: UserSession,
+  ): Promise<void> {
+    await this.deleteTemplateUseCase.execute(id, session.user.id);
   }
 
   @Get("messages")
@@ -132,7 +138,10 @@ export class NotificationAdminController {
 
   @Delete("suppressions/:id")
   @HttpCode(204)
-  async lift(@Param("id") id: string): Promise<void> {
-    await this.liftSuppression.execute(id);
+  async lift(
+    @Param("id") id: string,
+    @Session() session: UserSession,
+  ): Promise<void> {
+    await this.liftSuppression.execute(id, session.user.id);
   }
 }

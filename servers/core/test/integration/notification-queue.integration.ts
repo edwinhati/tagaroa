@@ -304,8 +304,8 @@ test("a suppression arriving after enqueue blocks its channel and lifting it per
     expect(row?.status).toBe("suppressed");
     expect(row?.secrets).toBeNull();
     expect(row?.lockedAt).toBeNull();
-    expect(await suppressions.lift(refusal.id)).toBe(true);
-    expect(await suppressions.lift(refusal.id)).toBe(false);
+    expect(await suppressions.lift(refusal.id)).toBe("email");
+    expect(await suppressions.lift(refusal.id)).toBeUndefined();
     const next = message({ destination });
     await messages.enqueue(next);
     await database

@@ -18,6 +18,9 @@ _Avoid_: User dashboard, profile
 
 **Impersonation**:
 A temporary session in which a super-admin enters the workspace as another person to diagnose access problems.
+The impersonated session may read and stop impersonating; every write, the back office's
+included, is refused until the operator is back in their own account. A persistent notice
+says so for as long as it lasts.
 _Avoid_: Login as, switch user
 
 **Identity administration**:
@@ -38,9 +41,15 @@ cannot delete one. Access assigned at subsidiary scope reaches every team under 
 _Avoid_: Organization, company, tenant
 
 **Team**:
-A subdivision of one subsidiary, never a tenant of its own. A person's teams, by name, decide
-which domains they see. Access assigned at team scope reaches only that team.
+A subdivision of one subsidiary, never a tenant of its own. A person sees the domains their
+teams are bound to; a team's name decides nothing. Access assigned at team scope reaches only
+that team.
 _Avoid_: Department, group
+
+**Domain binding**:
+The one working domain a team opens, chosen by an operator from Subsidiaries, or none. It
+is what puts a domain in a team member's workspace.
+_Avoid_: Team name, domain membership
 
 **Business access**:
 Permission to act on company resources, expressed as code-owned permissions bundled into
@@ -54,8 +63,20 @@ _Avoid_: Permission, access role
 
 **Emergency access**:
 A super-admin's 15-minute, session-bound grant for one permission and scope, recorded with
-a reason and audited on use.
+a reason and audited on use. The core service calls it break-glass elevation.
 _Avoid_: Permanent override, admin bypass
+
+**Access review**:
+An operator's confirmation that a grant is still intentional, week by week. Privileged access
+is reviewed per person, by identity role; business access per assignment or emergency grant
+(once), and may be flagged instead of confirmed, never by its holder or its grantor. Both
+return to the queue when what was reviewed changes.
+_Avoid_: Audit, approval
+
+**Notifications**:
+The operator area for the workspace's outgoing email, SMS and WhatsApp: wording (templates),
+delivery, and suppressions. Its routes live under `/notifications`.
+_Avoid_: Messaging, email settings
 
 The canonical person view is the route-backed Person workspace. Links may preserve the
 People directory's search, filters, sort, and page so returning restores the operator's
