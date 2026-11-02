@@ -52,11 +52,13 @@ async grantAssignment(
 - Domain rules (a role cannot be assigned at that scope, a user is not a member) stay in the
   service. A schema checks shape; it does not replace those.
 - Keep Zod's key order meaningful: issues are reported in the order the keys are declared.
-- `POST /access-control/assignments` and the template writes in `notification.admin.controller.ts`
-  use this so far (`notification.schemas.ts`: shape there, the draft's rules in `TemplateDraft`).
-  Move other routes over when you touch them; do not convert a controller in one sweep.
-- Never put a pipe on a signed webhook body (`notification.webhook.controller.ts`): the signature
-  is checked over the raw bytes.
+- `ZodBody` parses a query object the same way (`@Query(new ZodBody(schema))`).
+- Every `access-control` route, the `PUT /directory/positions/...` routes, and template writes
+  in `notification.admin.controller.ts` parse their bodies this way. Template shape rules live
+  in `notification.schemas.ts`; domain rules stay in `TemplateDraft`. Move other controllers
+  over when you touch them; do not convert them in one sweep.
+- Signed webhooks verify their signatures over the raw bytes before parsing the decoded body
+  through `ZodBody`. Do not attach a body pipe that runs before signature verification.
 
 ## Not adopted (and why)
 

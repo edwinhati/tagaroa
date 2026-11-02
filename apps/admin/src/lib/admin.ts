@@ -27,7 +27,6 @@ export interface Person {
 
 export interface PersonSession {
   id: string;
-  token: string;
   createdAt: string | Date;
   updatedAt: string | Date;
   expiresAt: string | Date;
@@ -529,6 +528,15 @@ export async function coreMutationDocument<T>(
   }
   return (document as ApiDocument<T>).data;
 }
+
+/** One session, by id: core checks whose it is, and no token leaves it. */
+export const revokeSession = (sessionId: string) =>
+  coreMutationDocument(
+    `/api/auth-management/sessions/${encodeURIComponent(sessionId)}/revoke`,
+    "POST",
+    undefined,
+    "The session was not revoked.",
+  );
 
 export function reauthenticateForCurrentPage(): void {
   const authUrl = import.meta.env.VITE_AUTH_URL ?? "http://localhost:3001";

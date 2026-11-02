@@ -53,6 +53,7 @@ import { OnboardingHook } from "./onboarding.hook";
           recordAudit: (event) => trail.record(event),
           secret: config.get("BETTER_AUTH_SECRET", { infer: true }),
           trustedOrigins: config.get("TRUSTED_ORIGINS", { infer: true }),
+          trustedProxies: config.get("AUTH_TRUSTED_PROXIES", { infer: true }),
         }),
       }),
     }),

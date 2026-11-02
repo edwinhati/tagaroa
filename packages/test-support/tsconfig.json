@@ -1,0 +1,14 @@
+{
+  "extends": "@repo/typescript-config/base.json",
+  "compilerOptions": {
+    "declaration": false,
+    "declarationMap": false,
+    // Shipped as source and read by Bun and Vite, never emitted, so imports
+    // resolve the way both of them resolve them.
+    "module": "preserve",
+    "moduleResolution": "bundler",
+    "types": ["bun"]
+  },
+  "include": ["."],
+  "exclude": ["node_modules"]
+}

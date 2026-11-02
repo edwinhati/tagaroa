@@ -1,6 +1,14 @@
 import { describe, expect, test } from "bun:test";
 
-import { grantAssignmentBody } from "./access-control.schemas";
+import {
+  bindDomainBody,
+  breakGlassBody,
+  createRoleBody,
+  grantAssignmentBody,
+  myPermissionsQuery,
+  reviewAccessBody,
+  updateAssignmentBody,
+} from "./access-control.schemas";
 
 const valid = {
   organizationId: " org-1 ",
@@ -72,4 +80,69 @@ describe("grantAssignmentBody", () => {
     expect(message("nope")).toBe("Request body must be a JSON object.");
     expect(message(undefined)).toBe("Request body must be a JSON object.");
   });
+});
+
+describe("the other access-control bodies", () => {
+  const glass = {
+    organizationId: "org-1",
+    permission: " finance.approve ",
+    reason: "Payroll run is blocked.",
+    scope: "subsidiary",
+  } as const;
+
+  test("break-glass trims ids and applies the team rule", () => {
+    expect(breakGlassBody.parse({ ...glass, teamId: "t-1" })).toEqual({
+      ...glass,
+      permission: "finance.approve",
+      teamId: null,
+    });
+    expect(
+      breakGlassBody.safeParse({ ...glass, scope: "team" }).error?.issues[0]!
+        .message,
+    ).toBe("Team is required.");
+    expect(
+      breakGlassBody.safeParse({ ...glass, permission: "" }).error?.issues[0]!
+        .message,
+    ).toBe("Permission is required.");
+  });
+
+  test("an expiry update keeps the grant's date rule", () => {
+    expect(updateAssignmentBody.parse({}).expiresAt).toBeNull();
+    expect(
+      updateAssignmentBody.safeParse({ expiresAt: "soon" }).error?.issues[0]!
+        .message,
+    ).toBe("Expiration must be an ISO date and time.");
+  });
+
+  test("a domain binding takes a slug or null", () => {
+    expect(bindDomainBody.parse({ domainSlug: null }).domainSlug).toBeNull();
+    expect(bindDomainBody.safeParse({}).error?.issues[0]!.message).toBe(
+      "Choose a known domain or no domain.",
+    );
+  });
+
+  test("my permissions need a subsidiary; a blank team is none", () => {
+    expect(
+      myPermissionsQuery.parse({ organizationId: " o ", teamId: " " }),
+    ).toEqual({
+      organizationId: "o",
+      teamId: null,
+    });
+    expect(myPermissionsQuery.parse({ organizationId: "o" }).teamId).toBeNull();
+    expect(myPermissionsQuery.safeParse({}).error?.issues[0]!.message).toBe(
+      "Subsidiary is required.",
+    );
+  });
+});
+
+test("a missing service-checked field reaches the service as undefined", () => {
+  expect(createRoleBody.parse({})).toEqual({});
+  expect(reviewAccessBody.parse({})).toEqual({});
+  expect(
+    breakGlassBody.parse({
+      organizationId: "o",
+      permission: "p",
+      scope: "subsidiary",
+    }).reason,
+  ).toBeUndefined();
 });

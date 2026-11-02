@@ -1,5 +1,4 @@
 import {
-  BadRequestException,
   Body,
   Controller,
   Delete,
@@ -21,12 +20,22 @@ import {
 import { AccessReviewService } from "../application/access-review.service";
 import { DomainAccessService } from "../application/domain-access.service";
 import {
-  ACCESS_SCOPE_TYPES,
-  type AccessScopeType,
-} from "../domain/access-policy";
-import {
+  bindDomainBody,
+  breakGlassBody,
+  createRoleBody,
   grantAssignmentBody,
+  myPermissionsQuery,
+  reviewAccessBody,
+  updateAssignmentBody,
+  updateRoleBody,
+  type BindDomainBody,
+  type BreakGlassBody,
+  type CreateRoleBody,
   type GrantAssignmentBody,
+  type MyPermissionsQuery,
+  type ReviewAccessBody,
+  type UpdateAssignmentBody,
+  type UpdateRoleBody,
 } from "./access-control.schemas";
 
 const ACCESS_READ_ROLES = [
@@ -36,46 +45,13 @@ const ACCESS_READ_ROLES = [
   "super-admin",
 ] as const;
 
-const asRecord = (value: unknown): Record<string, unknown> =>
-  typeof value === "object" && value !== null
-    ? (value as Record<string, unknown>)
-    : {};
-
-const requiredId = (value: unknown, label: string): string => {
-  if (typeof value !== "string" || value.trim().length === 0) {
-    throw new BadRequestException(`${label} is required.`);
-  }
-  return value.trim();
-};
-
-const scopeOf = (value: unknown): AccessScopeType => {
-  if (
-    typeof value !== "string" ||
-    !ACCESS_SCOPE_TYPES.includes(value as AccessScopeType)
-  ) {
-    throw new BadRequestException("Scope must be subsidiary or team.");
-  }
-  return value as AccessScopeType;
-};
-
-const nullableId = (value: unknown): string | null =>
-  typeof value === "string" && value.trim().length > 0 ? value.trim() : null;
-
-const expirationOf = (value: unknown): Date | null => {
-  if (value === null || value === undefined || value === "") return null;
-  if (typeof value !== "string") {
-    throw new BadRequestException("Expiration must be an ISO date and time.");
-  }
-  const parsed = new Date(value);
-  if (Number.isNaN(parsed.getTime())) {
-    throw new BadRequestException("Expiration must be an ISO date and time.");
-  }
-  return parsed;
-};
-
 const actorOf = (value: UserSession): AccessActor => {
   const authSession = value as UserSession & {
-    session: { createdAt: Date | string; id: string };
+    session: {
+      createdAt: Date | string;
+      id: string;
+      impersonatedBy?: string | null;
+    };
     user: { id: string; role?: string | null };
   };
   return {
@@ -83,6 +59,7 @@ const actorOf = (value: UserSession): AccessActor => {
     identityRole: authSession.user.role,
     sessionCreatedAt: new Date(authSession.session.createdAt),
     sessionId: authSession.session.id,
+    impersonatedBy: authSession.session.impersonatedBy,
   };
 };
 
@@ -110,15 +87,11 @@ export class AccessControlController {
   @Roles(["admin", "super-admin"])
   async bindDomain(
     @Param("teamId") teamId: string,
-    @Body() value: unknown,
+    @Body(new ZodBody(bindDomainBody)) body: BindDomainBody,
     @Session() session: UserSession,
   ) {
     return {
-      data: await this.domains.bind(
-        teamId,
-        asRecord(value).domainSlug,
-        actorOf(session),
-      ),
+      data: await this.domains.bind(teamId, body.domainSlug, actorOf(session)),
     };
   }
 
@@ -133,16 +106,12 @@ export class AccessControlController {
   async reviewAccess(
     @Param("kind") kind: string,
     @Param("subjectId") id: string,
-    @Body() value: unknown,
+    @Body(new ZodBody(reviewAccessBody))
+    body: ReviewAccessBody,
     @Session() session: UserSession,
   ) {
     return {
-      data: await this.reviews.record(
-        kind,
-        id,
-        asRecord(value),
-        session.user.id,
-      ),
+      data: await this.reviews.record(kind, id, body, actorOf(session)),
     };
   }
 
@@ -160,39 +129,22 @@ export class AccessControlController {
 
   @Post("roles")
   @Roles(["super-admin"])
-  async createRole(@Body() value: unknown, @Session() session: UserSession) {
-    const body = asRecord(value);
-    return {
-      data: await this.access.createRole(
-        {
-          description: body.description,
-          key: body.key,
-          name: body.name,
-          permissions: body.permissions,
-        },
-        actorOf(session),
-      ),
-    };
+  async createRole(
+    @Body(new ZodBody(createRoleBody)) body: CreateRoleBody,
+    @Session() session: UserSession,
+  ) {
+    return { data: await this.access.createRole(body, actorOf(session)) };
   }
 
   @Patch("roles/:roleId")
   @Roles(["super-admin"])
   async updateRole(
     @Param("roleId") roleId: string,
-    @Body() value: unknown,
+    @Body(new ZodBody(updateRoleBody)) body: UpdateRoleBody,
     @Session() session: UserSession,
   ) {
-    const body = asRecord(value);
     return {
-      data: await this.access.updateRole(
-        roleId,
-        {
-          description: body.description,
-          name: body.name,
-          permissions: body.permissions,
-        },
-        actorOf(session),
-      ),
+      data: await this.access.updateRole(roleId, body, actorOf(session)),
     };
   }
 
@@ -220,13 +172,14 @@ export class AccessControlController {
   @Roles(["admin", "super-admin"])
   async updateAssignment(
     @Param("assignmentId") assignmentId: string,
-    @Body() value: unknown,
+    @Body(new ZodBody(updateAssignmentBody))
+    body: UpdateAssignmentBody,
     @Session() session: UserSession,
   ) {
     return {
       data: await this.access.updateAssignmentExpiry(
         assignmentId,
-        expirationOf(asRecord(value).expiresAt),
+        body.expiresAt,
         actorOf(session),
       ),
     };
@@ -246,8 +199,8 @@ export class AccessControlController {
   @Get("me")
   @SessionOnly()
   async me(
-    @Query("organizationId") organizationId: string | undefined,
-    @Query("teamId") teamId: string | undefined,
+    @Query(new ZodBody(myPermissionsQuery))
+    query: MyPermissionsQuery,
     @Session() session: UserSession,
   ) {
     const actor = actorOf(session);
@@ -255,10 +208,10 @@ export class AccessControlController {
       data: {
         permissions: await this.access.effectivePermissions({
           identityRole: actor.identityRole,
-          organizationId: requiredId(organizationId, "Subsidiary"),
+          organizationId: query.organizationId,
           sessionCreatedAt: actor.sessionCreatedAt,
           sessionId: actor.sessionId,
-          teamId: nullableId(teamId),
+          teamId: query.teamId,
           userId: actor.id,
         }),
       },
@@ -268,22 +221,11 @@ export class AccessControlController {
   @Post("break-glass")
   @Roles(["super-admin"])
   async activateBreakGlass(
-    @Body() value: unknown,
+    @Body(new ZodBody(breakGlassBody)) body: BreakGlassBody,
     @Session() session: UserSession,
   ) {
-    const body = asRecord(value);
-    const scope = scopeOf(body.scope);
     return {
-      data: await this.access.activateBreakGlass(
-        {
-          organizationId: requiredId(body.organizationId, "Subsidiary"),
-          permission: requiredId(body.permission, "Permission"),
-          reason: body.reason,
-          scope,
-          teamId: scope === "team" ? requiredId(body.teamId, "Team") : null,
-        },
-        actorOf(session),
-      ),
+      data: await this.access.activateBreakGlass(body, actorOf(session)),
     };
   }
 

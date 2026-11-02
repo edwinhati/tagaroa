@@ -1,3 +1,5 @@
+import { isIP } from "node:net";
+
 export interface AppEnv {
   BETTER_AUTH_SECRET: string;
   BETTER_AUTH_URL: string;
@@ -8,6 +10,11 @@ export interface AppEnv {
   /** One or more browser origins allowed for WebAuthn (door + workspace). */
   PASSKEY_ORIGINS: string[];
   PASSKEY_RP_ID: string;
+  /**
+   * The proxy hops in front of core whose `X-Forwarded-For` entries are
+   * skipped when resolving a client IP. The rate limiter keys on that IP.
+   */
+  AUTH_TRUSTED_PROXIES: string[];
 
   /** Whether this process drains the notification queue. */
   NOTIFICATION_WORKER: boolean;
@@ -88,6 +95,25 @@ const validUrl = (value: string, key: string): string => {
   } catch {
     throw new Error(`${key} must be a valid URL`);
   }
+};
+
+// Caddy's `private_ranges`, which is what infra/web/Caddyfile trusts. Core is
+// reachable only through Caddy, so every private hop it reports is ours.
+const PRIVATE_RANGES =
+  "10.0.0.0/8,172.16.0.0/12,192.168.0.0/16,127.0.0.0/8,fc00::/7,::1/128";
+
+const validCidr = (value: string): string => {
+  const [address = "", prefix, ...rest] = value.split("/");
+  const version = isIP(address);
+  const bits = version === 6 ? 128 : 32;
+  if (
+    version === 0 ||
+    rest.length > 0 ||
+    (prefix !== undefined && !(/^\d+$/.test(prefix) && Number(prefix) <= bits))
+  ) {
+    throw new Error("AUTH_TRUSTED_PROXIES must list IP addresses or CIDRs");
+  }
+  return value;
 };
 
 export const validateEnv = (config: Record<string, unknown>): AppEnv => {
@@ -249,6 +275,11 @@ export const validateEnv = (config: Record<string, unknown>): AppEnv => {
     TRUSTED_ORIGINS: trustedOrigins,
     PASSKEY_ORIGINS: passkeyOrigins,
     PASSKEY_RP_ID: passkeyRpId,
+    AUTH_TRUSTED_PROXIES: String(
+      optional(config, "AUTH_TRUSTED_PROXIES") ?? PRIVATE_RANGES,
+    )
+      .split(",")
+      .map((entry) => validCidr(entry.trim())),
 
     NOTIFICATION_BATCH_SIZE: positiveInteger(
       config,
