@@ -170,11 +170,13 @@ test("a linked account takes precedence over the current email holder", async ()
     banned: false,
     email: "old@tagaroa.example",
     id: "linked",
+    privileged: false,
   });
   accounts.set("holder", {
     banned: false,
     email: ada.companyEmail!,
     id: "holder",
+    privileged: false,
   });
   links.set(ada.name, "linked");
   const lookup = spyOn(lifecycle, "byEmail");
@@ -189,6 +191,7 @@ test("a matching reverse link uses the account without relinking it", async () =
     banned: false,
     email: ada.companyEmail!,
     id: "manual",
+    privileged: false,
   });
   spyOn(linkRepository, "employeeFor").mockResolvedValue(ada.name);
   const link = spyOn(linkRepository, "link");
@@ -203,6 +206,7 @@ test("an active employee never restores a suspended linked account", async () =>
     banned: true,
     email: ada.companyEmail!,
     id: "suspended",
+    privileged: false,
   });
   links.set(ada.name, "suspended");
   expect(await sync.execute(ada, today)).toEqual({
