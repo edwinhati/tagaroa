@@ -390,3 +390,38 @@ flows: reloading the setup screen, the expired-challenge “Sign in again” rec
 and recovery-code entry. No browser tests were added. Not covered: real
 thirty-day waits, account-wide lockout after ten consecutive misses, and
 production rate limiting (disabled in the test environment).
+
+## Directory and business-access coverage, 2 November 2026 (ISSUE-49)
+
+These regressions extend the existing parallel Playwright suites. Admin tests
+use the worker-specific operator from `e2e/operator.ts`; the auth admission test
+retains its `e2e-admin` lock. Each new fixture uses unique names, and the directory
+and cross-user fixtures clean up their own subsidiaries and people.
+
+| Scenario                                 | Retained regression                                                                                                                    | Coverage and limit                                                                                                                                                                                                                                                                                                                       |
+| ---------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Subsidiary/team rename and team deletion | `apps/admin/e2e/identity-access.e2e.ts`: directory renames persist, team deletion clears membership and subsidiary deletion is refused | Supported HTTP writes rename both records; browser reload verifies the names, retained roster and Engineering binding. Removing a team clears its membership and domain binding. A second team remains, as Better Auth disallows removing the last team.                                                                                 |
+| Subsidiary deletion                      | Same directory regression                                                                                                              | The request returns 403 / `ORGANIZATION_WRITE_NOT_AVAILABLE`; reload proves the subsidiary remains. Successful subsidiary deletion is unavailable under the current policy.                                                                                                                                                              |
+| Membership form recovery                 | Existing membership/scoped-assignment workflow                                                                                         | Injected 503 leaves the person outside the subsidiary and team; retry through the picker succeeds. Existing cancellation, removal, retained subsidiary membership and re-addition assertions remain.                                                                                                                                     |
+| Complete custom-role form                | Existing create/edit/archive business-role workflow                                                                                    | Empty required fields and no permissions disable Save; stable key generation and manual replacement, checkbox deselection, failed-save draft retention, retry, edit/reload persistence and archive are checked. Stored key, description and exact permission are verified. Keyboard dismissal/focus return and dialog axe checks remain. |
+| Emergency access across tabs             | Existing cross-tab emergency workflow                                                                                                  | Activate through the second tab's form while the first dialog remains open. Both display the active grant/reason; ending through the second tab updates the first without reload. Effective permission removal and database-aged expiry checks remain.                                                                                   |
+| Cross-user Engineering admission         | `apps/auth/e2e/domain-admission.e2e.ts`                                                                                                | Separate browser contexts for two people in the same subsidiary: only the team member enters Engineering; the other is redirected Home without an Engineering link. The admitted session still works after the denied visit, and removing membership revokes admission on reload.                                                        |
+
+**Product limitation:** `/subsidiaries` currently offers creation, domain binding
+and membership controls, but no subsidiary/team rename or delete controls.
+Reproduce as a super administrator: open `/subsidiaries?id=<subsidiary-id>`;
+only New subsidiary, New team, domain selection and membership actions appear.
+Rename/team-delete mutations above therefore have HTTP plus browser read-back
+coverage, not form coverage. Adding those controls or enabling subsidiary
+deletion requires product work; this test-only change does not alter policy.
+
+Validation for this continuation: **11/11 auth and 29/29 admin Chromium tests
+passed**, and **73 integration tests / 1,658 assertions passed**. Local CI QA's
+`checks` job passed lint, types, unit tests and build against the final test code.
+Its separate `workflows` job could not resolve `matrix.project` locally (missing
+`--project` argument); it stopped, with browser/integration suites run on the
+host instead. Boundaries, focused lint/formatting and `git diff --check` passed.
+The root browser launcher encountered a missing host Node dylib, so the two app
+suites ran sequentially through their Bun commands. Firefox, WebKit and mobile
+projects were not rerun for this continuation. No product code, authorization
+rule or assertion was weakened.
