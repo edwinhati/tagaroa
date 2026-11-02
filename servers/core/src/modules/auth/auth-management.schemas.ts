@@ -83,3 +83,21 @@ export const addMemberBody = z.object(
   { error: NOT_AN_OBJECT },
 );
 export type AddMemberBody = z.output<typeof addMemberBody>;
+
+/**
+ * Better Auth's own `POST /auth/update-user`, guarded in `auth.ts`. A person
+ * may change their display name and nothing else: email and role are
+ * admin-managed (ADR 0001), and the personal address is an admin's to set.
+ */
+export const updateProfileBody = z.strictObject(
+  {
+    name: required("Name").max(80, "Name must be 80 characters or fewer."),
+  },
+  {
+    error: (issue) =>
+      issue.code === "unrecognized_keys"
+        ? "Only your name can be changed here."
+        : NOT_AN_OBJECT,
+  },
+);
+export type UpdateProfileBody = z.output<typeof updateProfileBody>;

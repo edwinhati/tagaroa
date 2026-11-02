@@ -26,6 +26,10 @@ export const Route = createFileRoute("/_shell")({
   beforeLoad: ({ context }) => admit(context.queryClient),
   component: Shell,
 });
+// TanStack Start deletes `ssr` from the client's copy of the options above, so
+// the loaded match drops the client-only boundary the server streamed. A load
+// that settles before React hydrates that boundary is a hydration mismatch.
+Route.options.ssr = false;
 
 function Shell() {
   const { admin, domains, session } = Route.useRouteContext();

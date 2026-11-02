@@ -838,7 +838,6 @@ function DeliveryLogContent({
           }
           mobileRow={(message) => (
             <button
-              aria-label={`View ${message.key} to ${message.destination}`}
               className="p-4 block w-full text-left outline-none focus-visible:ring-2 focus-visible:ring-ring/50 focus-visible:ring-inset"
               onClick={() => setReading(message)}
               type="button"

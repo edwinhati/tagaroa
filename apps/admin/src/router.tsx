@@ -2,6 +2,8 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { createRouter } from "@tanstack/react-router";
 import { useEffect } from "react";
 
+// Before the route tree: its modules define Zod schemas on import.
+import "./lib/zod-jitless";
 import { routeTree } from "./routeTree.gen";
 
 export function getRouter() {

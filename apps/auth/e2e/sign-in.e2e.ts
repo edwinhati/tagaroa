@@ -266,7 +266,9 @@ test(
   "authenticator enrollment, recovery codes, trusted devices, and passkeys work",
   { lock: "e2e-admin" },
   async ({ page, context, browserName, isMobile, browser }) => {
-    test.setTimeout(60_000);
+    // Enrollment, recovery, trusted devices, passkeys and reauth in one test:
+    // ~55s of ~1s steps in WebKit on a CI-sized Linux machine.
+    test.setTimeout(120_000);
     const sql = new SQL(
       process.env.TEST_DATABASE_URL ??
         "postgresql://tagaroa:tagaroa@127.0.0.1:5432/tagaroa_test",

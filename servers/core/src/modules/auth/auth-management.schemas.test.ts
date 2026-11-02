@@ -9,6 +9,7 @@ import {
   createTeamBody,
   offboardBody,
   requestRecoveryBody,
+  updateProfileBody,
 } from "./auth-management.schemas";
 
 const messageOf = (schema: ZodType, input: unknown) => {
@@ -143,5 +144,32 @@ describe("addMemberBody", () => {
     expect(message({ userId: " " })).toBe("Person is required.");
     expect(message({ userId: "u-1", teamId: null })).toBe("Team is required.");
     expect(message({ userId: "u-1", teamId: "" })).toBe("Team is required.");
+  });
+});
+
+describe("updateProfileBody", () => {
+  const message = (input: unknown) => messageOf(updateProfileBody, input);
+
+  test("trims the name", () => {
+    expect(updateProfileBody.parse({ name: "  Ada Lovelace " })).toEqual({
+      name: "Ada Lovelace",
+    });
+  });
+
+  test("requires a name of at most 80 characters", () => {
+    expect(message({ name: "   " })).toBe("Name is required.");
+    expect(message({})).toBe("Name is required.");
+    expect(message({ name: "a".repeat(81) })).toBe(
+      "Name must be 80 characters or fewer.",
+    );
+    expect(message({ name: "a".repeat(80) })).toBeUndefined();
+  });
+
+  test("refuses every admin-managed field", () => {
+    for (const field of ["email", "role", "personalEmail", "image"])
+      expect(message({ name: "Ada", [field]: "x" })).toBe(
+        "Only your name can be changed here.",
+      );
+    expect(message("Ada")).toBe("Request body must be a JSON object.");
   });
 });

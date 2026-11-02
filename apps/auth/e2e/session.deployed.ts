@@ -12,6 +12,23 @@ test("the door's sign-in reaches app. through a cookie only the API host gets", 
   context,
   page,
 }) => {
+  // The edge's CSP must let the shells' own inline scripts run.
+  const violations: string[] = [];
+  await context.exposeFunction("reportCspViolation", (violation: string) => {
+    violations.push(violation);
+  });
+  await context.addInitScript(() => {
+    document.addEventListener("securitypolicyviolation", (event) => {
+      void (
+        window as Window & {
+          reportCspViolation?: (violation: string) => Promise<void>;
+        }
+      ).reportCspViolation?.(
+        `${event.effectiveDirective} ${event.blockedURI} on ${location.href}`,
+      );
+    });
+  });
+
   await page.goto(door);
   await page.getByLabel("Email").fill(email);
   await page
@@ -53,4 +70,5 @@ test("the door's sign-in reaches app. through a cookie only the API host gets", 
     return (await response.json())?.user?.email;
   }, api);
   expect(user).toBe(email);
+  expect(violations).toEqual([]);
 });

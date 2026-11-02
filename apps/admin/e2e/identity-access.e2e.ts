@@ -1,6 +1,6 @@
 import AxeBuilder from "@axe-core/playwright";
 import { expect, test } from "@playwright/test";
-import type { BrowserContext } from "@playwright/test";
+import type { BrowserContext, Page } from "@playwright/test";
 import { authenticatorCode } from "@repo/test-support/totp";
 import { SQL } from "bun";
 
@@ -11,6 +11,25 @@ const coreOrigin = "http://localhost:18080";
 const databaseUrl =
   process.env.TEST_DATABASE_URL ??
   "postgresql://tagaroa:tagaroa@127.0.0.1:5432/tagaroa_test";
+
+/**
+ * Buttons fade opacity (tagaroa.css) and dialogs fade in. Axe measuring either
+ * mid-fade, such as Next enabling as a table's count arrives, reports the
+ * blended colour as a contrast failure, so let finite animations finish first.
+ * Endless ones (skeleton pulses) never would.
+ */
+const settleAnimations = (page: Page) =>
+  page.evaluate(() =>
+    Promise.allSettled(
+      document
+        .getAnimations()
+        .filter(
+          (animation) =>
+            animation.effect?.getComputedTiming().endTime !== Infinity,
+        )
+        .map((animation) => animation.finished),
+    ),
+  );
 
 test.beforeEach(async ({ page, context }) => {
   // Development overlays can cover controls; they are absent in production.
@@ -195,6 +214,7 @@ test("remaining account profile and sessions recover from failed reads", async (
   await expect(
     page.locator('[data-slot="sidebar"][data-mobile="true"][role="dialog"]'),
   ).toHaveCount(0);
+  await settleAnimations(page);
   const accessibility = await new AxeBuilder({ page })
     .include('[role="dialog"]')
     .withTags(["wcag2a", "wcag2aa", "wcag21a", "wcag21aa", "wcag22aa"])
@@ -221,6 +241,7 @@ test("remaining account profile and sessions recover from failed reads", async (
   await expect(
     page.locator('[data-slot="sidebar"][data-mobile="true"][role="dialog"]'),
   ).toHaveCount(0);
+  await settleAnimations(page);
   const darkAccessibility = await new AxeBuilder({ page })
     .include('[role="dialog"]')
     .withTags(["wcag2a", "wcag2aa", "wcag21a", "wcag21aa", "wcag22aa"])
@@ -229,6 +250,125 @@ test("remaining account profile and sessions recover from failed reads", async (
   await page.screenshot({
     path: `/tmp/tagaroa-settings-${test.info().project.name}-dark.png`,
   });
+});
+
+test("account settings edit the display name, refuse admin-managed fields and retry a failed save", async ({
+  page,
+  isMobile,
+}) => {
+  test.setTimeout(90_000);
+  const sql = new SQL(databaseUrl);
+  const [original] =
+    await sql`select id, name, personal_email from auth."user" where email = ${operator.email}`;
+  const renamed = `QA Renamed ${test.info().project.name}`;
+  const openProfile = async () => {
+    await page.goto("http://localhost:13002/");
+    await expect(
+      page.getByRole("heading", { name: "Home", exact: true }),
+    ).toBeVisible();
+    if (isMobile) await page.locator('[data-slot="sidebar-trigger"]').click();
+    await page
+      .getByRole("button", {
+        name: `Account menu for ${operator.email.charAt(0).toUpperCase()} ${operator.email}`,
+      })
+      .click();
+    await page.getByRole("menuitem", { name: "Account settings" }).click();
+    return page.getByRole("dialog");
+  };
+  try {
+    // The self-service route takes the display name and nothing an admin owns.
+    const refused = await page.request.post(
+      `${coreOrigin}/api/auth/update-user`,
+      {
+        data: { name: "Ada", personalEmail: "ada@example.test" },
+        headers: { origin: "http://localhost:13002" },
+      },
+    );
+    expect(refused.status()).toBe(400);
+    expect((await refused.json()).message).toBe(
+      "Only your name can be changed here.",
+    );
+    const [unchanged] =
+      await sql`select name, personal_email from auth."user" where id = ${original.id}`;
+    expect(unchanged).toEqual({
+      name: original.name,
+      personal_email: original.personal_email,
+    });
+
+    const dialog = await openProfile();
+    await dialog.getByRole("button", { name: "Edit name" }).click();
+    const input = dialog.getByRole("textbox", { name: "Name" });
+    await expect(input).toBeFocused();
+    await input.fill("   ");
+    await dialog.getByRole("button", { name: "Save" }).click();
+    await expect(dialog.getByRole("alert")).toHaveText("Name is required.");
+    await expect(input).toHaveAttribute("aria-invalid", "true");
+
+    await page.route("**/api/auth/update-user", (route) => route.abort());
+    await input.fill(renamed);
+    await dialog.getByRole("button", { name: "Save" }).click();
+    await expect(dialog.getByRole("alert")).toHaveText(
+      "Your name was not saved. Check your connection and try again.",
+    );
+    await page.unroute("**/api/auth/update-user");
+    await input.fill(`${renamed} pending`);
+    let releaseSave!: () => void;
+    const pendingSave = new Promise<void>((resolve) => {
+      releaseSave = resolve;
+    });
+    await page.route("**/api/auth/update-user", async (route) => {
+      await pendingSave;
+      await route.continue();
+    });
+    await dialog.getByRole("button", { name: "Save" }).click();
+    try {
+      await expect(
+        dialog.getByRole("button", { name: "Saving…" }),
+      ).toBeDisabled();
+      await expect(
+        dialog.getByRole("button", { name: "Cancel", exact: true }),
+      ).toBeDisabled();
+      await page.keyboard.press("Escape");
+      await page
+        .getByRole("button", {
+          name: `Account menu for ${operator.email.charAt(0).toUpperCase()} ${operator.email}`,
+        })
+        .click();
+      await page.getByRole("menuitem", { name: "Account settings" }).click();
+      await expect(
+        dialog.getByRole("button", { name: "Edit name" }),
+      ).toBeDisabled();
+    } finally {
+      releaseSave();
+    }
+    await expect(
+      dialog.getByRole("button", { name: "Edit name" }),
+    ).toBeEnabled();
+    await page.unroute("**/api/auth/update-user");
+    await dialog.getByRole("button", { name: "Edit name" }).click();
+    await dialog.getByRole("textbox", { name: "Name" }).fill(renamed);
+    await dialog.getByRole("button", { name: "Save" }).click();
+    await expect(dialog.getByRole("status")).toHaveText("Name saved.");
+    await expect(dialog.getByRole("heading", { name: renamed })).toBeVisible();
+    await expect(dialog.getByRole("alert")).toHaveCount(0);
+
+    await page.keyboard.press("Escape");
+    await page.reload();
+    const reopened = await openProfile();
+    await expect(
+      reopened.getByRole("heading", { name: renamed }),
+    ).toBeVisible();
+    const [stored] =
+      await sql`select name from auth."user" where id = ${original.id}`;
+    expect(stored.name).toBe(renamed);
+    const audit =
+      await sql`select actor_id from directory.auth_audit_event where type = 'user.profile.updated' and target_user_id = ${original.id}`;
+    expect(audit.length).toBeGreaterThan(0);
+    expect(audit[0].actor_id).toBe(original.id);
+  } finally {
+    await sql`update auth."user" set name = ${original.name} where id = ${original.id}`;
+    await sql.close();
+  }
 });
 
 test("remaining emergency reads retry and a stale open dialog requires reauthentication", async ({
@@ -706,6 +846,7 @@ test("remaining emergency access is visible and can be ended from another tab", 
     await expect(
       dialog.getByText("Emergency access is active", { exact: true }),
     ).toBeVisible();
+    await settleAnimations(other);
     const accessibility = await new AxeBuilder({ page: other })
       .include('[role="dialog"]')
       .withTags(["wcag2a", "wcag2aa", "wcag21a", "wcag21aa", "wcag22aa"])
@@ -793,9 +934,14 @@ test("delivery reads retry, filters survive reload and message details exclude c
       page.getByRole("textbox", { name: "Search the message log" }),
     ).toHaveValue(destination);
     await page
+      // Desktop rows have a "View … to …" icon button; mobile rows are named by
+      // their visible key, status and destination.
       .getByRole("button", {
-        name: `View ${key} to ${destination}`,
-        exact: true,
+        name: new RegExp(
+          [key, destination]
+            .map((part) => part.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"))
+            .join(".*"),
+        ),
       })
       .filter({ visible: true })
       .click();
@@ -1237,10 +1383,11 @@ test("a super administrator creates, edits and archives a business role with key
     await dialog.getByLabel("Name", { exact: true }).fill(name);
     await dialog.getByLabel("Description").fill("QA explicit scoped access");
     await dialog.getByRole("checkbox").first().check();
-    // Axe would otherwise catch Save mid re-render at disabled opacity.
-    await expect(
-      dialog.getByRole("button", { name: "Save role" }),
-    ).toBeEnabled();
+    // Axe would otherwise catch Save mid re-render at disabled opacity, or
+    // mid-way through the 150ms opacity transition back from it.
+    const save = dialog.getByRole("button", { name: "Save role" });
+    await expect(save).toBeEnabled();
+    await expect(save).toHaveCSS("opacity", "1");
     await expect(
       new AxeBuilder({ page })
         .include('[data-slot="dialog-content"]')
@@ -1311,6 +1458,7 @@ test("administration pages pass accessibility checks in both themes and reflow o
     for (const path of paths) {
       await page.goto(path, { waitUntil: "domcontentloaded" });
       await expect(page.locator("main h1")).toBeVisible();
+      await settleAnimations(page);
       const result = await new AxeBuilder({ page })
         .include('[data-slot="sidebar"], [data-slot="sidebar-inset"]')
         .withTags(["wcag2a", "wcag2aa", "wcag21a", "wcag21aa", "wcag22aa"])
@@ -1578,6 +1726,7 @@ test("an administrator issues, edits, suspends, restores and reissues an account
 test("operators see that their own privileged access needs another reviewer", async ({
   page,
 }) => {
+  test.setTimeout(60_000);
   const sql = new SQL(databaseUrl);
   try {
     await sql`delete from directory.privileged_access_review where user_id in (select id from auth."user" where email = ${operator.email})`;
@@ -1588,9 +1737,10 @@ test("operators see that their own privileged access needs another reviewer", as
   const own = page
     .getByRole("listitem")
     .filter({ has: page.getByText(operator.email, { exact: true }) });
+  // The dashboard drains every page of accumulated fixtures before rendering.
   await expect(
     own.getByText("Needs another reviewer", { exact: true }),
-  ).toBeVisible();
+  ).toBeVisible({ timeout: 30_000 });
   await expect(own.getByRole("button", { name: "Confirm access" })).toHaveCount(
     0,
   );

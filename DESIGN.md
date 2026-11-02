@@ -24,6 +24,21 @@ colors:
   sea-dark: "oklch(0.775 0.115 205)"
   card-dark: "oklch(0.228 0.017 252)"
   wash-dark: "oklch(0.268 0.017 252)"
+  status-neutral-tint: "oklch(0.955 0.004 90)"
+  status-neutral-line: "oklch(0.895 0.008 240)"
+  status-neutral-text: "oklch(0.5 0.012 250)"
+  status-info-tint: "oklch(0.955 0.018 222)"
+  status-info-line: "oklch(0.875 0.042 222)"
+  status-info-text: "oklch(0.47 0.098 222)"
+  status-success-tint: "oklch(0.955 0.02 155)"
+  status-success-line: "oklch(0.87 0.048 155)"
+  status-success-text: "oklch(0.455 0.088 155)"
+  status-warning-tint: "oklch(0.96 0.03 75)"
+  status-warning-line: "oklch(0.875 0.06 75)"
+  status-warning-text: "oklch(0.47 0.098 75)"
+  status-danger-tint: "oklch(0.958 0.018 26)"
+  status-danger-line: "oklch(0.88 0.045 26)"
+  status-danger-text: "oklch(0.502 0.152 26)"
 typography:
   display:
     fontFamily: "Geist Variable, SF Pro Text, Helvetica Neue, system-ui, sans-serif"
@@ -69,9 +84,9 @@ typography:
     letterSpacing: "-0.02em"
 rounded:
   none: "0px"
-  sm: "0.375rem"
-  md: "0.5rem"
-  lg: "0.625rem"
+  sm: "0.3rem"
+  md: "0.4rem"
+  lg: "0.5rem"
   panel: "0.75rem"
 spacing:
   field-inner: "6px"
@@ -83,28 +98,28 @@ components:
   button-primary:
     backgroundColor: "{colors.ink-strong}"
     textColor: "{colors.bone}"
-    rounded: "{rounded.md}"
+    rounded: "{rounded.lg}"
     height: "28px"
   button-primary-hover:
-    backgroundColor: "oklch(0.32 0.006 80)"
+    backgroundColor: "oklch(0.21 0.006 80 / 80%)"
     textColor: "{colors.bone}"
   button-secondary:
     backgroundColor: "{colors.wash}"
     textColor: "{colors.ink-strong}"
-    rounded: "{rounded.md}"
+    rounded: "{rounded.lg}"
     height: "28px"
   button-outline:
     backgroundColor: "{colors.bone}"
     textColor: "{colors.ink-strong}"
-    rounded: "{rounded.md}"
+    rounded: "{rounded.lg}"
     height: "28px"
   button-ghost:
     textColor: "{colors.ink-strong}"
-    rounded: "{rounded.md}"
+    rounded: "{rounded.lg}"
     height: "28px"
   button-destructive:
     textColor: "{colors.destructive}"
-    rounded: "{rounded.md}"
+    rounded: "{rounded.lg}"
     height: "28px"
   field-input:
     backgroundColor: "transparent"
@@ -221,6 +236,7 @@ Warm achromatic system. Sea is the only saturated brand accent, and it stays on 
 - **Destructive** (`oklch(0.502 0.152 26)`): field and form failure. Action chrome uses it as a tint,
   not a solid red block.
 - **Status triplets:** product state chips and page alerts. Pair colour with label and marker shape.
+  Light values sit in the frontmatter as `status-*`; dark values live in `tagaroa.css` only.
 
 ### Tide (door only)
 
@@ -274,17 +290,25 @@ Secondary type must recede: muted weight and colour, not a second loud size.
 
 ## Shapes and scale
 
-| Role                   | Token                 | Value             |
-| ---------------------- | --------------------- | ----------------- |
-| Tight / badge-adjacent | `--radius` ×0.75 → sm | `0.375rem` (6px)  |
-| Controls and inputs    | `--radius` (md)       | `0.5rem` (8px)    |
-| Alerts / mid shells    | lg                    | `0.625rem` (10px) |
-| Work surface / panel   | `--panel-radius`      | `0.75rem` (12px)  |
-| Door form and tide     | hand                  | `1rem` (16px)     |
+Base `--radius` is `0.5rem`; Tailwind derives the scale from it (`globals.css`, base-vega).
 
-Base `--radius` is `0.5rem`. Controls share md and `--control-height` (~28px). Nothing is a
-pill button. Status chips may use a fuller radius than controls; they still are not marketing
-capsules.
+| Role                                     | Token                               | Value             |
+| ---------------------------------------- | ----------------------------------- | ----------------- |
+| Menu and select items (`rounded-sm`)     | `--radius-sm` = `--radius` ×0.6     | `0.3rem` (4.8px)  |
+| Avatar                                   | hand, `tagaroa.css`                 | `0.375rem` (6px)  |
+| Inputs, select triggers (`rounded-md`)   | `--radius-md` = `--radius` ×0.8     | `0.4rem` (6.4px)  |
+| Buttons (all sizes)                      | `--radius`, pinned in `tagaroa.css` | `0.5rem` (8px)    |
+| Alerts, tab lists (`rounded-lg`)         | `--radius-lg` = `--radius`          | `0.5rem` (8px)    |
+| Work surface, dialog, sheet, toast       | `--panel-radius`, pinned            | `0.75rem` (12px)  |
+| Popover, menu, select and combobox popup | `--panel-radius`, pinned            | `0.75rem` (12px)  |
+| Door form and tide                       | hand, `rounded-[1rem]`              | `1rem` (16px)     |
+| Badge (`rounded-4xl`)                    | `--radius` ×2.6                     | `1.3rem` (20.8px) |
+
+Controls share `--control-height` (~28px). Buttons pin `--radius` over base-vega's
+`rounded-md`, so a button sits 1.6px rounder than the input beside it. Nothing is a pill button.
+Every floating shell (popover, dropdown, select and combobox content, context menu, menubar,
+command) is pinned to `--panel-radius` with the lifted panels, whatever its stock class says.
+Status chips use a fuller radius than controls; they still are not marketing capsules.
 
 ## Motion
 
@@ -331,7 +355,7 @@ comfortable padding. One per major region. Tables live inside it; rows do not ca
 
 ### Primary button
 
-Ink fill, bone text, md radius, control height, no shadow. Names the outcome
+Ink fill, bone text, `--radius` (8px), control height, no shadow. Names the outcome
 ("Create a role", "Email me a link"), not the mechanism. One primary per view.
 
 ### Button variants and states
@@ -433,16 +457,6 @@ No opening row of invented stat cards. Charts answer a named question or they do
 - **Door:** the tide panel is hidden below `lg`; header and form panel remain.
 - **Product:** page padding steps up from 16–24px to 24–32px at 1280px.
 - **Notched screens:** the body pads for the safe-area insets.
-
-## Known gaps
-
-- `button-primary-hover` in the frontmatter is a hand-picked value. The component dims the primary
-  to 80% (`hover:bg-primary/80`), which lands lighter. Treat the component as truth.
-- The header comment in `tagaroa.css` still says "compact controls (~32px)". The token is 28px.
-- Status triplets live in `tagaroa.css` only. The frontmatter lists none of the fifteen values,
-  so an export of this file will not emit them.
-- Radius steps in "Shapes and scale" were not re-verified against the installed Base UI style
-  (`base-vega`); check them before pinning a new component to one.
 
 ## Iteration guide
 

@@ -13,6 +13,7 @@ import type { ApiDocument, Collection } from "@repo/contracts";
 import { Roles, Session, type UserSession } from "@thallesp/nestjs-better-auth";
 
 import type { QueryRecord } from "../../../platform/http/collection";
+import { ZodBody } from "../../../platform/http/zod-body";
 import type {
   MessageRow,
   NotificationOverview,
@@ -32,6 +33,12 @@ import {
   ListTemplatesUseCase,
   PublishTemplateUseCase,
 } from "../application/use-cases/manage-templates.use-cases";
+import {
+  editTemplateBody,
+  templateDraftBody,
+  type EditTemplateBody,
+  type TemplateDraftBody,
+} from "./notification.schemas";
 
 /**
  * The wording and what became of it, for `apps/admin`.
@@ -72,7 +79,7 @@ export class NotificationAdminController {
 
   @Post("templates")
   async createTemplate(
-    @Body() body: unknown,
+    @Body(new ZodBody(templateDraftBody)) body: TemplateDraftBody,
     @Session() session: UserSession,
   ): Promise<{ id: string; version: number }> {
     return this.createTemplateUseCase.execute(body, session.user.id);
@@ -82,10 +89,16 @@ export class NotificationAdminController {
   @HttpCode(204)
   async editTemplate(
     @Param("id") id: string,
-    @Body() body: unknown,
+    @Body(new ZodBody(editTemplateBody))
+    { expectedUpdatedAt, ...draft }: EditTemplateBody,
     @Session() session: UserSession,
   ): Promise<void> {
-    await this.editTemplateUseCase.execute(id, body, session.user.id);
+    await this.editTemplateUseCase.execute(
+      id,
+      draft,
+      expectedUpdatedAt,
+      session.user.id,
+    );
   }
 
   @Post("templates/:id/publish")

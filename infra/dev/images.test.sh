@@ -63,6 +63,29 @@ for (const [host,path,type] of [["auth.dev.tagaroa.cc","/","text/html"],["admin.
   if(r.status!==200 || !r.headers.get("content-type")?.startsWith(type)) throw new Error(host+path+": "+r.status);
   console.log("PASS "+host+path);
 }'
+# Every SPA is unframable and runs no script but its own files and the hashed inline ones its shell carries.
+docker exec "$id-core" bun -e '
+const { createHash } = require("node:crypto");
+for (const [host,path] of [["auth.dev.tagaroa.cc","/"],["admin.dev.tagaroa.cc","/identity-access/work-queue"],["app.dev.tagaroa.cc","/"],["app.dev.tagaroa.cc","/engineering"]]) {
+  const r = await fetch("http://web"+path,{headers:{host}});
+  const h = (name) => r.headers.get(name) ?? "";
+  const csp = h("content-security-policy");
+  const scriptSrc = csp.match(/(?:^|;)\s*script-src ([^;]*)/)?.[1].trim().split(/\s+/) ?? [];
+  const inline = [...(await r.text()).matchAll(/<script\b(?![^>]*\bsrc=)[^>]*>([\s\S]*?)<\/script>/gi)]
+    .map(([, body]) => "\x27sha256-" + createHash("sha256").update(body).digest("base64") + "\x27");
+  const problems = [
+    !/(?:^|;)\s*frame-ancestors \x27none\x27/.test(csp) && "frame-ancestors",
+    h("x-frame-options") !== "DENY" && "X-Frame-Options",
+    h("x-content-type-options") !== "nosniff" && "nosniff",
+    !h("referrer-policy") && "Referrer-Policy",
+    /unsafe-eval/.test(csp) && "unsafe-eval",
+    scriptSrc[0] !== "\x27self\x27" && "script-src self",
+    scriptSrc.slice(1).some((s) => !s.startsWith("\x27sha256-")) && "script-src beyond hashes",
+    (!inline.length || inline.some((s) => !scriptSrc.includes(s))) && "unhashed inline script",
+  ].filter(Boolean);
+  if (problems.length) throw new Error(host+path+": "+problems.join(", ")+"\n"+csp);
+  console.log("PASS headers "+host+path);
+}'
 # Sign in the way the door does (API host, auth. origin), then read the session as app. does.
 password=$(sed -n 's/^Temporary password.*: //p' "$tmp/bootstrap")
 docker exec -e PASSWORD="$password" "$id-core" bun -e '
@@ -78,4 +101,4 @@ const r = await fetch("http://web/api/auth/get-session", {
 });
 if ((await r.json())?.user?.email !== "first-admin@fixture.invalid") throw new Error("no session on the API host");
 console.log("PASS sign-in sets a host-only __Host- session cookie on dev.tagaroa.cc");'
-echo 'PASS: image migrations, first-admin bootstrap, preflight refusal, core and SPA routing, host-only session'
+echo 'PASS: image migrations, first-admin bootstrap, preflight refusal, core and SPA routing, SPA security headers, host-only session'

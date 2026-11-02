@@ -14,8 +14,11 @@ service. Read this before adding or changing an endpoint.
 - **Collections.** Offset paging only: `page` (from 1) and `limit` (default 25, max 100). Build the
   query with `parseCollectionQuery` and the reply with `pageCollection` / `collectionOf`
   (`platform/http/collection.ts`). Sorting is an allow-list (`sort=-name,id`), filters list their
-  allowed values, search is `q`. A bad value is a 400. Several collections on one URL take a
-  `prefix` (`teamsPage`, `teamsLimit`).
+  allowed values, search is `q`. A sort field or filter value outside its list is a 400; a `page`
+  or `limit` that is not a positive integer falls back to its default, and a `limit` over 100 is
+  clamped, not refused. The endpoint's `defaultSort` follows the request's sort, and a field is
+  sorted by once (the first mention wins). Several collections on one URL take a `prefix`
+  (`teamsPage`, `teamsLimit`).
 - **Auth on every route.** `@Roles([...])` for a role-gated route, `@SessionOnly()` for any
   signed-in person (the handler must scope the result to that session), `@AllowAnonymous()` only
   for a public route or a signed webhook. See `docs/agents/authorization.md`.
@@ -27,6 +30,12 @@ service. Read this before adding or changing an endpoint.
   exception filter. Validation failures are 400, not 422.
 - **Error body.** Nest's default: `{ statusCode, error, message }`. The apps show `message` through
   `messageFor`. Write `message` as a sentence a person can read ("A role already uses that name.").
+  Three bodies differ from that shape (`platform/http/error-envelope.test.ts`):
+  - A request with no session is `401 { statusCode, message: "Unauthorized" }`, without `error`.
+  - A route `AccessControlGuard` denies is `403 { code: "ACCESS_DENIED", message }`, without
+    `statusCode` or `error`.
+  - An unexpected error is `500 { statusCode, message: "Internal server error" }`. The thrown
+    message never reaches the body.
 
 ## Request bodies: validate with Zod
 
@@ -53,8 +62,12 @@ async grantAssignment(
   service. A schema checks shape; it does not replace those.
 - Keep Zod's key order meaningful: issues are reported in the order the keys are declared.
 - `ZodBody` parses a query object the same way (`@Query(new ZodBody(schema))`).
-- Every `access-control` route parses its body this way. Move other controllers over when you touch
-  them; do not convert them in one sweep.
+- Every `access-control` route, the `PUT /directory/positions/...` routes, and template writes
+  in `notification.admin.controller.ts` parse their bodies this way. Template shape rules live
+  in `notification.schemas.ts`; domain rules stay in `TemplateDraft`. Move other controllers
+  over when you touch them; do not convert them in one sweep.
+- Signed webhooks verify their signatures over the raw bytes before parsing the decoded body
+  through `ZodBody`. Do not attach a body pipe that runs before signature verification.
 
 ## Not adopted (and why)
 

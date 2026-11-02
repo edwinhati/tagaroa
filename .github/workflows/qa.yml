@@ -1,7 +1,7 @@
 name: QA
 
 # Free-plan minutes: docs-only changes skip CI, a newer push cancels the
-# running one, and the three-browser matrix runs manually and weekly on Sundays.
+# running one, and the four-project browser matrix runs manually and weekly on Sundays.
 on:
   pull_request:
     paths-ignore: ["**.md", "docs/**"]
@@ -43,7 +43,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        project: ${{ fromJSON((github.event_name == 'workflow_dispatch' || github.event_name == 'schedule') && '["chromium","webkit","mobile-chromium"]' || '["chromium"]') }}
+        project: ${{ fromJSON((github.event_name == 'workflow_dispatch' || github.event_name == 'schedule') && '["chromium","firefox","webkit","mobile-chromium"]' || '["chromium"]') }}
     steps:
       - uses: actions/checkout@v7
       - uses: actions/setup-node@v7
@@ -54,9 +54,10 @@ jobs:
         with:
           bun-version: "1.4.2"
       - run: bun install --frozen-lockfile
-      - run: bunx playwright install --with-deps ${{ matrix.project == 'webkit' && 'webkit' || 'chromium' }}
+      - run: bunx playwright install --with-deps ${{ matrix.project == 'mobile-chromium' && 'chromium' || matrix.project }}
         working-directory: apps/auth
       - run: bun run test:integration
+        if: matrix.project == 'chromium'
       # Both browser suites share the seeded operator and must run sequentially.
       - run: bun run test:e2e --project ${{ matrix.project }}
         working-directory: apps/auth
