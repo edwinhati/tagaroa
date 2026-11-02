@@ -290,6 +290,7 @@ test("account settings edit the display name, refuse admin-managed fields and re
       "Your name was not saved. Check your connection and try again.",
     );
     await page.unroute("**/api/auth/update-user");
+    await input.fill(`${renamed} pending`);
     let releaseSave!: () => void;
     const pendingSave = new Promise<void>((resolve) => {
       releaseSave = resolve;
