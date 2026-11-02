@@ -9,17 +9,19 @@ A module is named after the question it answers, not the layer it sits in — `d
 and `notification`, never `controllers` and `services`. The layers are _inside_ each
 module, described below.
 
-| Module           | Owns                                                                           |
-| ---------------- | ------------------------------------------------------------------------------ |
-| `auth`           | Better Auth's configuration, its generated `auth` schema, and the hooks on it. |
-| `access-control` | Business permissions, roles, scoped assignments, decisions and break-glass.    |
-| `audit`          | `AuditTrail`. The only writer of `auth_audit_event`.                           |
-| `directory`      | The group as an admin sees it: positions and privileged access reviews.        |
-| `notification`   | Wording, the queue, delivery and suppression, on three channels.               |
+| Module           | Owns                                                                                                                                           |
+| ---------------- | ---------------------------------------------------------------------------------------------------------------------------------------------- |
+| `auth`           | Better Auth's configuration, its generated `auth` schema and the hooks on it; impersonation guards, factor recovery and the account lifecycle. |
+| `access-control` | Business permissions, roles, scoped assignments, decisions, break-glass, business access reviews and team → domain bindings.                   |
+| `audit`          | `AuditTrail`. The only writer of `auth_audit_event`.                                                                                           |
+| `directory`      | The group as an admin sees it: positions, privileged access reviews, the dashboard and the personal-address read.                              |
+| `hr`             | Frappe HR records → accounts: joiners issued, leavers offboarded.                                                                              |
+| `notification`   | Wording, the queue, delivery, receipts and suppression, on three channels.                                                                     |
 
 ## Layers inside a module
 
-`access-control`, `audit`, `directory` and `notification` each hold four directories. The dependencies point
+`access-control`, `directory`, `hr` and `notification` each hold the four directories below;
+`audit` has no `presentation/`, because nothing reaches it over HTTP. The dependencies point
 one way only, inwards:
 
 | Layer             | Holds                                                        | May import        |
@@ -40,7 +42,8 @@ would be a second model a generator can silently invalidate. See ADR-0003.
 Three things about the shape are worth knowing before adding to it:
 
 - **A module exports one token, not its classes.** `notification` exports
-  `NOTIFICATION_SENDER`; `audit` exports `AUDIT_TRAIL`. A caller depends on the interface,
+  `NOTIFICATION_SENDER`; `audit` exports `AUDIT_TRAIL`; `auth` exports `ACCOUNT_LIFECYCLE`;
+  `access-control` exports `ACCESS_CONTROL`. `directory` and `hr` export nothing. A caller depends on the interface,
   so the day a module becomes its own service an HTTP or queue client is bound to the same
   token and no caller changes. Reaching past a façade into another module's use cases,
   entities or tables is the thing this arrangement exists to prevent.
@@ -60,27 +63,42 @@ Three things about the shape are worth knowing before adding to it:
   person belongs to it through a **member** record. Users cannot create one and it is not
   deletable. Access assigned at this scope reaches every team under it.
 - **Team** — a subdivision of one subsidiary, joined through a **team member** record. It is
-  never a tenant of its own and there is no default team. A person's teams, by name, decide
-  which domains they see. Access assigned at this scope reaches only the team.
+  never a tenant of its own and there is no default team. A person sees the domains their
+  teams are bound to (see **domain binding**). Access assigned at this scope reaches only the
+  team.
+- **Domain binding** (`access_control.team_domain`) — the one working domain a team opens, or
+  none. Slugs come from `WORKING_DOMAINS` in `@repo/contracts`; a team's name decides
+  nothing. `GET /api/access-control/domains` answers the signed-in person's bindings, which is
+  what `@repo/shell`'s `admit()` reads.
 - **Group** — every subsidiary and team together. The thing an admin administers, as
   opposed to a single **subsidiary** or a **team** inside one.
-- **Group directory** (`GroupDirectory`) — the read of the whole group that Better Auth's
+- **Group directory** (`GetGroupDirectoryUseCase`) — the read of the whole group that Better Auth's
   own endpoints refuse, because they answer as the signed-in member and an admin's job is
   the teams they are not in.
-- **Admin dashboard** (`AdminDashboard`) — the read model behind `apps/admin`'s front page,
-  and the access review taken from it. Its rules are pure functions in the same file:
-  `attentionFor`, `privilegedAccess`, `timeline`, `startOfReviewWeek`.
+- **Admin dashboard** (`AssembleAdminDashboardUseCase`) — the read model behind
+  `apps/admin`'s front page, and the access review taken from it. Its rules are pure, in
+  `directory/domain/`: `attentionFor`, `privilegedAccess` and `timeline` in `services/`, the
+  review week in `ReviewWeek`.
 - **Attention** — a fact about a person an operator should act on: a temporary password
   still unchanged, an address unverified for a week, membership of no subsidiary. A banned
   account raises none; it is already the answer.
 - **HR record** — a Frappe HR Employee, the record of who works here. It drives two things
   only: an ordinary account for an active employee who has none, and offboarding on the
-  relieving date of one who has left. See ADR 0004.
+  relieving date of one who has left. A privileged account is never adopted or offboarded by
+  the sync; a super-admin handles it by hand. Frappe reaches the service through a signed
+  webhook (`POST /api/hr/webhooks/frappe`) and a periodic reconciler catches what a webhook
+  missed. Inert until the four `FRAPPE_*` settings are set. See ADR 0004.
 - **Employee link** (`hr.employee_account`) — which account belongs to which HR record, by
   Frappe's employee id rather than by address. One record, one account, both ways.
-- **Access review** — an operator's weekly confirmation that one privileged account is still
-  intentional. Stale when the person's auth row has changed since, so a role edit returns
-  them to the queue. The week starts Monday, UTC.
+- **Access review** — an operator's weekly confirmation that a grant is still intentional.
+  The week starts Monday, UTC. Two kinds, in two modules:
+  - **Privileged access review** (`directory.privileged_access_review`) — one privileged
+    account, by identity role. Stale when the person's auth row has changed since, so a role
+    edit returns them to the queue.
+  - **Business access review** (`access_control.access_review`) — one access assignment or
+    emergency grant, confirmed or flagged against a fingerprint of the grant. A changed grant
+    is unreviewed again; an emergency grant is reviewed once; neither its holder nor its
+    grantor may review it.
 - **Permission** — a code-owned action such as `domain:administer`. Permission keys are
   deployed with the resource they protect; an operator cannot invent one in the database.
 - **Access role** — a named bundle of business permissions. It is separate from Better
@@ -94,13 +112,23 @@ Three things about the shape are worth knowing before adding to it:
   scope. Positions explain the company hierarchy and never grant permissions.
 - **Break-glass elevation** — a super-admin's short, session-bound emergency grant for one
   permission and scope, with a reason. It expires after 15 minutes and every use is audited.
+  `apps/admin` calls it **emergency access**.
+- **Impersonation** — a super-admin's Better Auth session as another person
+  (`session.impersonatedBy`). `auth.ts` lets it reach only an allowlist of read routes and
+  `stop-impersonating`, refusing everything else with `IMPERSONATED_SESSION`; this service's
+  own privileged writes refuse it through `requireOwnSession`.
+- **Factor recovery** (`identity_operations.factor_recovery`) — a verified request to reset a
+  person's second factor, with reason and evidence. A different super-admin from the one who
+  requested it must approve it before it takes effect.
+- **Account lifecycle** (`ACCOUNT_LIFECYCLE`) — `auth`'s façade for issuing and offboarding
+  accounts, which is how `hr` acts on identity without reaching into Better Auth.
 - **Trusted origin** — the browser origin allowed to make cookie-authenticated writes.
   Better Auth enforces its own routes; Nest's `enableCsrfProtection()` (in `application.ts`)
   applies the same configured allowlist to every other route. Signed notification webhooks
-  remain at their signature boundary.
+  are excluded and remain at their signature boundary.
 - **Audit trail** (`AuditTrail`) — who did what to whose access. It has a module of its own
-  because it has two writers, `auth` and `directory`, and neither should hold the other's
-  table. Callers hand over the fact; the id and the timestamp are the trail's.
+  because it has three writers, `auth`, `access-control` and `directory`, and none should
+  hold another's table. Callers hand over the fact; the id and the timestamp are the trail's.
 - **Wording** — a `notification.template` row. Versioned and published rather than edited in
   place, so correcting a typo never rewrites what someone already received.
 - **Message** — one row in `notification.message`, which is both the queue and the log.
@@ -112,6 +140,13 @@ Three things about the shape are worth knowing before adding to it:
   sent again rather than deliver a literal placeholder.
 - **Suppression** — a destination the workspace has stopped writing to, and why. Checked at
   enqueue and again at send.
+- **Receipt** — one provider's word on one message: sent, delivered or bounced. Resend,
+  Twilio and Meta post them to `POST /api/notifications/webhooks/:provider`, anonymous and
+  verified against that provider's signing secret before a row is touched; an unconfigured
+  secret fails the check. Receipts may arrive out of order, so a late one never demotes a
+  message (`replaceableBy`). A hard bounce, complaint or opt-out also raises a
+  **suppression** on that provider's channel. `RecordReceiptsUseCase` decides what a receipt
+  means; the controller only authenticates and parses.
 - **Secret** — a template variable whose value must never be written down: `password`, on
   the two account templates. Declared on the **wording**, so a template carries its own
   hazard rather than the code guessing at one, and carried forward when that wording is
@@ -142,19 +177,20 @@ Every listing route answers with ADR-0002's **collection**: `data`, `meta` and `
 - **Facet** — a filterable column whose values are also counted, so the surface can show
   what each option it is _not_ showing would give. A facet's own selection is left out of
   its own counts and applied to every other facet's; the search narrows everything.
-- **`collectionOver(table, spec)`** in `shared/database/collection.ts` — declare a table's
+- **`collectionOver(table, spec)`** in `platform/database/collection.ts` — declare a table's
   searchable columns, sortable columns and facets once, and `page()` does the rest. A new
   listing route is a declaration, not ninety lines of query shaping. Its rule is verified in
   `test/integration/collection.integration.ts`, against Postgres, because SQL semantics are
   the thing being asserted.
-- **`pageCollection(rows, …)`** in `shared/http/collection.ts` — the same contract over an
+- **`pageCollection(rows, …)`** in `platform/http/collection.ts` — the same contract over an
   array already in memory. What the directory routes use, since their rows are assembled
   from several tables rather than read from one.
 
 ## Where the tables live
 
 `schema.registry.ts` re-exports every module's Drizzle schema, and `drizzle.config.ts`
-points at it. The Postgres schema name and the Nest module need not match: `audit` owns
+points at it and lists each Postgres schema in `schemaFilter`: `access_control`, `auth`,
+`directory`, `hr`, `identity_operations` and `notification`. The Postgres schema name and the Nest module need not match: `audit` owns
 `auth_audit_event`, which stays in the `directory` Postgres schema where it was created.
 
 `auth/operations.schema.ts` owns verified factor-recovery requests in the separate
