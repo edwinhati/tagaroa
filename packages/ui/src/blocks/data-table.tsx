@@ -439,6 +439,7 @@ export function DataTableSkeleton({
     <div
       aria-busy="true"
       aria-label="Loading table"
+      role="status"
       className="rounded-lg bg-muted/40"
     >
       <div

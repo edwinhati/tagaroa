@@ -912,9 +912,14 @@ test("delivery reads retry, filters survive reload and message details exclude c
       page.getByRole("textbox", { name: "Search the message log" }),
     ).toHaveValue(destination);
     await page
+      // Desktop rows have a "View … to …" icon button; mobile rows are named by
+      // their visible key, status and destination.
       .getByRole("button", {
-        name: `View ${key} to ${destination}`,
-        exact: true,
+        name: new RegExp(
+          [key, destination]
+            .map((part) => part.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"))
+            .join(".*"),
+        ),
       })
       .filter({ visible: true })
       .click();
@@ -1697,6 +1702,7 @@ test("an administrator issues, edits, suspends, restores and reissues an account
 test("operators see that their own privileged access needs another reviewer", async ({
   page,
 }) => {
+  test.setTimeout(60_000);
   const sql = new SQL(databaseUrl);
   try {
     await sql`delete from directory.privileged_access_review where user_id in (select id from auth."user" where email = ${operator.email})`;
@@ -1707,9 +1713,10 @@ test("operators see that their own privileged access needs another reviewer", as
   const own = page
     .getByRole("listitem")
     .filter({ has: page.getByText(operator.email, { exact: true }) });
+  // The dashboard drains every page of accumulated fixtures before rendering.
   await expect(
     own.getByText("Needs another reviewer", { exact: true }),
-  ).toBeVisible();
+  ).toBeVisible({ timeout: 30_000 });
   await expect(own.getByRole("button", { name: "Confirm access" })).toHaveCount(
     0,
   );

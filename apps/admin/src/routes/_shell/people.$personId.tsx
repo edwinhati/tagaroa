@@ -464,11 +464,11 @@ function PersonWorkspaceContent({
                   : "Reading session limit…"}
             </p>
             {sessions.isPending ? (
-              <ul className="gap-1.5 sm:grid-cols-2 xl:grid-cols-3 grid">
+              <div className="gap-1.5 sm:grid-cols-2 xl:grid-cols-3 grid">
                 <Skeleton className="h-16 rounded-md" />
                 <Skeleton className="h-16 rounded-md" />
                 <Skeleton className="h-16 rounded-md" />
-              </ul>
+              </div>
             ) : sessions.isError ? (
               <p className="text-xs text-destructive">
                 {sessions.error.message}
