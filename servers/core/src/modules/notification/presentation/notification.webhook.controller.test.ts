@@ -91,9 +91,11 @@ describe("resend", () => {
       controller.receive("resend", request({}, event)),
     ).rejects.toThrow(UnauthorizedException);
     const malformed = { type: "email.bounced" };
-    await expect(
-      controller.receive("resend", signed(event, JSON.stringify(malformed))),
-    ).rejects.toThrow(UnauthorizedException);
+    const tampered = signed(event, JSON.stringify(malformed));
+    tampered.body = malformed;
+    await expect(controller.receive("resend", tampered)).rejects.toThrow(
+      UnauthorizedException,
+    );
     expect(execute).not.toHaveBeenCalled();
   });
 });
@@ -142,6 +144,20 @@ describe("twilio", () => {
       await expect(
         controller.receive("twilio", signed(params)),
       ).rejects.toThrow(BadRequestException);
+    expect(execute).not.toHaveBeenCalled();
+  });
+
+  test("refuses signed callback fields with the wrong types", async () => {
+    const body = { MessageSid: 42, MessageStatus: "delivered", To: ["1555"] };
+    const signature = signed({
+      MessageSid: "42",
+      MessageStatus: "delivered",
+      To: "1555",
+    });
+    signature.body = body;
+    await expect(controller.receive("twilio", signature)).rejects.toThrow(
+      BadRequestException,
+    );
     expect(execute).not.toHaveBeenCalled();
   });
 
@@ -226,9 +242,11 @@ describe("meta", () => {
     await expect(
       controller.receive("meta", request({}, valid)),
     ).rejects.toThrow(UnauthorizedException);
-    await expect(
-      controller.receive("meta", signed(valid, JSON.stringify({ entry: 1 }))),
-    ).rejects.toThrow(UnauthorizedException);
+    const tampered = signed(valid, JSON.stringify({ entry: 1 }));
+    tampered.body = { entry: 1 };
+    await expect(controller.receive("meta", tampered)).rejects.toThrow(
+      UnauthorizedException,
+    );
     expect(execute).not.toHaveBeenCalled();
   });
 });

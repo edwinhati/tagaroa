@@ -162,7 +162,7 @@ export class NotificationWebhookController {
           url: `${this.secrets.baseUrl}/twilio`,
         });
       if (!verified) throw new UnauthorizedException();
-      return twilioReceipts(twilioBody.transform(params));
+      return twilioReceipts(twilioBody.transform(request.body));
     }
 
     const verified =
