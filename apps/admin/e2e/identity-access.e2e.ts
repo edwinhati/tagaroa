@@ -1672,7 +1672,12 @@ test("operators see that their own privileged access needs another reviewer", as
   } finally {
     await sql.close();
   }
+  const dashboardLoaded = page.waitForResponse(
+    (response) =>
+      response.url().includes("/api/directory/dashboard?") && response.ok(),
+  );
   await page.goto("/identity-access/reviews");
+  await dashboardLoaded;
   const own = page
     .getByRole("listitem")
     .filter({ has: page.getByText(operator.email, { exact: true }) });
