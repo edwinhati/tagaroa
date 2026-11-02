@@ -14,8 +14,11 @@ service. Read this before adding or changing an endpoint.
 - **Collections.** Offset paging only: `page` (from 1) and `limit` (default 25, max 100). Build the
   query with `parseCollectionQuery` and the reply with `pageCollection` / `collectionOf`
   (`platform/http/collection.ts`). Sorting is an allow-list (`sort=-name,id`), filters list their
-  allowed values, search is `q`. A bad value is a 400. Several collections on one URL take a
-  `prefix` (`teamsPage`, `teamsLimit`).
+  allowed values, search is `q`. A sort field or filter value outside its list is a 400; a `page`
+  or `limit` that is not a positive integer falls back to its default, and a `limit` over 100 is
+  clamped, not refused. The endpoint's `defaultSort` follows the request's sort, and a field is
+  sorted by once (the first mention wins). Several collections on one URL take a `prefix`
+  (`teamsPage`, `teamsLimit`).
 - **Auth on every route.** `@Roles([...])` for a role-gated route, `@SessionOnly()` for any
   signed-in person (the handler must scope the result to that session), `@AllowAnonymous()` only
   for a public route or a signed webhook. See `docs/agents/authorization.md`.
@@ -27,6 +30,12 @@ service. Read this before adding or changing an endpoint.
   exception filter. Validation failures are 400, not 422.
 - **Error body.** Nest's default: `{ statusCode, error, message }`. The apps show `message` through
   `messageFor`. Write `message` as a sentence a person can read ("A role already uses that name.").
+  Three bodies differ from that shape (`platform/http/error-envelope.test.ts`):
+  - A request with no session is `401 { statusCode, message: "Unauthorized" }`, without `error`.
+  - A route `AccessControlGuard` denies is `403 { code: "ACCESS_DENIED", message }`, without
+    `statusCode` or `error`.
+  - An unexpected error is `500 { statusCode, message: "Internal server error" }`. The thrown
+    message never reaches the body.
 
 ## Request bodies: validate with Zod
 
