@@ -12,6 +12,15 @@ const databaseUrl =
   process.env.TEST_DATABASE_URL ??
   "postgresql://tagaroa:tagaroa@127.0.0.1:5432/tagaroa_test";
 
+async function filterAccounts(page: Page, email: string) {
+  await page.getByRole("textbox", { name: "Filter accounts" }).fill(email);
+  // The previous rows remain interactive while the debounced search settles.
+  await expect(page).toHaveURL((url) => url.searchParams.get("q") === email);
+  await expect(page.getByRole("button", { name: /^Actions for / })).toHaveCount(
+    1,
+  );
+}
+
 /**
  * Buttons fade opacity (tagaroa.css) and dialogs fade in. Axe measuring either
  * mid-fade, such as Next enabling as a table's count arrives, reports the
@@ -642,7 +651,7 @@ test("remaining identity role affordances match the operator permissions", async
         }),
       ).toHaveCount(role === "admin" || role === "super-admin" ? 1 : 0);
       await page.goto("/identity-access/people");
-      await page.getByRole("textbox", { name: "Filter accounts" }).fill(email);
+      await filterAccounts(page, email);
       await page
         .getByRole("button", { name: `Actions for ${email}`, exact: true })
         .click();
@@ -1288,7 +1297,7 @@ test("membership, scoped assignment, emergency access, impersonation and deletio
     await expect(emergency).toHaveCount(0);
 
     await page.goto("/identity-access/people");
-    await page.getByRole("textbox", { name: "Filter accounts" }).fill(email);
+    await filterAccounts(page, email);
     await page
       .getByRole("button", { name: `Actions for ${email}`, exact: true })
       .click();
@@ -1334,7 +1343,7 @@ test("membership, scoped assignment, emergency access, impersonation and deletio
       page.getByRole("button", { name: `Remove ${email} from Engineering` }),
     ).toHaveCount(0);
     await page.goto("/identity-access/people");
-    await page.getByRole("textbox", { name: "Filter accounts" }).fill(email);
+    await filterAccounts(page, email);
     await page
       .getByRole("button", { name: `Actions for ${email}`, exact: true })
       .click();
@@ -1520,9 +1529,7 @@ test("an operator can move from the work queue to a route-backed person", async 
   if (isMobile) await page.locator('[data-slot="sidebar-trigger"]').click();
   await page.getByRole("link", { name: "People", exact: true }).click();
   await expect(page.getByRole("heading", { name: "People" })).toBeVisible();
-  await page
-    .getByRole("textbox", { name: "Filter accounts" })
-    .fill(operator.email);
+  await filterAccounts(page, operator.email);
   if (isMobile) {
     await page
       .getByRole("button", { name: `Actions for ${operator.email}` })
@@ -1643,7 +1650,7 @@ test("an administrator issues, edits, suspends, restores and reissues an account
       });
     expect((await signIn()).ok()).toBe(true);
     await page.getByRole("button", { name: "Done", exact: true }).click();
-    await page.getByRole("textbox", { name: "Filter accounts" }).fill(email);
+    await filterAccounts(page, email);
     const actions = page.getByRole("button", { name: `Actions for ${email}` });
     await actions.click();
     await page

@@ -29,7 +29,9 @@ export default defineConfig({
       url: `${coreOrigin}/api/health/live`,
     },
     {
-      command: "bun run dev:plain -- --port 13003",
+      // Avoid compiling and mounting developer tools on every test navigation.
+      command:
+        "NODE_ENV=production bun run dev:plain -- --mode production --port 13003",
       env: {
         VITE_AUTH_BASE_URL: coreOrigin,
         VITE_AUTH_URL: "http://localhost:13001",
@@ -40,7 +42,8 @@ export default defineConfig({
       url: adminOrigin,
     },
     {
-      command: "bun run dev:plain -- --port 13002",
+      command:
+        "NODE_ENV=production bun run dev:plain -- --mode production --port 13002",
       cwd: "../workspace",
       env: {
         VITE_AUTH_BASE_URL: coreOrigin,
