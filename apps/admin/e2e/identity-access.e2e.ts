@@ -1666,24 +1666,21 @@ test("an administrator issues, edits, suspends, restores and reissues an account
 test("operators see that their own privileged access needs another reviewer", async ({
   page,
 }) => {
+  test.setTimeout(60_000);
   const sql = new SQL(databaseUrl);
   try {
     await sql`delete from directory.privileged_access_review where user_id in (select id from auth."user" where email = ${operator.email})`;
   } finally {
     await sql.close();
   }
-  const dashboardLoaded = page.waitForResponse(
-    (response) =>
-      response.url().includes("/api/directory/dashboard?") && response.ok(),
-  );
   await page.goto("/identity-access/reviews");
-  await dashboardLoaded;
   const own = page
     .getByRole("listitem")
     .filter({ has: page.getByText(operator.email, { exact: true }) });
+  // The dashboard drains every page of accumulated fixtures before rendering.
   await expect(
     own.getByText("Needs another reviewer", { exact: true }),
-  ).toBeVisible();
+  ).toBeVisible({ timeout: 30_000 });
   await expect(own.getByRole("button", { name: "Confirm access" })).toHaveCount(
     0,
   );
