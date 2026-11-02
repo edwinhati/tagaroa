@@ -290,6 +290,41 @@ test("account settings edit the display name, refuse admin-managed fields and re
       "Your name was not saved. Check your connection and try again.",
     );
     await page.unroute("**/api/auth/update-user");
+    let releaseSave!: () => void;
+    const pendingSave = new Promise<void>((resolve) => {
+      releaseSave = resolve;
+    });
+    await page.route("**/api/auth/update-user", async (route) => {
+      await pendingSave;
+      await route.continue();
+    });
+    await dialog.getByRole("button", { name: "Save" }).click();
+    try {
+      await expect(
+        dialog.getByRole("button", { name: "Saving…" }),
+      ).toBeDisabled();
+      await expect(
+        dialog.getByRole("button", { name: "Cancel", exact: true }),
+      ).toBeDisabled();
+      await page.keyboard.press("Escape");
+      await page
+        .getByRole("button", {
+          name: `Account menu for ${operator.email.charAt(0).toUpperCase()} ${operator.email}`,
+        })
+        .click();
+      await page.getByRole("menuitem", { name: "Account settings" }).click();
+      await expect(
+        dialog.getByRole("button", { name: "Edit name" }),
+      ).toBeDisabled();
+    } finally {
+      releaseSave();
+    }
+    await expect(
+      dialog.getByRole("button", { name: "Edit name" }),
+    ).toBeEnabled();
+    await page.unroute("**/api/auth/update-user");
+    await dialog.getByRole("button", { name: "Edit name" }).click();
+    await dialog.getByRole("textbox", { name: "Name" }).fill(renamed);
     await dialog.getByRole("button", { name: "Save" }).click();
     await expect(dialog.getByRole("status")).toHaveText("Name saved.");
     await expect(dialog.getByRole("heading", { name: renamed })).toBeVisible();
