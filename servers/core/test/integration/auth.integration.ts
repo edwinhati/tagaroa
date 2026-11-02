@@ -279,9 +279,46 @@ test("subsidiary and team rename, membership removal and team deletion persist w
   expect(
     (await send("/api/auth/organization/remove-team", { teamId })).status,
   ).toBe(200);
+  const deletion = await send("/api/auth/organization/delete", {
+    organizationId,
+  });
+  expect(deletion.status).toBe(403);
+  expect((await deletion.json()).code).toBe("ORGANIZATION_WRITE_NOT_AVAILABLE");
+  for (const [path, body] of [
+    [
+      "/api/auth/organization/update-member-role",
+      { memberId: userId, role: "owner", organizationId },
+    ],
+    [
+      "/api/auth/organization/invite-member",
+      { email: employee.email, role: "member", organizationId },
+    ],
+    [
+      "/api/auth/organization/create-team",
+      { name: "Unaudited team", organizationId },
+    ],
+  ] as const) {
+    const refused = await send(path, body);
+    expect(refused.status).toBe(403);
+    expect((await refused.json()).code).toBe(
+      "ORGANIZATION_WRITE_NOT_AVAILABLE",
+    );
+  }
+  const trail = await sql`
+    select type from directory.auth_audit_event
+    where detail in (${organizationId}, ${teamId})
+  `;
+  expect(trail.map((row: { type: string }) => row.type)).toEqual(
+    expect.arrayContaining([
+      "subsidiary.updated",
+      "team.updated",
+      "team.removed",
+    ]),
+  );
+  // The first removal was refused while the subsidiary had one team left.
   expect(
-    (await send("/api/auth/organization/delete", { organizationId })).status,
-  ).toBe(404);
+    trail.filter((row: { type: string }) => row.type === "team.removed"),
+  ).toHaveLength(1);
   expect(
     (await sql`select id from auth.organization where id = ${organizationId}`)
       .length,
@@ -811,6 +848,86 @@ test("templates validate and persist create, edit, publish, version and delete a
         .status,
     ).toBe(204);
   }
+});
+
+test("publishing wording and lifting a suppression each leave one audit row naming the operator", async () => {
+  const cookie = await adminCookie();
+  const send = (path: string, method: string, body?: unknown) =>
+    request(path, {
+      method,
+      headers: { cookie },
+      body: body === undefined ? undefined : JSON.stringify(body),
+    });
+  const operator = await (await send("/api/auth/get-session", "GET")).json();
+  const key = `qa.${crypto.randomUUID().replaceAll("-", "")}`;
+  const created = await send("/api/notifications/templates", "POST", {
+    key,
+    channel: "email",
+    locale: "en",
+    body: "Hello {{name}}",
+    subject: "QA audit",
+    variables: ["name"],
+    secrets: [],
+  });
+  expect(created.status).toBe(201);
+  const { id } = await created.json();
+  expect(
+    (await send(`/api/notifications/templates/${id}/publish`, "POST")).status,
+  ).toBe(204);
+
+  const sql = app.get<Database>(DATABASE).$client;
+  const suppressionId = crypto.randomUUID();
+  const destination = `bounced-${suppressionId}@tagaroa.test`;
+  await sql`
+    insert into notification.suppression (id, channel, destination, reason)
+    values (${suppressionId}, 'email', ${destination}, 'bounced')
+  `;
+  expect(
+    (await send(`/api/notifications/suppressions/${suppressionId}`, "DELETE"))
+      .status,
+  ).toBe(204);
+
+  const rows = await sql`
+    select type, detail from directory.auth_audit_event
+    where actor_id = ${operator.user.id}
+      and type in ('notification.template.published', 'notification.suppression.removed')
+  `;
+  expect(rows).toHaveLength(2);
+  expect(rows).toContainEqual({
+    detail: `${key}:email:en:v1`,
+    type: "notification.template.published",
+  });
+  expect(rows).toContainEqual({
+    detail: `email:${suppressionId}`,
+    type: "notification.suppression.removed",
+  });
+  // The trail names the act, never where the message would have gone.
+  expect(JSON.stringify(rows)).not.toContain(destination);
+});
+
+test("revoking one session is audited against the person who held it", async () => {
+  const cookie = await adminCookie();
+  const operator = await (
+    await request("/api/auth/get-session", { headers: { cookie } })
+  ).json();
+  const employee = await issueAccount("QaRevokePassword123!");
+  const login = await signIn(employee.email, employee.password);
+  expect(login.status).toBe(200);
+  const { token, user } = await login.json();
+  const revoked = await request("/api/auth/admin/revoke-user-session", {
+    method: "POST",
+    headers: { cookie },
+    body: JSON.stringify({ sessionToken: token }),
+  });
+  expect(revoked.status).toBe(200);
+  const sql = app.get<Database>(DATABASE).$client;
+  const rows = await sql`
+    select actor_id, target_user_id, detail from directory.auth_audit_event
+    where type = 'user.session.revoked' and target_user_id = ${user.id}
+  `;
+  expect(rows).toEqual([
+    { actor_id: operator.user.id, detail: null, target_user_id: user.id },
+  ]);
 });
 
 test("subsidiaries, teams, positions, scoped assignments and emergency access persist", async () => {
