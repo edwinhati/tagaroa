@@ -51,6 +51,6 @@ export interface TemplateRepository {
 
   publish(id: string): Promise<void>;
 
-  /** False when there is no draft with that id to remove. */
-  deleteDraft(id: string): Promise<boolean>;
+  /** The removed draft; undefined when there is no draft with that id. */
+  deleteDraft(id: string): Promise<Template | undefined>;
 }

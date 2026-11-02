@@ -63,12 +63,12 @@ export class DrizzleSuppressionRepository implements SuppressionRepository {
       .onConflictDoNothing();
   }
 
-  async lift(id: string): Promise<boolean> {
-    const lifted = await this.executor
+  async lift(id: string): Promise<NotificationChannel | undefined> {
+    const [lifted] = await this.executor
       .delete(notificationSuppression)
       .where(eq(notificationSuppression.id, id))
-      .returning({ id: notificationSuppression.id });
+      .returning({ channel: notificationSuppression.channel });
 
-    return lifted.length > 0;
+    return lifted?.channel;
   }
 }

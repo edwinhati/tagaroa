@@ -16,6 +16,6 @@ export interface SuppressionRepository {
   /** A repeat changes nothing: the first refusal is the one that counts. */
   add(suppression: Suppression): Promise<void>;
 
-  /** False when there was no suppression with that id. */
-  lift(id: string): Promise<boolean>;
+  /** The channel the lifted suppression was on; undefined when there was none. */
+  lift(id: string): Promise<NotificationChannel | undefined>;
 }

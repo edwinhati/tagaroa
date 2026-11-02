@@ -12,6 +12,10 @@ import {
   type QueryRecord,
 } from "../../../../platform/http/collection";
 import {
+  AUDIT_TRAIL,
+  type AuditTrail,
+} from "../../../audit/application/audit.facade";
+import {
   NOTIFICATION_UNIT_OF_WORK,
   type NotificationUnitOfWork,
 } from "../../domain/repositories/notification.unit-of-work";
@@ -27,6 +31,18 @@ import {
 import type { TemplateRow } from "../dto/notification.read-models";
 
 const TEMPLATE_STATUSES = ["draft", "published", "archived"] as const;
+
+/**
+ * Which wording an audit event is about. Never the subject or the body: the
+ * trail records that the text changed, and the template table holds the text.
+ */
+const templateDetail = (template: {
+  channel: string;
+  key: string;
+  locale: string;
+  version: number;
+}): string =>
+  `${template.key}:${template.channel}:${template.locale}:v${template.version}`;
 
 /**
  * The wording, listed for the admin app.
@@ -93,6 +109,7 @@ export class CreateTemplateUseCase {
   constructor(
     @Inject(TEMPLATE_REPOSITORY)
     private readonly templates: TemplateRepository,
+    @Inject(AUDIT_TRAIL) private readonly audit: AuditTrail,
   ) {}
 
   async execute(
@@ -113,6 +130,16 @@ export class CreateTemplateUseCase {
         "Another draft was saved at the same time. Try saving again.",
       );
 
+    await this.audit.record({
+      actorId: authorId,
+      detail: templateDetail({
+        channel: draft.channel,
+        key: draft.key,
+        locale: draft.locale,
+        version,
+      }),
+      type: "notification.template.created",
+    });
     return { id, version };
   }
 }
@@ -123,6 +150,7 @@ export class EditTemplateUseCase {
   constructor(
     @Inject(TEMPLATE_REPOSITORY)
     private readonly templates: TemplateRepository,
+    @Inject(AUDIT_TRAIL) private readonly audit: AuditTrail,
   ) {}
 
   async execute(
@@ -147,6 +175,13 @@ export class EditTemplateUseCase {
         "This draft changed in another editor. Copy your changes, then reopen the draft.",
       );
     }
+
+    const saved = await this.templates.findById(id);
+    await this.audit.record({
+      actorId: authorId,
+      detail: saved && templateDetail(saved),
+      type: "notification.template.edited",
+    });
   }
 }
 
@@ -160,15 +195,24 @@ export class PublishTemplateUseCase {
   constructor(
     @Inject(NOTIFICATION_UNIT_OF_WORK)
     private readonly unitOfWork: NotificationUnitOfWork,
+    @Inject(AUDIT_TRAIL) private readonly audit: AuditTrail,
   ) {}
 
-  async execute(id: string): Promise<void> {
-    await this.unitOfWork.transaction(async ({ templates }) => {
+  async execute(id: string, actorId: string): Promise<void> {
+    const draft = await this.unitOfWork.transaction(async ({ templates }) => {
       const draft = await templates.findById(id);
       if (!draft) throw new NotFoundException("No template with that id");
 
       await templates.archivePublished(draft.key, draft.channel, draft.locale);
       await templates.publish(id);
+      return draft;
+    });
+
+    // Publishing replaces the text every recipient of this key receives.
+    await this.audit.record({
+      actorId,
+      detail: templateDetail(draft),
+      type: "notification.template.published",
     });
   }
 }
@@ -178,10 +222,17 @@ export class DeleteTemplateUseCase {
   constructor(
     @Inject(TEMPLATE_REPOSITORY)
     private readonly templates: TemplateRepository,
+    @Inject(AUDIT_TRAIL) private readonly audit: AuditTrail,
   ) {}
 
-  async execute(id: string): Promise<void> {
+  async execute(id: string, actorId: string): Promise<void> {
     const deleted = await this.templates.deleteDraft(id);
     if (!deleted) throw new NotFoundException("No draft with that id");
+
+    await this.audit.record({
+      actorId,
+      detail: templateDetail(deleted),
+      type: "notification.template.deleted",
+    });
   }
 }
