@@ -15,6 +15,7 @@ import {
 import {
   InputOTP,
   InputOTPGroup,
+  InputOTPSeparator,
   InputOTPSlot,
 } from "@repo/ui/components/input-otp";
 import { Label } from "@repo/ui/components/label";
@@ -59,7 +60,9 @@ function RecoveryCodesView({
         </p>
       </div>
       <FieldGroup className="gap-4">
-        <pre className="p-3 font-mono text-xs rounded-lg border border-border bg-transparent whitespace-pre-wrap">
+        {/* One <pre> keeps the codes copyable as lines; two columns halve its
+            height so ten codes sit above the fold. */}
+        <pre className="p-3 font-mono text-xs leading-6 gap-x-4 columns-2 rounded-lg border border-border bg-transparent whitespace-pre-wrap select-all">
           {backupCodes.join("\n")}
         </pre>
         <FormField orientation="horizontal">
@@ -73,7 +76,7 @@ function RecoveryCodesView({
           </FieldLabel>
         </FormField>
         <Button
-          className="self-start"
+          className="w-full"
           disabled={!acknowledged}
           onClick={onDone}
           size="sm"
@@ -258,84 +261,102 @@ export function AuthenticatorSetupFlow({
   }
 
   if (totpURI) {
+    // The QR is the one thing to look at, so it leads, centred and larger, with
+    // its two actions as full-width rows under it. The code form is a second
+    // beat after a hairline; the 6 slots fill the width as two groups of three.
     return (
-      <div className="gap-4 flex flex-col">
-        <div>
-          <h2
-            className="text-sm font-medium tracking-[-0.01em]"
-            id="scan-authenticator-heading"
-          >
-            Scan this QR code
-          </h2>
-          <p className="mt-1 text-xs leading-relaxed text-muted-foreground">
-            In your authenticator app, add an account and choose Scan QR code.
-          </p>
-        </div>
-
-        <div className="flex justify-center">
-          <div className="p-1 rounded-lg border border-border bg-transparent shadow-none">
-            <QRCodeSVG
-              bgColor="#ffffff"
-              className="size-[10rem] h-auto max-w-full"
-              fgColor="#111827"
-              level="M"
-              marginSize={4}
-              role="img"
-              size={160}
-              title="Authenticator setup QR code"
-              value={totpURI}
-            />
-          </div>
-        </div>
-
-        <Button
-          className="self-start"
-          nativeButton={false}
-          render={<a href={totpURI} />}
-          size="sm"
-          variant="outline"
+      <div className="gap-5 flex flex-col">
+        <section
+          aria-labelledby="scan-authenticator-heading"
+          className="gap-3 flex flex-col"
         >
-          Open authenticator app
-        </Button>
-
-        {setupKey ? (
-          <Collapsible>
-            <CollapsibleTrigger
-              render={<Button size="sm" type="button" variant="ghost" />}
+          <div>
+            <h2
+              className="text-sm font-medium tracking-[-0.01em]"
+              id="scan-authenticator-heading"
             >
-              Can’t scan the code?
-            </CollapsibleTrigger>
-            <CollapsibleContent className="mt-2 p-3 gap-2 text-xs grid rounded-lg border border-border bg-transparent">
-              <span className="font-medium">Enter this setup key</span>
-              <code
-                className="font-mono text-xs leading-relaxed break-words select-all"
-                translate="no"
-              >
-                {formatSetupKey(setupKey)}
-              </code>
-              <div className="flex items-center justify-between">
-                <span
-                  aria-live="polite"
-                  className="text-2xs text-muted-foreground"
+              Scan this QR code
+            </h2>
+            <p className="mt-1 text-xs leading-relaxed text-muted-foreground">
+              In your authenticator app, add an account and choose Scan QR code.
+            </p>
+          </div>
+
+          <div className="flex justify-center">
+            <div className="p-1 rounded-lg border border-border bg-transparent shadow-none">
+              <QRCodeSVG
+                bgColor="#ffffff"
+                className="size-[11rem] h-auto max-w-full"
+                fgColor="#111827"
+                level="M"
+                marginSize={4}
+                role="img"
+                size={176}
+                title="Authenticator setup QR code"
+                value={totpURI}
+              />
+            </div>
+          </div>
+
+          <div className="gap-1 flex flex-col">
+            <Button
+              className="w-full"
+              nativeButton={false}
+              render={<a href={totpURI} />}
+              size="sm"
+              variant="outline"
+            >
+              Open authenticator app
+            </Button>
+
+            {setupKey ? (
+              <Collapsible>
+                <CollapsibleTrigger
+                  render={
+                    <Button
+                      className="w-full"
+                      size="sm"
+                      type="button"
+                      variant="ghost"
+                    />
+                  }
                 >
-                  {copyStatus === "copied"
-                    ? "Key copied"
-                    : copyStatus === "failed"
-                      ? "Select and copy the key"
-                      : "Keep this key private"}
-                </span>
-                <Button
-                  onClick={() => void copySetupKey()}
-                  size="xs"
-                  type="button"
-                  variant="ghost"
-                >
-                  {copyStatus === "copied" ? "Copied" : "Copy key"}
-                </Button>
-              </div>
-            </CollapsibleContent>
-          </Collapsible>
-        ) : null}
+                  Can’t scan the code?
+                </CollapsibleTrigger>
+                <CollapsibleContent className="mt-1 p-3 gap-2 text-xs grid rounded-lg border border-border bg-transparent">
+                  <span className="font-medium">Enter this setup key</span>
+                  <div className="gap-3 flex items-start justify-between">
+                    <code
+                      className="font-mono text-xs leading-relaxed min-w-0 break-words select-all"
+                      translate="no"
+                    >
+                      {formatSetupKey(setupKey)}
+                    </code>
+                    <Button
+                      className="shrink-0"
+                      onClick={() => void copySetupKey()}
+                      size="xs"
+                      type="button"
+                      variant="outline"
+                    >
+                      {copyStatus === "copied" ? "Copied" : "Copy key"}
+                    </Button>
+                  </div>
+                  <span
+                    aria-live="polite"
+                    className="text-2xs text-muted-foreground"
+                  >
+                    {copyStatus === "copied"
+                      ? "Key copied"
+                      : copyStatus === "failed"
+                        ? "Select and copy the key"
+                        : "Keep this key private"}
+                  </span>
+                </CollapsibleContent>
+              </Collapsible>
+            ) : null}
+          </div>
+        </section>
 
         <Separator />
 
@@ -347,7 +368,7 @@ export function AuthenticatorSetupFlow({
             <InputOTP
               aria-label="6-digit code"
               autoComplete="one-time-code"
-              containerClassName="w-full justify-start"
+              containerClassName="w-full"
               id="enrollment-code"
               inputMode="numeric"
               maxLength={6}
@@ -356,15 +377,30 @@ export function AuthenticatorSetupFlow({
               }
               value={code}
             >
-              <InputOTPGroup>
-                {Array.from({ length: 6 }, (_, index) => (
-                  <InputOTPSlot index={index} key={index} />
+              <InputOTPGroup className="flex-1">
+                {[0, 1, 2].map((index) => (
+                  <InputOTPSlot
+                    className="min-w-0 flex-1"
+                    index={index}
+                    key={index}
+                  />
+                ))}
+              </InputOTPGroup>
+              <InputOTPSeparator />
+              <InputOTPGroup className="flex-1">
+                {[3, 4, 5].map((index) => (
+                  <InputOTPSlot
+                    className="min-w-0 flex-1"
+                    index={index}
+                    key={index}
+                  />
                 ))}
               </InputOTPGroup>
             </InputOTP>
           </FormField>
           {failure ? <FormError>{failure}</FormError> : null}
           <Button
+            className="w-full"
             disabled={pending || code.length !== 6}
             size="sm"
             type="submit"
@@ -405,7 +441,12 @@ export function AuthenticatorSetupFlow({
         </div>
         {failure ? <FormError>{failure}</FormError> : null}
         <div className="gap-2 flex flex-wrap">
-          <Button disabled={pending || !password} size="sm" type="submit">
+          <Button
+            className="flex-1"
+            disabled={pending || !password}
+            size="sm"
+            type="submit"
+          >
             {pending ? (
               <Spinner aria-hidden="true" data-icon="inline-start" />
             ) : null}

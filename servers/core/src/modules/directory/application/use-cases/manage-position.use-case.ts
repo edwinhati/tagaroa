@@ -25,17 +25,6 @@ import {
   type SubsidiaryRepository,
 } from "../../domain/repositories/subsidiary.repository";
 
-const titleOf = (value: unknown): string => {
-  if (typeof value !== "string" || value.trim().length === 0) {
-    throw new BadRequestException("Title is required.");
-  }
-  const title = value.trim();
-  if (title.length > 120) {
-    throw new BadRequestException("Title must be 120 characters or fewer.");
-  }
-  return title;
-};
-
 @Injectable()
 export class ManagePositionUseCase {
   constructor(
@@ -104,7 +93,7 @@ export class ManagePositionUseCase {
     actorId: string;
     managerUserId: string | null;
     organizationId: string | null;
-    title: unknown;
+    title: string;
     userId: string;
   }): Promise<PositionRecord> {
     await this.assertPeopleInScope(
@@ -120,7 +109,6 @@ export class ManagePositionUseCase {
     const position = await this.positions.save({
       ...input,
       id: randomUUID(),
-      title: titleOf(input.title),
     });
     await this.audit.record({
       actorId: input.actorId,

@@ -113,8 +113,9 @@ function SignIn() {
         : "sign-in",
   );
   const [temporaryPassword, setTemporaryPassword] = useState("");
-  // Session token from the sign-in body. Used when the browser dropped the
-  // cross-origin Set-Cookie and change-password has no cookie session yet.
+  // Signed session token from sign-in's `set-auth-token` header. Used when the
+  // browser dropped the cross-origin Set-Cookie and change-password has no
+  // cookie session yet.
   const [sessionToken, setSessionToken] = useState("");
 
   function leaveForWorkspace() {
@@ -237,9 +238,20 @@ export function SignInStep({
     onSubmit: async ({ value }) => {
       setFailure(null);
 
+      // The bearer plugin's signed `set-auth-token`, never the body's raw
+      // token: core accepts only a signed bearer.
+      let token = "";
       const outcome = signInOutcome(
         await attemptAuth(
-          () => authClient.signIn.email(value),
+          () =>
+            authClient.signIn.email({
+              ...value,
+              fetchOptions: {
+                onSuccess: ({ response }) => {
+                  token = response.headers.get("set-auth-token") ?? "";
+                },
+              },
+            }),
           "That email and password don't match an account. Check both and try again.",
         ),
       );
@@ -258,7 +270,7 @@ export function SignInStep({
           onTwoFactor();
           return;
         case "choose-password":
-          onTemporaryPassword(value.password, outcome.token);
+          onTemporaryPassword(value.password, token);
           return;
       }
 
@@ -270,7 +282,7 @@ export function SignInStep({
         );
         return;
       }
-      await onDone(outcome.token);
+      await onDone(token);
     },
   });
 

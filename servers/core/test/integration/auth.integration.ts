@@ -557,6 +557,106 @@ test("ending other sessions preserves the current session and expired sessions a
   ).toBeNull();
 });
 
+test("operators never hold another person's session token, and a raw token is no bearer", async () => {
+  const database = app.get<Database>(DATABASE).$client;
+  const userOf = async (cookie: string): Promise<string> =>
+    (
+      await (
+        await request("/api/auth/get-session", { headers: { cookie } })
+      ).json()
+    ).user.id;
+  const sessionsOf = async (userId: string) =>
+    database<{ id: string; token: string }[]>`
+      select id, token from auth.session where user_id = ${userId}
+    `;
+  const helpdesk = await adminCookie("helpdesk");
+  const superAdmin = await adminCookie("super-admin");
+  const privileged = await adminCookie("super-admin");
+  const privilegedId = await userOf(privileged);
+  const listSessions = (cookie: string, userId: string) =>
+    request("/api/auth/admin/list-user-sessions", {
+      method: "POST",
+      headers: { cookie },
+      body: JSON.stringify({ userId }),
+    });
+
+  // Only a super administrator reads a privileged account's sessions, and
+  // even then without the secret that signs in as them.
+  expect((await listSessions(helpdesk, privilegedId)).status).toBe(403);
+  const listed = await listSessions(superAdmin, privilegedId);
+  expect(listed.status).toBe(200);
+  const { sessions } = await listed.json();
+  expect(sessions.length).toBeGreaterThan(0);
+  expect(sessions.every((row: object) => !("token" in row))).toBe(true);
+
+  // The stored token, unsigned, authenticates nowhere.
+  const [stored] = await sessionsOf(privilegedId);
+  const raw = { authorization: `Bearer ${stored!.token}` };
+  expect(
+    await (await request("/api/auth/get-session", { headers: raw })).json(),
+  ).toBeNull();
+  expect((await request("/api/directory", { headers: raw })).status).toBe(401);
+
+  // The signed `set-auth-token` still carries the temporary-password flow.
+  const issued = await issueAccount("bearer-password-12");
+  const signedIn = await signIn(issued.email, issued.password);
+  const signed = signedIn.headers.get("set-auth-token");
+  expect(signed).toContain(".");
+  const changed = await request("/api/auth/change-password", {
+    method: "POST",
+    headers: { authorization: `Bearer ${signed}` },
+    body: JSON.stringify({
+      currentPassword: issued.password,
+      newPassword: "bearer-replaced-12",
+      revokeOtherSessions: true,
+    }),
+  });
+  expect(changed.status).toBe(200);
+  expect((await changed.json()).user.mustChangePassword).toBe(false);
+
+  // Single-session revoke goes by id through core, checked against its owner.
+  expect(
+    (
+      await request("/api/auth/admin/revoke-user-session", {
+        method: "POST",
+        headers: { cookie: superAdmin },
+        body: JSON.stringify({ sessionToken: stored!.token }),
+      })
+    ).status,
+  ).toBe(404);
+  const revoke = (cookie: string, sessionId: string) =>
+    request(`/api/auth-management/sessions/${sessionId}/revoke`, {
+      method: "POST",
+      headers: { cookie },
+    });
+  const denied = await revoke(helpdesk, stored!.id);
+  expect(denied.status).toBe(403);
+  expect((await denied.json()).code).toBe(
+    "PRIVILEGED_TARGET_REQUIRES_SUPER_ADMIN",
+  );
+  expect(await sessionsOf(privilegedId)).toHaveLength(1);
+  expect((await revoke(helpdesk, crypto.randomUUID())).status).toBe(404);
+
+  const employeeId = (
+    await (await signIn(issued.email, "bearer-replaced-12")).json()
+  ).user.id;
+  const [employeeSession] = await sessionsOf(employeeId);
+  expect((await revoke(helpdesk, employeeSession!.id)).status).toBe(201);
+  expect(
+    (await sessionsOf(employeeId)).some(
+      (row) => row.id === employeeSession!.id,
+    ),
+  ).toBe(false);
+  const helpdeskId = await userOf(helpdesk);
+  expect(
+    await database`
+      select detail from directory.auth_audit_event
+      where actor_id = ${helpdeskId} and target_user_id = ${employeeId}
+        and type = 'user.session.revoked'
+    `,
+  ).toEqual([{ detail: employeeSession!.id }]);
+});
+
 test("administration read and write endpoints enforce identity roles and MFA", async () => {
   for (const [role, readAllowed, writeAllowed] of [
     ["user", false, false],
@@ -610,6 +710,223 @@ test("concurrent sign-ins retain at most three usable sessions", async () => {
   ).toBe(true);
 });
 
+test("concurrent sign-ins at the session cap evict the older sessions", async () => {
+  const issued = await issueAccount("concurrent-cap-password-12");
+  const older: string[] = [];
+  for (let attempt = 0; attempt < 3; attempt += 1)
+    older.push(sessionCookie(await signIn(issued.email, issued.password))!);
+  const newer = await Promise.all(
+    Array.from({ length: 3 }, () => signIn(issued.email, issued.password)),
+  );
+  const live = async (cookie: string) =>
+    Boolean(
+      await (
+        await request("/api/auth/get-session", { headers: { cookie } })
+      ).json(),
+    );
+  expect(await Promise.all(older.map(live))).toEqual([false, false, false]);
+  expect(
+    await Promise.all(newer.map((response) => live(sessionCookie(response)!))),
+  ).toEqual([true, true, true]);
+  const [{ count }] = await app.get<Database>(DATABASE).$client`
+    select count(*)::int as count from auth.session
+    where user_id = (select id from auth."user" where email = ${issued.email})
+  `;
+  expect(count).toBe(3);
+});
+
+/** Carries the session, challenge and trusted-device cookies between requests. */
+const cookieJar = () => {
+  const cookies = new Map<string, string>();
+  const header = () =>
+    [...cookies].map(([name, value]) => `${name}=${value}`).join("; ");
+  return {
+    has: (name: string) => cookies.has(`better-auth.${name}`),
+    post: async (path: string, body: unknown) => {
+      const response = await request(path, {
+        method: "POST",
+        headers: { cookie: header() },
+        body: JSON.stringify(body),
+      });
+      for (const cookie of response.headers.getSetCookie()) {
+        const [pair = "", ...attributes] = cookie.split(";");
+        const separator = pair.indexOf("=");
+        const name = pair.slice(0, separator).trim();
+        if (attributes.some((attribute) => /^\s*max-age=0$/i.test(attribute)))
+          cookies.delete(name);
+        else cookies.set(name, pair.slice(separator + 1));
+      }
+      return response;
+    },
+  };
+};
+
+const startEnrolment = async (temporaryPassword: string) => {
+  const employee = await issueAccount(temporaryPassword);
+  await app.get<Database>(DATABASE).$client`
+    update auth."user" set must_change_password = false where email = ${employee.email}
+  `;
+  const jar = cookieJar();
+  await jar.post("/api/auth/sign-in/email", employee);
+  const enable = async () => {
+    const enabled = await jar.post("/api/auth/two-factor/enable", {
+      password: employee.password,
+      method: "totp",
+    });
+    expect(enabled.status).toBe(200);
+    return (await enabled.json()) as { totpURI: string; backupCodes: string[] };
+  };
+  return { employee, jar, enable };
+};
+
+const enrolledEmployee = async (temporaryPassword: string) => {
+  const { employee, jar, enable } = await startEnrolment(temporaryPassword);
+  const factor = await enable();
+  const verified = await jar.post("/api/auth/two-factor/verify-totp", {
+    code: authenticatorCode(factor.totpURI),
+  });
+  expect(verified.status).toBe(200);
+  return { ...employee, ...factor };
+};
+
+/** Signs in with a password and expects the second-factor challenge. */
+const challenge = async (
+  employee: { email: string; password: string },
+  jar = cookieJar(),
+) => {
+  const signed = await jar.post("/api/auth/sign-in/email", employee);
+  expect(signed.status).toBe(200);
+  expect((await signed.json()).twoFactorRedirect).toBe(true);
+  return jar;
+};
+
+test("an abandoned authenticator enrolment leaves no half-enrolled factor", async () => {
+  const { employee, jar, enable } = await startEnrolment(
+    "QaAbandonPassword123!",
+  );
+  const abandoned = await enable();
+
+  // Reloading before the first code is verified must not switch MFA on.
+  const reloaded = await signIn(employee.email, employee.password);
+  expect(reloaded.status).toBe(200);
+  expect((await reloaded.json()).twoFactorRedirect).toBeUndefined();
+
+  const resumed = await enable();
+  expect(resumed.totpURI).not.toBe(abandoned.totpURI);
+  expect(
+    await app.get<Database>(DATABASE).$client`
+      select verified from auth.two_factor
+      where user_id = (select id from auth."user" where email = ${employee.email})
+    `,
+  ).toEqual([{ verified: false }]);
+  const stale = await jar.post("/api/auth/two-factor/verify-totp", {
+    code: authenticatorCode(abandoned.totpURI),
+  });
+  expect(stale.status).toBe(401);
+  expect((await stale.json()).code).toBe("INVALID_CODE");
+  const verified = await jar.post("/api/auth/two-factor/verify-totp", {
+    code: authenticatorCode(resumed.totpURI),
+  });
+  expect(verified.status).toBe(200);
+
+  const pending = await challenge(employee);
+  const staleCode = await pending.post(
+    "/api/auth/two-factor/verify-backup-code",
+    { code: abandoned.backupCodes[0] },
+  );
+  expect(staleCode.status).toBe(401);
+  expect((await staleCode.json()).code).toBe("INVALID_BACKUP_CODE");
+  const currentCode = await pending.post(
+    "/api/auth/two-factor/verify-backup-code",
+    { code: resumed.backupCodes[0] },
+  );
+  expect(currentCode.status).toBe(200);
+});
+
+test("exhausted recovery codes are refused and the authenticator still signs in", async () => {
+  const employee = await enrolledEmployee("QaExhaustPassword123!");
+  expect(employee.backupCodes).toHaveLength(10);
+  for (const code of employee.backupCodes) {
+    const used = await (
+      await challenge(employee)
+    ).post("/api/auth/two-factor/verify-backup-code", { code });
+    expect(used.status).toBe(200);
+  }
+
+  // Five misses spend a challenge. The account locks after ten consecutive
+  // misses, so an authenticator sign-in between the halves resets that count.
+  for (const codes of [
+    employee.backupCodes.slice(0, 5),
+    employee.backupCodes.slice(5),
+  ]) {
+    const pending = await challenge(employee);
+    for (const code of codes) {
+      const reused = await pending.post(
+        "/api/auth/two-factor/verify-backup-code",
+        { code },
+      );
+      expect(reused.status).toBe(401);
+      expect((await reused.json()).code).toBe("INVALID_BACKUP_CODE");
+    }
+    const spent = await pending.post("/api/auth/two-factor/verify-totp", {
+      code: authenticatorCode(employee.totpURI),
+    });
+    expect(spent.status).toBe(400);
+    expect((await spent.json()).code).toBe(
+      "TOO_MANY_ATTEMPTS_REQUEST_NEW_CODE",
+    );
+    const recovered = await (
+      await challenge(employee)
+    ).post("/api/auth/two-factor/verify-totp", {
+      code: authenticatorCode(employee.totpURI),
+    });
+    expect(recovered.status).toBe(200);
+  }
+});
+
+test("trusted devices and pending challenges stop working once expired", async () => {
+  const employee = await enrolledEmployee("QaExpiryPassword123!");
+  const client = app.get<Database>(DATABASE).$client;
+  const device = await challenge(employee);
+  const trusted = await device.post("/api/auth/two-factor/verify-totp", {
+    code: authenticatorCode(employee.totpURI),
+    trustDevice: true,
+  });
+  expect(trusted.status).toBe(200);
+  expect(device.has("trust_device")).toBe(true);
+  expect((await device.post("/api/auth/sign-out", {})).status).toBe(200);
+
+  const skipped = await device.post("/api/auth/sign-in/email", employee);
+  expect(skipped.status).toBe(200);
+  expect((await skipped.json()).twoFactorRedirect).toBeUndefined();
+  expect((await device.post("/api/auth/sign-out", {})).status).toBe(200);
+
+  // Thirty days are simulated by ageing the server-side trust record.
+  await client`
+    update auth.verification set expires_at = now() - interval '1 second'
+    where identifier like 'trust-device-%'
+    and value = (select id from auth."user" where email = ${employee.email})
+  `;
+  const pending = await challenge(employee, device);
+  await client`
+    update auth.verification set expires_at = now() - interval '1 second'
+    where value = (select id from auth."user" where email = ${employee.email})
+    and identifier not like 'trust-device-%'
+  `;
+  const expired = await pending.post("/api/auth/two-factor/verify-totp", {
+    code: authenticatorCode(employee.totpURI),
+  });
+  expect(expired.status).toBe(401);
+  expect((await expired.json()).code).toBe("INVALID_TWO_FACTOR_COOKIE");
+
+  const fresh = await (
+    await challenge(employee, pending)
+  ).post("/api/auth/two-factor/verify-totp", {
+    code: authenticatorCode(employee.totpURI),
+  });
+  expect(fresh.status).toBe(200);
+});
+
 test("template edits validate freshness and atomically reject concurrent overwrites", async () => {
   const cookie = await adminCookie();
   const draft = {
@@ -640,6 +957,12 @@ test("template edits validate freshness and atomically reject concurrent overwri
         body: JSON.stringify({ ...draft, expectedUpdatedAt }),
       });
       expect(invalid.status).toBe(400);
+      expect((await invalid.json()).details).toEqual([
+        {
+          field: "expectedUpdatedAt",
+          message: "expectedUpdatedAt must be a valid timestamp",
+        },
+      ]);
     }
     const expectedUpdatedAt = "2026-01-01T00:00:00.123Z";
     const responses = await Promise.all(
@@ -750,9 +1073,22 @@ test("templates validate and persist create, edit, publish, version and delete a
       headers: { cookie },
       body: body === undefined ? undefined : JSON.stringify(body),
     });
-  expect((await send("/api/notifications/templates", "POST", {})).status).toBe(
-    400,
-  );
+  const empty = await send("/api/notifications/templates", "POST", {});
+  expect(empty.status).toBe(400);
+  expect(await empty.json()).toEqual({
+    details: [
+      { field: "key", message: "key is required" },
+      {
+        field: "channel",
+        message: "channel is required",
+      },
+      { field: "body", message: "body is required" },
+      { field: "locale", message: "locale is required" },
+    ],
+    error: "Bad Request",
+    message: "key is required",
+    statusCode: 400,
+  });
   for (const channel of ["email", "sms", "whatsapp"] as const) {
     const key = `qa.${crypto.randomUUID().replaceAll("-", "")}`;
     const draft = {
@@ -811,6 +1147,56 @@ test("templates validate and persist create, edit, publish, version and delete a
         .status,
     ).toBe(204);
   }
+});
+
+test("a password-reset wording published without secrets still keeps the password out of the message log", async () => {
+  const admin = await adminCookie();
+  const send = (path: string, method: string, body?: unknown) =>
+    request(path, {
+      method,
+      headers: { cookie: admin },
+      body: body === undefined ? undefined : JSON.stringify(body),
+    });
+  // The seeded wording, republished with nothing marked secret.
+  const created = await send("/api/notifications/templates", "POST", {
+    key: "account.password-reset",
+    channel: "email",
+    locale: "en",
+    subject: "Your Tagaroa password was reset",
+    body: "{{name}},\n\nAddress: {{email}}\nTemporary password: {{password}}",
+    variables: ["name", "email", "password"],
+    secrets: [],
+  });
+  expect(created.status).toBe(201);
+  const { id } = await created.json();
+  expect(
+    (await send(`/api/notifications/templates/${id}/publish`, "POST")).status,
+  ).toBe(204);
+
+  const employee = await issueAccount("UnmaskedFixturePassword123!");
+  const target = await (await signIn(employee.email, employee.password)).json();
+  const password = "UnmaskedResetFixture123!";
+  const reset = await request("/api/auth/admin/set-user-password", {
+    method: "POST",
+    headers: { cookie: await adminCookie("super-admin") },
+    body: JSON.stringify({ userId: target.user.id, newPassword: password }),
+  });
+  expect(reset.status).toBe(200);
+
+  const listed = await send(
+    `/api/notifications/messages?q=${encodeURIComponent(`personal.${employee.email}`)}`,
+    "GET",
+  );
+  expect(listed.status).toBe(200);
+  const messages = await listed.json();
+  expect(
+    messages.data.some(
+      (row: { key: string; body: string }) =>
+        row.key === "account.password-reset" &&
+        row.body.includes("Temporary password: {{password}}"),
+    ),
+  ).toBe(true);
+  expect(JSON.stringify(messages)).not.toContain(password);
 });
 
 test("subsidiaries, teams, positions, scoped assignments and emergency access persist", async () => {
@@ -1755,4 +2141,82 @@ test("subsidiary ownership cannot bypass group identity policy and temporary ope
     expect(response.status).toBe(403);
     expect((await response.json()).code).toBe("PASSWORD_CHANGE_REQUIRED");
   }
+});
+
+test("an impersonated session cannot review, grant or change roles as its target", async () => {
+  const operatorCookie = await adminCookie("super-admin");
+  const send = (path: string, body: unknown, cookie = operatorCookie) =>
+    request(path, {
+      method: "POST",
+      headers: { cookie },
+      body: JSON.stringify(body),
+    });
+  const sessionOf = async (cookie: string) =>
+    (await request("/api/auth/get-session", { headers: { cookie } })).json();
+  const operator = await sessionOf(operatorCookie);
+  const subsidiary = await send("/api/auth-management/subsidiaries", {
+    name: "Impersonation scope",
+    slug: `impersonation-${crypto.randomUUID()}`,
+  });
+  expect(subsidiary.status).toBe(201);
+  const assignment = await send("/api/access-control/assignments", {
+    organizationId: (await subsidiary.json()).data.id,
+    scope: "subsidiary",
+    roleId: "system-domain-administrator",
+    userId: operator.user.id,
+  });
+  expect(assignment.status).toBe(201);
+  const assignmentId = (await assignment.json()).data.id;
+  const reviewer = await sessionOf(await adminCookie("access-reviewer"));
+  const employee = await sessionOf(await adminCookie("user"));
+
+  const impersonated = await send("/api/auth/admin/impersonate-user", {
+    userId: reviewer.user.id,
+  });
+  expect(impersonated.status).toBe(200);
+  const cookie = [
+    ...new Map(
+      impersonated.headers.getSetCookie().map((value) => {
+        const pair = value.split(";", 1)[0]!;
+        return [pair.slice(0, pair.indexOf("=")), pair] as const;
+      }),
+    ).values(),
+  ].join("; ");
+  const session = await sessionOf(cookie);
+  expect(session.user.id).toBe(reviewer.user.id);
+  expect(session.session.impersonatedBy).toBe(operator.user.id);
+
+  const subject = (
+    await (
+      await request("/api/access-control/reviews", {
+        headers: { cookie: operatorCookie },
+      })
+    ).json()
+  ).data.find((row: { id: string }) => row.id === assignmentId);
+  for (const [path, body] of [
+    [
+      `/api/access-control/reviews/assignment/${assignmentId}`,
+      {
+        decision: "confirmed",
+        note: "Manager confirmed responsibility in case 123",
+        snapshot: subject.snapshot,
+      },
+    ],
+    [`/api/directory/access-reviews/${operator.user.id}`, {}],
+    ["/api/auth/admin/set-role", { userId: employee.user.id, role: "admin" }],
+  ] as const) {
+    const response = await send(path, body, cookie);
+    expect(response.status).toBe(403);
+  }
+
+  const sql = app.get<Database>(DATABASE).$client;
+  expect(
+    await sql`select 1 from access_control.access_review where subject_id = ${assignmentId}`,
+  ).toHaveLength(0);
+  expect(
+    await sql`select 1 from directory.privileged_access_review where user_id = ${operator.user.id}`,
+  ).toHaveLength(0);
+  const [target] =
+    await sql`select role from auth."user" where id = ${employee.user.id}`;
+  expect(target.role).toBe("user");
 });

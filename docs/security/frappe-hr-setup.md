@@ -80,10 +80,14 @@ On start the service reconciles every employee once, then hourly.
 - **Nothing happened, no error.** The record did not call for anything: not `Active`,
   already has an account, or a relieving date still in the future. The core service logs a
   line when a record is skipped for a missing address, a suspended account, an address
-  linked to another record, or a future relieving date; a record that is simply not
+  linked to another record, a privileged account, or a future relieving date; a record that is simply not
   `Active` is skipped silently.
 - **"Its company email belongs to another record's account".** Two Employee records share a
   company email. Fix the record in Frappe; the sync will not guess.
+- **"Its account is privileged; a super-admin offboards it by hand".** The company email
+  belongs to an administrator. The sync never adopts or retires a privileged account, even
+  for a `Left` record: a super-admin offboards it in `apps/admin`, or removes the role first
+  if the account should follow HR from then on.
 - **"Active in HR but suspended here".** The account was suspended in Tagaroa. Restoring it
   is an administrator's decision in `apps/admin`, never automatic.
 - **A webhook was missed.** The hourly pass catches it. Relieving dates are compared by UTC

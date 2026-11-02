@@ -178,7 +178,7 @@ describe("ManagePositionUseCase", () => {
       actorId: "operator",
       managerUserId: "grace",
       organizationId: null,
-      title: "  Staff engineer  ",
+      title: "Staff engineer",
       userId: "ada",
     });
 

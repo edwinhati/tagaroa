@@ -1,5 +1,4 @@
 import { AppTrail, Page } from "@repo/shell/app-shell";
-import { authClient } from "@repo/shell/auth-client";
 import { Avatar, AvatarFallback } from "@repo/ui/components/avatar";
 import { Button } from "@repo/ui/components/button";
 import {
@@ -47,9 +46,9 @@ import {
   linkedAccountsQueryOptions,
   personQueryOptions,
   personSessionsQueryOptions,
+  revokeSession,
   standingOf,
   validatePeopleSearch,
-  write,
 } from "../../lib/admin";
 import { eventAction, relativeTime } from "../../lib/identity-operations";
 import { parseUserAgent } from "../../lib/session-device";
@@ -143,12 +142,8 @@ function PersonWorkspaceContent({
     ...everyPersonQueryOptions,
     enabled: editingPosition !== false,
   });
-  const revokeSession = useMutation({
-    mutationFn: (sessionToken: string) =>
-      write(
-        () => authClient.admin.revokeUserSession({ sessionToken }),
-        "The session was not revoked.",
-      ),
+  const revoke = useMutation({
+    mutationFn: revokeSession,
     onError: announce.failed,
     onSuccess: () => {
       announce.done(`Session revoked for ${person.email}`);
@@ -469,11 +464,11 @@ function PersonWorkspaceContent({
                   : "Reading session limit…"}
             </p>
             {sessions.isPending ? (
-              <ul className="gap-1.5 sm:grid-cols-2 xl:grid-cols-3 grid">
+              <div className="gap-1.5 sm:grid-cols-2 xl:grid-cols-3 grid">
                 <Skeleton className="h-16 rounded-md" />
                 <Skeleton className="h-16 rounded-md" />
                 <Skeleton className="h-16 rounded-md" />
-              </ul>
+              </div>
             ) : sessions.isError ? (
               <p className="text-xs text-destructive">
                 {sessions.error.message}
@@ -488,9 +483,9 @@ function PersonWorkspaceContent({
                   <SessionCard
                     canRevoke={admin.canRevokeSessions}
                     key={session.id}
-                    pending={revokeSession.isPending}
+                    pending={revoke.isPending}
                     session={session}
-                    onRevoke={() => revokeSession.mutate(session.token)}
+                    onRevoke={() => revoke.mutate(session.id)}
                   />
                 ))}
               </ul>
