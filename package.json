@@ -31,13 +31,13 @@
     "test:integration": "turbo run test:integration"
   },
   "devDependencies": {
-    "@ai-sdk/openai-compatible": "3.0.77",
+    "@ai-sdk/openai-compatible": "3.0.81",
     "@changesets/cli": "3.0.3",
     "@e2e-dev/web": "0.15.3",
     "@repo/test-support": "*",
     "@shadcn/lint": "^0.2.3",
     "@types/node": "26.6.6",
-    "ai": "7.0.152",
+    "ai": "7.0.157",
     "e2e": "0.21.3",
     "oxfmt": "^0.75.0",
     "oxlint": "^1.90.0",
@@ -45,7 +45,9 @@
     "typescript": "7.0.2"
   },
   "overrides": {
+    "@react-email/render": "2.2.0",
     "dompurify": "3.4.17",
+    "esbuild": "0.28.2",
     "zod": "4.6.7"
   },
   "devEngines": {
