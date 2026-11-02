@@ -543,6 +543,9 @@ function PeopleDataTable({
   const table = useDataTable({
     columns,
     data,
+    // Rows keyed by index remount when the debounced search reorders them,
+    // closing an open row menu or leaving it on someone else's account.
+    getRowId: (row) => row.person.id,
     manualFiltering: true,
     manualPagination: true,
     manualSorting: true,

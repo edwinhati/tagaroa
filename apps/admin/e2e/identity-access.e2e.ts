@@ -1237,10 +1237,11 @@ test("a super administrator creates, edits and archives a business role with key
     await dialog.getByLabel("Name", { exact: true }).fill(name);
     await dialog.getByLabel("Description").fill("QA explicit scoped access");
     await dialog.getByRole("checkbox").first().check();
-    // Axe would otherwise catch Save mid re-render at disabled opacity.
-    await expect(
-      dialog.getByRole("button", { name: "Save role" }),
-    ).toBeEnabled();
+    // Axe would otherwise catch Save mid re-render at disabled opacity, or
+    // mid-way through the 150ms opacity transition back from it.
+    const save = dialog.getByRole("button", { name: "Save role" });
+    await expect(save).toBeEnabled();
+    await expect(save).toHaveCSS("opacity", "1");
     await expect(
       new AxeBuilder({ page })
         .include('[data-slot="dialog-content"]')
