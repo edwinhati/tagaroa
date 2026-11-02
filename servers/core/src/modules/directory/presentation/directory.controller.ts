@@ -224,7 +224,13 @@ export class DirectoryController {
     @Param("userId") userId: string,
     @Session() session: UserSession,
   ): Promise<{ reviewed: true }> {
-    await this.recordReview.execute(userId, session.user.id);
+    const { impersonatedBy } = session.session as {
+      impersonatedBy?: string | null;
+    };
+    await this.recordReview.execute(userId, {
+      id: session.user.id,
+      impersonatedBy,
+    });
     return { reviewed: true };
   }
 

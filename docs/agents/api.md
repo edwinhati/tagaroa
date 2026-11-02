@@ -52,8 +52,9 @@ async grantAssignment(
 - Domain rules (a role cannot be assigned at that scope, a user is not a member) stay in the
   service. A schema checks shape; it does not replace those.
 - Keep Zod's key order meaningful: issues are reported in the order the keys are declared.
-- Only `POST /access-control/assignments` uses this so far. Move other routes over when you touch
-  them; do not convert the controller in one sweep.
+- `ZodBody` parses a query object the same way (`@Query(new ZodBody(schema))`).
+- Every `access-control` route parses its body this way. Move other controllers over when you touch
+  them; do not convert them in one sweep.
 
 ## Not adopted (and why)
 

@@ -10,22 +10,7 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@repo/ui/components/dialog";
-import {
-  Field,
-  FieldDescription,
-  FieldError,
-  FieldGroup,
-  FieldLabel,
-} from "@repo/ui/components/field";
-import { Input } from "@repo/ui/components/input";
-import {
-  Select,
-  SelectContent,
-  SelectGroup,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@repo/ui/components/select";
+import { FieldError, FieldGroup } from "@repo/ui/components/field";
 import { Spinner } from "@repo/ui/components/spinner";
 import { useForm } from "@tanstack/react-form";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
@@ -34,6 +19,11 @@ import * as z from "zod";
 
 import { onboardingOutcome, write } from "../lib/admin";
 import type { OnboardingOutcome } from "../lib/admin";
+import {
+  AccountRoleField,
+  AccountTextField,
+  accountRoles,
+} from "./account-fields";
 import {
   createTemporaryPassword,
   TemporaryPassword,
@@ -106,16 +96,11 @@ const issueAccountDefaults: IssueAccountValues = {
   role: "user",
 };
 
-const accountRoles = [
-  { label: "Employee", value: "user" },
-  { label: "Access reviewer", value: "access-reviewer" },
-  { label: "Helpdesk", value: "helpdesk" },
-  { label: "Identity administrator", value: "admin" },
-  { label: "Super administrator", value: "super-admin" },
-] as const satisfies ReadonlyArray<{
-  label: string;
-  value: IssueAccountValues["role"];
-}>;
+type IssuedAccount = {
+  onboarding: OnboardingOutcome | null;
+  password: string;
+  personalEmail: string;
+};
 
 function IssueForm({
   canAssignPrivileged,
@@ -125,14 +110,13 @@ function IssueForm({
   onDone: () => void;
 }) {
   const queryClient = useQueryClient();
-  const [issued, setIssued] = useState<{
-    onboarding: OnboardingOutcome | null;
-    password: string;
-    personalEmail: string;
-  } | null>(null);
+  const [issued, setIssued] = useState<IssuedAccount | null>(null);
+  const roles = accountRoles.filter(
+    (role) => canAssignPrivileged || role.value === "user",
+  );
 
   const issue = useMutation({
-    mutationFn: async (values: IssueAccountValues) => {
+    mutationFn: async (values: IssueAccountValues): Promise<IssuedAccount> => {
       const email = values.email.trim();
       const name = values.name.trim();
       const personalEmail = values.personalEmail.trim();
@@ -175,28 +159,7 @@ function IssueForm({
     },
   });
 
-  if (issued) {
-    return (
-      <>
-        <DialogHeader>
-          <DialogTitle>Account issued</DialogTitle>
-          <DialogDescription>
-            {issued.onboarding && !issued.onboarding.queued
-              ? `No onboarding message was sent${issued.onboarding.reason ? `: ${issued.onboarding.reason.toLowerCase()}` : ""}. Share the temporary password through your usual trusted channel.`
-              : `An onboarding message with this temporary password was queued to ${issued.personalEmail}.`}{" "}
-            This is the only time the password will be shown. The new hire must
-            replace it at first sign-in.
-          </DialogDescription>
-        </DialogHeader>
-        <TemporaryPassword password={issued.password} />
-        <DialogFooter>
-          <Button onClick={onDone} size="sm">
-            Done
-          </Button>
-        </DialogFooter>
-      </>
-    );
-  }
+  if (issued) return <AccountIssued issued={issued} onDone={onDone} />;
 
   return (
     <form
@@ -215,141 +178,45 @@ function IssueForm({
 
       <FieldGroup className="my-4">
         <form.Field name="email">
-          {(field) => {
-            const isInvalid =
-              field.state.meta.isTouched && !field.state.meta.isValid;
-
-            return (
-              <Field data-invalid={isInvalid}>
-                <FieldLabel htmlFor={field.name}>Work email</FieldLabel>
-                <Input
-                  aria-invalid={isInvalid}
-                  autoComplete="off"
-                  id={field.name}
-                  name={field.name}
-                  onBlur={field.handleBlur}
-                  onChange={(event) => field.handleChange(event.target.value)}
-                  placeholder="name@tagaroa.com"
-                  required
-                  type="email"
-                  value={field.state.value}
-                />
-                {isInvalid ? (
-                  <FieldError errors={field.state.meta.errors} />
-                ) : null}
-              </Field>
-            );
-          }}
+          {(field) => (
+            <AccountTextField
+              field={field}
+              label="Work email"
+              placeholder="name@tagaroa.com"
+              required
+              type="email"
+            />
+          )}
         </form.Field>
         <form.Field name="personalEmail">
-          {(field) => {
-            const isInvalid =
-              field.state.meta.isTouched && !field.state.meta.isValid;
-
-            return (
-              <Field data-invalid={isInvalid}>
-                <FieldLabel htmlFor={field.name}>Personal email</FieldLabel>
-                <Input
-                  aria-invalid={isInvalid}
-                  autoComplete="off"
-                  id={field.name}
-                  name={field.name}
-                  onBlur={field.handleBlur}
-                  onChange={(event) => field.handleChange(event.target.value)}
-                  placeholder="name@example.com"
-                  required
-                  type="email"
-                  value={field.state.value}
-                />
-                <FieldDescription>
-                  Receives the onboarding message and password recovery
-                  messages.
-                </FieldDescription>
-                {isInvalid ? (
-                  <FieldError errors={field.state.meta.errors} />
-                ) : null}
-              </Field>
-            );
-          }}
+          {(field) => (
+            <AccountTextField
+              description="Receives the onboarding message and password recovery messages."
+              field={field}
+              label="Personal email"
+              placeholder="name@example.com"
+              required
+              type="email"
+            />
+          )}
         </form.Field>
         <form.Field name="name">
-          {(field) => {
-            const isInvalid =
-              field.state.meta.isTouched && !field.state.meta.isValid;
-
-            return (
-              <Field data-invalid={isInvalid}>
-                <FieldLabel htmlFor={field.name}>Name</FieldLabel>
-                <Input
-                  aria-invalid={isInvalid}
-                  autoComplete="off"
-                  id={field.name}
-                  name={field.name}
-                  onBlur={field.handleBlur}
-                  onChange={(event) => field.handleChange(event.target.value)}
-                  value={field.state.value}
-                />
-                <FieldDescription>
-                  Optional. The work email is used when the name is blank.
-                </FieldDescription>
-                {isInvalid ? (
-                  <FieldError errors={field.state.meta.errors} />
-                ) : null}
-              </Field>
-            );
-          }}
+          {(field) => (
+            <AccountTextField
+              description="Optional. The work email is used when the name is blank."
+              field={field}
+              label="Name"
+            />
+          )}
         </form.Field>
         <form.Field name="role">
-          {(field) => {
-            const isInvalid =
-              field.state.meta.isTouched && !field.state.meta.isValid;
-
-            return (
-              <Field data-invalid={isInvalid}>
-                <FieldLabel htmlFor={field.name}>Role</FieldLabel>
-                <Select
-                  items={accountRoles.filter(
-                    (role) => canAssignPrivileged || role.value === "user",
-                  )}
-                  name={field.name}
-                  onValueChange={(value) => {
-                    if (value) field.handleChange(value);
-                  }}
-                  value={field.state.value}
-                >
-                  <SelectTrigger
-                    aria-invalid={isInvalid}
-                    className="w-full"
-                    id={field.name}
-                    size="sm"
-                  >
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectGroup>
-                      {accountRoles
-                        .filter(
-                          (role) =>
-                            canAssignPrivileged || role.value === "user",
-                        )
-                        .map((role) => (
-                          <SelectItem key={role.value} value={role.value}>
-                            {role.label}
-                          </SelectItem>
-                        ))}
-                    </SelectGroup>
-                  </SelectContent>
-                </Select>
-                <FieldDescription>
-                  This role applies across Tagaroa. Team membership controls
-                  domain access.
-                </FieldDescription>
-                {isInvalid ? (
-                  <FieldError errors={field.state.meta.errors} />
-                ) : null}
-              </Field>
-            );
-          }}
+          {(field) => (
+            <AccountRoleField
+              description="This role applies across Tagaroa. Team membership controls domain access."
+              field={field}
+              roles={roles}
+            />
+          )}
         </form.Field>
         {issue.error ? <FieldError>{issue.error.message}</FieldError> : null}
       </FieldGroup>
@@ -368,5 +235,34 @@ function IssueForm({
         </form.Subscribe>
       </DialogFooter>
     </form>
+  );
+}
+
+function AccountIssued({
+  issued,
+  onDone,
+}: {
+  issued: IssuedAccount;
+  onDone: () => void;
+}) {
+  return (
+    <>
+      <DialogHeader>
+        <DialogTitle>Account issued</DialogTitle>
+        <DialogDescription>
+          {issued.onboarding && !issued.onboarding.queued
+            ? `No onboarding message was sent${issued.onboarding.reason ? `: ${issued.onboarding.reason.toLowerCase()}` : ""}. Share the temporary password through your usual trusted channel.`
+            : `An onboarding message with this temporary password was queued to ${issued.personalEmail}.`}{" "}
+          This is the only time the password will be shown. The new hire must
+          replace it at first sign-in.
+        </DialogDescription>
+      </DialogHeader>
+      <TemporaryPassword password={issued.password} />
+      <DialogFooter>
+        <Button onClick={onDone} size="sm">
+          Done
+        </Button>
+      </DialogFooter>
+    </>
   );
 }

@@ -16,15 +16,6 @@ import {
   FieldGroup,
   FieldLabel,
 } from "@repo/ui/components/field";
-import { Input } from "@repo/ui/components/input";
-import {
-  Select,
-  SelectContent,
-  SelectGroup,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@repo/ui/components/select";
 import { Spinner } from "@repo/ui/components/spinner";
 import { Textarea } from "@repo/ui/components/textarea";
 import { useForm } from "@tanstack/react-form";
@@ -38,6 +29,12 @@ import {
   personalEmailQueryOptions,
   write,
 } from "../lib/admin";
+import {
+  AccountRoleField,
+  AccountTextField,
+  type AccountRole,
+  accountRoles,
+} from "./account-fields";
 import {
   createTemporaryPassword,
   TemporaryPassword,
@@ -60,15 +57,6 @@ const accountSchema = z.object({
 });
 
 type AccountValues = z.infer<typeof accountSchema>;
-type AccountRole = AccountValues["role"];
-
-const roleOptions = [
-  { label: "Employee", value: "user" },
-  { label: "Access reviewer", value: "access-reviewer" },
-  { label: "Helpdesk", value: "helpdesk" },
-  { label: "Identity administrator", value: "admin" },
-  { label: "Super administrator", value: "super-admin" },
-] as const satisfies ReadonlyArray<{ label: string; value: AccountRole }>;
 
 const roleOf = (person: Person): AccountRole => {
   const roles = (person.role ?? "").split(",").map((role) => role.trim());
@@ -144,8 +132,8 @@ function EditPersonForm({
   const queryClient = useQueryClient();
   const currentRole = roleOf(person);
   const availableRoles = canAssignSuperAdmin
-    ? roleOptions
-    : roleOptions.filter((role) => role.value !== "super-admin");
+    ? accountRoles
+    : accountRoles.filter((role) => role.value !== "super-admin");
 
   const update = useMutation({
     mutationFn: async (values: AccountValues) => {
@@ -214,134 +202,46 @@ function EditPersonForm({
 
       <FieldGroup className="my-4">
         <form.Field name="name">
-          {(field) => {
-            const isInvalid =
-              field.state.meta.isTouched && !field.state.meta.isValid;
-            return (
-              <Field data-invalid={isInvalid}>
-                <FieldLabel htmlFor={field.name}>Name</FieldLabel>
-                <Input
-                  aria-invalid={isInvalid}
-                  autoComplete="off"
-                  id={field.name}
-                  name={field.name}
-                  onBlur={field.handleBlur}
-                  onChange={(event) => field.handleChange(event.target.value)}
-                  required
-                  value={field.state.value}
-                />
-                {isInvalid ? (
-                  <FieldError errors={field.state.meta.errors} />
-                ) : null}
-              </Field>
-            );
-          }}
+          {(field) => <AccountTextField field={field} label="Name" required />}
         </form.Field>
 
         <form.Field name="email">
-          {(field) => {
-            const isInvalid =
-              field.state.meta.isTouched && !field.state.meta.isValid;
-            return (
-              <Field data-invalid={isInvalid}>
-                <FieldLabel htmlFor={field.name}>Work email</FieldLabel>
-                <Input
-                  aria-invalid={isInvalid}
-                  autoComplete="off"
-                  id={field.name}
-                  name={field.name}
-                  onBlur={field.handleBlur}
-                  onChange={(event) => field.handleChange(event.target.value)}
-                  required
-                  type="email"
-                  value={field.state.value}
-                />
-                <FieldDescription>
-                  The email address they use to sign in.
-                </FieldDescription>
-                {isInvalid ? (
-                  <FieldError errors={field.state.meta.errors} />
-                ) : null}
-              </Field>
-            );
-          }}
+          {(field) => (
+            <AccountTextField
+              description="The email address they use to sign in."
+              field={field}
+              label="Work email"
+              required
+              type="email"
+            />
+          )}
         </form.Field>
 
         <form.Field name="personalEmail">
-          {(field) => {
-            const isInvalid =
-              field.state.meta.isTouched && !field.state.meta.isValid;
-            return (
-              <Field data-invalid={isInvalid}>
-                <FieldLabel htmlFor={field.name}>Personal email</FieldLabel>
-                <Input
-                  aria-invalid={isInvalid}
-                  autoComplete="off"
-                  id={field.name}
-                  name={field.name}
-                  onBlur={field.handleBlur}
-                  onChange={(event) => field.handleChange(event.target.value)}
-                  placeholder="name@example.com"
-                  type="email"
-                  value={field.state.value}
-                />
-                <FieldDescription>
-                  Receives onboarding and password recovery messages. Without
-                  one, these messages cannot be delivered.
-                </FieldDescription>
-                {isInvalid ? (
-                  <FieldError errors={field.state.meta.errors} />
-                ) : null}
-              </Field>
-            );
-          }}
+          {(field) => (
+            <AccountTextField
+              description="Receives onboarding and password recovery messages. Without one, these messages cannot be delivered."
+              field={field}
+              label="Personal email"
+              placeholder="name@example.com"
+              type="email"
+            />
+          )}
         </form.Field>
 
         <form.Field name="role">
-          {(field) => {
-            const isInvalid =
-              field.state.meta.isTouched && !field.state.meta.isValid;
-            return (
-              <Field data-disabled={!canChangeRole} data-invalid={isInvalid}>
-                <FieldLabel htmlFor={field.name}>Role</FieldLabel>
-                <Select
-                  disabled={!canChangeRole}
-                  items={availableRoles}
-                  name={field.name}
-                  onValueChange={(value) => {
-                    if (value) field.handleChange(value);
-                  }}
-                  value={field.state.value}
-                >
-                  <SelectTrigger
-                    aria-invalid={isInvalid}
-                    className="w-full"
-                    id={field.name}
-                    size="sm"
-                  >
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectGroup>
-                      {availableRoles.map((role) => (
-                        <SelectItem key={role.value} value={role.value}>
-                          {role.label}
-                        </SelectItem>
-                      ))}
-                    </SelectGroup>
-                  </SelectContent>
-                </Select>
-                <FieldDescription>
-                  {canChangeRole
-                    ? "Identity administrators manage group identity. Super administrators can impersonate other administrators."
-                    : "You cannot change your own role."}
-                </FieldDescription>
-                {isInvalid ? (
-                  <FieldError errors={field.state.meta.errors} />
-                ) : null}
-              </Field>
-            );
-          }}
+          {(field) => (
+            <AccountRoleField
+              description={
+                canChangeRole
+                  ? "Identity administrators manage group identity. Super administrators can impersonate other administrators."
+                  : "You cannot change your own role."
+              }
+              disabled={!canChangeRole}
+              field={field}
+              roles={availableRoles}
+            />
+          )}
         </form.Field>
 
         {update.error ? <FieldError>{update.error.message}</FieldError> : null}

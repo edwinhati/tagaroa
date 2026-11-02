@@ -86,3 +86,22 @@ test("Frappe HR is all or nothing, with a strong secret and HTTPS in production"
     }),
   ).toThrow("HTTPS in production");
 });
+
+test("trusts private proxy hops by default and rejects a malformed one", () => {
+  expect(validateEnv(production).AUTH_TRUSTED_PROXIES).toContain(
+    "172.16.0.0/12",
+  );
+  expect(
+    validateEnv({ ...production, AUTH_TRUSTED_PROXIES: "172.18.0.0/16, ::1" })
+      .AUTH_TRUSTED_PROXIES,
+  ).toEqual(["172.18.0.0/16", "::1"]);
+  for (const AUTH_TRUSTED_PROXIES of [
+    "172.18.0.0/33",
+    "pangolin",
+    "10.0.0.0/8/8",
+  ]) {
+    expect(() =>
+      validateEnv({ ...production, AUTH_TRUSTED_PROXIES }),
+    ).toThrow();
+  }
+});
