@@ -1,6 +1,6 @@
 import AxeBuilder from "@axe-core/playwright";
 import { expect, test } from "@playwright/test";
-import type { BrowserContext } from "@playwright/test";
+import type { BrowserContext, Page } from "@playwright/test";
 import { authenticatorCode } from "@repo/test-support/totp";
 import { SQL } from "bun";
 
@@ -11,6 +11,25 @@ const coreOrigin = "http://localhost:18080";
 const databaseUrl =
   process.env.TEST_DATABASE_URL ??
   "postgresql://tagaroa:tagaroa@127.0.0.1:5432/tagaroa_test";
+
+/**
+ * Buttons fade opacity (tagaroa.css) and dialogs fade in. Axe measuring either
+ * mid-fade, such as Next enabling as a table's count arrives, reports the
+ * blended colour as a contrast failure, so let finite animations finish first.
+ * Endless ones (skeleton pulses) never would.
+ */
+const settleAnimations = (page: Page) =>
+  page.evaluate(() =>
+    Promise.allSettled(
+      document
+        .getAnimations()
+        .filter(
+          (animation) =>
+            animation.effect?.getComputedTiming().endTime !== Infinity,
+        )
+        .map((animation) => animation.finished),
+    ),
+  );
 
 test.beforeEach(async ({ page, context }) => {
   // Development overlays can cover controls; they are absent in production.
@@ -195,6 +214,7 @@ test("remaining account profile and sessions recover from failed reads", async (
   await expect(
     page.locator('[data-slot="sidebar"][data-mobile="true"][role="dialog"]'),
   ).toHaveCount(0);
+  await settleAnimations(page);
   const accessibility = await new AxeBuilder({ page })
     .include('[role="dialog"]')
     .withTags(["wcag2a", "wcag2aa", "wcag21a", "wcag21aa", "wcag22aa"])
@@ -221,6 +241,7 @@ test("remaining account profile and sessions recover from failed reads", async (
   await expect(
     page.locator('[data-slot="sidebar"][data-mobile="true"][role="dialog"]'),
   ).toHaveCount(0);
+  await settleAnimations(page);
   const darkAccessibility = await new AxeBuilder({ page })
     .include('[role="dialog"]')
     .withTags(["wcag2a", "wcag2aa", "wcag21a", "wcag21aa", "wcag22aa"])
@@ -706,6 +727,7 @@ test("remaining emergency access is visible and can be ended from another tab", 
     await expect(
       dialog.getByText("Emergency access is active", { exact: true }),
     ).toBeVisible();
+    await settleAnimations(other);
     const accessibility = await new AxeBuilder({ page: other })
       .include('[role="dialog"]')
       .withTags(["wcag2a", "wcag2aa", "wcag21a", "wcag21aa", "wcag22aa"])
@@ -1312,6 +1334,7 @@ test("administration pages pass accessibility checks in both themes and reflow o
     for (const path of paths) {
       await page.goto(path, { waitUntil: "domcontentloaded" });
       await expect(page.locator("main h1")).toBeVisible();
+      await settleAnimations(page);
       const result = await new AxeBuilder({ page })
         .include('[data-slot="sidebar"], [data-slot="sidebar-inset"]')
         .withTags(["wcag2a", "wcag2aa", "wcag21a", "wcag21aa", "wcag22aa"])
