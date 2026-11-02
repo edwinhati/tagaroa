@@ -481,38 +481,20 @@ test("audits subsidiary and team edits made on Better Auth's own routes", () => 
   expect(adminAuditEvent("/organization/update", {}, null)).toBeUndefined();
 });
 
-test("audits one revoked session and the end of impersonation by the session's owner", () => {
+test("audits the end of impersonation by the operator who started it", () => {
   expect(
-    endedSessionAuditEvent(
-      "/admin/revoke-user-session",
-      { userId: "person-id" },
-      "operator-id",
-    ),
-  ).toEqual({
-    actorId: "operator-id",
-    targetUserId: "person-id",
-    type: "user.session.revoked",
-  });
-  expect(
-    endedSessionAuditEvent(
-      "/admin/stop-impersonating",
-      { impersonatedBy: "operator-id", userId: "person-id" },
-      "person-id",
-    ),
+    endedSessionAuditEvent("/admin/stop-impersonating", {
+      impersonatedBy: "operator-id",
+      userId: "person-id",
+    }),
   ).toEqual({
     actorId: "operator-id",
     targetUserId: "person-id",
     type: "user.impersonation.ended",
   });
   // Signing out, or a fourth device evicting the oldest, is not an admin act.
+  // A revoked session is audited by `IdentityOperationsService.revokeSession`.
   expect(
-    endedSessionAuditEvent("/sign-out", { userId: "person-id" }, "person-id"),
-  ).toBeUndefined();
-  expect(
-    endedSessionAuditEvent(
-      "/admin/revoke-user-session",
-      { userId: "person-id" },
-      undefined,
-    ),
+    endedSessionAuditEvent("/sign-out", { userId: "person-id" }),
   ).toBeUndefined();
 });

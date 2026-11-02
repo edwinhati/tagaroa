@@ -1241,31 +1241,6 @@ test("publishing wording and lifting a suppression each leave one audit row nami
   expect(JSON.stringify(rows)).not.toContain(destination);
 });
 
-test("revoking one session is audited against the person who held it", async () => {
-  const cookie = await adminCookie();
-  const operator = await (
-    await request("/api/auth/get-session", { headers: { cookie } })
-  ).json();
-  const employee = await issueAccount("QaRevokePassword123!");
-  const login = await signIn(employee.email, employee.password);
-  expect(login.status).toBe(200);
-  const { token, user } = await login.json();
-  const revoked = await request("/api/auth/admin/revoke-user-session", {
-    method: "POST",
-    headers: { cookie },
-    body: JSON.stringify({ sessionToken: token }),
-  });
-  expect(revoked.status).toBe(200);
-  const sql = app.get<Database>(DATABASE).$client;
-  const rows = await sql`
-    select actor_id, target_user_id, detail from directory.auth_audit_event
-    where type = 'user.session.revoked' and target_user_id = ${user.id}
-  `;
-  expect(rows).toEqual([
-    { actor_id: operator.user.id, detail: null, target_user_id: user.id },
-  ]);
-});
-
 test("a password-reset wording published without secrets still keeps the password out of the message log", async () => {
   const admin = await adminCookie();
   const send = (path: string, method: string, body?: unknown) =>

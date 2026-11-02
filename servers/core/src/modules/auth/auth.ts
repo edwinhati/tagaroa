@@ -431,17 +431,8 @@ export const adminAuditEvent = (
 export const endedSessionAuditEvent = (
   path: string | undefined,
   session: { impersonatedBy?: unknown; userId: string },
-  actorId: string | undefined,
 ): AuthAuditInput | undefined => {
   switch (path) {
-    case "/admin/revoke-user-session":
-      return actorId
-        ? {
-            actorId,
-            targetUserId: session.userId,
-            type: "user.session.revoked",
-          }
-        : undefined;
     // The ended session belongs to the person impersonated; the operator is
     // the one it names as having started it.
     case "/admin/stop-impersonating":
@@ -932,11 +923,7 @@ export const createAuth = (repository: AuthRepository, config: AuthConfig) => {
         },
         delete: {
           after: async (session, ctx) => {
-            const event = endedSessionAuditEvent(
-              ctx?.path,
-              session,
-              ctx?.context.session?.user.id,
-            );
+            const event = endedSessionAuditEvent(ctx?.path, session);
             if (event && config.recordAudit) await config.recordAudit(event);
           },
         },
