@@ -15,7 +15,12 @@ import { Input } from "@repo/ui/components/input";
 import { Skeleton } from "@repo/ui/components/skeleton";
 import { Tabs, TabsList, TabsTrigger } from "@repo/ui/components/tabs";
 import { cn } from "@repo/ui/lib/utils";
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import {
+  useIsMutating,
+  useMutation,
+  useQuery,
+  useQueryClient,
+} from "@tanstack/react-query";
 import { useRouter } from "@tanstack/react-router";
 import { useRef, useState, type ReactNode } from "react";
 
@@ -134,7 +139,10 @@ function DisplayNameRow({ name }: { name: string }) {
   const [draft, setDraft] = useState(name);
   const [saved, setSaved] = useState("");
 
+  const mutationKey = ["account", "display-name"];
+  const isSaving = useIsMutating({ mutationKey }) > 0;
   const save = useMutation({
+    mutationKey,
     mutationFn: async (value: string) => {
       const result = await authClient
         .updateUser({ name: value.trim() })
@@ -156,6 +164,7 @@ function DisplayNameRow({ name }: { name: string }) {
   });
 
   const close = () => {
+    if (isSaving) return;
     setEditing(false);
     save.reset();
     requestAnimationFrame(() => editButton.current?.focus());
@@ -171,7 +180,7 @@ function DisplayNameRow({ name }: { name: string }) {
           noValidate
           onSubmit={(event) => {
             event.preventDefault();
-            save.mutate(draft);
+            if (!isSaving) save.mutate(draft);
           }}
         >
           <Field data-invalid={Boolean(error)}>
@@ -195,10 +204,16 @@ function DisplayNameRow({ name }: { name: string }) {
             ) : null}
           </Field>
           <div className="gap-2 flex">
-            <Button disabled={save.isPending} size="sm" type="submit">
+            <Button disabled={isSaving} size="sm" type="submit">
               {save.isPending ? "Saving…" : "Save"}
             </Button>
-            <Button onClick={close} size="sm" type="button" variant="ghost">
+            <Button
+              disabled={isSaving}
+              onClick={close}
+              size="sm"
+              type="button"
+              variant="ghost"
+            >
               Cancel
             </Button>
           </div>
@@ -209,6 +224,7 @@ function DisplayNameRow({ name }: { name: string }) {
             action={
               <Button
                 aria-label="Edit name"
+                disabled={isSaving}
                 onClick={() => {
                   setDraft(name);
                   setSaved("");
