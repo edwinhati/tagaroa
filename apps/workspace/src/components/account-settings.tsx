@@ -1,5 +1,6 @@
 import { AccountSecurityPanel } from "@repo/shell/account-security";
 import { authClient } from "@repo/shell/auth-client";
+import { sessionQueryOptions } from "@repo/shell/session";
 import { Avatar, AvatarFallback } from "@repo/ui/components/avatar";
 import { Button } from "@repo/ui/components/button";
 import {
@@ -9,11 +10,14 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@repo/ui/components/dialog";
+import { Field, FieldError, FieldLabel } from "@repo/ui/components/field";
+import { Input } from "@repo/ui/components/input";
 import { Skeleton } from "@repo/ui/components/skeleton";
 import { Tabs, TabsList, TabsTrigger } from "@repo/ui/components/tabs";
 import { cn } from "@repo/ui/lib/utils";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { useState, type ReactNode } from "react";
+import { useRouter } from "@tanstack/react-router";
+import { useRef, useState, type ReactNode } from "react";
 
 import { parseUserAgent, relativeTime } from "../lib/session-device";
 import { SessionDeviceMarks } from "./session-device-mark";
@@ -112,6 +116,130 @@ function SettingsRow({
         </div>
       ) : null}
     </div>
+  );
+}
+
+const NAME_NOT_SAVED =
+  "Your name was not saved. Check your connection and try again.";
+
+/**
+ * The one profile field a person may change. The server holds the rules
+ * (`updateProfileBody`), so its sentence is the error shown here.
+ */
+function DisplayNameRow({ name }: { name: string }) {
+  const queryClient = useQueryClient();
+  const router = useRouter();
+  const editButton = useRef<HTMLButtonElement>(null);
+  const [editing, setEditing] = useState(false);
+  const [draft, setDraft] = useState(name);
+  const [saved, setSaved] = useState("");
+
+  const save = useMutation({
+    mutationFn: async (value: string) => {
+      const result = await authClient
+        .updateUser({ name: value.trim() })
+        .catch(() => null);
+      if (!result || result.error) {
+        throw new Error(result?.error?.message || NAME_NOT_SAVED);
+      }
+      await queryClient.refetchQueries({
+        queryKey: sessionQueryOptions.queryKey,
+      });
+      await router.invalidate();
+    },
+    onMutate: () => setSaved(""),
+    onSuccess: () => {
+      setEditing(false);
+      setSaved("Name saved.");
+      requestAnimationFrame(() => editButton.current?.focus());
+    },
+  });
+
+  const close = () => {
+    setEditing(false);
+    save.reset();
+    requestAnimationFrame(() => editButton.current?.focus());
+  };
+
+  const error = save.error instanceof Error ? save.error.message : "";
+
+  return (
+    <>
+      {editing ? (
+        <form
+          className="gap-3 p-3.5 flex flex-col"
+          noValidate
+          onSubmit={(event) => {
+            event.preventDefault();
+            save.mutate(draft);
+          }}
+        >
+          <Field data-invalid={Boolean(error)}>
+            <FieldLabel htmlFor="account-display-name">Name</FieldLabel>
+            <Input
+              aria-describedby={
+                error ? "account-display-name-error" : undefined
+              }
+              aria-invalid={Boolean(error)}
+              autoComplete="name"
+              autoFocus
+              id="account-display-name"
+              maxLength={80}
+              name="name"
+              onChange={(event) => setDraft(event.target.value)}
+              required
+              value={draft}
+            />
+            {error ? (
+              <FieldError id="account-display-name-error">{error}</FieldError>
+            ) : null}
+          </Field>
+          <div className="gap-2 flex">
+            <Button disabled={save.isPending} size="sm" type="submit">
+              {save.isPending ? "Saving…" : "Save"}
+            </Button>
+            <Button onClick={close} size="sm" type="button" variant="ghost">
+              Cancel
+            </Button>
+          </div>
+        </form>
+      ) : (
+        <dl>
+          <SettingsRow
+            action={
+              <Button
+                aria-label="Edit name"
+                onClick={() => {
+                  setDraft(name);
+                  setSaved("");
+                  setEditing(true);
+                }}
+                ref={editButton}
+                size="sm"
+                type="button"
+                variant="ghost"
+              >
+                Edit
+              </Button>
+            }
+            label="Name"
+          >
+            {name}
+          </SettingsRow>
+        </dl>
+      )}
+      {/* Stays mounted across edit and read so the confirmation is announced. */}
+      <p
+        aria-live="polite"
+        className={cn(
+          "text-[0.8125rem] text-muted-foreground",
+          saved && "px-3.5 pb-3",
+        )}
+        role="status"
+      >
+        {saved}
+      </p>
+    </>
   );
 }
 
@@ -301,6 +429,9 @@ export function AccountSettingsDialog({
           <div className="px-5 pt-4 pb-5 max-h-[min(28rem,70dvh)] overflow-y-auto overscroll-contain">
             {section === "profile" ? (
               <div className="gap-3 flex flex-col outline-none" role="tabpanel">
+                <SettingsGroup>
+                  <DisplayNameRow name={name} />
+                </SettingsGroup>
                 {profileExtras.isPending ? (
                   <SettingsGroup>
                     <div className="gap-3 p-3.5 flex flex-col" role="status">

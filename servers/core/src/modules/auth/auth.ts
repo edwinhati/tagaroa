@@ -28,6 +28,10 @@ import {
   rolesOf,
   removesSuperAdminRole,
 } from "./access-policy";
+import {
+  updateProfileBody,
+  type UpdateProfileBody,
+} from "./auth-management.schemas";
 import type { AuthRepository } from "./infrastructure/persistence/auth.persistence.module";
 
 export interface AuthConfig {
@@ -249,6 +253,9 @@ export const authenticationAuditEvent = (
       break;
     case "/revoke-sessions":
       type = "user.sessions.revoked";
+      break;
+    case "/update-user":
+      type = "user.profile.updated";
       break;
     default:
       return undefined;
@@ -694,11 +701,30 @@ const enforceOrganizationWrite = createAuthMiddleware(async (ctx) => {
   }
 });
 
+/**
+ * Better Auth's self-service `/update-user` writes any `input: true` field,
+ * the admin-set personal address included, so it is held to the display name.
+ */
+export const validateProfileUpdate = (
+  path: string,
+  body: unknown,
+): UpdateProfileBody | undefined => {
+  if (path !== "/update-user") return undefined;
+  const result = updateProfileBody.safeParse(body);
+  if (result.success) return result.data;
+  throw new APIError("BAD_REQUEST", {
+    code: "PROFILE_FIELD_NOT_EDITABLE",
+    message: result.error.issues[0]!.message,
+  });
+};
+
 const validateAdminWrite = createAuthMiddleware(async (ctx) => {
   validateTemporaryPassword(ctx.path, ctx.body);
   validatePersonalEmail(ctx.path, ctx.body);
+  const profile = validateProfileUpdate(ctx.path, ctx.body);
   await enforceAdminPolicy(ctx);
   await enforceOrganizationWrite(ctx);
+  if (profile) return { context: { body: profile } };
 });
 
 /**

@@ -10,6 +10,7 @@ import {
   createAuth,
   excessSessionTokens,
   validatePersonalEmail,
+  validateProfileUpdate,
   validateTemporaryPassword,
 } from "./auth";
 import { createAuthMetadataRepository } from "./infrastructure/persistence/auth.persistence.module";
@@ -108,12 +109,35 @@ test("describes successful authentication assurance events durably", () => {
     type: "user.passkey.added",
   });
   expect(
+    authenticationAuditEvent("/update-user", { status: true }, "person-id"),
+  ).toEqual({
+    actorId: "person-id",
+    targetUserId: "person-id",
+    type: "user.profile.updated",
+  });
+  expect(
     authenticationAuditEvent(
       "/sign-in/email",
       { twoFactorRedirect: true, user: { id: "person-id" } },
       undefined,
     ),
   ).toBeUndefined();
+});
+
+test("holds a self-service profile update to the display name", () => {
+  expect(validateProfileUpdate("/update-user", { name: " Ada " })).toEqual({
+    name: "Ada",
+  });
+  expect(validateProfileUpdate("/admin/update-user", {})).toBeUndefined();
+  expect(() =>
+    validateProfileUpdate("/update-user", {
+      name: "Ada",
+      personalEmail: "ada@example.test",
+    }),
+  ).toThrow("Only your name can be changed here.");
+  expect(() => validateProfileUpdate("/update-user", { name: "" })).toThrow(
+    "Name is required.",
+  );
 });
 
 test("tracks the temporary-password lifecycle after successful requests", async () => {

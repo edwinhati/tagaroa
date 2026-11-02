@@ -49,6 +49,7 @@ const eventActions: Record<string, string> = {
   "user.domain-admin.revoked": "Revoked domain administration from",
   "user.impersonated": "Started impersonation for",
   "user.privileged-access.reviewed": "Confirmed privileged access for",
+  "user.profile.updated": "Changed the display name for",
   "user.restored": "Restored access for",
   "user.role.updated": "Updated the role for",
   "user.session.revoked": "Revoked a session for",
