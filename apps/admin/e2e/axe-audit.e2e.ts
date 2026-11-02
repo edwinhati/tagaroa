@@ -1,5 +1,6 @@
 import { auditRoutes, hideDevOverlays } from "@apps/auth/e2e/axe-audit";
-import { test } from "@playwright/test";
+import AxeBuilder from "@axe-core/playwright";
+import { expect, test } from "@playwright/test";
 
 import { signInOperator } from "./operator";
 
@@ -28,4 +29,25 @@ test("administration routes have no serious axe violations", async ({
     "/notifications/suppressions",
     "/subsidiaries",
   ]);
+});
+
+test("person session loading has valid list markup", async ({
+  page,
+  context,
+}) => {
+  await hideDevOverlays(context);
+  await signInOperator(page);
+  const { user } = await (
+    await page.request.get("http://localhost:18080/api/auth/get-session")
+  ).json();
+  await page.route("**/api/auth/admin/list-user-sessions", () => {});
+  const requested = page.waitForRequest("**/api/auth/admin/list-user-sessions");
+  await page.goto(`/identity-access/people/${user.id}`);
+  await requested;
+  const loading = page.locator("main [data-slot=skeleton]");
+  await expect(loading.first()).toBeVisible();
+  const { violations } = await new AxeBuilder({ page })
+    .withRules(["list"])
+    .analyze();
+  expect(violations).toEqual([]);
 });

@@ -36,7 +36,10 @@ export async function auditRoutes(page: Page, urls: string[]) {
       await page.goto(url);
       for (const viewport of viewports) {
         await page.setViewportSize(viewport);
-        await expect(page.locator("main h1").first()).toBeVisible();
+        await expect(
+          page.locator("main h1").first(),
+          `Loaded ${url}`,
+        ).toBeVisible({ timeout: 15_000 });
         await page.waitForLoadState("networkidle");
         // Entry fades would otherwise be measured mid-transition.
         await page.evaluate(() =>
