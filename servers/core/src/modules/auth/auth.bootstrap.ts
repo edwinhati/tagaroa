@@ -18,5 +18,6 @@ export const auth = createAuth(
     passkeyRpId: env.PASSKEY_RP_ID,
     secret: env.BETTER_AUTH_SECRET,
     trustedOrigins: env.TRUSTED_ORIGINS,
+    trustedProxies: env.AUTH_TRUSTED_PROXIES,
   },
 );

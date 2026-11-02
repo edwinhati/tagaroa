@@ -53,8 +53,8 @@ async grantAssignment(
   service. A schema checks shape; it does not replace those.
 - Keep Zod's key order meaningful: issues are reported in the order the keys are declared.
 - `ZodBody` parses a query object the same way (`@Query(new ZodBody(schema))`).
-- Every `access-control` route parses its body this way. Move other controllers over when you touch
-  them; do not convert them in one sweep.
+- Every `access-control` route and the `PUT /directory/positions/...` routes parse their body this
+  way. Move other controllers over when you touch them; do not convert them in one sweep.
 
 ## Not adopted (and why)
 

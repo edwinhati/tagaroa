@@ -34,7 +34,7 @@ const world = (records: Employee[] = [ada]) => {
       if ([...accounts.values()].some((account) => account.email === email))
         throw new Error("taken");
       const id = `user-${accounts.size + 1}`;
-      accounts.set(id, { banned: false, email, id });
+      accounts.set(id, { banned: false, email, id, privileged: false });
       issued.push(email);
       return { id, onboardingQueued: true };
     },
@@ -80,6 +80,7 @@ test("an account issued by hand before HR is adopted, not issued twice", async (
     banned: false,
     email: "ada@tagaroa.example",
     id: "manual",
+    privileged: false,
   });
 
   expect((await sync.execute(ada, today)).kind).toBe("none");
@@ -116,6 +117,36 @@ test("an address held by another record's account is reported, not taken", async
   expect(issued).toHaveLength(1);
 });
 
+test("a leaver whose company email is an administrator's is neither adopted nor retired", async () => {
+  const leaver: Employee = { ...ada, relievingDate: today, status: "Left" };
+  const { accounts, links, retired, sync } = world([leaver]);
+  accounts.set("admin", {
+    banned: false,
+    email: "ada@tagaroa.example",
+    id: "admin",
+    privileged: true,
+  });
+
+  const action = await sync.execute(leaver, today);
+  expect(action).toMatchObject({ kind: "none", reason: expect.any(String) });
+  expect(links.size).toBe(0);
+  expect(retired).toEqual([]);
+
+  accounts.get("admin")!.privileged = false;
+  expect(await sync.execute(leaver, today)).toEqual({ kind: "offboard" });
+  expect(retired).toEqual(["admin"]);
+});
+
+test("a linked account promoted since is not retired when its record leaves", async () => {
+  const { accounts, retired, sync } = world();
+  await sync.execute(ada, today);
+  accounts.get("user-1")!.privileged = true;
+
+  const left: Employee = { ...ada, relievingDate: today, status: "Left" };
+  expect((await sync.execute(left, today)).kind).toBe("none");
+  expect(retired).toEqual([]);
+});
+
 test("a webhook and a pass naming one joiner at once issue one account", async () => {
   const { issued, sync } = world();
 
@@ -139,11 +170,13 @@ test("a linked account takes precedence over the current email holder", async ()
     banned: false,
     email: "old@tagaroa.example",
     id: "linked",
+    privileged: false,
   });
   accounts.set("holder", {
     banned: false,
     email: ada.companyEmail!,
     id: "holder",
+    privileged: false,
   });
   links.set(ada.name, "linked");
   const lookup = spyOn(lifecycle, "byEmail");
@@ -158,6 +191,7 @@ test("a matching reverse link uses the account without relinking it", async () =
     banned: false,
     email: ada.companyEmail!,
     id: "manual",
+    privileged: false,
   });
   spyOn(linkRepository, "employeeFor").mockResolvedValue(ada.name);
   const link = spyOn(linkRepository, "link");
@@ -172,6 +206,7 @@ test("an active employee never restores a suspended linked account", async () =>
     banned: true,
     email: ada.companyEmail!,
     id: "suspended",
+    privileged: false,
   });
   links.set(ada.name, "suspended");
   expect(await sync.execute(ada, today)).toEqual({

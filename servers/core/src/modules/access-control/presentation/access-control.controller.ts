@@ -47,7 +47,11 @@ const ACCESS_READ_ROLES = [
 
 const actorOf = (value: UserSession): AccessActor => {
   const authSession = value as UserSession & {
-    session: { createdAt: Date | string; id: string };
+    session: {
+      createdAt: Date | string;
+      id: string;
+      impersonatedBy?: string | null;
+    };
     user: { id: string; role?: string | null };
   };
   return {
@@ -55,6 +59,7 @@ const actorOf = (value: UserSession): AccessActor => {
     identityRole: authSession.user.role,
     sessionCreatedAt: new Date(authSession.session.createdAt),
     sessionId: authSession.session.id,
+    impersonatedBy: authSession.session.impersonatedBy,
   };
 };
 
@@ -106,7 +111,7 @@ export class AccessControlController {
     @Session() session: UserSession,
   ) {
     return {
-      data: await this.reviews.record(kind, id, body, session.user.id),
+      data: await this.reviews.record(kind, id, body, actorOf(session)),
     };
   }
 

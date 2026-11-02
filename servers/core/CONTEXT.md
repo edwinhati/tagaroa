@@ -115,7 +115,8 @@ Three things about the shape are worth knowing before adding to it:
 - **Secret** — a template variable whose value must never be written down: `password`, on
   the two account templates. Declared on the **wording**, so a template carries its own
   hazard rather than the code guessing at one, and carried forward when that wording is
-  edited.
+  edited. A wording can add secrets but never drop the code-owned ones: `account.issued`
+  and `account.password-reset` always mask `password`, whatever their row says.
 - **Channel** — email, SMS or WhatsApp. Each has a **carrier** (Resend, Twilio, Meta) and is
   **configured** only when this deployment holds its credentials. A configured channel really
   sends, in every environment; an unconfigured one writes to the log, which the admin surface
