@@ -35,20 +35,23 @@ test("only independent reviews of active privileged accounts are persisted and a
     audit,
     people,
   );
-  await expect(useCase.execute("admin", "admin")).rejects.toThrow(
+  await expect(useCase.execute("admin", { id: "admin" })).rejects.toThrow(
     "Another operator",
   );
-  await expect(useCase.execute("missing", "reviewer")).rejects.toThrow(
+  await expect(useCase.execute("missing", { id: "reviewer" })).rejects.toThrow(
     "Person not found",
   );
   for (const id of ["employee", "suspended"]) {
-    await expect(useCase.execute(id, "reviewer")).rejects.toThrow(
+    await expect(useCase.execute(id, { id: "reviewer" })).rejects.toThrow(
       "Only active privileged",
     );
   }
+  await expect(
+    useCase.execute("admin", { id: "reviewer", impersonatedBy: "admin" }),
+  ).rejects.toThrow("your own");
   expect(saved).toEqual([]);
   expect(events).toEqual([]);
-  await useCase.execute("admin", "reviewer");
+  await useCase.execute("admin", { id: "reviewer" });
   expect(saved).toEqual(["admin"]);
   expect(events).toEqual(["user.privileged-access.reviewed"]);
 });

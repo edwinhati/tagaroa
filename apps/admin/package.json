@@ -35,6 +35,7 @@
     "zod": "4.6.7"
   },
   "devDependencies": {
+    "@apps/auth": "*",
     "@axe-core/playwright": "^4.14.0",
     "@playwright/test": "1.64.1",
     "@repo/test-support": "*",
@@ -45,7 +46,7 @@
     "@tanstack/react-query-devtools": "5.104.5",
     "@tanstack/react-router-devtools": "1.167.2",
     "@types/bun": "1.4.4",
-    "@types/node": "26.6.5",
+    "@types/node": "26.6.6",
     "@types/react": "19.3.0",
     "@types/react-dom": "19.3.0",
     "@vitejs/plugin-react": "6.1.2",

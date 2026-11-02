@@ -3,6 +3,13 @@
 {
 	auto_https off
 	admin off
+	# Only Pangolin reaches this container, from a private address. Trusting it
+	# makes reverse_proxy append that hop to X-Forwarded-For instead of replacing
+	# the header, so core can still see the client (AUTH_TRUSTED_PROXIES).
+	servers {
+		trusted_proxies static private_ranges
+		trusted_proxies_strict
+	}
 }
 
 # {args[0]} names the app; the web image writes its inline-script hashes to

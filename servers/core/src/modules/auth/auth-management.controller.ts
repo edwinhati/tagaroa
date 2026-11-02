@@ -121,6 +121,17 @@ export class AuthManagementController {
     };
   }
 
+  @Post("sessions/:sessionId/revoke")
+  @Roles(["helpdesk", "admin", "super-admin"])
+  async revokeSession(
+    @Param("sessionId") sessionId: string,
+    @Session() session: UserSession,
+  ) {
+    return {
+      data: await this.operations.revokeSession(sessionId, operatorOf(session)),
+    };
+  }
+
   @Get("access-policy")
   @Roles([...ADMIN_ROLE_IDS])
   accessPolicy() {

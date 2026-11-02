@@ -80,7 +80,8 @@ restore access for a locked-out subsidiary admin.
 - Temporary passwords travel by email during onboarding, expire after 24 hours, and must
   be replaced before business access.
 - A temporary password is a live credential, so it is never written into the notification
-  log an admin can read: the account wordings declare `password` a **secret** (see
+  log an admin can read: `password` is a **secret** on the account wordings, and the code
+  keeps it one even if an admin publishes a wording that leaves it out (see
   `servers/core/CONTEXT.md`).
 - Better Auth's 12-character minimum does not cover passwords set through the admin
   endpoints, so the account-management flow applies it there itself. The breached-password

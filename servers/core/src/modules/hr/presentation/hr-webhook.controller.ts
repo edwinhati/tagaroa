@@ -1,7 +1,6 @@
 import type { IncomingMessage } from "node:http";
 
 import {
-  BadRequestException,
   Controller,
   HttpCode,
   Inject,
@@ -9,15 +8,18 @@ import {
   Req,
   UnauthorizedException,
 } from "@nestjs/common";
-import { asObject } from "@repo/contracts";
 import { AllowAnonymous } from "@thallesp/nestjs-better-auth";
 
+import { ZodBody } from "../../../platform/http/zod-body";
 import { SyncEmployeeUseCase } from "../application/use-cases/sync-employee.use-case";
 import {
   HR_OPTIONS,
   type HrOptions,
 } from "../infrastructure/config/hr.options";
 import { verifyFrappeSignature } from "../infrastructure/frappe/frappe";
+import { frappeEmployeeWebhook } from "./hr-webhook.schemas";
+
+const employeeWebhook = new ZodBody(frappeEmployeeWebhook);
 
 interface ParsedRequest extends IncomingMessage {
   body?: unknown;
@@ -53,9 +55,7 @@ export class HrWebhookController {
     )
       throw new UnauthorizedException();
 
-    const name = asObject(request.body)?.name;
-    if (typeof name !== "string" || name.length === 0)
-      throw new BadRequestException("Send the employee's name");
+    const { name } = employeeWebhook.transform(request.body);
     await this.sync.execute(name);
   }
 }

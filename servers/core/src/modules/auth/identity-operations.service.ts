@@ -18,7 +18,13 @@ import {
   AUDIT_TRAIL,
   type AuditTrail,
 } from "../audit/application/audit.facade";
-import { canManageTarget, isSuperAdmin, rolesOf } from "./access-policy";
+import {
+  canManageTarget,
+  isSuperAdmin,
+  OWN_OPERATOR_ACCOUNT_REQUIRED,
+  requireOwnSession,
+  rolesOf,
+} from "./access-policy";
 import { TEMPORARY_PASSWORD_LIFETIME_MS } from "./auth";
 import type {
   ApproveRecoveryBody,
@@ -47,10 +53,9 @@ export interface IdentityOperator {
 
 export const requireVerifiedOperator = (actor: IdentityOperator): void => {
   const age = Date.now() - actor.sessionCreatedAt.getTime();
-  if (actor.impersonatedBy || !actor.twoFactorEnabled)
-    throw new ForbiddenException(
-      "Use your own MFA-protected operator account.",
-    );
+  requireOwnSession(actor);
+  if (!actor.twoFactorEnabled)
+    throw new ForbiddenException(OWN_OPERATOR_ACCOUNT_REQUIRED);
   if (!Number.isFinite(age) || age < 0 || age >= 15 * 60_000)
     throw new ForbiddenException({
       code: "SESSION_NOT_FRESH",
@@ -316,6 +321,33 @@ export class IdentityOperationsService {
       detail: `${id}: ${evidence}`,
     });
     return { temporaryPassword, onboarding };
+  }
+
+  /**
+   * One session, by id, so the operator never holds its token. The owner is
+   * read from the stored row, and the same rule as every targeted admin route
+   * keeps a privileged account's sessions to a super administrator.
+   */
+  async revokeSession(sessionId: string, actor: IdentityOperator) {
+    const [owner] = await this.database
+      .select({ id: user.id, role: user.role })
+      .from(session)
+      .innerJoin(user, eq(user.id, session.userId))
+      .where(eq(session.id, sessionId));
+    if (!owner) throw new NotFoundException("Session not found.");
+    if (!canManageTarget(actor.role, owner.role))
+      throw new ForbiddenException({
+        code: "PRIVILEGED_TARGET_REQUIRES_SUPER_ADMIN",
+        message: "Only a super administrator can manage a privileged account.",
+      });
+    await this.database.delete(session).where(eq(session.id, sessionId));
+    await this.audit.record({
+      actorId: actor.id,
+      detail: sessionId,
+      targetUserId: owner.id,
+      type: "user.session.revoked",
+    });
+    return { revoked: true };
   }
 
   async offboard(userId: string, detail: string, actor: IdentityOperator) {

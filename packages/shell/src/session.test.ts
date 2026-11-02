@@ -1,6 +1,13 @@
-import { describe, expect, it, test } from "bun:test";
+import { describe, expect, it, test, spyOn } from "bun:test";
+
+import { QueryClient } from "@tanstack/react-query";
 
 import {
+  admit,
+  admitAdmin,
+  sessionQueryOptions,
+  domainMembershipQueryOptions,
+  WORKSPACE_URL,
   fetchSession,
   fetchDomainMemberships,
   isAdmitted,
@@ -135,4 +142,121 @@ test("domain membership reads fail closed and reject malformed responses", async
       Response.json({ data: [membership] }),
     ),
   ).toEqual([membership]);
+});
+
+describe("route admission", () => {
+  const person = { user: { email: "ana@tagaroa.com", role: "user" } };
+  const membership = (domainSlug: string) => ({
+    teamId: `team-${domainSlug}`,
+    organizationId: "subsidiary",
+    domainSlug,
+    administered: false,
+  });
+  const client = (
+    session: import("./session").SessionState,
+    slugs: string[] = [],
+  ) => {
+    const queryClient = new QueryClient();
+    queryClient.setQueryData(sessionQueryOptions.queryKey, session);
+    queryClient.setQueryData(
+      domainMembershipQueryOptions.queryKey,
+      slugs.map(membership),
+    );
+    return queryClient;
+  };
+
+  it("admits only server-bound domains, deduplicating and ignoring display names", async () => {
+    const result = await admit(
+      client(person, ["engineering", "engineering", "Finance", "unknown"]),
+      "engineering",
+    );
+    expect(result).toEqual({
+      session: person,
+      domains: [{ slug: "engineering", label: "Engineering", live: true }],
+      admin: false,
+    });
+  });
+
+  it("allows the workspace with no memberships and preserves coming-soon domains", async () => {
+    expect((await admit(client(person))).domains).toEqual([]);
+    expect(
+      (await admit(client(person, ["finance"]), "finance")).domains,
+    ).toEqual([{ slug: "finance", label: "Finance", live: false }]);
+  });
+
+  it("refuses domain access even for an identity super-admin without membership", async () => {
+    await expect(
+      admit(
+        client({ user: { role: "super-admin", twoFactorEnabled: true } }),
+        "engineering",
+      ),
+    ).rejects.toMatchObject({ options: { href: WORKSPACE_URL } });
+    await expect(
+      admit(client(person, ["engineering"]), "finance"),
+    ).rejects.toMatchObject({ options: { href: WORKSPACE_URL } });
+  });
+
+  it("sends missing, temporary-password and non-MFA privileged sessions to sign-in", async () => {
+    const previousWindow = Object.getOwnPropertyDescriptor(
+      globalThis,
+      "window",
+    );
+    Object.defineProperty(globalThis, "window", {
+      configurable: true,
+      value: {
+        location: { href: "http://localhost:3000/engineering?tab=work" },
+      },
+    });
+    try {
+      for (const session of [
+        null,
+        { user: { mustChangePassword: true } },
+        { user: { role: "admin" } },
+      ]) {
+        for (const guard of [
+          () => admit(client(session, ["engineering"]), "engineering"),
+          () => admitAdmin(client(session)),
+        ]) {
+          await expect(guard()).rejects.toMatchObject({
+            options: { href: signInUrl(window.location.href) },
+          });
+        }
+      }
+    } finally {
+      if (previousWindow)
+        Object.defineProperty(globalThis, "window", previousWindow);
+      else Reflect.deleteProperty(globalThis, "window");
+    }
+  });
+
+  it("admits each MFA identity role to admin but sends ordinary members to the workspace", async () => {
+    await expect(admitAdmin(client(person))).rejects.toMatchObject({
+      options: { href: WORKSPACE_URL },
+    });
+    for (const role of [
+      "access-reviewer",
+      "helpdesk",
+      "admin",
+      "super-admin",
+      "user, helpdesk",
+    ]) {
+      const session = { user: { role, twoFactorEnabled: true } };
+      expect(await admitAdmin(client(session))).toEqual(session);
+      expect((await admit(client(session))).admin).toBe(true);
+    }
+  });
+
+  it("does not admit when the session or membership query fails", async () => {
+    const queryClient = client(person, ["engineering"]);
+    const query = spyOn(queryClient, "ensureQueryData").mockRejectedValue(
+      new Error("query unavailable"),
+    );
+    try {
+      await expect(admit(queryClient, "engineering")).rejects.toThrow(
+        "query unavailable",
+      );
+    } finally {
+      query.mockRestore();
+    }
+  });
 });
