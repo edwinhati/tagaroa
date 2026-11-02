@@ -1,11 +1,10 @@
 import {
-  BadRequestException,
   ConflictException,
   Inject,
   Injectable,
   NotFoundException,
 } from "@nestjs/common";
-import { asObject, type Collection } from "@repo/contracts";
+import type { Collection } from "@repo/contracts";
 
 import {
   pageCollection,
@@ -21,7 +20,10 @@ import {
   type TemplateRepository,
 } from "../../domain/repositories/template.repository";
 import { NOTIFICATION_CHANNELS } from "../../domain/value-objects/notification-channel.vo";
-import { TemplateDraft } from "../../domain/value-objects/template-draft.vo";
+import {
+  TemplateDraft,
+  type TemplateDraftProps,
+} from "../../domain/value-objects/template-draft.vo";
 import type { TemplateRow } from "../dto/notification.read-models";
 
 const TEMPLATE_STATUSES = ["draft", "published", "archived"] as const;
@@ -94,7 +96,7 @@ export class CreateTemplateUseCase {
   ) {}
 
   async execute(
-    input: unknown,
+    input: TemplateDraftProps,
     authorId: string,
   ): Promise<{ id: string; version: number }> {
     const draft = TemplateDraft.parse(input);
@@ -123,22 +125,18 @@ export class EditTemplateUseCase {
     private readonly templates: TemplateRepository,
   ) {}
 
-  async execute(id: string, input: unknown, authorId: string): Promise<void> {
+  async execute(
+    id: string,
+    input: TemplateDraftProps,
+    expectedUpdatedAt: Date,
+    authorId: string,
+  ): Promise<void> {
     const draft = TemplateDraft.parse(input);
-    const expected = asObject(input)?.expectedUpdatedAt;
-    if (
-      typeof expected !== "string" ||
-      !Number.isFinite(Date.parse(expected))
-    ) {
-      throw new BadRequestException(
-        "expectedUpdatedAt must be a valid timestamp",
-      );
-    }
     const edited = await this.templates.updateDraft(
       id,
       draft,
       authorId,
-      new Date(expected),
+      expectedUpdatedAt,
     );
 
     if (!edited) {
