@@ -142,6 +142,8 @@ export const notificationMessage = notificationSchema.table(
     // The dispatcher's claim query reads exactly this.
     index("notificationMessage_due_idx").on(table.status, table.nextAttemptAt),
     index("notificationMessage_providerId_idx").on(table.providerId),
+    // The admin log pages and tallies by created_at; without it each is a scan.
+    index("notificationMessage_createdAt_idx").on(table.createdAt),
     index("notificationMessage_destination_idx").on(
       table.channel,
       table.destination,
