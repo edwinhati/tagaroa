@@ -29,6 +29,13 @@
       "when": 1793757354324,
       "tag": "0003_break_glass_fk_indexes",
       "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1793757355324,
+      "tag": "0004_member_unique_membership",
+      "breakpoints": true
     }
   ]
 }
