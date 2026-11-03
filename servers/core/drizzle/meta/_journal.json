@@ -22,6 +22,13 @@
       "when": 1793757353324,
       "tag": "0002_session_activity_indexes",
       "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "7",
+      "when": 1793757354324,
+      "tag": "0003_break_glass_fk_indexes",
+      "breakpoints": true
     }
   ]
 }
