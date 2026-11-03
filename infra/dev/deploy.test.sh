@@ -38,6 +38,20 @@ for attempt in 1 2; do
   test ! -f "$tmp/.release.env"
   if grep -q 'up -d --wait --wait-timeout 240' "$TRACE"; then echo 'Unverified images were started'; exit 1; fi
 done
+cp "$root/onboard.sh" "$tmp/onboard.sh"
+rm -f "$tmp/.release.env" "$TRACE"
+FAIL_STEP=never-match
+sh "$tmp/onboard.sh" first-core first-web admin@example.test > "$tmp/log" 2>&1
+test ! -f "$tmp/.release.env"
+test ! -f "$tmp/.release.env.onboarding"
+if grep -q preflight "$TRACE"; then echo 'Onboarding ran preflight' >&2; exit 1; fi
+grep -q 'up -d --wait --wait-timeout 240 core web' "$TRACE"
+grep -q 'bootstrap-admin.ts admin@example.test' "$TRACE"
+printf 'CORE_IMAGE=x\nWEB_IMAGE=y\n' > "$tmp/.release.env"
+if sh "$tmp/onboard.sh" first-core first-web > "$tmp/log" 2>&1; then
+  echo 'Onboarding ran after a release was recorded' >&2; exit 1
+fi
+rm -f "$tmp/.release.env"
 for event in pull_request pull_request_target issue_comment; do
   if GITHUB_EVENT_NAME=$event GITHUB_REF=refs/heads/main sh "$root/../runner/hooks/job-started.sh" > "$tmp/log" 2>&1; then
     echo "Runner accepted untrusted event: $event" >&2; exit 1
@@ -49,4 +63,4 @@ done
 if GITHUB_EVENT_NAME=workflow_dispatch GITHUB_REF=refs/heads/untrusted sh "$root/../runner/hooks/job-started.sh" > "$tmp/log" 2>&1; then
   echo 'Runner accepted a non-main ref' >&2; exit 1
 fi
-echo 'PASS: successful deploy, rollback at each stage, runner trust boundary'
+echo 'PASS: successful deploy, first-release onboarding, rollback at each stage, runner trust boundary'
