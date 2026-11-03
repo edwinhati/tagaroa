@@ -26,13 +26,19 @@ cat > "$tmp/bin/docker" <<'SH'
 case "$1 $2" in
   'exec postgres')
     [ -z "${FAIL_PREPARE:-}" ] || { echo 'Error response from daemon: No such container: postgres' >&2; exit 1; }
-    echo 0 ;;
+    case "$*" in
+      *pg_namespace*)
+        [ -z "${FAIL_SCHEMAS:-}" ] || { echo 'Live schema inspection failed' >&2; exit 1; }
+        echo "${LIVE_SCHEMAS:-0}" ;;
+      *) echo "${LIVE_DATABASE:-0}" ;;
+    esac ;;
   'volume rm')
     [ -z "${FAIL_CLEANUP:-}" ] || { echo 'Error response from daemon: volume is in use' >&2; exit 1; } ;;
   'inspect victoriametrics') echo 127.0.0.1 ;;
   compose*)
     while [ "$1" != run ]; do override=$1; shift; done
     scratch=$(dirname "$override")
+    cp "$override" "$FIXTURE_OVERRIDE"
     stop=$(($(date +%s) - AGE_HOURS * 3600))
     echo "[{\"backup\":[{\"timestamp\":{\"stop\":$stop}}]}]" > "$scratch/result/backup-info.json"
     i=0; while [ $i -lt 30 ]; do i=$((i + 1)); echo "pgbackrest $i"; done > "$scratch/pgbackrest-log/main-restore.log"
@@ -47,7 +53,7 @@ run() {
   rm -f "$tmp/alert.json"
   expected=$1; shift
   status=0
-  env PATH="$tmp/bin:$PATH" AGE_HOURS=1 "$@" bash "$fixture_root/postgres/pgbackrest/restore-test.sh" \
+  env PATH="$tmp/bin:$PATH" FIXTURE_OVERRIDE="$tmp/override.yml" AGE_HOURS=1 "$@" bash "$fixture_root/postgres/pgbackrest/restore-test.sh" \
     > "$tmp/journal" 2>&1 || status=$?
   [ "$status" = "$expected" ] || { echo "FAIL: $* exited $status"; cat "$tmp/journal"; exit 1; }
 }
@@ -59,12 +65,26 @@ expect_alert() {
 
 run 0
 [ ! -e "$tmp/alert.json" ] || { echo 'FAIL: alert on pass'; exit 1; }
+grep -qF 'REQUIRE_TAGAROA: "0"' "$tmp/override.yml"
+grep -qF 'REQUIRE_TAGAROA_CONTENTS: "0"' "$tmp/override.yml"
+
+run 0 LIVE_DATABASE=1
+grep -qF 'REQUIRE_TAGAROA: "1"' "$tmp/override.yml"
+grep -qF 'REQUIRE_TAGAROA_CONTENTS: "0"' "$tmp/override.yml"
+
+for schemas in 1 2; do
+  run 0 LIVE_DATABASE=1 LIVE_SCHEMAS=$schemas
+  grep -qF 'REQUIRE_TAGAROA_CONTENTS: "1"' "$tmp/override.yml"
+done
 
 run 1 AGE_HOURS=49
 expect_alert '"step":"backup-age"' 'Newest backup is older than 48 hours' 'failed at backup-age (exit 1)'
 
 run 1 FAIL_PREPARE=1
 expect_alert '"step":"prepare"' 'No such container: postgres'
+
+run 1 LIVE_DATABASE=1 FAIL_SCHEMAS=1
+expect_alert '"step":"prepare"' 'Live schema inspection failed'
 
 run 1 FAIL_CLEANUP=1
 expect_alert '"step":"cleanup"' 'volume is in use'

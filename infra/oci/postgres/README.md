@@ -35,6 +35,24 @@ reads it between monthly runs. The alert uses a range query so a single imported
 sample remains visible for the full monitoring window. Apply the updated
 `infra/oci/monitoring/alerts.yml` and restart vmalert after installation.
 
-Tagaroa database checks are required once the live database exists. Before then,
-the test checks Pangolin, NetBird and Arcane. This verifies restore capability in
-the current OCI tenancy; separate-account disaster recovery remains out of scope.
+Tagaroa database presence is required once the live database exists. Migration
+and user rows are required once either the live `auth` or `drizzle` schema exists;
+an empty provisioned database has no application data to verify yet. Partial
+initialization still requires both tables and nonempty migration/user data.
+Before provisioning, the test checks Pangolin, NetBird and Arcane.
+
+The restore stops at the selected backup's earliest consistent point
+(`--type=immediate`), not the current live state. A database created after that
+backup must still fail the presence check. After provisioning or initializing
+Tagaroa, take a fresh backup and verify it before relying on that backup for
+recovery. A successful backup alone does not prove the restore check will pass.
+Install both scripts together; an older host script defaults to strict contents
+checks. Run the local regression checks without Docker or repository access:
+
+```sh
+sh infra/oci/postgres/restore-test.test.sh
+sh infra/oci/postgres/restore-container.test.sh
+```
+
+This verifies restore capability in the current OCI tenancy; separate-account
+disaster recovery remains out of scope.
