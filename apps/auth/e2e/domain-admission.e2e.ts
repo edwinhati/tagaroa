@@ -8,7 +8,7 @@ const origin = "http://localhost:13001";
 test(
   "engineering requires a session and current Engineering membership",
   { lock: "e2e-admin" },
-  async ({ page, request }) => {
+  async ({ page, request, browser }) => {
     await page.goto(domain, { waitUntil: "domcontentloaded" });
     await expect(page).toHaveURL(/localhost:13001\/\?redirect=/);
     await expect(
@@ -25,6 +25,9 @@ test(
     const headers = { origin };
     const [original] =
       await sql`select role from auth."user" where email = ${operator.email}`;
+    let other: Awaited<ReturnType<typeof browser.newContext>> | undefined;
+    let organizationId: string | undefined;
+    const userIds: string[] = [];
     try {
       await sql`update auth."user" set two_factor_enabled = false, role = 'super-admin' where email = ${operator.email}`;
       expect(
@@ -49,6 +52,7 @@ test(
       });
       expect(created.ok()).toBe(true);
       const userId = (await created.json()).user.id;
+      userIds.push(userId);
       await sql`update auth."user" set must_change_password = false where id = ${userId}`;
       const subsidiary = await request.post(
         `${core}/api/auth-management/subsidiaries`,
@@ -58,7 +62,7 @@ test(
         },
       );
       expect(subsidiary.status()).toBe(201);
-      const organizationId = (await subsidiary.json()).data.id;
+      organizationId = (await subsidiary.json()).data.id;
       const team = await request.post(
         `${core}/api/auth-management/subsidiaries/${organizationId}/teams`,
         {
@@ -104,6 +108,41 @@ test(
           )
         ).ok(),
       ).toBe(true);
+      const otherEmail = `other-${crypto.randomUUID()}@tagaroa.test`;
+      const issuedOther = await request.post(
+        `${core}/api/auth/admin/create-user`,
+        {
+          headers,
+          data: {
+            email: otherEmail,
+            password,
+            name: "Unassigned colleague",
+            data: { personalEmail: `personal.${otherEmail}` },
+          },
+        },
+      );
+      expect(issuedOther.ok()).toBe(true);
+      const otherId = (await issuedOther.json()).user.id;
+      userIds.push(otherId);
+      await sql`update auth."user" set must_change_password = false where id = ${otherId}`;
+      expect(
+        (
+          await request.post(
+            `${core}/api/auth-management/subsidiaries/${organizationId}/members`,
+            { headers, data: { userId: otherId } },
+          )
+        ).ok(),
+      ).toBe(true);
+      other = await browser.newContext();
+      expect(
+        (
+          await other.request.post(`${core}/api/auth/sign-in/email`, {
+            headers,
+            data: { email: otherEmail, password },
+          })
+        ).ok(),
+      ).toBe(true);
+      const colleague = await other.newPage();
       expect(
         (
           await request.post(`${core}/api/auth/organization/set-active`, {
@@ -124,6 +163,25 @@ test(
       await expect(
         page.getByRole("heading", { name: "Engineering", exact: true }),
       ).toBeVisible();
+      await colleague.goto(domain, { waitUntil: "domcontentloaded" });
+      await expect(colleague).toHaveURL("http://localhost:13002/");
+      await expect(
+        colleague.getByRole("heading", { name: "Home", exact: true }),
+      ).toBeVisible();
+      await expect(
+        colleague.getByRole("link", { name: "Engineering", exact: true }),
+      ).toHaveCount(0);
+      await page.reload();
+      await expect(
+        page.getByRole("heading", { name: "Engineering", exact: true }),
+      ).toBeVisible();
+      expect(
+        (
+          await (
+            await colleague.request.get(`${core}/api/auth/get-session`)
+          ).json()
+        ).user.id,
+      ).toBe(otherId);
       expect(
         (
           await request.post(
@@ -142,6 +200,11 @@ test(
         headers,
       });
     } finally {
+      await other?.close();
+      for (const id of userIds)
+        await sql`delete from auth."user" where id = ${id}`;
+      if (organizationId)
+        await sql`delete from auth.organization where id = ${organizationId}`;
       await sql`update auth."user" set role = ${original.role}, two_factor_enabled = true where email = ${operator.email}`;
       await sql.close();
     }

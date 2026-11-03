@@ -825,23 +825,6 @@ test("remaining emergency access is visible and can be ended from another tab", 
     await page
       .getByRole("button", { name: "Request emergency access" })
       .click();
-    const activation = await page.request.post(
-      `${coreOrigin}/api/access-control/break-glass`,
-      {
-        headers: { origin: adminOrigin },
-        data: {
-          organizationId,
-          permission: "domain:administer",
-          scope: "subsidiary",
-          reason: "QA cross-tab recovery",
-        },
-      },
-    );
-    expect(activation.status()).toBe(201);
-    elevationId = (await activation.json()).data.id;
-    await expect(
-      page.getByText("Emergency access is active", { exact: true }),
-    ).toBeVisible();
     const other = await context.newPage();
     await other.goto("/identity-access/privileged-access");
     await other.bringToFront();
@@ -852,9 +835,37 @@ test("remaining emergency access is visible and can be ended from another tab", 
       name: "Emergency access",
       exact: true,
     });
+    await dialog
+      .getByRole("combobox", { name: "Subsidiary", exact: true })
+      .selectOption(organizationId);
+    await dialog
+      .getByRole("combobox", { name: "Scope", exact: true })
+      .selectOption("subsidiary");
+    await dialog
+      .getByLabel("Reason", { exact: true })
+      .fill("QA cross-tab recovery");
+    const activated = other.waitForResponse(
+      (response) =>
+        response.request().method() === "POST" &&
+        response.url().endsWith("/api/access-control/break-glass"),
+    );
+    await dialog
+      .getByRole("button", { name: "Activate for 15 minutes" })
+      .click();
+    const activation = await activated;
+    expect(activation.status()).toBe(201);
+    elevationId = (await activation.json()).data.id;
     await expect(
       dialog.getByText("Emergency access is active", { exact: true }),
     ).toBeVisible();
+    await page.bringToFront();
+    await expect(
+      page.getByText("Emergency access is active", { exact: true }),
+    ).toBeVisible();
+    await expect(
+      page.getByText("QA cross-tab recovery", { exact: true }),
+    ).toBeVisible();
+    await other.bringToFront();
     await settleAnimations(other);
     const accessibility = await new AxeBuilder({ page: other })
       .include('[role="dialog"]')
@@ -1169,6 +1180,33 @@ test("membership, scoped assignment, emergency access, impersonation and deletio
       ).ok(),
     ).toBe(true);
     await page.goto(`/subsidiaries?id=${organizationId}`);
+    await page.route(
+      `**/api/auth-management/subsidiaries/${organizationId}/members`,
+      (route) =>
+        route.fulfill({
+          status: 503,
+          json: { message: "QA membership unavailable" },
+        }),
+    );
+    await page
+      .getByRole("combobox", { name: "Add someone to Engineering" })
+      .click();
+    const failedAdd = page.waitForResponse(
+      (response) =>
+        response.url().endsWith(`/subsidiaries/${organizationId}/members`) &&
+        response.request().method() === "POST",
+    );
+    await page.getByRole("option", { name: email, exact: true }).click();
+    expect((await failedAdd).status()).toBe(503);
+    await expect(
+      page.getByRole("button", { name: `Remove ${email} from Engineering` }),
+    ).toHaveCount(0);
+    expect(
+      await sql`select id from auth.member where organization_id = ${organizationId} and user_id = ${userId}`,
+    ).toHaveLength(0);
+    await page.unroute(
+      `**/api/auth-management/subsidiaries/${organizationId}/members`,
+    );
     await page
       .getByRole("combobox", { name: "Add someone to Engineering" })
       .click();
@@ -1389,9 +1427,43 @@ test("a super administrator creates, edits and archives a business role with key
     await expect(create).toBeFocused();
     await page.keyboard.press("Enter");
     const dialog = page.getByRole("dialog", { name: "Create a business role" });
+    const saveRole = dialog.getByRole("button", { name: "Save role" });
+    await expect(saveRole).toBeDisabled();
     await dialog.getByLabel("Name", { exact: true }).fill(name);
+    await expect(dialog.getByLabel("Stable key")).toHaveValue(
+      name.toLowerCase().replace(/[^a-z0-9]+/g, "-"),
+    );
+    const key = `qa-custom-${crypto.randomUUID()}`;
+    await dialog.getByLabel("Stable key").fill(key);
+    await expect(saveRole).toBeDisabled();
     await dialog.getByLabel("Description").fill("QA explicit scoped access");
+    await expect(saveRole).toBeDisabled();
     await dialog.getByRole("checkbox").first().check();
+    await dialog.getByRole("checkbox").first().uncheck();
+    await expect(saveRole).toBeDisabled();
+    await dialog.getByRole("checkbox").first().check();
+    await page.route("**/api/access-control/roles", (route) =>
+      route.request().method() === "POST"
+        ? route.fulfill({
+            status: 503,
+            json: { message: "QA role unavailable" },
+          })
+        : route.continue(),
+    );
+    const failedSave = page.waitForResponse(
+      (response) =>
+        response.request().method() === "POST" &&
+        response.url().endsWith("/api/access-control/roles"),
+    );
+    await saveRole.click();
+    expect((await failedSave).status()).toBe(503);
+    await expect(dialog.getByLabel("Name", { exact: true })).toHaveValue(name);
+    await expect(dialog.getByLabel("Stable key")).toHaveValue(key);
+    await expect(dialog.getByLabel("Description")).toHaveValue(
+      "QA explicit scoped access",
+    );
+    await expect(dialog.getByRole("checkbox").first()).toBeChecked();
+    await page.unroute("**/api/access-control/roles");
     // Axe would otherwise catch Save mid re-render at disabled opacity, or
     // mid-way through the 150ms opacity transition back from it.
     const save = dialog.getByRole("button", { name: "Save role" });
@@ -1415,12 +1487,30 @@ test("a super administrator creates, edits and archives a business role with key
     await expect(row).toBeVisible();
     await row.getByRole("button", { name: "Edit role" }).click();
     const edit = page.getByRole("dialog", { name: `Edit ${name}` });
+    await expect(edit.getByLabel("Stable key")).toHaveCount(0);
+    await expect(edit.getByLabel("Description")).toHaveValue(
+      "QA explicit scoped access",
+    );
+    await expect(edit.getByRole("checkbox").first()).toBeChecked();
+    await edit.getByLabel("Description").fill("QA revised description");
     await edit.getByLabel("Name", { exact: true }).fill(`${name} updated`);
     await edit.getByRole("button", { name: "Save role" }).click();
     await expect(edit).toHaveCount(0);
     await page.reload();
     row = page.getByRole("row").filter({ hasText: `${name} updated` });
     await expect(row).toBeVisible();
+    await expect(row).toContainText("QA revised description");
+    const [storedRole] =
+      await sql`select id, key, description from access_control.access_role where key = ${key}`;
+    expect(storedRole).toMatchObject({
+      key,
+      description: "QA revised description",
+    });
+    expect(
+      Array.from(
+        await sql`select permission from access_control.access_role_permission where role_id = ${storedRole.id}`,
+      ),
+    ).toEqual([{ permission: "domain:administer" }]);
     const archived = page.waitForResponse(
       (response) =>
         response.request().method() === "DELETE" &&
@@ -1953,6 +2043,165 @@ test("business reviews, independent factor recovery and offboarding work through
     if (organizationId)
       await sql`delete from auth.organization where id = ${organizationId}`;
     await sql`update auth."user" set role = ${initial.role} where email = ${operator.email}`;
+    await sql.close();
+  }
+});
+
+test("directory renames persist, team deletion clears membership and subsidiary deletion is refused", async ({
+  page,
+}) => {
+  const sql = new SQL(databaseUrl);
+  const [original] =
+    await sql`select role from auth."user" where email = ${operator.email}`;
+  const headers = { origin: adminOrigin };
+  const suffix = crypto.randomUUID();
+  let organizationId: string | undefined;
+  try {
+    await sql`update auth."user" set role = 'super-admin' where email = ${operator.email}`;
+    const created = await page.request.post(
+      `${coreOrigin}/api/auth-management/subsidiaries`,
+      {
+        headers,
+        data: { name: `Directory ${suffix}`, slug: `directory-${suffix}` },
+      },
+    );
+    expect(created.status()).toBe(201);
+    organizationId = (await created.json()).data.id;
+    const createdTeam = await page.request.post(
+      `${coreOrigin}/api/auth-management/subsidiaries/${organizationId}/teams`,
+      {
+        headers,
+        data: { name: `Team ${suffix}` },
+      },
+    );
+    expect(createdTeam.status()).toBe(201);
+    const teamId = (await createdTeam.json()).data.id;
+    expect(
+      (
+        await page.request.post(
+          `${coreOrigin}/api/auth/organization/set-active`,
+          { headers, data: { organizationId } },
+        )
+      ).ok(),
+    ).toBe(true);
+    expect(
+      (
+        await page.request.put(
+          `${coreOrigin}/api/access-control/teams/${teamId}/domain`,
+          { headers, data: { domainSlug: "engineering" } },
+        )
+      ).ok(),
+    ).toBe(true);
+    const [person] =
+      await sql`select id from auth."user" where email = ${operator.email}`;
+    expect(
+      (
+        await page.request.post(
+          `${coreOrigin}/api/auth/organization/add-team-member`,
+          { headers, data: { teamId, userId: person.id } },
+        )
+      ).ok(),
+    ).toBe(true);
+    // Rename/delete controls are absent; exercise the supported writes and read their result in the browser.
+    expect(
+      (
+        await page.request.post(`${coreOrigin}/api/auth/organization/update`, {
+          headers,
+          data: {
+            organizationId,
+            data: { name: `Renamed subsidiary ${suffix}` },
+          },
+        })
+      ).ok(),
+    ).toBe(true);
+    expect(
+      (
+        await page.request.post(
+          `${coreOrigin}/api/auth/organization/update-team`,
+          {
+            headers,
+            data: { teamId, data: { name: `Renamed team ${suffix}` } },
+          },
+        )
+      ).ok(),
+    ).toBe(true);
+    await page.goto(`/subsidiaries?id=${organizationId}`);
+    await expect(
+      page.getByRole("heading", {
+        name: `Renamed subsidiary ${suffix}`,
+        exact: true,
+      }),
+    ).toBeVisible();
+    await expect(
+      page.getByRole("heading", {
+        name: `Renamed team ${suffix}`,
+        exact: true,
+      }),
+    ).toBeVisible();
+    await page.reload();
+    await expect(
+      page.getByRole("combobox", {
+        name: `Domain for Renamed team ${suffix}`,
+        exact: true,
+      }),
+    ).toContainText("Engineering");
+    await expect(
+      page.getByRole("button", {
+        name: `Remove ${operator.email} from Renamed team ${suffix}`,
+        exact: true,
+      }),
+    ).toBeVisible();
+    const spare = await page.request.post(
+      `${coreOrigin}/api/auth-management/subsidiaries/${organizationId}/teams`,
+      { headers, data: { name: `Retained team ${suffix}` } },
+    );
+    expect(spare.status()).toBe(201);
+    expect(
+      (
+        await page.request.post(
+          `${coreOrigin}/api/auth/organization/remove-team`,
+          { headers, data: { teamId, organizationId } },
+        )
+      ).ok(),
+    ).toBe(true);
+    await page.reload();
+    await expect(
+      page.getByRole("heading", {
+        name: `Renamed team ${suffix}`,
+        exact: true,
+      }),
+    ).toHaveCount(0);
+    await expect(
+      page.getByRole("heading", {
+        name: `Retained team ${suffix}`,
+        exact: true,
+      }),
+    ).toBeVisible();
+    expect(
+      await sql`select id from auth.team_member where team_id = ${teamId}`,
+    ).toHaveLength(0);
+    expect(
+      await sql`select team_id from access_control.team_domain where team_id = ${teamId}`,
+    ).toHaveLength(0);
+    const refused = await page.request.post(
+      `${coreOrigin}/api/auth/organization/delete`,
+      { headers, data: { organizationId } },
+    );
+    expect(refused.status()).toBe(403);
+    expect((await refused.json()).code).toBe(
+      "ORGANIZATION_WRITE_NOT_AVAILABLE",
+    );
+    await page.reload();
+    await expect(
+      page.getByRole("heading", {
+        name: `Renamed subsidiary ${suffix}`,
+        exact: true,
+      }),
+    ).toBeVisible();
+  } finally {
+    if (organizationId)
+      await sql`delete from auth.organization where id = ${organizationId}`;
+    await sql`update auth."user" set role = ${original.role} where email = ${operator.email}`;
     await sql.close();
   }
 });
