@@ -32,9 +32,16 @@ None.
 3. Start Postgres on the restored data in the same throwaway container; wait for
    `pg_isready` (timeout 10 minutes).
 4. Check, each a pass/fail:
-   - Databases `pangolin`, `netbird`, `arcane` and (once prod exists) `tagaroa` are present.
-   - In `tagaroa`: the drizzle migrations table has at least one row, and
+   - Databases `pangolin`, `netbird`, `arcane` and (once provisioned in the live cluster) `tagaroa` are present.
+   - Once either `auth` or `drizzle` exists in live `tagaroa`: the drizzle
+     migrations table has at least one row, and
      `auth."user"` has at least one row.
+     An empty provisioned database only requires database presence. Partial
+     initialization must fail the same table/row checks as a deployed application.
+   - Checks compare against live provisioning state, while `--type=immediate`
+     recovers the selected backup's earliest consistent point. After provisioning
+     or initialization, take and verify a fresh backup; a backup that predates
+     that state must fail rather than bypass the assertions.
    - The newest backup's timestamp (`pgbackrest info --output=json`) is under 48 hours old.
 5. Remove the container and the volume, pass or fail.
 6. On pass, write `pgbackrest_restore_test_last_success_timestamp_seconds <unix time>`

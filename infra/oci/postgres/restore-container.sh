@@ -28,6 +28,10 @@ for database in pangolin netbird arcane; do
   [ "$found" = 1 ] || { echo "Missing restored database: $database"; exit 1; }
 done
 if [ "$REQUIRE_TAGAROA" = 1 ]; then
+  found=$(gosu postgres psql -h /tmp -U postgres -Atc "SELECT count(*) FROM pg_database WHERE datname='tagaroa'")
+  [ "$found" = 1 ] || { echo 'Missing restored database: tagaroa (the selected backup may predate provisioning)'; exit 1; }
+fi
+if [ "${REQUIRE_TAGAROA_CONTENTS:-$REQUIRE_TAGAROA}" = 1 ]; then
   gosu postgres psql -h /tmp -U postgres -d tagaroa -v ON_ERROR_STOP=1 -Atc \
     'SELECT CASE WHEN (SELECT count(*) FROM drizzle.__drizzle_migrations) > 0 AND (SELECT count(*) FROM auth."user") > 0 THEN 1 ELSE 0 END' \
     > /restore/tagaroa-check

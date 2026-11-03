@@ -49,6 +49,12 @@ trap 'exit 143' TERM
 stanza=${RESTORE_TEST_STANZA:-main}
 [[ "$stanza" =~ ^[a-zA-Z0-9_-]+$ ]] || { echo 'Invalid stanza'; exit 1; }
 required=$(docker exec postgres psql -U postgres -Atc "SELECT count(*) FROM pg_database WHERE datname='tagaroa'")
+contents=0
+if [ "$required" = 1 ]; then
+  # An empty provisioned database is not yet an application deployment.
+  schemas=$(docker exec postgres psql -U postgres -d tagaroa -Atc "SELECT count(*) FROM pg_namespace WHERE nspname IN ('auth', 'drizzle')")
+  if [ "$schemas" -gt 0 ]; then contents=1; fi
+fi
 docker volume create "$id" >/dev/null
 docker network create "$id" >/dev/null
 mkdir "$scratch/result"
@@ -63,6 +69,7 @@ services:
     environment:
       RESTORE_TEST_STANZA: $stanza
       REQUIRE_TAGAROA: "$required"
+      REQUIRE_TAGAROA_CONTENTS: "$contents"
     volumes: !override
       - $id:/var/lib/postgresql
       - $root/pgbackrest.conf.template:/etc/pgbackrest/pgbackrest.conf.template:ro
