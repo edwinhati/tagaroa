@@ -358,9 +358,9 @@ export class AccessControlService implements AccessControl {
     now = new Date(),
   ) {
     requireOwnSession(actor);
-    const assignment = (await this.repository.listAssignments()).find(
-      (candidate) => candidate.id === id,
-    );
+    const assignment = (
+      await this.repository.listAssignments({ unrevoked: true })
+    ).find((candidate) => candidate.id === id);
     if (!assignment || assignment.revokedAt) {
       throw new NotFoundException("Assignment not found.");
     }

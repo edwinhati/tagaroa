@@ -59,35 +59,32 @@ export class AccessReviewService {
   ) {}
 
   async list(now = new Date()): Promise<AccessReviewSubject[]> {
-    const [assignments, emergencies, reviews] = await Promise.all([
-      this.access.listAssignments(),
+    const [assignments, emergencies] = await Promise.all([
+      this.access.listAssignments({ unrevoked: true }),
       this.reviews.emergencies(),
-      this.reviews.list(),
     ]);
     const subjects: AccessReviewSubject[] = [
-      ...assignments
-        .filter((row) => !row.revokedAt)
-        .map((row): AccessReviewSubject => ({
-          kind: "assignment",
-          id: row.id,
-          userId: row.userId,
-          grantedBy: row.grantedBy,
-          organizationId: row.organizationId,
-          teamId: row.teamId,
-          label: row.role.name,
-          detail: row.expiresAt
-            ? `Expires ${row.expiresAt.toISOString()}`
-            : "No expiration",
-          snapshot: fingerprint({
-            ...row,
-            role: {
-              ...row.role,
-              permissions: [...row.role.permissions].sort(),
-            },
-          }),
-          eligible: row.active,
-          review: null,
-        })),
+      ...assignments.map((row): AccessReviewSubject => ({
+        kind: "assignment",
+        id: row.id,
+        userId: row.userId,
+        grantedBy: row.grantedBy,
+        organizationId: row.organizationId,
+        teamId: row.teamId,
+        label: row.role.name,
+        detail: row.expiresAt
+          ? `Expires ${row.expiresAt.toISOString()}`
+          : "No expiration",
+        snapshot: fingerprint({
+          ...row,
+          role: {
+            ...row.role,
+            permissions: [...row.role.permissions].sort(),
+          },
+        }),
+        eligible: row.active,
+        review: null,
+      })),
       ...emergencies.map((row): AccessReviewSubject => ({
         kind: "emergency",
         id: row.id,
@@ -112,6 +109,9 @@ export class AccessReviewService {
         review: null,
       })),
     ];
+    const reviews = await this.reviews.latest(
+      subjects.map(({ kind, id }) => ({ kind, id })),
+    );
     const bySubject = new Map(
       reviews.map((review) => [`${review.kind}:${review.subjectId}`, review]),
     );

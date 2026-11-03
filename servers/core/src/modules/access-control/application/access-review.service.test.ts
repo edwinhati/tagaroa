@@ -54,12 +54,13 @@ const fixture = (
   const records: BusinessAccessReview[] = [];
   const events: string[] = [];
   const access = {
-    listAssignments: async () => assignments,
+    listAssignments: async (options) =>
+      assignments.filter((row) => !options?.unrevoked || !row.revokedAt),
   } as AccessControlRepository;
   const service = new AccessReviewService(
     access,
     {
-      list: async () => records,
+      latest: async () => records,
       emergencies: async () => emergencies,
       record: async (review) => {
         records.push(review);

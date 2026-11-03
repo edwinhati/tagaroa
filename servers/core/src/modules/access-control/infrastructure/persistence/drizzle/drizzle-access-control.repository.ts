@@ -1,5 +1,5 @@
 import { Inject, Injectable } from "@nestjs/common";
-import { and, asc, eq, gt, isNull, or, ne } from "drizzle-orm";
+import { and, asc, eq, gt, inArray, isNull, ne, or } from "drizzle-orm";
 
 import {
   DATABASE,
@@ -36,12 +36,20 @@ import {
 export class DrizzleAccessControlRepository implements AccessControlRepository {
   constructor(@Inject(DATABASE) private readonly database: Database) {}
 
-  private async rolesById(): Promise<Map<string, AccessRoleRecord>> {
+  private async rolesById(
+    ids?: string[],
+  ): Promise<Map<string, AccessRoleRecord>> {
+    if (ids?.length === 0) return new Map();
     const [roles, permissions] = await Promise.all([
-      this.database.select().from(accessRole).orderBy(asc(accessRole.name)),
+      this.database
+        .select()
+        .from(accessRole)
+        .where(ids ? inArray(accessRole.id, ids) : undefined)
+        .orderBy(asc(accessRole.name)),
       this.database
         .select()
         .from(accessRolePermission)
+        .where(ids ? inArray(accessRolePermission.roleId, ids) : undefined)
         .orderBy(asc(accessRolePermission.permission)),
     ]);
     const byRole = new Map<string, string[]>();
@@ -63,7 +71,7 @@ export class DrizzleAccessControlRepository implements AccessControlRepository {
   }
 
   async findRole(id: string): Promise<AccessRoleRecord | null> {
-    return (await this.rolesById()).get(id) ?? null;
+    return (await this.rolesById([id])).get(id) ?? null;
   }
 
   async roleKeyOrNameExists(
@@ -284,25 +292,32 @@ export class DrizzleAccessControlRepository implements AccessControlRepository {
     return row ?? null;
   }
 
-  async listAssignments(): Promise<AssignmentView[]> {
-    const [
-      assignments,
-      roles,
-      organizationMemberships,
-      teamMemberships,
-      users,
-    ] = await Promise.all([
-      this.database
-        .select()
-        .from(accessAssignment)
-        .orderBy(asc(accessAssignment.grantedAt)),
-      this.rolesById(),
-      this.database.select().from(member),
-      this.database.select().from(teamMember),
-      this.database
-        .select({ id: user.id, mfa: user.twoFactorEnabled })
-        .from(user),
-    ]);
+  async listAssignments(
+    options: { unrevoked?: boolean } = {},
+  ): Promise<AssignmentView[]> {
+    const assignments = await this.database
+      .select()
+      .from(accessAssignment)
+      .where(options.unrevoked ? isNull(accessAssignment.revokedAt) : undefined)
+      .orderBy(asc(accessAssignment.grantedAt));
+    if (assignments.length === 0) return [];
+    const userIds = [...new Set(assignments.map((row) => row.userId))];
+    const [roles, organizationMemberships, teamMemberships, users] =
+      await Promise.all([
+        this.rolesById([...new Set(assignments.map((row) => row.roleId))]),
+        this.database
+          .select()
+          .from(member)
+          .where(inArray(member.userId, userIds)),
+        this.database
+          .select()
+          .from(teamMember)
+          .where(inArray(teamMember.userId, userIds)),
+        this.database
+          .select({ id: user.id, mfa: user.twoFactorEnabled })
+          .from(user)
+          .where(inArray(user.id, userIds)),
+      ]);
     const organizationMemberKeys = new Set(
       organizationMemberships.map(
         (row) => `${row.organizationId}:${row.userId}`,

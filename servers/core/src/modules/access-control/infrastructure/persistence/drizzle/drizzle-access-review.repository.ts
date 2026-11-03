@@ -1,5 +1,15 @@
 import { Inject, Injectable } from "@nestjs/common";
-import { asc, sql } from "drizzle-orm";
+import {
+  and,
+  asc,
+  desc,
+  eq,
+  gte,
+  inArray,
+  notExists,
+  or,
+  sql,
+} from "drizzle-orm";
 
 import {
   DATABASE,
@@ -17,11 +27,41 @@ import { accessReview, breakGlassElevation } from "./schema";
 export class DrizzleAccessReviewRepository implements AccessReviewRepository {
   constructor(@Inject(DATABASE) private readonly database: Database) {}
 
-  async list(): Promise<BusinessAccessReview[]> {
+  async latest(
+    subjects: { kind: ReviewKind; id: string }[],
+  ): Promise<BusinessAccessReview[]> {
+    const ids = (kind: ReviewKind) =>
+      subjects.filter((row) => row.kind === kind).map((row) => row.id);
+    const [assignments, emergencies] = [ids("assignment"), ids("emergency")];
+    const matches = [
+      ...(assignments.length
+        ? [
+            and(
+              eq(accessReview.kind, "assignment"),
+              inArray(accessReview.subjectId, assignments),
+            ),
+          ]
+        : []),
+      ...(emergencies.length
+        ? [
+            and(
+              eq(accessReview.kind, "emergency"),
+              inArray(accessReview.subjectId, emergencies),
+            ),
+          ]
+        : []),
+    ];
+    if (matches.length === 0) return [];
     const rows = await this.database
-      .select()
+      .selectDistinctOn([accessReview.kind, accessReview.subjectId])
       .from(accessReview)
-      .orderBy(asc(accessReview.reviewedAt), asc(accessReview.id));
+      .where(or(...matches))
+      .orderBy(
+        accessReview.kind,
+        accessReview.subjectId,
+        desc(accessReview.reviewedAt),
+        desc(accessReview.id),
+      );
     return rows.map((row) => ({
       ...row,
       kind: row.kind as ReviewKind,
@@ -29,10 +69,27 @@ export class DrizzleAccessReviewRepository implements AccessReviewRepository {
     }));
   }
 
+  // ponytail: 90-day window is fixed; make it a parameter if the queue needs a longer look-back.
   emergencies() {
     return this.database
       .select()
       .from(breakGlassElevation)
+      .where(
+        or(
+          gte(breakGlassElevation.activatedAt, sql`now() - interval '90 days'`),
+          notExists(
+            this.database
+              .select({ one: sql`1` })
+              .from(accessReview)
+              .where(
+                and(
+                  eq(accessReview.kind, "emergency"),
+                  eq(accessReview.subjectId, breakGlassElevation.id),
+                ),
+              ),
+          ),
+        ),
+      )
       .orderBy(asc(breakGlassElevation.activatedAt));
   }
 
