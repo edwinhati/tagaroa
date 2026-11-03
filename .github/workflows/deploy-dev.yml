@@ -97,7 +97,7 @@ jobs:
         env:
           SHA: ${{ steps.sha.outputs.sha }}
         run: |
-          cp infra/dev/compose.yml infra/dev/deploy.sh "$APPS_DIR/"
+          cp infra/dev/compose.yml infra/dev/deploy.sh infra/dev/onboard.sh "$APPS_DIR/"
           sh "$APPS_DIR/deploy.sh" "$REGISTRY/tagaroa/core:$SHA" "$REGISTRY/tagaroa/web-dev:$SHA" 2>&1 | tee -a "$LOG"
 
       - name: Smoke check

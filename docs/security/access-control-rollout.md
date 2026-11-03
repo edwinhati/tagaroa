@@ -57,3 +57,12 @@ Run `bun run security:preflight` from `servers/core` with the intended productio
 The recovery staffing check requires at least two active, MFA-enrolled super-admins plus a separate active, MFA-enrolled requester with helpdesk, admin or super-admin authority. Accounts still using temporary passwords or without verified authenticator enrollment do not count. This ensures recovery of either super-admin has both a separate requester and an approver. It does not prove that accounts are controlled by different humans; verify that separately and assign named primary/backup owners.
 
 Exit status 0 means the automated technical checks passed. Status 1 means configuration, connectivity, permissions or a check failed. A successful check does not approve production release: record real email delivery, HTTPS enrollment/sign-in, operator ownership and a restore from the target environment's backup infrastructure before acceptance. A separate notification worker deployment must be checked with its own worker-enabled configuration and actual process health.
+
+### Dev first release: operator onboarding
+
+The dev deploy (`infra/dev/deploy.sh`) runs this preflight before starting core, so a fresh environment cannot pass it: the operators have to sign in and enrol MFA, which needs the app running. The gate stays as is. Break the loop by hand on CT 105, in `/home/tagaroa/apps`, using the `core` and `web` image refs from the failed deploy log:
+
+1. `sh onboard.sh <core-image> <web-image> <first-super-admin-email>` migrates and starts the stack without preflight and prints that account's one-time temporary password. It refuses to run once `.release.env` exists, and records no release.
+2. The first super-admin signs in, replaces the password and enrols an authenticator (verified).
+3. They create a second super-admin and a separate helpdesk/admin requester in the admin app. Each operator is a different person who completes their own password change and MFA enrolment.
+4. Re-run the dev deploy workflow. Preflight must pass on its own; if it does not, the next deploy stops core/web again.
