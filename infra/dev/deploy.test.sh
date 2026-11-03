@@ -44,7 +44,7 @@ FAIL_STEP=never-match
 sh "$tmp/onboard.sh" first-core first-web admin@example.test > "$tmp/log" 2>&1
 test ! -f "$tmp/.release.env"
 test ! -f "$tmp/.release.env.onboarding"
-! grep -q preflight "$TRACE"
+if grep -q preflight "$TRACE"; then echo 'Onboarding ran preflight' >&2; exit 1; fi
 grep -q 'up -d --wait --wait-timeout 240 core web' "$TRACE"
 grep -q 'bootstrap-admin.ts admin@example.test' "$TRACE"
 printf 'CORE_IMAGE=x\nWEB_IMAGE=y\n' > "$tmp/.release.env"
