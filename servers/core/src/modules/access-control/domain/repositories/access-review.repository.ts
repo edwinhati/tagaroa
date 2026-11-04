@@ -28,7 +28,11 @@ export interface EmergencyAccessRecord {
 }
 
 export interface AccessReviewRepository {
-  list(): Promise<BusinessAccessReview[]>;
+  /** The newest review of each given subject. */
+  latest(
+    subjects: { kind: ReviewKind; id: string }[],
+  ): Promise<BusinessAccessReview[]>;
+  /** Recent elevations, plus any older one nobody has reviewed yet. */
   emergencies(): Promise<EmergencyAccessRecord[]>;
   record(review: BusinessAccessReview): Promise<void>;
 }

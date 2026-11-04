@@ -116,7 +116,7 @@ export interface AccessControlRepository {
   ): Promise<boolean>;
   organizationExists(organizationId: string): Promise<boolean>;
   isTeamMember(userId: string, teamId: string): Promise<boolean>;
-  listAssignments(): Promise<AssignmentView[]>;
+  listAssignments(options?: { unrevoked?: boolean }): Promise<AssignmentView[]>;
   listRoles(): Promise<AccessRoleRecord[]>;
   roleKeyOrNameExists(
     key: string,
