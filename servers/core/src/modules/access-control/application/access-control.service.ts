@@ -46,6 +46,30 @@ export interface AccessActor {
   impersonatedBy?: string | null;
 }
 
+const isUniqueViolation = (error: unknown): boolean => {
+  const { cause, errno } = (error ?? {}) as {
+    cause?: unknown;
+    errno?: unknown;
+  };
+  return (
+    errno === "23505" ||
+    (cause !== undefined && cause !== error && isUniqueViolation(cause))
+  );
+};
+
+/** The pre-check can lose a race; the unique index then answers instead. */
+const rejectUniqueViolation = async <T>(
+  write: () => Promise<T>,
+  message: string,
+): Promise<T> => {
+  try {
+    return await write();
+  } catch (error) {
+    if (isUniqueViolation(error)) throw new ConflictException(message);
+    throw error;
+  }
+};
+
 const cleanText = (value: unknown, label: string, maximum: number): string => {
   if (typeof value !== "string" || value.trim().length === 0) {
     throw new BadRequestException(`${label} is required.`);
@@ -167,7 +191,10 @@ export class AccessControlService implements AccessControl {
     if (await this.repository.roleKeyOrNameExists(role.key, role.name)) {
       throw new ConflictException("A role already uses that name or key.");
     }
-    await this.repository.createRole(role);
+    await rejectUniqueViolation(
+      () => this.repository.createRole(role),
+      "A role already uses that name or key.",
+    );
     await this.audit.record({
       actorId: actor.id,
       detail: `${role.name} (${role.key})`,
@@ -202,13 +229,17 @@ export class AccessControlService implements AccessControl {
     ) {
       throw new ConflictException("A role already uses that name.");
     }
-    await this.repository.updateRole({
-      description: cleanText(input.description, "Description", 240),
-      id,
-      name,
-      permissions,
-      userId: actor.id,
-    });
+    await rejectUniqueViolation(
+      () =>
+        this.repository.updateRole({
+          description: cleanText(input.description, "Description", 240),
+          id,
+          name,
+          permissions,
+          userId: actor.id,
+        }),
+      "A role already uses that name.",
+    );
     await this.audit.record({
       actorId: actor.id,
       detail: existing.key,

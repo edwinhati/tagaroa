@@ -1,5 +1,5 @@
 import { Inject, Injectable } from "@nestjs/common";
-import { and, asc, eq, gt, inArray, isNull, ne, or } from "drizzle-orm";
+import { and, asc, eq, gt, inArray, isNull, ne, or, sql } from "drizzle-orm";
 
 import {
   DATABASE,
@@ -84,7 +84,10 @@ export class DrizzleAccessControlRepository implements AccessControlRepository {
       .from(accessRole)
       .where(
         and(
-          or(eq(accessRole.key, key), eq(accessRole.name, name)),
+          or(
+            eq(accessRole.key, key),
+            sql`lower(${accessRole.name}) = lower(${name})`,
+          ),
           ...(exceptId ? [ne(accessRole.id, exceptId)] : []),
         ),
       )
