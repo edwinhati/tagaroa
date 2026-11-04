@@ -81,4 +81,25 @@ describe("role names are unique ignoring case", () => {
       blind.createRole(input("e", `${TOKEN} AUDIT`), actor),
     ).rejects.toMatchObject({ status: 409 });
   });
+
+  test("losing a rename race to the unique index still answers 409", async () => {
+    const service = new AccessControlService(repository, audit);
+    await service.createRole(input("f", `${TOKEN} Payroll`), actor);
+    const other = await service.createRole(
+      input("g", `${TOKEN} Treasury`),
+      actor,
+    );
+    const blind = new AccessControlService(
+      Object.assign(Object.create(repository), {
+        roleKeyOrNameExists: async () => false,
+      }),
+      audit,
+    );
+    await expect(
+      blind.updateRole(other!.id, input("g", `${TOKEN} PAYROLL`), actor),
+    ).rejects.toMatchObject({ status: 409 });
+    expect((await repository.findRole(other!.id))?.name).toBe(
+      `${TOKEN} Treasury`,
+    );
+  });
 });
