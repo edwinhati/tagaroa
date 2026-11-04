@@ -198,3 +198,9 @@ points at it and lists each Postgres schema in `schemaFilter`: `access_control`,
 
 `auth`'s schema file is generated wholesale by `bun run auth:schema`. Never hand-edit it,
 and never add a column to it — anything of ours goes in a schema we own.
+
+## Migrations
+
+Never edit a migration in `drizzle/` once it is on `main`; add a new one. The migrator skips
+edited files silently, and CI rejects the change. Rules for populated tables:
+`docs/ops/migrations.md`.

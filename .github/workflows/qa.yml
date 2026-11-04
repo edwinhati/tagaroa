@@ -57,6 +57,16 @@ jobs:
           path: .turbo/cache
           key: ${{ steps.turbo-cache.outputs.cache-primary-key }}
 
+  # Applied migrations are immutable: drizzle's migrator never re-checks their hash.
+  migrations:
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+      - run: sh scripts/check-migrations.sh origin/${{ github.base_ref }}
+
   workflows:
     runs-on: ubuntu-24.04
     timeout-minutes: 30
