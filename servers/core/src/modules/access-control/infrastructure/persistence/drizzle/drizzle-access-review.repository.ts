@@ -8,13 +8,12 @@ import {
   gte,
   inArray,
   isNotNull,
-  isNull,
   ne,
   notExists,
   or,
   sql,
 } from "drizzle-orm";
-import { alias } from "drizzle-orm/pg-core";
+import { alias, type AnyPgColumn } from "drizzle-orm/pg-core";
 
 import {
   DATABASE,
@@ -27,6 +26,29 @@ import type {
   ReviewKind,
 } from "../../../domain/repositories/access-review.repository";
 import { accessReview, breakGlassElevation } from "./schema";
+
+const iso = (column: AnyPgColumn) =>
+  sql`'"' || to_char(${column}, 'YYYY-MM-DD"T"HH24:MI:SS.MS"Z"') || '"'`;
+const text = (column: AnyPgColumn) =>
+  sql`coalesce(to_json(${column})::text, 'null')`;
+
+/**
+ * AccessReviewService's `fingerprint` of an emergency subject, rebuilt in SQL:
+ * sha256 of JSON.stringify({id, userId, ... endedAt}) with dates as ISO strings.
+ * Keep the key order and formats in step with that service. A drift only makes
+ * old reviewed elevations stay listed, and access-review.integration.ts fails.
+ */
+const emergencyFingerprint = sql`encode(sha256(convert_to(concat(
+  '{"id":', ${text(breakGlassElevation.id)},
+  ',"userId":', ${text(breakGlassElevation.userId)},
+  ',"organizationId":', ${text(breakGlassElevation.organizationId)},
+  ',"teamId":', ${text(breakGlassElevation.teamId)},
+  ',"permission":', ${text(breakGlassElevation.permission)},
+  ',"reason":', ${text(breakGlassElevation.reason)},
+  ',"activatedAt":', ${iso(breakGlassElevation.activatedAt)},
+  ',"expiresAt":', ${iso(breakGlassElevation.expiresAt)},
+  ',"endedAt":', coalesce(${iso(breakGlassElevation.endedAt)}, 'null'),
+  '}'), 'UTF8')), 'hex')`;
 
 @Injectable()
 export class DrizzleAccessReviewRepository implements AccessReviewRepository {
@@ -78,7 +100,8 @@ export class DrizzleAccessReviewRepository implements AccessReviewRepository {
   emergencies() {
     // An old elevation leaves the queue only once its newest review is one
     // AccessReviewService.list() would accept: a living reviewer other than
-    // the holder, made after the elevation ended (the snapshot covers endedAt).
+    // the holder, whose snapshot still matches the row (so a change made
+    // between that check and the insert, e.g. ended_at, keeps it listed).
     const newer = alias(accessReview, "newer_review");
     const settled = this.database
       .select({ one: sql`1` })
@@ -89,10 +112,7 @@ export class DrizzleAccessReviewRepository implements AccessReviewRepository {
           eq(accessReview.subjectId, breakGlassElevation.id),
           isNotNull(accessReview.reviewedBy),
           ne(accessReview.reviewedBy, breakGlassElevation.userId),
-          or(
-            isNull(breakGlassElevation.endedAt),
-            gte(accessReview.reviewedAt, breakGlassElevation.endedAt),
-          ),
+          sql`${accessReview.snapshot} = ${emergencyFingerprint}`,
           notExists(
             this.database
               .select({ one: sql`1` })

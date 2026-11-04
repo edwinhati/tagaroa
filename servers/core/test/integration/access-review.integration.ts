@@ -14,12 +14,13 @@ setDefaultTimeout(60_000);
 const run = crypto.randomUUID().slice(0, 8);
 const id = (name: string) => `${name}-${run}`;
 let client: SQL;
+let db: Database;
 let service: AccessReviewService;
 
 beforeAll(async () => {
   await prepareTestDatabase();
   client = new SQL(testEnv.DATABASE_URL);
-  const db = drizzle({ client }) as unknown as Database;
+  db = drizzle({ client }) as unknown as Database;
   service = new AccessReviewService(
     new DrizzleAccessControlRepository(db),
     new DrizzleAccessReviewRepository(db),
@@ -35,32 +36,83 @@ afterAll(async () => {
   await client.close();
 });
 
-const elevate = (name: string, daysAgo: number) =>
-  client`insert into access_control.break_glass_elevation (id, user_id, organization_id, scope_key, permission, reason, activated_at, expires_at) values (${id(name)}, ${id("holder")}, ${id("org")}, ${id("org")}, 'domain:administer', 'Fixture', now() - ${daysAgo} * interval '1 day', now() - ${daysAgo} * interval '1 day' + interval '15 minutes')`;
-const review = (name: string, by: string | null) =>
-  client`insert into access_control.access_review (id, kind, subject_id, snapshot, decision, note, reviewed_at, reviewed_by) values (${id(`r-${name}`)}, 'emergency', ${id(name)}, 'x', 'confirmed', 'Fixture note', now(), ${by})`;
+const holder = id("holder");
+const reviewer = { id: id("reviewer") };
+const elevate = (name: string, daysAgo: number, ended = false) =>
+  client`insert into access_control.break_glass_elevation (id, user_id, organization_id, scope_key, permission, reason, activated_at, expires_at, ended_at) values (${id(name)}, ${holder}, ${id("org")}, ${id("org")}, 'domain:administer', 'Fixture "quoted" — ünï', now() - ${daysAgo} * interval '1 day', now() - ${daysAgo} * interval '1 day' + interval '15 minutes', case when ${ended} then now() - ${daysAgo} * interval '1 day' + interval '5 minutes' end)`;
+const decide = async (name: string, by = reviewer) => {
+  const subject = (await service.list()).find((row) => row.id === id(name))!;
+  return service.record(
+    "emergency",
+    id(name),
+    {
+      decision: "confirmed",
+      note: "Reviewed against the incident",
+      snapshot: subject.snapshot,
+    },
+    by,
+  );
+};
+const listed = async () =>
+  (await service.list())
+    .filter((row) => row.id.endsWith(run))
+    .map((row) => row.id.replace(`-${run}`, ""))
+    .sort();
 
-test("old emergencies stay listed until a valid review settles them", async () => {
+test("old emergencies leave the queue only on a review whose snapshot still holds", async () => {
   await elevate("recent", 1);
   await elevate("settled", 120);
+  await elevate("ended", 120, true);
   await elevate("unreviewed", 120);
   await elevate("orphaned", 120);
   await elevate("self", 120);
+  await elevate("superseded", 120);
+  await elevate("raced", 120);
   await client`insert into auth."user" (id, name, email, created_at, updated_at) values (${id("gone")}, 'Gone', ${`gone-${run}@tagaroa.test`}, now(), now())`;
-  await review("settled", id("reviewer"));
-  await review("self", id("holder"));
-  await review("orphaned", id("gone"));
-  await client`delete from auth."user" where id = ${id("gone")}`;
 
-  const listed = (await service.list())
-    .map((row) => row.id)
-    .filter((subject) => subject.endsWith(run));
-  expect(listed.sort()).toEqual(
-    ["orphaned", "recent", "self", "unreviewed"].map(id).sort(),
+  await decide("recent");
+  await decide("settled");
+  await decide("ended");
+  await decide("orphaned", { id: id("gone") });
+  await client`delete from auth."user" where id = ${id("gone")}`;
+  // The holder cannot settle their own elevation; the service refuses, so insert the row directly.
+  await client`insert into access_control.access_review (id, kind, subject_id, snapshot, decision, note, reviewed_at, reviewed_by) values (${id("r-self")}, 'emergency', ${id("self")}, 'x', 'confirmed', 'Fixture note', now(), ${holder})`;
+  // A valid review followed by a newer invalid one (reviewer later deleted): the newest decides.
+  await decide("superseded");
+  await client`insert into access_control.access_review (id, kind, subject_id, snapshot, decision, note, reviewed_at, reviewed_by) values (${id("r-newer")}, 'emergency', ${id("superseded")}, 'x', 'confirmed', 'Fixture note', clock_timestamp(), null)`;
+  // ended_at changes after the service validated the subject but before the insert.
+  const reviews = new DrizzleAccessReviewRepository(db);
+  const raced = new AccessReviewService(
+    new DrizzleAccessControlRepository(db),
+    {
+      latest: (subjects) => reviews.latest(subjects),
+      emergencies: () => reviews.emergencies(),
+      record: async (review) => {
+        await client`update access_control.break_glass_elevation set ended_at = now() where id = ${id("raced")}`;
+        await reviews.record(review);
+      },
+    },
+    { record: async () => {}, recent: async () => [] },
+  );
+  const stale = (await raced.list()).find((row) => row.id === id("raced"))!;
+  await raced.record(
+    "emergency",
+    id("raced"),
+    {
+      decision: "confirmed",
+      note: "Reviewed against the incident",
+      snapshot: stale.snapshot,
+    },
+    reviewer,
+  );
+
+  expect(await listed()).toEqual(
+    ["orphaned", "raced", "recent", "self", "superseded", "unreviewed"].sort(),
   );
   expect(
-    (
-      await client`select reviewed_by from access_control.access_review where id = ${id("r-orphaned")}`
-    )[0].reviewed_by,
+    (await service.list()).find((row) => row.id === id("raced"))!.review,
   ).toBeNull();
+  expect(
+    (await service.list()).find((row) => row.id === id("recent"))!.review,
+  ).not.toBeNull();
 });
