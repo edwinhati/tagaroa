@@ -46,8 +46,11 @@ test.skipIf(Boolean(process.env.TEST_DATABASE_URL))(
       const [assignment] =
         await client`select revoked_at from access_control.access_assignment where id = 'assignment'`;
       expect(assignment.revoked_at).toBeNull();
+      // Bun 1.4.2's rejection matcher hangs on a lazy SQL query.
       await expect(
-        client`insert into auth.member (id, user_id, organization_id, role, created_at) values ('third', 'person', 'subsidiary', 'member', now())`,
+        Promise.resolve(
+          client`insert into auth.member (id, user_id, organization_id, role, created_at) values ('third', 'person', 'subsidiary', 'member', now())`,
+        ),
       ).rejects.toThrow();
       // The delete trigger is back on: removing the member revokes access.
       await client`delete from auth.member where id = 'first'`;
