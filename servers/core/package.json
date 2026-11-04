@@ -16,7 +16,7 @@
     "start:e2e": "bun test/start-e2e.ts",
     "start:prod": "bun dist/main.js",
     "test": "bun test src",
-    "test:integration": "bun test --isolate ./test/integration/*.integration.ts",
+    "test:integration": "bun test/run-integration.ts",
     "test:soak": "bun scripts/soak.ts"
   },
   "dependencies": {

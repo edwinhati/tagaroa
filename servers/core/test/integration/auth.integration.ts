@@ -240,6 +240,22 @@ test("subsidiary and team rename, membership removal and team deletion persist w
       )
     ).status,
   ).toBe(201);
+  const membersPath = `/api/auth-management/subsidiaries/${organizationId}/members`;
+  expect((await send(membersPath, { userId })).status).toBe(409);
+  const racer = await issueAccount("QaRacerPassword123!");
+  const racerId = (await (await signIn(racer.email, racer.password)).json())
+    .user.id;
+  const raced = await Promise.all([
+    send(membersPath, { userId: racerId }),
+    send(membersPath, { userId: racerId }),
+  ]);
+  expect(raced.map((r) => r.status).sort()).toEqual([201, 409]);
+  expect(
+    (
+      await app.get<Database>(DATABASE)
+        .$client`select id from auth.member where organization_id = ${organizationId} and user_id = ${racerId}`
+    ).length,
+  ).toBe(1);
   expect(
     (await send("/api/auth/organization/add-team-member", { teamId, userId }))
       .status,
