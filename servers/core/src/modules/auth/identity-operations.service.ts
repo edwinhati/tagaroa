@@ -8,7 +8,7 @@ import {
   NotFoundException,
 } from "@nestjs/common";
 import { hashPassword } from "better-auth/crypto";
-import { and, eq, gt, isNull } from "drizzle-orm";
+import { and, eq, gt, isNull, like, ne, sql } from "drizzle-orm";
 
 import {
   DATABASE,
@@ -392,14 +392,26 @@ export class IdentityOperationsService {
       if (!target) throw new NotFoundException("Person not found.");
       authorize?.(target);
       if (isSuperAdmin(target.role)) {
-        const active = await tx
-          .select({ id: user.id, role: user.role })
+        // The target row lock only serialises offboards of the same person.
+        // Two offboards of different super administrators each see the other
+        // as active, so they queue on one transaction-scoped lock and the
+        // second reads the first's committed ban.
+        await tx.execute(
+          sql`select pg_advisory_xact_lock(hashtext('auth.last-super-admin'))`,
+        );
+        // `banned` is nullable: NULL is not banned. LIKE narrows in SQL; the
+        // role list is comma-separated, so isSuperAdmin confirms the match.
+        const others = await tx
+          .select({ role: user.role })
           .from(user)
-          .where(eq(user.banned, false));
-        if (
-          active.filter((row) => row.id !== target.id && isSuperAdmin(row.role))
-            .length === 0
-        )
+          .where(
+            and(
+              sql`${user.banned} is not true`,
+              ne(user.id, target.id),
+              like(user.role, "%super-admin%"),
+            ),
+          );
+        if (!others.some((row) => isSuperAdmin(row.role)))
           throw new ConflictException(
             "Keep another active administrator available.",
           );
