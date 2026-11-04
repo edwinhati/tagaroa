@@ -410,7 +410,7 @@ describe("IdentityOperationsService offboarding", () => {
     for (const offboard of [true, false]) {
       const f = fixture();
       const target = { ...person, role: "super-admin" };
-      f.queue(user, [target], []);
+      f.queue(user, [target], [{ count: 0 }]);
       await expect(
         offboard
           ? f.service.offboard(person.id, "Case OFF-123", actor())
@@ -423,11 +423,7 @@ describe("IdentityOperationsService offboarding", () => {
 
   test("suspends and removes sessions and memberships in one transaction, retaining history", async () => {
     const f = fixture();
-    f.queue(
-      user,
-      [{ ...person, role: "super-admin" }],
-      [{ role: "super-admin" }],
-    );
+    f.queue(user, [{ ...person, role: "super-admin" }], [{ count: 1 }]);
     expect(
       await f.service.offboard(person.id, "Case OFF-123", actor()),
     ).toEqual({ offboarded: true });

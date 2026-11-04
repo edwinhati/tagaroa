@@ -26,8 +26,9 @@ beforeAll(async () => {
   // The invariant is about every active super administrator, so park the
   // others (restored in afterAll). Files run one after another.
   others = await sql`
-    update auth."user" set role = 'user'
-    where role like '%super-admin%' returning id, role`;
+    select id, role from auth."user" where role like '%super-admin%'`;
+  for (const { id } of others)
+    await sql`update auth."user" set role = 'user' where id = ${id}`;
   for (const id of ids)
     await sql`insert into auth."user" (id, name, email, role, banned, created_at, updated_at)
       values (${id}, ${id}, ${id + "@tagaroa.example"}, 'super-admin', null, now(), now())`;
@@ -36,7 +37,7 @@ beforeAll(async () => {
 afterAll(async () => {
   for (const { id, role } of others)
     await sql`update auth."user" set role = ${role} where id = ${id}`;
-  await sql`delete from auth."user" where id = any(${ids})`;
+  await sql`delete from auth."user" where id in ${sql(ids)}`;
   await app?.close();
 });
 
@@ -50,6 +51,6 @@ test("two concurrent retirements of the last two super administrators leave one"
     "rejected",
   ]);
   const active =
-    await sql`select id from auth."user" where id = any(${ids}) and role = 'super-admin' and banned is not true`;
+    await sql`select id from auth."user" where id in ${sql(ids)} and role = 'super-admin' and banned is not true`;
   expect(active).toHaveLength(1);
 });

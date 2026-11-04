@@ -8,7 +8,7 @@ import {
   NotFoundException,
 } from "@nestjs/common";
 import { hashPassword } from "better-auth/crypto";
-import { and, eq, gt, isNull, like, ne, sql } from "drizzle-orm";
+import { and, count, eq, gt, isNull, ne, sql } from "drizzle-orm";
 
 import {
   DATABASE,
@@ -399,19 +399,20 @@ export class IdentityOperationsService {
         await tx.execute(
           sql`select pg_advisory_xact_lock(hashtext('auth.last-super-admin'))`,
         );
-        // `banned` is nullable: NULL is not banned. LIKE narrows in SQL; the
-        // role list is comma-separated, so isSuperAdmin confirms the match.
-        const others = await tx
-          .select({ role: user.role })
+        // `banned` is nullable: NULL is not banned. The role column is a
+        // comma-separated list that `rolesOf` splits and trims, so match the
+        // same token here and count in SQL.
+        const [others] = await tx
+          .select({ count: count() })
           .from(user)
           .where(
             and(
               sql`${user.banned} is not true`,
               ne(user.id, target.id),
-              like(user.role, "%super-admin%"),
+              sql`${user.role} ~ '(^|,)\\s*super-admin\\s*(,|$)'`,
             ),
           );
-        if (!others.some((row) => isSuperAdmin(row.role)))
+        if (!others || others.count === 0)
           throw new ConflictException(
             "Keep another active administrator available.",
           );
