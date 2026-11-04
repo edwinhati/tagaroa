@@ -97,6 +97,15 @@ four full scans per view. `tallies()` filters `created_at >= now() - 24h` and
 `applyReceipt` are covered by `notificationMessage_due_idx` and
 `notificationMessage_providerId_idx`.
 
+_Resolved in ISSUE-80:_ `notificationMessage_createdAt_idx` (btree on
+`created_at`) serves both the `ORDER BY created_at DESC LIMIT` page and the
+24h / N-day range filters. The facet and total counts stay unfiltered scans.
+Retention decision: sent, delivered and failed rows are kept forever, because
+the log is the audit trail and holds the rendered body. Revisit at about 5M
+rows (the point where those counts and the table size start to hurt): purge or
+archive terminal rows older than a fixed age in a scheduled job, never rows
+that are still queued.
+
 **D2: `auth.session`.** `activityAt` (`expires_at > now GROUP BY user_id`) and
 `listSignIns` (`ORDER BY created_at DESC LIMIT 200`) run on every admin
 dashboard load. Expired sessions are only deleted when presented again, and
