@@ -43,6 +43,16 @@ import {
 import { OnboardingHook } from "./onboarding.hook";
 import { factorRecovery } from "./operations.schema";
 
+/**
+ * `rolesOf` splits the role column on commas and `.trim()`s each part, so the
+ * SQL match must skip the same characters: ECMAScript WhiteSpace (tab, VT, FF,
+ * space, NBSP, BOM, any Zs) and LineTerminator. PostgreSQL's `\s` is narrower
+ * (no NBSP or BOM), so list them. The integration test checks all of Unicode.
+ */
+const TRIM =
+  "[\\t\\n\\v\\f\\r \\u00a0\\u1680\\u2000-\\u200a\\u2028\\u2029\\u202f\\u205f\\u3000\\ufeff]*";
+export const SUPER_ADMIN_ROLE_PATTERN = `(^|,)${TRIM}super-admin${TRIM}(,|$)`;
+
 export interface IdentityOperator {
   id: string;
   role: string | null | undefined;
@@ -409,7 +419,7 @@ export class IdentityOperationsService {
             and(
               sql`${user.banned} is not true`,
               ne(user.id, target.id),
-              sql`${user.role} ~ '(^|,)\\s*super-admin\\s*(,|$)'`,
+              sql`${user.role} ~ ${SUPER_ADMIN_ROLE_PATTERN}`,
             ),
           );
         if (!others || others.count === 0)

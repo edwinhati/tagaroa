@@ -2,7 +2,11 @@ import { afterAll, beforeAll, expect, setDefaultTimeout, test } from "bun:test";
 
 import type { INestApplication } from "@nestjs/common";
 
-import { IdentityOperationsService } from "../../src/modules/auth/identity-operations.service";
+import { rolesOf } from "../../src/modules/auth/access-policy";
+import {
+  IdentityOperationsService,
+  SUPER_ADMIN_ROLE_PATTERN,
+} from "../../src/modules/auth/identity-operations.service";
 import {
   DATABASE,
   type Database,
@@ -53,4 +57,39 @@ test("two concurrent retirements of the last two super administrators leave one"
   const active =
     await sql`select id from auth."user" where id in ${sql(ids)} and role = 'super-admin' and banned is not true`;
   expect(active).toHaveLength(1);
+});
+
+test("the SQL role match agrees with rolesOf for every character that can pad a token", async () => {
+  // Every BMP code unit except NUL and the surrogates PostgreSQL cannot chr().
+  const padded = await sql`
+    select n from generate_series(1, 65535) n
+    where n not between 55296 and 57343
+      and (chr(n) || 'super-admin' || chr(n)) ~ ${SUPER_ADMIN_ROLE_PATTERN}`;
+  const expected: number[] = [];
+  for (let n = 1; n <= 65535; n++) {
+    if (n >= 0xd800 && n <= 0xdfff) continue;
+    const c = String.fromCharCode(n);
+    if (rolesOf(`${c}super-admin${c}`).includes("super-admin"))
+      expected.push(n);
+  }
+  expect(padded.map((row: { n: number }) => row.n)).toEqual(expected);
+  expect(expected).toContain(0xa0);
+  expect(expected).toContain(0xfeff);
+
+  for (const [role, matches] of [
+    ["super-admin", true],
+    [" super-admin ", true],
+    ["\tadmin,\u00a0super-admin\ufeff,helpdesk", true],
+    ["admin, super-admin", true],
+    ["not-super-admin", false],
+    ["super-admin2", false],
+    ["super-administrator", false],
+    ["x-super-admin,admin", false],
+    ["admin", false],
+    ["", false],
+  ] as const) {
+    const [row] = await sql`select ${role} ~ ${SUPER_ADMIN_ROLE_PATTERN} as ok`;
+    expect([role, row.ok]).toEqual([role, matches]);
+    expect(rolesOf(role).includes("super-admin")).toBe(matches);
+  }
 });
