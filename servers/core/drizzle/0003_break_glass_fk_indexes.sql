@@ -1,0 +1,2 @@
+CREATE INDEX "breakGlassElevation_userId_organizationId_idx" ON "access_control"."break_glass_elevation" USING btree ("user_id","organization_id");--> statement-breakpoint
+CREATE INDEX "breakGlassElevation_teamId_idx" ON "access_control"."break_glass_elevation" USING btree ("team_id");
