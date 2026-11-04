@@ -8,10 +8,15 @@
 base=${1:-origin/main}
 dir=servers/core/drizzle
 
-changed=$(
-  git diff --name-status --diff-filter=MDR "$base...HEAD" -- "$dir" |
-    grep -E "\s$dir/[0-9]{4}_[^/]*\.sql$"
-)
+# --no-renames turns a rename into delete + add, so the old path is checked.
+# The diff runs on its own so a git failure (bad ref, no merge base) fails
+# the check instead of reading as "no changes".
+diff=$(git diff --no-renames --name-status --diff-filter=MD "$base...HEAD" -- "$dir") || {
+  echo "migrations: cannot compare against $base" >&2
+  exit 2
+}
+
+changed=$(printf '%s\n' "$diff" | grep -E "\s$dir/[0-9]{4}_[^/]*\.sql$")
 
 if [ -n "$changed" ]; then
   echo "migrations: files already on $base were changed or removed:" >&2

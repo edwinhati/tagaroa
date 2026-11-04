@@ -25,8 +25,11 @@ The migrator runs every pending migration in one transaction. That means
 whole batch commits. Empty tables do not care; populated ones do.
 
 - **Foreign keys and checks:** add with `NOT VALID` in one migration, then
-  `ALTER TABLE ... VALIDATE CONSTRAINT ...` in a later one. Validation only
-  takes a light lock.
+  `ALTER TABLE ... VALIDATE CONSTRAINT ...` in a later one. The two must ship
+  in separate deployments: files deployed together still share one
+  transaction, so the stronger lock from adding the constraint would be held
+  through validation. Merge and deploy the `NOT VALID` migration first, ship
+  the `VALIDATE` migration afterwards.
 - **Indexes on large tables:** run `CREATE INDEX CONCURRENTLY IF NOT EXISTS`
   by hand with `psql` outside the migrator, and make the migration
   `CREATE INDEX IF NOT EXISTS` with the same name so it is a no-op there.
