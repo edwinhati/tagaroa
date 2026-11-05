@@ -2,6 +2,10 @@ name: QA
 
 # Free-plan minutes: docs-only changes skip CI, a newer push cancels the
 # running one, and the four-project browser matrix runs manually and weekly on Sundays.
+# Pull requests run only the slow suites their change can affect (scripts/ci/qa-scope.sh);
+# main, the schedule and manual runs always run all of them.
+# The repository variable QA_RUNS_ON moves both jobs onto the sandboxed self-hosted
+# runner, e.g. ["self-hosted","tagaroa-qa"] (docs/ops/workflows/qa-runner.md).
 on:
   pull_request:
     paths-ignore: ["**.md", "docs/**"]
@@ -21,7 +25,7 @@ permissions:
 
 jobs:
   checks:
-    runs-on: ubuntu-24.04
+    runs-on: ${{ fromJSON(vars.QA_RUNS_ON || '"ubuntu-24.04"') }}
     steps:
       - uses: actions/checkout@v7
       - uses: actions/setup-node@v7
@@ -58,14 +62,17 @@ jobs:
           key: ${{ steps.turbo-cache.outputs.cache-primary-key }}
 
   workflows:
-    runs-on: ubuntu-24.04
+    runs-on: ${{ fromJSON(vars.QA_RUNS_ON || '"ubuntu-24.04"') }}
     timeout-minutes: 30
     strategy:
       fail-fast: false
       matrix:
         project: ${{ fromJSON((github.event_name == 'workflow_dispatch' || github.event_name == 'schedule') && '["chromium","firefox","webkit","mobile-chromium"]' || '["chromium"]') }}
     steps:
+      # Two commits: a pull request's merge commit and its base, for qa-scope.sh.
       - uses: actions/checkout@v7
+        with:
+          fetch-depth: 2
       - uses: actions/setup-node@v7
         with:
           node-version: "24"
@@ -74,14 +81,23 @@ jobs:
         with:
           bun-version: "1.4.2"
       - run: bun install --frozen-lockfile
-      - run: bunx playwright install --with-deps ${{ matrix.project == 'mobile-chromium' && 'chromium' || matrix.project }}
+      - name: Scope
+        id: scope
+        env:
+          BASE: ${{ github.event_name == 'pull_request' && 'HEAD^1' || '' }}
+        run: bash scripts/ci/qa-scope.sh "$BASE"
+      # The self-hosted image already carries the browsers' system libraries.
+      - run: bunx playwright install ${{ runner.environment == 'github-hosted' && '--with-deps' || '' }} ${{ matrix.project == 'mobile-chromium' && 'chromium' || matrix.project }}
+        if: steps.scope.outputs.e2e_auth == 'true' || steps.scope.outputs.e2e_admin == 'true'
         working-directory: apps/auth
       - run: bun run test:integration --log-order=stream
-        if: matrix.project == 'chromium'
+        if: matrix.project == 'chromium' && steps.scope.outputs.integration == 'true'
       # Both browser suites share the seeded operator and must run sequentially.
       - run: bun run test:e2e --project ${{ matrix.project }}
+        if: steps.scope.outputs.e2e_auth == 'true'
         working-directory: apps/auth
       - run: bun run test:e2e --project ${{ matrix.project }}
+        if: steps.scope.outputs.e2e_admin == 'true'
         working-directory: apps/admin
       - uses: actions/upload-artifact@v7
         if: always()
