@@ -60,8 +60,7 @@ beforeAll(async () => {
   await app.listen(0, "127.0.0.1");
   baseURL = await app.getUrl();
   db = app.get<Database>(DATABASE);
-  const reconciler = app.get(HrReconciler) as unknown as { running: boolean };
-  while (reconciler.running) await Bun.sleep(10);
+  await app.get(HrReconciler).idle();
 });
 
 afterAll(async () => {

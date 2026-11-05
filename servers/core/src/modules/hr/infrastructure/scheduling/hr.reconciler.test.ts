@@ -129,3 +129,22 @@ test("configured HR ticks at startup and hourly, and clears its timer at shutdow
     tick.mockRestore();
   }
 });
+
+test("idle resolves once the pass under way has finished", async () => {
+  const { worker, reconcile } = setup();
+  const pass = Promise.withResolvers<void>();
+  reconcile.execute.mockReturnValueOnce(pass.promise);
+  void worker.tick();
+
+  let settled = false;
+  const idle = worker.idle().then(() => {
+    settled = true;
+  });
+  await Bun.sleep(0);
+  expect(settled).toBe(false);
+
+  pass.resolve();
+  await idle;
+  expect(settled).toBe(true);
+  await expect(worker.idle()).resolves.toBeUndefined();
+});

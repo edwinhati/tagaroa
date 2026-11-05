@@ -54,6 +54,11 @@ export class HrReconciler implements OnApplicationBootstrap, OnModuleDestroy {
    */
   async onModuleDestroy(): Promise<void> {
     if (this.timer) clearInterval(this.timer);
+    await this.idle();
+  }
+
+  /** Resolves once the pass under way, if any, has finished. */
+  async idle(): Promise<void> {
     await this.pass;
   }
 
