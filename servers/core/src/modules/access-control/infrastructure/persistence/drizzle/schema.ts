@@ -125,6 +125,11 @@ export const breakGlassElevation = accessControlSchema.table(
   (table) => [
     index("breakGlassElevation_sessionId_idx").on(table.sessionId),
     index("breakGlassElevation_expiresAt_idx").on(table.expiresAt),
+    index("breakGlassElevation_userId_organizationId_idx").on(
+      table.userId,
+      table.organizationId,
+    ),
+    index("breakGlassElevation_teamId_idx").on(table.teamId),
   ],
 );
 

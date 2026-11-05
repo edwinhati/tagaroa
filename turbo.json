@@ -40,7 +40,8 @@
       "dependsOn": ["^test"]
     },
     "test:integration": {
-      "cache": false
+      "cache": false,
+      "passThroughEnv": ["TAGAROA_TEST_POSTGRES"]
     },
     "test:e2e": {
       "cache": false

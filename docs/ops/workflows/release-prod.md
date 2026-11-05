@@ -19,6 +19,11 @@ Context and machine details: `../NOTES.md`. Builds on `deploy-dev.md`.
 
 One: you approve the release issue by setting its status to **In Progress**.
 
+GitHub runs the five-minute schedule late, sometimes by hours. To release right away,
+approve from a terminal instead: `bash infra/release/approve.sh` sets the open brief to
+In Progress and dispatches `release-prod.yml` on `main` (needs `multica` and `gh`
+logged in). The release still runs every check in `release.sh`.
+
 ## Brief
 
 There is at most one open release issue. It carries the label `release` (create the
@@ -56,17 +61,17 @@ takes the oldest. For it:
 
 1. Comment `Releasing <short S>…` (so a second check run won't start it again; the
    concurrency group also prevents overlap).
-2. **Build** for `linux/arm64` at sha `S`:
-   - Core image from `servers/core/Dockerfile`. Build the JS on the runner's own
-     platform (`FROM --platform=$BUILDPLATFORM` for the build stage) and only assemble
-     the arm64 runtime stage, so no slow emulated compile. QEMU binfmt must be installed
-     once on CT 105 for the arm64 `RUN` steps that remain.
-   - Web image from `infra/web/Dockerfile` with the prod build args: same as dev's with
-     `dev.` removed (`https://tagaroa.cc`, `https://auth.tagaroa.cc`,
-     `https://app.tagaroa.cc`, `https://admin.tagaroa.cc`).
-   - Push to OCI Container Registry, Singapore: `sin.ocir.io/<tenancy-namespace>/tagaroa/core:<S>`
-     and `…/tagaroa/web:<S>`. Look up the tenancy namespace once and record it in
-     `../NOTES.md`.
+2. **Promote** the images dev deploy built for `S` (`deploy-dev.md`, "What it
+   builds"); nothing is rebuilt at release time. With `skopeo copy --all
+   --preserve-digests` from Zot to OCI Container Registry, Singapore:
+   - `10.10.10.14:8080/tagaroa/core:<S>` → `sin.ocir.io/<tenancy-namespace>/tagaroa/core:<S>`.
+     The same multi-arch image dev runs; prod pulls its arm64 half.
+   - `10.10.10.14:8080/tagaroa/web-prod:<S>` → `…/tagaroa/web:<S>`, built for arm64
+     beside dev's web image with prod's URLs.
+   - Refuse, before anything reaches prod, when a source has no `linux/arm64` image
+     (a sha deployed to dev before dev built for prod: redeploy it to dev with
+     `workflow_dispatch`) or when a copy's manifest digest differs from its source.
+   - Look up the tenancy namespace once and record it in `../NOTES.md`.
 3. **Deploy** over SSH as `tagaroa@168.107.65.35` (key in secret `PROD_SSH_KEY`, host key
    pinned in `PROD_SSH_KNOWN_HOSTS`): copy `infra/prod/compose.yml` and
    `infra/prod/deploy.sh` to `/home/tagaroa/apps`, then run `deploy.sh <core> <web>`.

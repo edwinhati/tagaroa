@@ -1,0 +1,1 @@
+CREATE INDEX "notificationMessage_createdAt_idx" ON "notification"."message" USING btree ("created_at");

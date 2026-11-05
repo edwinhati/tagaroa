@@ -198,6 +198,8 @@ points at it and lists each Postgres schema in `schemaFilter`: `access_control`,
 
 `auth`'s schema file is generated wholesale by `bun run auth:schema`. Never hand-edit it,
 and never add a column to it — anything of ours goes in a schema we own.
+An index on an `auth` table therefore lives in a custom migration (`drizzle-kit generate --custom`), not in
+that file; `0002_session_activity_indexes.sql` indexes `auth.session` `created_at` and `expires_at` for the admin dashboard.
 
 ## Migrations
 

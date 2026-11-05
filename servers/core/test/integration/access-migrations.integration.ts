@@ -93,30 +93,42 @@ test.skipIf(Boolean(process.env.TEST_DATABASE_URL))(
       ).toHaveLength(2);
       await client`insert into identity_operations.factor_recovery (id, user_id, requested_at, expires_at, reason, evidence, snapshot, completed_at) values ('recovery', 'person', now(), now(), 'Fixture recovery', 'Fixture case evidence', 'fixture-snapshot', now())`;
       await client`insert into access_control.access_assignment (id, user_id, role_id, organization_id, team_id, scope_key) values ('restored-grant', 'person', 'system-domain-administrator', 'subsidiary', 'engineering', 'engineering')`;
-      const compose = [
-        "docker",
-        "compose",
-        "-f",
-        resolve(import.meta.dir, "../../../../infra/docker/docker-compose.yml"),
-        "exec",
-        "-T",
-        "postgres",
-      ];
-      const backup = Bun.spawnSync([
-        ...compose,
-        "pg_dump",
-        "-U",
-        "postgres",
-        "--format=custom",
-        databaseName,
-      ]);
+      // Inside the compose container by default; over TCP with the runner's
+      // own client tools when Postgres is an external sidecar (infra/qa-runner).
+      const external = process.env.TAGAROA_TEST_POSTGRES === "external";
+      const pgTool = (tool: string) =>
+        external
+          ? [tool, "--host=127.0.0.1", "--port=5432"]
+          : [
+              "docker",
+              "compose",
+              "-f",
+              resolve(
+                import.meta.dir,
+                "../../../../infra/docker/docker-compose.yml",
+              ),
+              "exec",
+              "-T",
+              "postgres",
+              tool,
+            ];
+      const toolEnv = { ...process.env, PGPASSWORD: "postgres" };
+      const backup = Bun.spawnSync(
+        [
+          ...pgTool("pg_dump"),
+          "-U",
+          "postgres",
+          "--format=custom",
+          databaseName,
+        ],
+        { env: toolEnv },
+      );
       if (!backup.success)
         throw new Error(`Fixture backup failed: ${backup.stderr.toString()}`);
       await admin.unsafe(`CREATE DATABASE ${restoredName} OWNER tagaroa`);
       const restore = Bun.spawnSync(
         [
-          ...compose,
-          "pg_restore",
+          ...pgTool("pg_restore"),
           "-U",
           "postgres",
           "--role=tagaroa",
@@ -126,7 +138,7 @@ test.skipIf(Boolean(process.env.TEST_DATABASE_URL))(
           "--dbname",
           restoredName,
         ],
-        { stdin: backup.stdout },
+        { env: toolEnv, stdin: backup.stdout },
       );
       if (!restore.success)
         throw new Error(`Fixture restore failed: ${restore.stderr.toString()}`);

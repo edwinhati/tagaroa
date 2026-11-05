@@ -59,7 +59,8 @@ Raw notes on where Tagaroa runs and the tools around it. Workflow specs live in
 ## Tagaroa specifics
 
 - Repo `edwinhati/tagaroa` on GitHub, private, free plan (2000 Actions minutes/month,
-  no required-reviewer environments). QA (`.github/workflows/qa.yml`) runs on hosted runners.
+  no required-reviewer environments). QA (`.github/workflows/qa.yml`) runs on hosted runners, or on the sandboxed
+  self-hosted QA runner when the repo variable `QA_RUNS_ON` is set (`workflows/qa-runner.md`).
 - Deployables: `servers/core` (NestJS on Bun, `start:prod` = `bun dist/main.js`,
   Postgres, Better Auth); SPAs built with `vite build` (TanStack Start, SPA mode):
   `apps/auth`, `apps/admin`, `apps/workspace`, `domains/engineering` (mounted under

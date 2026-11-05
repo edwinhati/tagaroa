@@ -43,9 +43,11 @@ jobs:
        github.event.workflow_run.head_branch == 'main')
     runs-on: [self-hosted, tagaroa]
     timeout-minutes: 45
+    outputs:
+      sha: ${{ steps.sha.outputs.sha }}
     steps:
       # Never the branch tip: a later merge must not slip into this deploy.
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           ref: ${{ github.event.workflow_run.head_sha || 'main' }}
           fetch-depth: 0
@@ -73,14 +75,26 @@ jobs:
             | jq -e '.workflow_runs | length > 0' >/dev/null
           echo "sha=$sha" >> "$GITHUB_OUTPUT"
 
+      # Everything prod will run is built here, once, and release.sh copies it by
+      # digest instead of rebuilding: core for both platforms (dev runs amd64, prod
+      # arm64) and prod's web image, which bakes in prod's URLs, for arm64. The build
+      # stages run natively and the runtime stages only copy, so arm64 costs little.
+      # Single-platform pushes without attestations, joined by `docker manifest`,
+      # work with the default buildx driver and Zot's plain HTTP.
       - name: Build and push images
         id: build
         env:
           SHA: ${{ steps.sha.outputs.sha }}
         run: |
+          core="$REGISTRY/tagaroa/core:$SHA"
           {
-            docker buildx build --platform linux/amd64 --push \
-              -f servers/core/Dockerfile -t "$REGISTRY/tagaroa/core:$SHA" .
+            for arch in amd64 arm64; do
+              docker buildx build --platform "linux/$arch" --provenance=false --sbom=false --push \
+                -f servers/core/Dockerfile -t "$core-$arch" .
+            done
+            docker manifest rm "$core" 2>/dev/null || true
+            docker manifest create --insecure "$core" "$core-amd64" "$core-arm64"
+            docker manifest push --insecure --purge "$core"
             docker buildx build --platform linux/amd64 --push \
               -f infra/web/Dockerfile -t "$REGISTRY/tagaroa/web-dev:$SHA" \
               --build-arg VITE_AUTH_BASE_URL=https://dev.tagaroa.cc \
@@ -89,6 +103,14 @@ jobs:
               --build-arg VITE_ADMIN_URL=https://admin.dev.tagaroa.cc \
               --build-arg VITE_POST_SIGNIN_URL=https://app.dev.tagaroa.cc \
               --build-arg VITE_TRUSTED_REDIRECT_ORIGINS=https://app.dev.tagaroa.cc,https://admin.dev.tagaroa.cc .
+            docker buildx build --platform linux/arm64 --push \
+              -f infra/web/Dockerfile -t "$REGISTRY/tagaroa/web-prod:$SHA" \
+              --build-arg VITE_AUTH_BASE_URL=https://tagaroa.cc \
+              --build-arg VITE_AUTH_URL=https://auth.tagaroa.cc \
+              --build-arg VITE_WORKSPACE_URL=https://app.tagaroa.cc \
+              --build-arg VITE_ADMIN_URL=https://admin.tagaroa.cc \
+              --build-arg VITE_POST_SIGNIN_URL=https://app.tagaroa.cc \
+              --build-arg VITE_TRUSTED_REDIRECT_ORIGINS=https://app.tagaroa.cc,https://admin.tagaroa.cc .
           } 2>&1 | tee -a "$LOG"
 
       # The runner mounts $APPS_DIR at the same path, so this is CT 105's own directory.
@@ -119,18 +141,48 @@ jobs:
             check app.dev.tagaroa.cc /engineering text/html
           } 2>&1 | tee -a "$LOG"
 
-      # The run is done when the brief is current. A failed sha never gets here.
+      - name: Alert Rex
+        if: failure() && steps.sha.outcome != 'failure'
+        env:
+          MULTICA_OPS_WEBHOOK: ${{ secrets.MULTICA_OPS_WEBHOOK }}
+          STEPS: ${{ toJSON(steps) }}
+          SHA: ${{ steps.sha.outputs.sha }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          if [ -z "$MULTICA_OPS_WEBHOOK" ]; then echo "::warning::MULTICA_OPS_WEBHOOK is not set; nobody was alerted."; exit 0; fi
+          step=$(jq -r 'to_entries[] | select(.value.outcome == "failure") | .key' <<<"$STEPS" | head -1)
+          sh infra/ops/ops-alert.sh --kind dev-deploy-failed \
+            --id "${{ github.run_id }}-${{ github.run_attempt }}" --env dev \
+            --sha "$SHA" --step "$step" --run-url "$RUN_URL" --log "$LOG"
+
+  # Its own job, so a stale brief is reported as that and not as a broken dev, which
+  # by now is deployed and passed its smoke check. A failed sha never gets here.
+  # The run is done when the brief is current.
+  brief:
+    needs: deploy
+    runs-on: [self-hosted, tagaroa]
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ needs.deploy.outputs.sha }}
+          fetch-depth: 0
+          persist-credentials: false
+
       - name: Update release brief
         id: brief
         env:
           MULTICA_TOKEN: ${{ secrets.MULTICA_TOKEN }}
-          SHA: ${{ steps.sha.outputs.sha }}
+          SHA: ${{ needs.deploy.outputs.sha }}
           RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
           QA_URL: ${{ github.event.workflow_run.html_url }}
           PROD_SSH_KEY: ${{ secrets.PROD_SSH_KEY }}
           PROD_SSH_KNOWN_HOSTS: ${{ secrets.PROD_SSH_KNOWN_HOSTS }}
           PROD_HOST: tagaroa@168.107.65.35
         run: |
+          export LOG="$RUNNER_TEMP/brief.log"
+          echo "LOG=$LOG" >> "$GITHUB_ENV"
+          : > "$LOG"
           install -d -m 700 ~/.ssh
           printf '%s\n' "$PROD_SSH_KEY" > ~/.ssh/id_ed25519
           printf '%s\n' "$PROD_SSH_KNOWN_HOSTS" > ~/.ssh/known_hosts
@@ -145,15 +197,13 @@ jobs:
           rm -f ~/.ssh/id_ed25519 ~/.ssh/known_hosts
 
       - name: Alert Rex
-        if: failure() && steps.sha.outcome != 'failure'
+        if: failure()
         env:
           MULTICA_OPS_WEBHOOK: ${{ secrets.MULTICA_OPS_WEBHOOK }}
-          STEPS: ${{ toJSON(steps) }}
-          SHA: ${{ steps.sha.outputs.sha }}
+          SHA: ${{ needs.deploy.outputs.sha }}
           RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
         run: |
           if [ -z "$MULTICA_OPS_WEBHOOK" ]; then echo "::warning::MULTICA_OPS_WEBHOOK is not set; nobody was alerted."; exit 0; fi
-          step=$(jq -r 'to_entries[] | select(.value.outcome == "failure") | .key' <<<"$STEPS" | head -1)
-          sh infra/ops/ops-alert.sh --kind dev-deploy-failed \
+          sh infra/ops/ops-alert.sh --kind dev-brief-failed \
             --id "${{ github.run_id }}-${{ github.run_attempt }}" --env dev \
-            --sha "$SHA" --step "$step" --run-url "$RUN_URL" --log "$LOG"
+            --sha "$SHA" --step "Update release brief" --run-url "$RUN_URL" --log "$LOG"

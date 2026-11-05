@@ -8,7 +8,7 @@ import {
   NotFoundException,
 } from "@nestjs/common";
 import { hashPassword } from "better-auth/crypto";
-import { and, eq, gt, isNull } from "drizzle-orm";
+import { and, count, eq, gt, isNull, ne, sql } from "drizzle-orm";
 
 import {
   DATABASE,
@@ -42,6 +42,16 @@ import {
 } from "./infrastructure/persistence/drizzle/schema";
 import { OnboardingHook } from "./onboarding.hook";
 import { factorRecovery } from "./operations.schema";
+
+/**
+ * `rolesOf` splits the role column on commas and `.trim()`s each part, so the
+ * SQL match must skip the same characters: ECMAScript WhiteSpace (tab, VT, FF,
+ * space, NBSP, BOM, any Zs) and LineTerminator. PostgreSQL's `\s` is narrower
+ * (no NBSP or BOM), so list them. The integration test checks all of Unicode.
+ */
+const TRIM =
+  "[\\t\\n\\v\\f\\r \\u00a0\\u1680\\u2000-\\u200a\\u2028\\u2029\\u202f\\u205f\\u3000\\ufeff]*";
+export const SUPER_ADMIN_ROLE_PATTERN = `(^|,)${TRIM}super-admin${TRIM}(,|$)`;
 
 export interface IdentityOperator {
   id: string;
@@ -392,14 +402,27 @@ export class IdentityOperationsService {
       if (!target) throw new NotFoundException("Person not found.");
       authorize?.(target);
       if (isSuperAdmin(target.role)) {
-        const active = await tx
-          .select({ id: user.id, role: user.role })
+        // The target row lock only serialises offboards of the same person.
+        // Two offboards of different super administrators each see the other
+        // as active, so they queue on one transaction-scoped lock and the
+        // second reads the first's committed ban.
+        await tx.execute(
+          sql`select pg_advisory_xact_lock(hashtext('auth.last-super-admin'))`,
+        );
+        // `banned` is nullable: NULL is not banned. The role column is a
+        // comma-separated list that `rolesOf` splits and trims, so match the
+        // same token here and count in SQL.
+        const [others] = await tx
+          .select({ count: count() })
           .from(user)
-          .where(eq(user.banned, false));
-        if (
-          active.filter((row) => row.id !== target.id && isSuperAdmin(row.role))
-            .length === 0
-        )
+          .where(
+            and(
+              sql`${user.banned} is not true`,
+              ne(user.id, target.id),
+              sql`${user.role} ~ ${SUPER_ADMIN_ROLE_PATTERN}`,
+            ),
+          );
+        if (!others || others.count === 0)
           throw new ConflictException(
             "Keep another active administrator available.",
           );

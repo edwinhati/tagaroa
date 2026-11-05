@@ -27,7 +27,11 @@ All files below are new and live in the repo; the workflow is `.github/workflows
 `runs-on: [self-hosted, tagaroa]`.
 
 1. **Core image** `10.10.10.14:8080/tagaroa/core:<sha>`, from `servers/core/Dockerfile`,
-   platform `linux/amd64`.
+   one multi-arch image: `linux/amd64` for dev and `linux/arm64`, which a release later
+   copies to prod unchanged (`release-prod.md`, "Deploy"). Each platform is pushed as
+   `core:<sha>-<arch>` without attestations and joined with `docker manifest create
+   --insecure`, which works with the default buildx driver and Zot's plain HTTP.
+   QEMU binfmt (`infra/runner/tagaroa-binfmt.openrc`) must be installed on CT 105.
    - Build stage on `oven/bun` (version pinned to the repo's `1.4.2`): `bun install
      --frozen-lockfile` for the workspace, `bun run build` in `servers/core`.
    - Runtime stage `oven/bun:1.4.2-slim`: `dist/`, production dependencies, `drizzle/`
@@ -129,15 +133,18 @@ One-time setup, done by whoever implements this (needs root on CT 105):
 ## Steps (each run)
 
 1. Check out the sha.
-2. Build and push both images (`linux/amd64`, `docker buildx build --push`). Use the
-   runner's local Docker layer cache; no registry cache needed.
+2. Build and push the images: core for amd64 and arm64, dev's web image for amd64, and
+   prod's web image `web-prod:<sha>` for arm64 with prod's URLs (the dev args with
+   `dev.` removed). Use the runner's local Docker layer cache; no registry cache needed.
 3. Copy `infra/dev/compose.yml` and `infra/dev/deploy.sh` into `/home/tagaroa/apps`
    and run `deploy.sh` with the two image references.
 4. Smoke check against `http://10.10.10.5:22830` with `Host:` headers:
    `dev.tagaroa.cc` `/api/health/live` → 200; `app.`, `auth.`, `admin.` `/` → 200
    HTML; `app.` `/engineering` → 200 HTML. Fail the run on any miss.
 5. Hand off to the release loop: create or update the release brief
-   (`release-prod.md`, "Brief"). The run is done when the brief is current.
+   (`release-prod.md`, "Brief"). This is a separate `brief` job that needs `deploy`,
+   so a brief failure is not reported as a broken dev. The run is done when the
+   brief is current.
 
 ## On failure
 
@@ -146,6 +153,9 @@ Dev stays on the previous images (deploy.sh rolls back). The workflow then POSTs
 the failing step and the run URL, using `Idempotency-Key: dev-deploy-<run_id>-<attempt>`.
 Rex investigates as with "QA failed on main". No release brief is created or updated
 for a failed sha.
+
+If the deploy succeeded and only the brief update failed, dev stays on the new images
+and the `brief` job sends `kind: dev-brief-failed` instead, with the brief log tail.
 
 ## Secrets (GitHub repo secrets, read only by the self-hosted runner)
 

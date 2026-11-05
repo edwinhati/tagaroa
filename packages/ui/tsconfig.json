@@ -7,5 +7,5 @@
     }
   },
   "include": ["."],
-  "exclude": ["node_modules", "dist", ".ds-dist", "src/_ds-entry.ts"]
+  "exclude": ["node_modules", "dist"]
 }

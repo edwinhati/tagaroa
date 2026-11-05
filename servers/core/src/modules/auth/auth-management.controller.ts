@@ -1,5 +1,6 @@
 import {
   Body,
+  ConflictException,
   Controller,
   Get,
   Header,
@@ -56,6 +57,18 @@ const operatorOf = (session: UserSession): IdentityOperator => {
     sessionCreatedAt: new Date(value.session.createdAt),
     impersonatedBy: value.session.impersonatedBy,
   };
+};
+
+/** Postgres 23505, seen through Drizzle's wrapper (`cause`) or Bun SQL's `errno`. */
+const isUniqueViolation = (error: unknown): boolean => {
+  const e = error as
+    | { cause?: unknown; code?: unknown; errno?: unknown }
+    | undefined;
+  return (
+    e?.code === "23505" ||
+    e?.errno === "23505" ||
+    (e?.cause !== undefined && isUniqueViolation(e.cause))
+  );
 };
 
 @Controller("auth-management")
@@ -201,6 +214,16 @@ export class AuthManagementController {
         body: { organizationId, userId, teamId, role: "member" },
       });
     } catch (error) {
+      // The sequential duplicate is Better Auth's own 400; the concurrent one
+      // reaches the `member_organizationId_userId_uidx` unique index instead.
+      if (
+        isUniqueViolation(error) ||
+        (error instanceof APIError &&
+          error.body?.code === "USER_IS_ALREADY_A_MEMBER_OF_THIS_ORGANIZATION")
+      )
+        throw new ConflictException(
+          "That person is already a member of this subsidiary.",
+        );
       if (error instanceof APIError)
         throw new HttpException(error.message, error.statusCode);
       throw error;

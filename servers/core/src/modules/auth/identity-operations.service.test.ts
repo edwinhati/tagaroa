@@ -75,6 +75,7 @@ const fixture = () => {
   const reads = new Map<PgTable, unknown[][]>();
   const writes: Write[] = [];
   const locks: PgTable[] = [];
+  const locked: number[] = [];
   const selections: { table: PgTable; where: ReturnType<typeof predicate> }[] =
     [];
   const events: Parameters<AuditTrail["record"]>[0][] = [];
@@ -84,6 +85,10 @@ const fixture = () => {
   const queue = (table: PgTable, ...rows: unknown[][]) =>
     reads.set(table, rows);
   const tx = {
+    execute: async () => {
+      expect(inTransaction).toBe(true);
+      locked.push(selections.length);
+    },
     select: () => ({
       from: (table: PgTable) => ({
         where: (where: SQL) => {
@@ -183,6 +188,7 @@ const fixture = () => {
     queue,
     writes,
     locks,
+    locked,
     selections,
     events,
     deliveries,
@@ -404,11 +410,7 @@ describe("IdentityOperationsService offboarding", () => {
     for (const offboard of [true, false]) {
       const f = fixture();
       const target = { ...person, role: "super-admin" };
-      f.queue(
-        user,
-        [target],
-        [target, { id: "ordinary-admin", role: "admin" }],
-      );
+      f.queue(user, [target], [{ count: 0 }]);
       await expect(
         offboard
           ? f.service.offboard(person.id, "Case OFF-123", actor())
@@ -421,16 +423,16 @@ describe("IdentityOperationsService offboarding", () => {
 
   test("suspends and removes sessions and memberships in one transaction, retaining history", async () => {
     const f = fixture();
-    f.queue(
-      user,
-      [{ ...person, role: "super-admin" }],
-      [{ ...person, role: "super-admin" }, actor()],
-    );
+    f.queue(user, [{ ...person, role: "super-admin" }], [{ count: 1 }]);
     expect(
       await f.service.offboard(person.id, "Case OFF-123", actor()),
     ).toEqual({ offboarded: true });
     expect(f.transactions()).toBe(1);
     expect(f.locks).toEqual([user]);
+    // The advisory lock comes after the target read and before the count,
+    // and the count treats a NULL `banned` as not banned.
+    expect(f.locked).toEqual([1]);
+    expect(f.selections[1]!.where.sql).toContain("is not true");
     expect(f.writes).toEqual([
       {
         kind: "update",

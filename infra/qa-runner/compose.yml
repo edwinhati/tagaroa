@@ -1,0 +1,52 @@
+# Sandboxed QA runner, opt-in through the repository variable QA_RUNS_ON
+# (docs/ops/workflows/qa-runner.md). `.env` next to this file holds RUNNER_TOKEN
+# for the first start only, and optionally RUNNER_NAME, QA_RUNNER_CPUS and
+# QA_RUNNER_MEMORY.
+name: tagaroa-qa-runner
+services:
+  postgres:
+    # The tests expect a superuser postgres/postgres and the tagaroa role on
+    # 127.0.0.1:5432, as infra/docker/docker-compose.yml gives developers.
+    image: postgres:18.6-alpine@sha256:10a5c69a83035ab5239f5620d708520e8b28f5aa1f2b20143e6024532edadfb5
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: postgres
+    volumes:
+      - ../docker/init-database.sh:/docker-entrypoint-initdb.d/init-database.sh:ro
+    # Throwaway data: a restart starts from an empty cluster.
+    tmpfs:
+      - /var/lib/postgresql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  runner:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+    # Shares the sidecar's network namespace, so 127.0.0.1:5432 is Postgres.
+    network_mode: service:postgres
+    environment:
+      RUNNER_TOKEN: ${RUNNER_TOKEN:-}
+      RUNNER_NAME: ${RUNNER_NAME:-tagaroa-qa}
+      # servers/core/test/database.ts skips `docker compose up` for this.
+      TAGAROA_TEST_POSTGRES: external
+    # Deliberately no Docker socket and no host directories.
+    volumes:
+      - config:/config
+    shm_size: 2gb
+    cpus: ${QA_RUNNER_CPUS:-4}
+    mem_limit: ${QA_RUNNER_MEMORY:-8g}
+    pids_limit: 4096
+    security_opt:
+      - no-new-privileges:true
+volumes:
+  config: {}
