@@ -10,7 +10,7 @@ import {
 } from "@nestjs/common";
 import { AllowAnonymous } from "@thallesp/nestjs-better-auth";
 
-import { ZodBody } from "../../../platform/http/zod-body";
+import { parseWith } from "../../../platform/http/schema-validation";
 import { SyncEmployeeUseCase } from "../application/use-cases/sync-employee.use-case";
 import {
   HR_OPTIONS,
@@ -18,8 +18,6 @@ import {
 } from "../infrastructure/config/hr.options";
 import { verifyFrappeSignature } from "../infrastructure/frappe/frappe";
 import { frappeEmployeeWebhook } from "./hr-webhook.schemas";
-
-const employeeWebhook = new ZodBody(frappeEmployeeWebhook);
 
 interface ParsedRequest extends IncomingMessage {
   body?: unknown;
@@ -55,7 +53,8 @@ export class HrWebhookController {
     )
       throw new UnauthorizedException();
 
-    const { name } = employeeWebhook.transform(request.body);
+    // Parsed only now, after the signature: an unsigned body is never read.
+    const { name } = await parseWith(frappeEmployeeWebhook, request.body);
     await this.sync.execute(name);
   }
 }

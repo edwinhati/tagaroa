@@ -17,7 +17,6 @@ import {
 } from "@thallesp/nestjs-better-auth";
 import { APIError } from "better-auth/api";
 
-import { ZodBody } from "../../platform/http/zod-body";
 import {
   AUDIT_TRAIL,
   type AuditTrail,
@@ -89,7 +88,7 @@ export class AuthManagementController {
   @Roles(["helpdesk", "admin", "super-admin"])
   async requestRecovery(
     @Param("userId") userId: string,
-    @Body(new ZodBody(requestRecoveryBody)) body: RequestRecoveryBody,
+    @Body({ schema: requestRecoveryBody }) body: RequestRecoveryBody,
     @Session() session: UserSession,
   ) {
     return {
@@ -106,7 +105,7 @@ export class AuthManagementController {
   @Roles(["super-admin"])
   async approveRecovery(
     @Param("id") id: string,
-    @Body(new ZodBody(approveRecoveryBody)) body: ApproveRecoveryBody,
+    @Body({ schema: approveRecoveryBody }) body: ApproveRecoveryBody,
     @Session() session: UserSession,
   ) {
     return {
@@ -122,7 +121,7 @@ export class AuthManagementController {
   @Roles(["admin", "super-admin"])
   async offboard(
     @Param("userId") userId: string,
-    @Body(new ZodBody(offboardBody)) body: OffboardBody,
+    @Body({ schema: offboardBody }) body: OffboardBody,
     @Session() session: UserSession,
   ) {
     return {
@@ -166,7 +165,7 @@ export class AuthManagementController {
   @Post("subsidiaries")
   @Roles(["super-admin"])
   async createSubsidiary(
-    @Body(new ZodBody(createSubsidiaryBody)) {
+    @Body({ schema: createSubsidiaryBody }) {
       name,
       slug,
     }: CreateSubsidiaryBody,
@@ -187,7 +186,7 @@ export class AuthManagementController {
   @Roles(["admin", "super-admin"])
   async createTeam(
     @Param("organizationId") organizationId: string,
-    @Body(new ZodBody(createTeamBody)) { name }: CreateTeamBody,
+    @Body({ schema: createTeamBody }) { name }: CreateTeamBody,
     @Session() session: UserSession,
   ) {
     const team = await this.auth.api.createTeam({
@@ -205,7 +204,7 @@ export class AuthManagementController {
   @Roles(["admin", "super-admin"])
   async addMember(
     @Param("organizationId") organizationId: string,
-    @Body(new ZodBody(addMemberBody)) { userId, teamId }: AddMemberBody,
+    @Body({ schema: addMemberBody }) { userId, teamId }: AddMemberBody,
     @Session() session: UserSession,
   ) {
     let member;
