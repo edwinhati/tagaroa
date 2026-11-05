@@ -9,7 +9,7 @@
 #
 # Needs shellcheck and actionlint on PATH (brew install shellcheck actionlint).
 set -uo pipefail
-cd "$(git rev-parse --show-toplevel)"
+cd "$(git rev-parse --show-toplevel)" || exit 1
 
 # These need built images and Docker, not stubs; run them by hand as their headers say.
 needs_images=" infra/dev/images.test.sh infra/dev/browsers.test.sh "
