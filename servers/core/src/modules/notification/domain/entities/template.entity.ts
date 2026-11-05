@@ -30,6 +30,11 @@ const REQUIRED_SECRETS: ReadonlyMap<string, readonly string[]> = new Map([
   ["account.password-reset", ["password"]],
 ]);
 
+/** Never sent as a bare placeholder, whichever wording a message came from. */
+export const CODE_OWNED_SECRETS: ReadonlySet<string> = new Set(
+  [...REQUIRED_SECRETS.values()].flat(),
+);
+
 /**
  * The wording of one message, in one language, on one channel.
  *

@@ -6,6 +6,7 @@ import { AppController } from "./app.controller";
 import { AccessControlModule } from "./modules/access-control/access-control.module";
 import { AuditModule } from "./modules/audit/audit.module";
 import { AuthModule } from "./modules/auth/auth.module";
+import { ImpersonationInterceptor } from "./modules/auth/impersonation.interceptor";
 import { PrivilegedMfaInterceptor } from "./modules/auth/privileged-mfa.interceptor";
 import { TemporaryPasswordInterceptor } from "./modules/auth/temporary-password.interceptor";
 import { DirectoryModule } from "./modules/directory/directory.module";
@@ -30,6 +31,7 @@ import * as databaseSchema from "./schema.registry";
   providers: [
     { provide: APP_INTERCEPTOR, useClass: TemporaryPasswordInterceptor },
     { provide: APP_INTERCEPTOR, useClass: PrivilegedMfaInterceptor },
+    { provide: APP_INTERCEPTOR, useClass: ImpersonationInterceptor },
   ],
 })
 export class AppModule {}

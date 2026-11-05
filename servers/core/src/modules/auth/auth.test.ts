@@ -10,6 +10,8 @@ import {
   createAuth,
   endedSessionAuditEvent,
   excessSessionTokens,
+  temporaryPasswordExpired,
+  validateAdminUserUpdate,
   validatePersonalEmail,
   validateProfileUpdate,
   validateTemporaryPassword,
@@ -327,6 +329,20 @@ describe("excessSessionTokens", () => {
     ).toEqual([]);
   });
 
+  test("an operator's impersonation takes none of the person's slots", () => {
+    expect(
+      excessSessionTokens(
+        [
+          session("a", 1),
+          session("b", 2),
+          session("c", 3),
+          { ...session("operator", 4), impersonatedBy: "operator-id" },
+        ],
+        now,
+      ),
+    ).toEqual([]);
+  });
+
   // Expired rows linger until Better Auth purges them. Counting them would
   // evict the one session the person is actually using.
   test("ignores sessions that have already expired", () => {
@@ -497,4 +513,55 @@ test("audits the end of impersonation by the operator who started it", () => {
   expect(
     endedSessionAuditEvent("/sign-out", { userId: "person-id" }),
   ).toBeUndefined();
+});
+
+test("an admin update may change only the fields apps/admin edits", () => {
+  for (const data of [
+    { name: "Ada" },
+    { email: "ada@tagaroa.test", personalEmail: "ada@personal.example" },
+    { role: "helpdesk" },
+  ])
+    expect(() =>
+      validateAdminUserUpdate("/admin/update-user", { data, userId: "u" }),
+    ).not.toThrow();
+  for (const data of [
+    { twoFactorEnabled: false },
+    { mustChangePassword: false },
+    { temporaryPasswordExpiresAt: null },
+    { banned: true },
+    { name: "Ada", emailVerified: false },
+  ])
+    expect(() =>
+      validateAdminUserUpdate("/admin/update-user", { data, userId: "u" }),
+    ).toThrow(APIError);
+  expect(() =>
+    validateAdminUserUpdate("/update-user", { twoFactorEnabled: false }),
+  ).not.toThrow();
+});
+
+test("a temporary password expires only while it still has to be replaced", () => {
+  const now = Date.UTC(2026, 10, 5);
+  const past = new Date(now - 1);
+  expect(
+    temporaryPasswordExpired(
+      { mustChangePassword: true, temporaryPasswordExpiresAt: past },
+      now,
+    ),
+  ).toBe(true);
+  expect(
+    temporaryPasswordExpired(
+      {
+        mustChangePassword: true,
+        temporaryPasswordExpiresAt: past.toISOString(),
+      },
+      now,
+    ),
+  ).toBe(true);
+  for (const user of [
+    { mustChangePassword: false, temporaryPasswordExpiresAt: past },
+    { mustChangePassword: true, temporaryPasswordExpiresAt: null },
+    { mustChangePassword: true, temporaryPasswordExpiresAt: new Date(now + 1) },
+    undefined,
+  ])
+    expect(temporaryPasswordExpired(user, now)).toBe(false);
 });

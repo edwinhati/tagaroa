@@ -152,7 +152,9 @@ export class OnboardingHook {
 
   @AfterHook("/admin/set-user-password")
   async passwordReset(context: AuthHookContext): Promise<void> {
+    // After hooks run for refusals too; only a password that was set is sent.
     const returned = asObject(context.context.returned);
+    if (returned?.status !== true) return;
     const userId = asObject(context.body)?.userId;
     if (typeof userId !== "string") return;
 

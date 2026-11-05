@@ -70,3 +70,21 @@ test("refuses to send a credential it no longer holds", () => {
       ).outgoingPayload,
   ).toThrow('Template variable "password" was not supplied');
 });
+
+test("a value that reads like a placeholder goes out as written", () => {
+  // Rendered at enqueue from a display name of "Ana {{team}}".
+  expect(
+    claimed(
+      { body: "Ana {{team}}, your password: {{password}}", subject: null },
+      { password: "hunter2-hunter2" },
+    ).outgoingPayload.body,
+  ).toBe("Ana {{team}}, your password: hunter2-hunter2");
+  expect(
+    claimed({ body: "Hello Ana {{ team }}", subject: "Hi {{x}}" }, null)
+      .outgoingPayload,
+  ).toEqual({
+    body: "Hello Ana {{ team }}",
+    subject: "Hi {{x}}",
+    variables: [],
+  });
+});

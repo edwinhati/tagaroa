@@ -3,11 +3,12 @@ import type {
   NotificationChannel,
   NotificationPayload,
 } from "../value-objects/notification-channel.vo";
-import { renderText } from "../value-objects/rendered-payload.vo";
+import { restoreSecrets } from "../value-objects/rendered-payload.vo";
 import {
   type DeliveryOutcome,
   outcomeFor,
 } from "../value-objects/retry-policy.vo";
+import { CODE_OWNED_SECRETS } from "./template.entity";
 
 export interface QueuedMessageProps {
   id: string;
@@ -87,20 +88,26 @@ export class QueuedMessage {
    * The message as the recipient must read it: the stored payload with its
    * secrets substituted back in, in memory, on the way to the carrier.
    *
-   * `renderText` refuses an unresolved placeholder, so a row whose secrets have
-   * already been cleared cannot be sent again as literal `{{password}}` — it
-   * throws instead, which is the right answer for a credential nobody holds any
-   * more.
+   * A code-owned secret it no longer holds throws rather than going out as a
+   * literal `{{password}}`; any other `{{word}}` is text and goes out as written.
    */
   get outgoingPayload(): NotificationPayload {
     const secrets = this.props.secrets ?? {};
 
     return {
-      body: renderText(this.props.payload.body, secrets),
+      body: restoreSecrets(
+        this.props.payload.body,
+        secrets,
+        CODE_OWNED_SECRETS,
+      ),
       subject:
         this.props.payload.subject === null
           ? null
-          : renderText(this.props.payload.subject, secrets),
+          : restoreSecrets(
+              this.props.payload.subject,
+              secrets,
+              CODE_OWNED_SECRETS,
+            ),
       variables: this.props.payload.variables,
     };
   }

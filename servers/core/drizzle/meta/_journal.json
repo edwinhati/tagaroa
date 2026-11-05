@@ -36,6 +36,13 @@
       "when": 1793757355324,
       "tag": "0004_member_unique_membership",
       "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1793865922550,
+      "tag": "0005_last_super_admin_guard",
+      "breakpoints": true
     }
   ]
 }

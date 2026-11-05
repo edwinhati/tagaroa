@@ -5,6 +5,7 @@ import {
   createAuthMiddleware,
   getAuthoritativeSessionFromCtx,
 } from "better-auth/api";
+import { deleteSessionCookie, setRequestCookie } from "better-auth/cookies";
 import { betterAuth } from "better-auth/minimal";
 import { openAPI } from "better-auth/plugins";
 import { admin } from "better-auth/plugins/admin";
@@ -168,6 +169,48 @@ export const validatePersonalEmail = (path: string, body: unknown): void => {
     });
   }
 };
+
+/** The account fields `apps/admin` edits; the rest have flows of their own. */
+const ADMIN_EDITABLE_USER_FIELDS = new Set([
+  "email",
+  "name",
+  "personalEmail",
+  "role",
+]);
+
+/**
+ * Better Auth's `/admin/update-user` writes any column it is given, so without
+ * this one admin could clear `twoFactorEnabled` or `mustChangePassword`.
+ */
+export const validateAdminUserUpdate = (path: string, body: unknown): void => {
+  if (path !== "/admin/update-user") return;
+  const data = asObject(asObject(body)?.data) ?? {};
+  if (Object.keys(data).every((key) => ADMIN_EDITABLE_USER_FIELDS.has(key)))
+    return;
+  throw new APIError("BAD_REQUEST", {
+    code: "USER_FIELD_NOT_EDITABLE",
+    message: "Only the name, email, personal email and role can be changed.",
+  });
+};
+
+export const temporaryPasswordExpired = (
+  user: Record<string, unknown> | undefined,
+  now: number = Date.now(),
+): boolean => {
+  const expiresAt = user?.temporaryPasswordExpiresAt;
+  return (
+    user?.mustChangePassword === true &&
+    (expiresAt instanceof Date || typeof expiresAt === "string") &&
+    new Date(expiresAt).getTime() <= now
+  );
+};
+
+const expiredTemporaryPassword = () =>
+  new APIError("FORBIDDEN", {
+    code: "TEMPORARY_PASSWORD_EXPIRED",
+    message:
+      "That temporary password has expired. Ask an administrator to issue a new one.",
+  });
 
 interface TemporaryPasswordUpdate {
   mustChangePassword: boolean;
@@ -487,12 +530,18 @@ export const applyTemporaryPasswordLifecycle = async (
  * outlives an idle one that happened to sign in later.
  */
 export const excessSessionTokens = (
-  sessions: readonly { expiresAt: Date; token: string; updatedAt: Date }[],
+  sessions: readonly {
+    expiresAt: Date;
+    impersonatedBy?: string | null;
+    token: string;
+    updatedAt: Date;
+  }[],
   now: Date = new Date(),
   limit: number = MAX_CONCURRENT_SESSIONS,
 ): string[] =>
   sessions
-    .filter((session) => session.expiresAt > now)
+    // An operator's impersonation holds none of the person's own slots.
+    .filter((session) => session.expiresAt > now && !session.impersonatedBy)
     .sort(
       (first, second) => second.updatedAt.getTime() - first.updatedAt.getTime(),
     )
@@ -594,11 +643,46 @@ const refuseImpersonation = (): never => {
   });
 };
 
+/**
+ * The session the endpoint will act as. Bearer's plugin hook turns the header
+ * into a cookie only after these hooks run, so the same swap is made here.
+ */
+const requestSession = (
+  ctx: Parameters<typeof getAuthoritativeSessionFromCtx>[0],
+) => {
+  if (ctx.context.session) return Promise.resolve(ctx.context.session);
+  const header =
+    ctx.request?.headers.get("authorization") ??
+    ctx.headers?.get("authorization");
+  const token = header?.match(/^bearer\s+(\S+)$/i)?.[1];
+  if (!token?.includes(".")) return getAuthoritativeSessionFromCtx(ctx);
+  const headers = new Headers(ctx.request?.headers ?? ctx.headers);
+  setRequestCookie(
+    headers,
+    ctx.context.authCookies.sessionToken.name,
+    token.includes("%") ? decoded(token) : token,
+  );
+  return getAuthoritativeSessionFromCtx({ ...ctx, headers });
+};
+
+const decoded = (value: string): string => {
+  try {
+    return decodeURIComponent(value);
+  } catch {
+    return value;
+  }
+};
+
+const refuseExpiredPasswordChange = createAuthMiddleware(async (ctx) => {
+  if (ctx.path !== "/change-password") return;
+  if (temporaryPasswordExpired((await requestSession(ctx))?.user))
+    throw expiredTemporaryPassword();
+});
+
 const enforceAdminPolicy = createAuthMiddleware(async (ctx) => {
   if (!ctx.path.startsWith("/admin/")) return;
 
-  const session =
-    ctx.context.session ?? (await getAuthoritativeSessionFromCtx(ctx));
+  const session = await requestSession(ctx);
   if (!session) return;
 
   if (isImpersonated(session) && !IMPERSONATION_ADMIN_ROUTES.has(ctx.path))
@@ -721,8 +805,7 @@ const DIRECT_ORGANIZATION_WRITES = new Set([
 
 const enforceOrganizationWrite = createAuthMiddleware(async (ctx) => {
   if (!ctx.path.startsWith("/organization/") || !ctx.request) return;
-  const session =
-    ctx.context.session ?? (await getAuthoritativeSessionFromCtx(ctx));
+  const session = await requestSession(ctx);
   if (session?.user.mustChangePassword === true) {
     throw new APIError("FORBIDDEN", {
       code: "PASSWORD_CHANGE_REQUIRED",
@@ -788,7 +871,9 @@ export const validateProfileUpdate = (
 const validateAdminWrite = createAuthMiddleware(async (ctx) => {
   validateTemporaryPassword(ctx.path, ctx.body);
   validatePersonalEmail(ctx.path, ctx.body);
+  validateAdminUserUpdate(ctx.path, ctx.body);
   const profile = validateProfileUpdate(ctx.path, ctx.body);
+  await refuseExpiredPasswordChange(ctx);
   await enforceAdminPolicy(ctx);
   await enforceOrganizationWrite(ctx);
   if (profile) return { context: { body: profile } };
@@ -830,26 +915,27 @@ export const createAuth = (repository: AuthRepository, config: AuthConfig) => {
       }
     }
 
-    if (ctx.path === "/sign-in/email") {
-      const returned = asObject(ctx.context.returned);
-      const user = asObject(returned?.user);
-      const session = asObject(returned?.session);
-      const expiresAt = user?.temporaryPasswordExpiresAt;
-      const expired =
-        user?.mustChangePassword === true &&
-        expiresAt !== null &&
-        expiresAt !== undefined &&
-        new Date(String(expiresAt)).getTime() <= Date.now();
-      if (expired) {
-        if (typeof session?.token === "string") {
-          await ctx.context.internalAdapter.deleteSession(session.token);
-        }
-        throw new APIError("FORBIDDEN", {
-          code: "TEMPORARY_PASSWORD_EXPIRED",
-          message:
-            "That temporary password has expired. Ask an administrator to issue a new one.",
-        });
-      }
+    const signedIn = ctx.context.newSession;
+    if (
+      ctx.path === "/sign-in/email" &&
+      signedIn &&
+      temporaryPasswordExpired(signedIn.user)
+    ) {
+      await ctx.context.internalAdapter.deleteSession(signedIn.session.token);
+      deleteSessionCookie(ctx);
+      // Hooks after this one still run; two-factor's would answer the sign-in.
+      ctx.context.setNewSession(null);
+      throw expiredTemporaryPassword();
+    }
+
+    // A reissue means a lockout or a compromise, so no old session survives it.
+    if (
+      ctx.path === "/admin/set-user-password" &&
+      asObject(ctx.context.returned)?.status === true
+    ) {
+      const userId = asObject(ctx.body)?.userId;
+      if (typeof userId === "string")
+        await ctx.context.internalAdapter.deleteUserSessions(userId);
     }
 
     // A failed call is answered with its error, and the after hook still runs.
@@ -914,7 +1000,7 @@ export const createAuth = (repository: AuthRepository, config: AuthConfig) => {
           // A person may hold three live sessions at once, so signing in on a
           // fourth device ends the one they touched longest ago.
           after: async (session, ctx) => {
-            if (!ctx) return;
+            if (!ctx || session.impersonatedBy) return;
             const { internalAdapter } = ctx.context;
             const sessions = await internalAdapter.listSessions(session.userId);
             const excess = excessSessionTokens(sessions);
