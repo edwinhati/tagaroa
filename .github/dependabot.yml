@@ -1,0 +1,14 @@
+# Keeps the commit-pinned actions in .github/workflows current. npm dependencies
+# stay with Rex's weekly dependency check (docs/agents/multica.md).
+version: 2
+updates:
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: monthly
+    groups:
+      actions:
+        patterns: ["*"]
+    commit-message:
+      prefix: ci
+    open-pull-requests-limit: 1

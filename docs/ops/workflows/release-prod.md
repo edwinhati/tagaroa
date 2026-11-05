@@ -19,6 +19,11 @@ Context and machine details: `../NOTES.md`. Builds on `deploy-dev.md`.
 
 One: you approve the release issue by setting its status to **In Progress**.
 
+GitHub runs the five-minute schedule late, sometimes by hours. To release right away,
+approve from a terminal instead: `bash infra/release/approve.sh` sets the open brief to
+In Progress and dispatches `release-prod.yml` on `main` (needs `multica` and `gh`
+logged in). The release still runs every check in `release.sh`.
+
 ## Brief
 
 There is at most one open release issue. It carries the label `release` (create the

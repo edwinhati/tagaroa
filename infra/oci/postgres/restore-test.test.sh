@@ -18,8 +18,10 @@ SH
 cat > "$tmp/bin/flock" <<'SH'
 #!/bin/sh
 SH
+# Real curl reads the metric from stdin; a stub that does not races the writer into SIGPIPE.
 cat > "$tmp/bin/curl" <<'SH'
 #!/bin/sh
+cat >/dev/null
 SH
 cat > "$tmp/bin/docker" <<'SH'
 #!/bin/sh

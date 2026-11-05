@@ -2,6 +2,10 @@ name: QA
 
 # Free-plan minutes: docs-only changes skip CI, a newer push cancels the
 # running one, and the four-project browser matrix runs manually and weekly on Sundays.
+# Pull requests run only the slow suites their change can affect (scripts/ci/qa-scope.sh);
+# main, the schedule and manual runs always run all of them.
+# The repository variable QA_RUNS_ON moves both jobs onto the sandboxed self-hosted
+# runner, e.g. ["self-hosted","tagaroa-qa"] (docs/ops/workflows/qa-runner.md).
 on:
   pull_request:
     paths-ignore: ["**.md", "docs/**"]
@@ -21,21 +25,21 @@ permissions:
 
 jobs:
   checks:
-    runs-on: ubuntu-24.04
+    runs-on: ${{ fromJSON(vars.QA_RUNS_ON || '"ubuntu-24.04"') }}
     steps:
-      - uses: actions/checkout@v7
-      - uses: actions/setup-node@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         id: node
         with:
           node-version: "24"
           package-manager-cache: false
-      - uses: oven-sh/setup-bun@v2
+      - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2.2.0
         id: bun
         with:
           bun-version: "1.4.2"
       - run: bun install --frozen-lockfile
       # This archive transports Turbo entries; Turbo still validates each task hash.
-      - uses: actions/cache/restore@v6
+      - uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         id: turbo-cache
         with:
           path: .turbo/cache
@@ -43,11 +47,27 @@ jobs:
           restore-keys: |
             turbo-v1-${{ runner.os }}-${{ runner.arch }}-ubuntu24-node${{ steps.node.outputs.node-version }}-bun${{ steps.bun.outputs.bun-version }}-${{ hashFiles('bun.lock') }}-
       - run: bun run lint
+      - run: bun run format
       - run: bun run check-types
+      - run: bun run boundaries
       - run: bun run test
       - run: bun run build
+      # Pinned by checksum; Dependabot does not see this one, so bump it by hand.
+      - name: Install actionlint
+        env:
+          VERSION: 1.7.12
+          SHA256: 8aca8db96f1b94770f1b0d72b6dddcb1ebb8123cb3712530b08cc387b349a3d8
+        run: |
+          archive="$RUNNER_TEMP/actionlint.tar.gz"
+          curl -fsSL --retry 3 -o "$archive" \
+            "https://github.com/rhysd/actionlint/releases/download/v$VERSION/actionlint_${VERSION}_linux_amd64.tar.gz"
+          echo "$SHA256  $archive" | sha256sum -c -
+          mkdir -p "$RUNNER_TEMP/bin"
+          tar -xzf "$archive" -C "$RUNNER_TEMP/bin" actionlint
+          echo "$RUNNER_TEMP/bin" >> "$GITHUB_PATH"
+      - run: bun run check:infra
       # Forks and other contributors can read public artifacts, but cannot publish them.
-      - uses: actions/cache/save@v6
+      - uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         if: >-
           (github.event_name != 'pull_request' && github.ref == 'refs/heads/main') ||
           (github.event_name == 'pull_request' &&
@@ -58,32 +78,44 @@ jobs:
           key: ${{ steps.turbo-cache.outputs.cache-primary-key }}
 
   workflows:
-    runs-on: ubuntu-24.04
+    runs-on: ${{ fromJSON(vars.QA_RUNS_ON || '"ubuntu-24.04"') }}
     timeout-minutes: 30
     strategy:
       fail-fast: false
       matrix:
         project: ${{ fromJSON((github.event_name == 'workflow_dispatch' || github.event_name == 'schedule') && '["chromium","firefox","webkit","mobile-chromium"]' || '["chromium"]') }}
     steps:
-      - uses: actions/checkout@v7
-      - uses: actions/setup-node@v7
+      # Two commits: a pull request's merge commit and its base, for qa-scope.sh.
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 2
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
           node-version: "24"
           package-manager-cache: false
-      - uses: oven-sh/setup-bun@v2
+      - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2.2.0
         with:
           bun-version: "1.4.2"
       - run: bun install --frozen-lockfile
-      - run: bunx playwright install --with-deps ${{ matrix.project == 'mobile-chromium' && 'chromium' || matrix.project }}
+      - name: Scope
+        id: scope
+        env:
+          BASE: ${{ github.event_name == 'pull_request' && 'HEAD^1' || '' }}
+        run: bash scripts/ci/qa-scope.sh "$BASE"
+      # The self-hosted image already carries the browsers' system libraries.
+      - run: bunx playwright install ${{ runner.environment == 'github-hosted' && '--with-deps' || '' }} ${{ matrix.project == 'mobile-chromium' && 'chromium' || matrix.project }}
+        if: steps.scope.outputs.e2e_auth == 'true' || steps.scope.outputs.e2e_admin == 'true'
         working-directory: apps/auth
       - run: bun run test:integration --log-order=stream
-        if: matrix.project == 'chromium'
+        if: matrix.project == 'chromium' && steps.scope.outputs.integration == 'true'
       # Both browser suites share the seeded operator and must run sequentially.
       - run: bun run test:e2e --project ${{ matrix.project }}
+        if: steps.scope.outputs.e2e_auth == 'true'
         working-directory: apps/auth
       - run: bun run test:e2e --project ${{ matrix.project }}
+        if: steps.scope.outputs.e2e_admin == 'true'
         working-directory: apps/admin
-      - uses: actions/upload-artifact@v7
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         if: always()
         with:
           name: browser-results-${{ matrix.project }}
@@ -95,10 +127,13 @@ jobs:
   # Opens a "QA failed on main" issue for Rex in Multica. Skipped for PRs, which their author fixes.
   # The key is the run id alone: a rerun of the same run must not open another issue (a rerun
   # chain opened nine, and each woke an agent that reran it again).
+  # It runs on the deploy runner, which costs no hosted minutes: when they ran out on
+  # 2026-11-04 this job could not start either, and nobody heard that main was red.
+  # That runner takes only main (infra/runner/hooks/job-started.sh), hence the ref check.
   notify-multica:
     needs: [checks, workflows]
-    if: failure() && github.event_name != 'pull_request'
-    runs-on: ubuntu-24.04
+    if: failure() && github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
+    runs-on: [self-hosted, tagaroa]
     steps:
       - env:
           WEBHOOK: ${{ secrets.MULTICA_QA_WEBHOOK }}

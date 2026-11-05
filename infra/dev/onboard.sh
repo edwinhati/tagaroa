@@ -7,7 +7,7 @@
 # but records no release: the next deploy.sh still runs the full gate and, while
 # operators are missing, stops core/web again.
 set -eu
-[ $# -ge 2 ] && [ $# -le 3 ] || { echo "usage: onboard.sh <core-image> <web-image> [email]" >&2; exit 2; }
+if [ $# -lt 2 ] || [ $# -gt 3 ]; then echo "usage: onboard.sh <core-image> <web-image> [email]" >&2; exit 2; fi
 cd "$(dirname "$0")"
 test -f .env
 [ ! -f .release.env ] || { echo "A release is already recorded; use deploy.sh." >&2; exit 1; }
