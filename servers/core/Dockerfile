@@ -2,7 +2,7 @@
 # The build stage always runs on the builder's own platform; the JS it emits and
 # the pure-JS production dependencies are platform-independent, so only the
 # runtime stage is assembled for the target.
-FROM --platform=$BUILDPLATFORM oven/bun:1.4.2 AS build
+FROM --platform=$BUILDPLATFORM oven/bun:1.4.2@sha256:9114c058aeae42162ee16dd5084b95fe9473970bb6bcb5b232ab1630f0546895 AS build
 WORKDIR /repo
 # The root `prepare` script installs git hooks unless CI is set.
 ENV CI=1
@@ -14,7 +14,7 @@ RUN cd servers/core && bun run build
 RUN rm -rf node_modules servers/core/node_modules \
  && bun install --frozen-lockfile --production --filter @servers/core
 
-FROM oven/bun:1.4.2-slim
+FROM oven/bun:1.4.2-slim@sha256:cb3bbbb08e13a4a2ff400f24c7a2a1d5efa83f6ef8544d52d95a519631e2fc61
 ENV NODE_ENV=production
 WORKDIR /repo/servers/core
 COPY --from=build --chown=bun:bun /repo/node_modules /repo/node_modules

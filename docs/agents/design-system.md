@@ -1,13 +1,16 @@
-# Bringing a Claude Design screen into the repo
+# The design system and bringing a design into the repo
 
-`packages/ui` is synced to Claude Design as **Tagaroa Design System**
-(`https://claude.ai/design/p/d003b531-354d-4479-ae21-369465692da4`), so designs there are built
-from these components on these tokens. Re-sync with `/design-sync`; `.design-sync/NOTES.md`
-holds the build steps and traps.
+The **Tagaroa Design System** artifact (`https://claude.ai/artifact/DLitkQYccmvmD1fPnN9Xm1`) is
+the published brand book: tokens in light and dark, the named rules, the Geist fonts, the mark,
+and exports for design tools (W3C DTCG files for Figma, a CSS variables file for Pencil). Agents
+read its `README.md` first. It mirrors `packages/ui/src/styles/tagaroa.css` and `DESIGN.md` and is
+never the source of a value: change `tagaroa.css` first, mirror it in `DESIGN.md`, then update
+the artifact and its exports.
 
-Designs come back using a **flat** bundle (`const { Button } = window.TagaroaUI`). This repo
-has **no root export** — `@repo/ui` alone does not resolve. Translate each name to the source
-file it lives in, kebab-cased, and collapse siblings into one import:
+The artifact carries no components. A design from any tool names components the way `@repo/ui`
+exports them (`Button`, `CardHeader`). This repo has **no root export** — `@repo/ui` alone does
+not resolve. Translate each name to the source file it lives in, kebab-cased, and collapse
+siblings into one import:
 
 ```jsx
 import { Button } from "@repo/ui/components/button";
@@ -40,13 +43,10 @@ and get overwritten by `bunx --bun shadcn@latest add …`. Put Tagaroa tokens an
 compact density in `packages/ui/src/styles/tagaroa.css` (data-slot overrides), product
 composition in `apps/*` or `domains/*`, and hand-owned primitives in `packages/ui/src/blocks/`.
 
-One difference from the design canvas, expected: designs render on white while the apps render
-on `--background` (warm bone).
-
 `tagaroa.css` names `"Geist Variable"` / `"Geist Mono Variable"`, the families fontsource
 actually ships. The package ships no CSS, so a new app has to
 `@import "@fontsource-variable/geist"` and `geist-mono` in its own `app.css` to get the face —
-it does not need to redeclare `--font-sans` (see `.design-sync/NOTES.md`).
+it does not need to redeclare `--font-sans`.
 
 ## DESIGN.md
 

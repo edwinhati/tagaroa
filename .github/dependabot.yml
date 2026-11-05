@@ -1,0 +1,47 @@
+# Keeps the commit-pinned actions and digest-pinned base images current. npm
+# dependencies stay with Rex's weekly dependency check (docs/agents/multica.md).
+# Monthly and grouped, one PR per ecosystem: every PR here runs the full QA suite.
+version: 2
+updates:
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: monthly
+    groups:
+      actions:
+        patterns: ["*"]
+    commit-message:
+      prefix: ci
+    open-pull-requests-limit: 1
+
+  # Dockerfile FROM lines. A bump lands on dev with the next deploy and reaches
+  # prod only through a release brief, like any other change.
+  - package-ecosystem: docker
+    directories:
+      - /servers/core
+      - /infra/web
+      - /infra/runner
+      - /infra/qa-runner
+    schedule:
+      interval: monthly
+    groups:
+      base-images:
+        patterns: ["*"]
+    commit-message:
+      prefix: build
+    open-pull-requests-limit: 1
+
+  # Postgres in the dev stack, the QA runner and the local developer stack.
+  - package-ecosystem: docker-compose
+    directories:
+      - /infra/dev
+      - /infra/qa-runner
+      - /infra/docker
+    schedule:
+      interval: monthly
+    groups:
+      compose-images:
+        patterns: ["*"]
+    commit-message:
+      prefix: build
+    open-pull-requests-limit: 1

@@ -1,6 +1,6 @@
 # Build context is the repo root: docker build -f infra/web/Dockerfile --build-arg VITE_...=... .
 # The SPAs bake their URLs in at build time, so this image is per-environment.
-FROM --platform=$BUILDPLATFORM oven/bun:1.4.2 AS build
+FROM --platform=$BUILDPLATFORM oven/bun:1.4.2@sha256:9114c058aeae42162ee16dd5084b95fe9473970bb6bcb5b232ab1630f0546895 AS build
 WORKDIR /repo
 # The root `prepare` script installs git hooks unless CI is set.
 ENV CI=1
@@ -31,7 +31,7 @@ RUN mkdir /csp \
       bun infra/web/inline-script-hashes.ts "$app/dist/client/_shell.html" > "/csp/${app#*/}" || exit 1; \
     done
 
-FROM caddy:2-alpine
+FROM caddy:2.11.8-alpine@sha256:3db3a09e418f86a8fce8de4bc0026fccd2b4cd925aef00cc7d843d9fdc75e442
 COPY infra/web/Caddyfile /etc/caddy/Caddyfile
 COPY --from=build /csp /etc/caddy/csp
 COPY --from=build /repo/apps/auth/dist/client /srv/auth

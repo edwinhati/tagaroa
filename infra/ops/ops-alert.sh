@@ -8,7 +8,8 @@
 # --dry-run prints the JSON body instead of sending it.
 set -eu
 
-kind= id= env= sha= step= run_url= log= dry_run=
+kind='' id='' env='' sha='' step='' run_url='' log='' dry_run=''
+# shellcheck disable=SC2034 # env, sha, step and run_url are read through eval below.
 while [ $# -gt 0 ]; do
   case $1 in
     --kind) kind=$2; shift 2 ;;
@@ -23,8 +24,8 @@ while [ $# -gt 0 ]; do
   esac
 done
 case $kind in
-  prod-down | dev-deploy-failed | restore-test-failed) ;;
-  *) echo "ops-alert: --kind must be prod-down, dev-deploy-failed or restore-test-failed" >&2; exit 2 ;;
+  prod-down | dev-deploy-failed | dev-brief-failed | restore-test-failed) ;;
+  *) echo "ops-alert: --kind must be prod-down, dev-deploy-failed, dev-brief-failed or restore-test-failed" >&2; exit 2 ;;
 esac
 [ -n "$id" ] || { echo "ops-alert: --id is required" >&2; exit 2; }
 

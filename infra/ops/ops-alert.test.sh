@@ -33,5 +33,6 @@ if command -v python3 >/dev/null; then
   printf '%s' "$out" | python3 -c 'import json,sys; d=json.load(sys.stdin); assert d["kind"]=="dev-deploy-failed" and len(d["log_tail"].splitlines())==50, d'
 fi
 if sh "$dir/ops-alert.sh" --dry-run --kind nope --id 1 2>/dev/null; then echo "FAIL: bad kind accepted"; exit 1; fi
+case $(sh "$dir/ops-alert.sh" --dry-run --kind dev-brief-failed --id 1) in *'"kind":"dev-brief-failed"'*) ;; *) echo "FAIL: dev-brief-failed refused"; exit 1 ;; esac
 if sh "$dir/ops-alert.sh" --dry-run --kind prod-down --id 1 --log "$log.missing" 2>/dev/null; then echo "FAIL: missing log accepted"; exit 1; fi
 echo "ops-alert ok"
