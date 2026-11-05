@@ -15,6 +15,7 @@ Event. Four sources, one Multica webhook:
 | `prod-down`           | Alertmanager on the OCI VM      | Tagaroa prod probe failing for 3 minutes, or `PostgreSQLUnavailable` firing |
 | `prod-down`           | `release-prod.yml`              | a failed release could not roll back                                        |
 | `dev-deploy-failed`   | `deploy-dev.yml`                | a dev deploy failed and dev was rolled back                                 |
+| `dev-brief-failed`    | `deploy-dev.yml`                | dev deployed fine, but the release brief could not be updated               |
 | `restore-test-failed` | `restore-test.sh` on the OCI VM | the monthly restore test failed or did not run                              |
 
 ## Checkpoint
@@ -38,6 +39,8 @@ that hand-off is the brief. Rex never changes prod.
     restart, roll back, edit files or run migrations.
   - `dev-deploy-failed`: open the run URL, find the failing step, reproduce locally if it
     is a code problem, and open a PR with the fix if one is clear; otherwise diagnose.
+  - `dev-brief-failed`: dev is healthy; only the release brief is stale. Read the log
+    tail (from `infra/release/brief.sh`) and the run, and fix `brief.sh` the same way.
   - `restore-test-failed`: read the log tail in the payload, then
     `journalctl -u pgbackrest-restore-test --since -2d` on the VM, read-only.
   - End with one comment: what broke, the evidence (log lines), the likely cause, the

@@ -43,6 +43,8 @@ jobs:
        github.event.workflow_run.head_branch == 'main')
     runs-on: [self-hosted, tagaroa]
     timeout-minutes: 45
+    outputs:
+      sha: ${{ steps.sha.outputs.sha }}
     steps:
       # Never the branch tip: a later merge must not slip into this deploy.
       - uses: actions/checkout@v7
@@ -119,18 +121,48 @@ jobs:
             check app.dev.tagaroa.cc /engineering text/html
           } 2>&1 | tee -a "$LOG"
 
-      # The run is done when the brief is current. A failed sha never gets here.
+      - name: Alert Rex
+        if: failure() && steps.sha.outcome != 'failure'
+        env:
+          MULTICA_OPS_WEBHOOK: ${{ secrets.MULTICA_OPS_WEBHOOK }}
+          STEPS: ${{ toJSON(steps) }}
+          SHA: ${{ steps.sha.outputs.sha }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          if [ -z "$MULTICA_OPS_WEBHOOK" ]; then echo "::warning::MULTICA_OPS_WEBHOOK is not set; nobody was alerted."; exit 0; fi
+          step=$(jq -r 'to_entries[] | select(.value.outcome == "failure") | .key' <<<"$STEPS" | head -1)
+          sh infra/ops/ops-alert.sh --kind dev-deploy-failed \
+            --id "${{ github.run_id }}-${{ github.run_attempt }}" --env dev \
+            --sha "$SHA" --step "$step" --run-url "$RUN_URL" --log "$LOG"
+
+  # Its own job, so a stale brief is reported as that and not as a broken dev, which
+  # by now is deployed and passed its smoke check. A failed sha never gets here.
+  # The run is done when the brief is current.
+  brief:
+    needs: deploy
+    runs-on: [self-hosted, tagaroa]
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: ${{ needs.deploy.outputs.sha }}
+          fetch-depth: 0
+          persist-credentials: false
+
       - name: Update release brief
         id: brief
         env:
           MULTICA_TOKEN: ${{ secrets.MULTICA_TOKEN }}
-          SHA: ${{ steps.sha.outputs.sha }}
+          SHA: ${{ needs.deploy.outputs.sha }}
           RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
           QA_URL: ${{ github.event.workflow_run.html_url }}
           PROD_SSH_KEY: ${{ secrets.PROD_SSH_KEY }}
           PROD_SSH_KNOWN_HOSTS: ${{ secrets.PROD_SSH_KNOWN_HOSTS }}
           PROD_HOST: tagaroa@168.107.65.35
         run: |
+          export LOG="$RUNNER_TEMP/brief.log"
+          echo "LOG=$LOG" >> "$GITHUB_ENV"
+          : > "$LOG"
           install -d -m 700 ~/.ssh
           printf '%s\n' "$PROD_SSH_KEY" > ~/.ssh/id_ed25519
           printf '%s\n' "$PROD_SSH_KNOWN_HOSTS" > ~/.ssh/known_hosts
@@ -145,15 +177,13 @@ jobs:
           rm -f ~/.ssh/id_ed25519 ~/.ssh/known_hosts
 
       - name: Alert Rex
-        if: failure() && steps.sha.outcome != 'failure'
+        if: failure()
         env:
           MULTICA_OPS_WEBHOOK: ${{ secrets.MULTICA_OPS_WEBHOOK }}
-          STEPS: ${{ toJSON(steps) }}
-          SHA: ${{ steps.sha.outputs.sha }}
+          SHA: ${{ needs.deploy.outputs.sha }}
           RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
         run: |
           if [ -z "$MULTICA_OPS_WEBHOOK" ]; then echo "::warning::MULTICA_OPS_WEBHOOK is not set; nobody was alerted."; exit 0; fi
-          step=$(jq -r 'to_entries[] | select(.value.outcome == "failure") | .key' <<<"$STEPS" | head -1)
-          sh infra/ops/ops-alert.sh --kind dev-deploy-failed \
+          sh infra/ops/ops-alert.sh --kind dev-brief-failed \
             --id "${{ github.run_id }}-${{ github.run_attempt }}" --env dev \
-            --sha "$SHA" --step "$step" --run-url "$RUN_URL" --log "$LOG"
+            --sha "$SHA" --step "Update release brief" --run-url "$RUN_URL" --log "$LOG"
