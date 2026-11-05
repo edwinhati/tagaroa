@@ -105,7 +105,7 @@ running=$(multica issue list --status in_progress --project "$project" --limit 1
   | jq -r '[.issues[] | select(any(.labels[]?; .name=="release"))] | length')
 if [[ "$running" != 0 ]]; then echo "A release is running; leaving its approved brief unchanged."; exit 0; fi
 existing=$(multica issue list --status todo --limit 100 --output json \
-  | jq -r --arg l release '[.issues[]? // .[]? | select(any(.labels[]?; .name==$l))][0].id // empty')
+  | jq -r --arg l release '[.issues[] | select(any(.labels[]?; .name==$l))][0].id // empty')
 if [[ -n $existing ]]; then
   multica issue update "$existing" --title "$title" --description-file "$file" >/dev/null
   issue=$existing
