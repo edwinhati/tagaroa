@@ -41,20 +41,3 @@ yarn-error.log*
 # Misc
 .DS_Store
 *.pem
-
-# design-sync (staged converter, build output, machine state)
-.ds-sync/
-ds-bundle/
-.design-sync/.cache/
-.design-sync/node_modules
-packages/ui/.ds-dist/
-packages/ui/.ds-fonts/
-packages/ui/.ds-tsconfig.json
-packages/ui/src/_ds-entry.ts
-packages/ui/src/_ds-styles.css
-packages/ui/src/_ds-styles.built.css
-
-# The design-canvas viewer export — 4.3MB of inlined editor runtime and base64
-# fonts, re-exported whole on every change. The nine .dc.html artboards and
-# emit.mjs are the sources; this is the thing you open to look at them.
-.design-sync/foundation/tagaroa-design-foundation.html

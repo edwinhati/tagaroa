@@ -87,7 +87,7 @@
       "rules": { "shadcn/no-restyle": "off" }
     },
     {
-      "files": ["packages/ui/src/components/**", ".design-sync/previews/**"],
+      "files": ["packages/ui/src/components/**"],
       "rules": {
         "jsx-a11y/click-events-have-key-events": "off",
         "jsx-a11y/label-has-associated-control": "off",

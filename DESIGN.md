@@ -173,9 +173,9 @@ The Door chapter below is the auth surface only.
 - **Components are `@repo/ui`**, imported per file (`@repo/ui/components/button`). No root export,
   no second library. Do not edit `packages/ui/src/components/` for craft (shadcn regenerates them).
   Put Tagaroa overrides in `tagaroa.css` and composition in apps or domains.
-- **Foundation board** (nine artboards) lives in `.design-sync/foundation/`, published as
-  Tagaroa Design Foundation. `node emit.mjs` regenerates `.dc.html` and `canvas.json` from
-  `sections-*.mjs`. Never hand-edit a `.dc.html`.
+- **Design system artifact:** the published brand book for designers, design tools and agents
+  (tokens, rules, fonts, mark, Figma and Pencil exports); see `docs/agents/design-system.md`.
+  It mirrors `tagaroa.css` and this file; it is never the source of a value.
 - **Status vocabulary:** five triplets
   (`--status-{neutral,info,success,warning,danger}-{tint,line,text}`). `Badge` and `Alert`
   expose matching variants. Map a product state to one of five; do not invent a sixth colour.

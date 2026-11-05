@@ -59,13 +59,13 @@ UI implementation routes through skills: `animate` for new motion,
 ARIA work (dropdowns, menus, dialogs, custom widgets), `shadcn` for adding or changing `packages/ui` components. Load the matching skill
 before writing the code.
 
-`hallmark` is for new marketing sites and standalone pages only. Product screens in `apps/` and `domains/` are built from `@repo/ui` and Claude Design (`docs/agents/design-system.md`), so never use `hallmark` there unless the user names it.
+`hallmark` is for new marketing sites and standalone pages only. Product screens in `apps/` and `domains/` are built from `@repo/ui` and the Tagaroa design system (`docs/agents/design-system.md`), so never use `hallmark` there unless the user names it.
 
 ## Architecture notes
 
 Read the matching file before working in that area; they are not loaded automatically.
 
-- `docs/agents/design-system.md`: Claude Design bundle, `@repo/ui` import map, and where product styling lives. Read before pasting a Claude Design screen into the repo, or before editing anything under `packages/ui`.
+- `docs/agents/design-system.md`: the Tagaroa design system artifact, the `@repo/ui` import map, and where product styling lives. Read before building a screen from a design, or before editing anything under `packages/ui`.
 - `docs/agents/workspace-domains.md`: the workspace shell, microfrontends proxy, ports, and how to add a domain front end. Read before adding or changing a front end under `apps/` or `domains/`, `microfrontends.json`, or `packages/shell`.
 - `docs/agents/administration.md`: identity vs domain administration, `AccessControlModule`, and what is built. Read before touching `apps/admin`, `servers/core` access-control or directory code, or admission/role logic in `packages/shell`.
 - `docs/agents/api.md`: `servers/core` HTTP conventions: envelope, collections, status codes, request validation with Zod. Read before adding or changing an endpoint.
