@@ -27,7 +27,11 @@ All files below are new and live in the repo; the workflow is `.github/workflows
 `runs-on: [self-hosted, tagaroa]`.
 
 1. **Core image** `10.10.10.14:8080/tagaroa/core:<sha>`, from `servers/core/Dockerfile`,
-   platform `linux/amd64`.
+   one multi-arch image: `linux/amd64` for dev and `linux/arm64`, which a release later
+   copies to prod unchanged (`release-prod.md`, "Deploy"). Each platform is pushed as
+   `core:<sha>-<arch>` without attestations and joined with `docker manifest create
+   --insecure`, which works with the default buildx driver and Zot's plain HTTP.
+   QEMU binfmt (`infra/runner/tagaroa-binfmt.openrc`) must be installed on CT 105.
    - Build stage on `oven/bun` (version pinned to the repo's `1.4.2`): `bun install
      --frozen-lockfile` for the workspace, `bun run build` in `servers/core`.
    - Runtime stage `oven/bun:1.4.2-slim`: `dist/`, production dependencies, `drizzle/`
@@ -129,8 +133,9 @@ One-time setup, done by whoever implements this (needs root on CT 105):
 ## Steps (each run)
 
 1. Check out the sha.
-2. Build and push both images (`linux/amd64`, `docker buildx build --push`). Use the
-   runner's local Docker layer cache; no registry cache needed.
+2. Build and push the images: core for amd64 and arm64, dev's web image for amd64, and
+   prod's web image `web-prod:<sha>` for arm64 with prod's URLs (the dev args with
+   `dev.` removed). Use the runner's local Docker layer cache; no registry cache needed.
 3. Copy `infra/dev/compose.yml` and `infra/dev/deploy.sh` into `/home/tagaroa/apps`
    and run `deploy.sh` with the two image references.
 4. Smoke check against `http://10.10.10.5:22830` with `Host:` headers:

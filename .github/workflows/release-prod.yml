@@ -42,4 +42,5 @@ jobs:
         run: |
           multica auth logout || true
           docker logout sin.ocir.io || true
+          skopeo logout sin.ocir.io || true
           rm -f ~/.ssh/id_ed25519 ~/.ssh/known_hosts
