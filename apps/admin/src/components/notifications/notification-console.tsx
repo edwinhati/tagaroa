@@ -41,6 +41,7 @@ import {
 import { Skeleton } from "@repo/ui/components/skeleton";
 import { cn } from "@repo/ui/lib/utils";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { Link } from "@tanstack/react-router";
 import {
   functionalUpdate,
   type PaginationState,
@@ -67,15 +68,16 @@ import {
 } from "../../lib/notifications";
 import {
   COLLECTION,
+  COLUMN,
   Failed,
   FIGURE,
+  Mark,
   MONO,
   Nothing,
   PANEL,
   SECTION,
   SurfaceBanner,
 } from "../admin-surface";
-import { ProviderMark } from "../brand-mark";
 import { MessageDetail } from "../message-detail";
 import {
   ChannelName,
@@ -172,6 +174,7 @@ export function NotificationOverviewPage() {
   return (
     <Page
       breadcrumb={<AppTrail items={[{ label: "Notifications" }]} />}
+      description={overview.data ? overviewSummary(overview.data) : undefined}
       title="Notifications"
     >
       <div className={COLLECTION}>
@@ -182,15 +185,44 @@ export function NotificationOverviewPage() {
             onRetry={() => void overview.refetch()}
             what="delivery overview"
           />
+        ) : overview.isPending ? (
+          <>
+            <Skeleton className="h-40 w-full rounded-[var(--panel-radius)]" />
+            <Skeleton className="h-20 w-full rounded-[var(--panel-radius)]" />
+          </>
         ) : (
           <>
-            <Health overview={overview.data} pending={overview.isPending} />
-            <Channels channels={overview.data?.channels ?? []} />
+            <Channels channels={overview.data.channels} />
+            <div className={PANEL}>
+              <Volume series={overview.data.series} />
+            </div>
           </>
         )}
       </div>
     </Page>
   );
+}
+
+/**
+ * The page's one sentence: whether anything went out, and whether every
+ * channel can send. A row of zeros says neither.
+ */
+function overviewSummary({ channels, series, totals }: Overview) {
+  const fortnight = series.reduce((sum, day) => sum + day.sent + day.failed, 0);
+  const unready = channels.filter((channel) => !channel.configured).length;
+  const traffic =
+    totals.sent > 0
+      ? `${totals.sent.toLocaleString()} sent in the last 24 hours, ${Math.round((totals.delivered / totals.sent) * 100)}% delivered${totals.failed > 0 ? `, ${totals.failed.toLocaleString()} failed` : ""}.`
+      : fortnight > 0
+        ? `Nothing sent in the last 24 hours; ${fortnight.toLocaleString()} in the last 14 days.`
+        : "Nothing has been sent in the last 14 days.";
+  const readiness =
+    unready === 0
+      ? ""
+      : unready === channels.length
+        ? " No channel has provider credentials yet."
+        : ` ${unready} of ${channels.length} channels can't send until they have provider credentials.`;
+  return `${traffic}${readiness}`;
 }
 
 export function DeliveryLogPage({
@@ -301,83 +333,6 @@ function ConsoleMode() {
   );
 }
 
-function Health({
-  overview,
-  pending,
-}: {
-  overview: Overview | undefined;
-  pending: boolean;
-}) {
-  if (pending) return <Skeleton className="h-80 w-full" />;
-  if (!overview) return null;
-
-  const { totals } = overview;
-  const rate =
-    totals.sent > 0 ? Math.round((totals.delivered / totals.sent) * 100) : null;
-
-  return (
-    <div className={PANEL}>
-      <p className="notify-totals">
-        <span className="notify-total">
-          <span
-            className={cn("notify-total-count", totals.queued > 0 && "is-live")}
-          >
-            {totals.queued.toLocaleString()}
-          </span>
-          <span className="notify-total-label">queued</span>
-        </span>
-        <span className="notify-total">
-          <span
-            className={cn("notify-total-count", totals.sent > 0 && "is-live")}
-          >
-            {totals.sent.toLocaleString()}
-          </span>
-          <span className="notify-total-label">
-            sent<span className="notify-total-aside"> (24h)</span>
-          </span>
-        </span>
-        <span className="notify-total">
-          <span
-            className={cn(
-              "notify-total-count",
-              totals.delivered > 0 && "is-live",
-            )}
-          >
-            {totals.delivered.toLocaleString()}
-          </span>
-          <span className="notify-total-label">
-            delivered
-            {rate === null ? null : (
-              <span className="notify-total-aside"> · {rate}%</span>
-            )}
-          </span>
-        </span>
-        <span className={cn("notify-total", totals.failed > 0 && "is-failed")}>
-          <span
-            className={cn("notify-total-count", totals.failed > 0 && "is-live")}
-          >
-            {totals.failed.toLocaleString()}
-          </span>
-          <span className="notify-total-label">failed</span>
-        </span>
-        <span className="notify-total">
-          <span
-            className={cn(
-              "notify-total-count",
-              totals.suppressed > 0 && "is-live",
-            )}
-          >
-            {totals.suppressed.toLocaleString()}
-          </span>
-          <span className="notify-total-label">suppressed</span>
-        </span>
-      </p>
-
-      <Volume series={overview.series} />
-    </div>
-  );
-}
-
 const volumeConfig = {
   sent: {
     label: "Sent",
@@ -410,12 +365,24 @@ function Volume({ series }: { series: Overview["series"] }) {
     );
   }
 
+  const total = series.reduce((sum, day) => sum + day.sent + day.failed, 0);
+  if (total === 0) {
+    return (
+      <div className="gap-1 px-4 py-3.5 flex flex-col">
+        <p className="font-medium text-[13px]">Volume, last 14 days</p>
+        <p className="text-[12.5px] text-muted-foreground">
+          The chart appears once a message is sent, with failures beside sends
+          day by day.
+        </p>
+      </div>
+    );
+  }
+
   const lastIndex = series.length - 1;
   const peakDay = series.reduce((highest, day) =>
     day.sent + day.failed > highest.sent + highest.failed ? day : highest,
   );
   const peak = peakDay.sent + peakDay.failed;
-  const total = series.reduce((sum, day) => sum + day.sent + day.failed, 0);
   const asDate = (day: string) => new Date(`${day}T00:00:00Z`);
   const label = (day: string) =>
     asDate(day).toLocaleDateString(undefined, {
@@ -506,94 +473,110 @@ function Channels({ channels }: { channels: ChannelHealth[] }) {
   if (channels.length === 0) return null;
 
   return (
-    <section className="ch-meter">
-      <h2 className={SECTION}>Channels</h2>
-      <ul className="ch-meter-list">
-        {channels.map((channel) => {
-          const attempted = channel.sent + channel.failed;
-          const failureRate =
-            attempted > 0 ? Math.round((channel.failed / attempted) * 100) : 0;
-          const total =
-            channel.queued + channel.sent + channel.failed + channel.suppressed;
-          const share = (n: number) => (total > 0 ? n : 0);
-
-          return (
-            <li className="ch-meter-row" key={channel.channel}>
-              <div className="ch-meter-top">
-                <div className="ch-meter-identity">
-                  <span
-                    aria-hidden="true"
-                    className="ch-meter-pip"
-                    data-ready={channel.configured ? "true" : "false"}
-                  />
-                  <ChannelName
-                    channel={channel.channel}
-                    className="font-medium text-[13px]"
-                  />
-                  <span className="gap-1.5 inline-flex items-center text-[13px] text-muted-foreground">
-                    <ProviderMark provider={channel.provider} />
-                    {channel.provider}
-                  </span>
-                  {channel.configured ? null : (
-                    <span className="ch-meter-warn">· no credentials</span>
-                  )}
-                </div>
-                <div className="ch-meter-counts">
-                  <span>
-                    <span className="ch-meter-n">{channel.queued}</span> queued
-                  </span>
-                  <span>
-                    <span className="ch-meter-n">{channel.sent}</span> sent
-                  </span>
-                  <span
-                    className={
-                      channel.failed > 0 ? "text-status-danger-text" : ""
-                    }
+    <section aria-labelledby="channels-title" className={PANEL}>
+      <div className="gap-3 px-4 py-3.5 flex items-baseline justify-between">
+        <h2 className={SECTION} id="channels-title">
+          Channels
+        </h2>
+        <span className={`${FIGURE} text-muted-foreground`}>Last 24 hours</span>
+      </div>
+      <div className="relative overflow-x-auto">
+        <table className="w-full min-w-[40rem] text-[13px]">
+          <thead>
+            <tr className="h-8 border-t border-border text-left">
+              <th className={`${COLUMN} px-4`} scope="col">
+                Channel
+              </th>
+              <th className={`${COLUMN} px-4`} scope="col">
+                State
+              </th>
+              {(["Queued", "Sent", "Failed", "Suppressed"] as const).map(
+                (label) => (
+                  <th
+                    className={`${COLUMN} px-4 text-right`}
+                    key={label}
+                    scope="col"
                   >
-                    <span className="tabular-nums">{channel.failed}</span>{" "}
-                    failed
+                    {label}
+                  </th>
+                ),
+              )}
+              <th className="px-4" scope="col">
+                <span className="sr-only">Open</span>
+              </th>
+            </tr>
+          </thead>
+          <tbody>
+            {channels.map((channel) => {
+              const attempted = channel.sent + channel.failed;
+              const failureRate =
+                attempted > 0
+                  ? Math.round((channel.failed / attempted) * 100)
+                  : 0;
+              return (
+                <tr
+                  className="row-hover-bg h-12 border-t border-border"
+                  key={channel.channel}
+                >
+                  <td className="px-4">
+                    <ChannelName
+                      channel={channel.channel}
+                      className="font-medium text-[13px]"
+                    />
+                    <span className="ml-2 text-muted-foreground">
+                      {channel.provider}
+                    </span>
+                  </td>
+                  <td className="px-4">
+                    <Mark
+                      className="text-[12.5px]"
+                      label={channel.configured ? "Ready" : "Needs credentials"}
+                      tone={channel.configured ? "done" : "warn"}
+                    />
+                  </td>
+                  <td className="px-4 text-right tabular-nums">
+                    {channel.queued.toLocaleString()}
+                  </td>
+                  <td className="px-4 text-right tabular-nums">
+                    {channel.sent.toLocaleString()}
+                  </td>
+                  <td
+                    className={cn(
+                      "px-4 text-right tabular-nums",
+                      channel.failed > 0 && "text-status-danger-text",
+                    )}
+                  >
+                    {channel.failed.toLocaleString()}
                     {failureRate > 0 ? ` (${failureRate}%)` : ""}
-                  </span>
-                  <span>
-                    <span className="ch-meter-n">{channel.suppressed}</span>{" "}
-                    suppressed
-                  </span>
-                </div>
-              </div>
-              <div
-                aria-hidden="true"
-                className="ch-meter-ribbon"
-                title={
-                  total === 0
-                    ? "No traffic yet"
-                    : `${total} messages across states`
-                }
-              >
-                <span
-                  className="ch-meter-seg"
-                  data-kind="queued"
-                  style={{ flexGrow: share(channel.queued) || 0.0001 }}
-                />
-                <span
-                  className="ch-meter-seg"
-                  data-kind="sent"
-                  style={{ flexGrow: share(channel.sent) || 0.0001 }}
-                />
-                <span
-                  className="ch-meter-seg"
-                  data-kind="failed"
-                  style={{ flexGrow: share(channel.failed) || 0.0001 }}
-                />
-                <span
-                  className="ch-meter-seg"
-                  data-kind="suppressed"
-                  style={{ flexGrow: share(channel.suppressed) || 0.0001 }}
-                />
-              </div>
-            </li>
-          );
-        })}
-      </ul>
+                  </td>
+                  <td className="px-4 text-right tabular-nums">
+                    {channel.suppressed.toLocaleString()}
+                  </td>
+                  <td className="px-4 text-right">
+                    <Button
+                      nativeButton={false}
+                      render={
+                        <Link
+                          search={{ channel: [channel.channel] }}
+                          to="/notifications/delivery"
+                        />
+                      }
+                      size="sm"
+                      variant="ghost"
+                    >
+                      Delivery log
+                      <span className="sr-only">
+                        {" "}
+                        for {channelLabel(channel.channel)}
+                      </span>
+                    </Button>
+                  </td>
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
+      </div>
     </section>
   );
 }

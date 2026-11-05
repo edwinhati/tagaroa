@@ -1,5 +1,4 @@
 import { AppTrail, Page } from "@repo/shell/app-shell";
-import { Avatar, AvatarFallback } from "@repo/ui/components/avatar";
 import { Button } from "@repo/ui/components/button";
 import {
   DropdownMenu,
@@ -10,7 +9,12 @@ import {
   DropdownMenuTrigger,
 } from "@repo/ui/components/dropdown-menu";
 import { Skeleton } from "@repo/ui/components/skeleton";
-import { cn } from "@repo/ui/lib/utils";
+import {
+  Tabs,
+  TabsContent,
+  TabsList,
+  TabsTrigger,
+} from "@repo/ui/components/tabs";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { createFileRoute, Link, redirect } from "@tanstack/react-router";
 import { EllipsisIcon } from "lucide-react";
@@ -64,8 +68,6 @@ export const Route = createFileRoute("/_shell/people/$personId")({
   },
   validateSearch: validatePeopleSearch,
 });
-
-type SectionKey = "access" | "auth" | "meta";
 
 export function PersonWorkspace({
   personId,
@@ -133,11 +135,6 @@ function PersonWorkspaceContent({
   const [editingPosition, setEditingPosition] = useState<
     false | "group" | string
   >(false);
-  const [open, setOpen] = useState<Record<SectionKey, boolean>>({
-    access: true,
-    auth: true,
-    meta: false,
-  });
   const people = useQuery({
     ...everyPersonQueryOptions,
     enabled: editingPosition !== false,
@@ -166,9 +163,6 @@ function PersonWorkspaceContent({
   const teams = (directory.data?.teams ?? []).filter((team) =>
     team.memberIds.includes(person.id),
   );
-  const positions = (directory.data?.positions ?? []).filter(
-    (position) => position.userId === person.id,
-  );
   const health = dashboard.data?.people.find(
     (entry) => entry.userId === person.id,
   );
@@ -180,37 +174,9 @@ function PersonWorkspaceContent({
         event.actor === person.email,
     )
     .slice(0, 6);
-  const initial = (person.name || person.email).trim().charAt(0).toUpperCase();
-
-  const accessSummary = [
-    subsidiaries.length === 0
-      ? "No membership"
-      : `${subsidiaries.length} subsidiar${subsidiaries.length === 1 ? "y" : "ies"}`,
-    personAssignments.length === 0
-      ? "no business assignments"
-      : `${personAssignments.length} assignment${personAssignments.length === 1 ? "" : "s"}`,
-    `${positions.length} position${positions.length === 1 ? "" : "s"}`,
-  ].join(" · ");
-
-  const authSummary = [
-    sessions.isPending
-      ? "Reading sessions"
-      : `${sessions.data?.length ?? 0} session${(sessions.data?.length ?? 0) === 1 ? "" : "s"}`,
-    person.twoFactorEnabled ? "MFA on" : "MFA off",
-    person.mustChangePassword ? "temporary password" : "password current",
-  ].join(" · ");
-
-  const metaSummary = [
-    `${recentEvents.length} recent event${recentEvents.length === 1 ? "" : "s"}`,
-    `created ${new Date(person.createdAt).toLocaleDateString()}`,
-  ].join(" · ");
 
   const showSticky =
     admin.canResetPassword || admin.canRevokeSessions || admin.canSuspend;
-
-  function toggle(key: SectionKey) {
-    setOpen((prev) => ({ ...prev, [key]: !prev[key] }));
-  }
 
   return (
     <Page
@@ -236,321 +202,320 @@ function PersonWorkspaceContent({
           ]}
         />
       }
-      description={person.email}
+      description={
+        <span className="gap-x-3 gap-y-1 flex flex-wrap items-center">
+          <span className={MONO}>{person.email}</span>
+          <Mark
+            label={standingOf(person) === "suspended" ? "Suspended" : "Active"}
+            tone={standingOf(person) === "suspended" ? "bad" : "done"}
+          />
+          <span>{identityRoleLabel(person.role)}</span>
+        </span>
+      }
       title={person.name || person.email}
     >
       <div className={`${COLLECTION} ${showSticky ? "pb-16" : ""}`}>
-        <div className="gap-2 flex flex-col">
-          <div className={`${PANEL} gap-3 px-3.5 py-3.5 flex items-center`}>
-            <Avatar size="lg">
-              <AvatarFallback>{initial}</AvatarFallback>
-            </Avatar>
-            <div className="min-w-0 flex-1">
-              <div className="gap-x-3 gap-y-1 flex flex-wrap items-center">
-                <Mark
-                  label={
-                    standingOf(person) === "suspended" ? "Suspended" : "Active"
-                  }
-                  tone={standingOf(person) === "suspended" ? "bad" : "done"}
-                />
-                <span className="text-[13px] text-muted-foreground">
-                  {identityRoleLabel(person.role)}
-                </span>
-              </div>
-              <p className={`${FIGURE} mt-1 text-muted-foreground`}>
-                {health?.lastActiveAt
-                  ? `Last active ${relativeTime(health.lastActiveAt)}`
-                  : "No recorded activity"}
-                {health
-                  ? ` · ${health.activeSessions} active session${health.activeSessions === 1 ? "" : "s"}`
-                  : ""}
-              </p>
-            </div>
-            <Mark
-              label={
-                person.twoFactorEnabled
-                  ? "Two-factor enabled"
-                  : "Two-factor not set up"
-              }
-              tone={person.twoFactorEnabled ? "done" : "warn"}
-            />
-          </div>
-          {standingOf(person) === "suspended" ||
-          !person.emailVerified ||
-          person.mustChangePassword ? (
-            <SurfaceBanner tone="warn">
-              <p>
-                <span className="font-medium text-foreground">
-                  This account needs attention.
-                </span>{" "}
-                {accountAttention(person)}
-              </p>
-            </SurfaceBanner>
-          ) : null}
-        </div>
+        {standingOf(person) === "suspended" ||
+        !person.emailVerified ||
+        person.mustChangePassword ? (
+          <SurfaceBanner tone="warn">
+            <p>
+              <span className="font-medium text-foreground">
+                {accountAttentionTitle(person)}
+              </span>{" "}
+              {accountAttention(person)}
+            </p>
+          </SurfaceBanner>
+        ) : null}
 
         <IdentitySecurityOperations person={person} />
 
-        <Disclosure
-          onToggle={() => toggle("access")}
-          open={open.access}
-          summary={accessSummary}
-          title="Access"
-        >
-          <div className="gap-5 p-3.5 lg:grid-cols-2 grid">
-            <div>
-              <SectionLabel>Membership</SectionLabel>
-              {subsidiaries.length === 0 ? (
-                <MutedLine>No subsidiary membership.</MutedLine>
-              ) : (
-                <ul className="mt-2 gap-2 grid">
-                  {subsidiaries.map((subsidiary) => {
-                    const subsidiaryTeams = teams.filter(
-                      (team) => team.organizationId === subsidiary.id,
-                    );
-                    return (
-                      <li className="text-xs" key={subsidiary.id}>
-                        <p className="font-medium">{subsidiary.name}</p>
-                        <p className="mt-0.5 text-muted-foreground">
-                          {subsidiaryTeams.length
-                            ? subsidiaryTeams
-                                .map((team) => team.name)
-                                .join(", ")
-                            : "No team membership"}
-                        </p>
-                      </li>
-                    );
-                  })}
-                </ul>
-              )}
-              <Button
-                className="mt-3 -ml-2"
-                nativeButton={false}
-                render={<Link to="/subsidiaries" />}
-                size="sm"
-                variant="ghost"
-              >
-                Manage membership
-              </Button>
-            </div>
-            <div>
-              <SectionLabel>Business assignments</SectionLabel>
-              {personAssignments.length === 0 ? (
-                <MutedLine>No business access assigned.</MutedLine>
-              ) : (
-                <AssignmentSummary
-                  assignments={personAssignments}
-                  directory={directory.data}
-                  roles={policy.data?.roles ?? []}
-                />
-              )}
-              <Button
-                className="mt-3 -ml-2"
-                nativeButton={false}
-                render={
-                  <Link to="/identity-access/business-access/assignments" />
-                }
-                size="sm"
-                variant="ghost"
-              >
-                Review business access
-              </Button>
-            </div>
-          </div>
-          <div className="px-3.5 py-3.5 border-t border-border/60">
-            <div className="mb-3 gap-3 flex items-start justify-between">
-              <div>
-                <SectionLabel>Position and reporting</SectionLabel>
-                <p className="mt-1 text-[12px] text-muted-foreground">
-                  Titles never grant permissions.
-                </p>
-              </div>
-              {admin.canAdminister ? (
-                <Button
-                  onClick={() => setEditingPosition("group")}
-                  size="sm"
-                  variant="outline"
+        <div className="gap-6 lg:grid-cols-[minmax(0,1fr)_17rem] grid items-start">
+          <Tabs defaultValue="access">
+            <TabsList aria-label="Account sections" variant="line">
+              <TabsTrigger value="access">Access</TabsTrigger>
+              <TabsTrigger value="sign-in">Sign-in</TabsTrigger>
+              <TabsTrigger value="activity">Activity</TabsTrigger>
+            </TabsList>
+
+            <TabsContent value="access">
+              <div className={PANEL}>
+                <Row
+                  action={
+                    <Button
+                      nativeButton={false}
+                      render={<Link to="/subsidiaries" />}
+                      size="sm"
+                      variant={
+                        subsidiaries.length === 0 ? "default" : "outline"
+                      }
+                    >
+                      {subsidiaries.length === 0
+                        ? "Add to a team"
+                        : "Manage membership"}
+                    </Button>
+                  }
+                  title="Membership"
                 >
-                  Add or edit position
-                </Button>
-              ) : null}
-            </div>
-            <PositionSummary
-              canEdit={admin.canAdminister}
-              onEdit={setEditingPosition}
-              personId={person.id}
-              positions={directory.data?.positions ?? []}
-              subsidiaries={directory.data?.subsidiaries ?? []}
-            />
-          </div>
-        </Disclosure>
-
-        <Disclosure
-          onToggle={() => toggle("auth")}
-          open={open.auth}
-          summary={authSummary}
-          title="Authentication"
-        >
-          <div className="gap-4 p-3.5 sm:grid-cols-3 grid">
-            <Fact
-              label="Two-factor"
-              value={person.twoFactorEnabled ? "Enabled" : "Not set up"}
-            />
-            <Fact
-              label="Password"
-              value={
-                person.mustChangePassword
-                  ? person.temporaryPasswordExpiresAt
-                    ? `Temporary password expires ${new Date(person.temporaryPasswordExpiresAt).toLocaleString()}`
-                    : "Temporary password replacement required"
-                  : "Current"
-              }
-            />
-            <Fact
-              label="Linked accounts"
-              value={accounts.data ? String(accounts.data.length) : "Reading…"}
-            />
-          </div>
-          <div className="px-3.5 pb-3 border-t border-border/60">
-            <div className="py-2.5 flex items-center justify-between">
-              <SectionLabel>Linked accounts</SectionLabel>
-              <span className="text-xs text-muted-foreground tabular-nums">
-                {accounts.data?.length ?? 0}
-              </span>
-            </div>
-            {accounts.isPending ? (
-              <Skeleton className="h-10" />
-            ) : accounts.isError ? (
-              <p className="text-xs text-destructive">
-                {accounts.error.message}
-              </p>
-            ) : accounts.data.length === 0 ? (
-              <p className="text-xs text-muted-foreground">
-                No linked accounts.
-              </p>
-            ) : (
-              <ul className="gap-0.5 flex flex-col">
-                {accounts.data.map((account) => (
-                  <li
-                    className="row-hover-bg gap-3 px-2 py-2 sm:grid-cols-[minmax(10rem,1fr)_minmax(12rem,1fr)_auto] sm:items-center grid rounded-md"
-                    key={account.id}
-                  >
-                    <p className="text-xs font-medium capitalize">
-                      {account.providerId}
-                    </p>
-                    <p className="font-mono truncate text-[0.6875rem] text-muted-foreground">
-                      {account.accountId}
-                    </p>
-                    <time className="text-[0.6875rem] text-muted-foreground tabular-nums">
-                      Linked {new Date(account.createdAt).toLocaleDateString()}
-                    </time>
-                  </li>
-                ))}
-              </ul>
-            )}
-          </div>
-          <div className="gap-1.5 px-3 pb-2.5 flex flex-col border-t border-border/60">
-            <div className="pt-2 flex items-center justify-between">
-              <p className="font-medium text-[12px]">Active sessions</p>
-              <span className="text-xs text-muted-foreground tabular-nums">
-                {sessions.data?.length ?? 0}
-              </span>
-            </div>
-            <p className="text-xs text-muted-foreground">
-              {authenticationPolicy.data
-                ? `Up to ${authenticationPolicy.data.session.concurrentLimit} active sessions per person.`
-                : authenticationPolicy.isError
-                  ? "Session limit is unavailable."
-                  : "Reading session limit…"}
-            </p>
-            {sessions.isPending ? (
-              <div className="gap-1.5 sm:grid-cols-2 xl:grid-cols-3 grid">
-                <Skeleton className="h-16 rounded-md" />
-                <Skeleton className="h-16 rounded-md" />
-                <Skeleton className="h-16 rounded-md" />
-              </div>
-            ) : sessions.isError ? (
-              <p className="text-xs text-destructive">
-                {sessions.error.message}
-              </p>
-            ) : sessions.data.length === 0 ? (
-              <p className="text-xs text-muted-foreground">
-                No active sessions.
-              </p>
-            ) : (
-              <ul className="gap-1.5 sm:grid-cols-2 xl:grid-cols-3 grid">
-                {sessions.data.map((session) => (
-                  <SessionCard
-                    canRevoke={admin.canRevokeSessions}
-                    key={session.id}
-                    pending={revoke.isPending}
-                    session={session}
-                    onRevoke={() => revoke.mutate(session.id)}
-                  />
-                ))}
-              </ul>
-            )}
-          </div>
-        </Disclosure>
-
-        <Disclosure
-          onToggle={() => toggle("meta")}
-          open={open.meta}
-          summary={metaSummary}
-          title="Account and activity"
-        >
-          <div className="gap-6 p-3.5 lg:grid-cols-2 grid">
-            <div className="gap-4 grid">
-              <Fact label="Work email" mono value={person.email} />
-              <Fact
-                label="Created"
-                value={new Date(person.createdAt).toLocaleDateString()}
-              />
-              <Fact label="User ID" mono value={person.id} />
-              {person.banned ? (
-                <Fact
-                  label="Suspension reason"
-                  value={person.banReason || "No reason recorded"}
-                />
-              ) : null}
-              <Fact
-                label="Email"
-                value={person.emailVerified ? "Verified" : "Not verified"}
-              />
-            </div>
-            <div>
-              {recentEvents.length === 0 ? (
-                <p className="text-[12.5px] text-muted-foreground">
-                  No recent activity for this account.
-                </p>
-              ) : (
-                <ul className="divide-y divide-border border-t border-border">
-                  {recentEvents.map((event) => (
-                    <li className="py-2.5" key={event.id}>
-                      <p className="text-[13px]">{eventAction(event)}</p>
-                      <time
-                        className={`${FIGURE} mt-1 block text-muted-foreground`}
-                        dateTime={new Date(event.at).toISOString()}
+                  {subsidiaries.length === 0 ? (
+                    <MutedLine>
+                      No subsidiary or team. Teams decide which domains this
+                      person can open.
+                    </MutedLine>
+                  ) : (
+                    <ul className="mt-1.5 gap-2 grid">
+                      {subsidiaries.map((subsidiary) => {
+                        const subsidiaryTeams = teams.filter(
+                          (team) => team.organizationId === subsidiary.id,
+                        );
+                        return (
+                          <li className="text-[13px]" key={subsidiary.id}>
+                            <p className="font-medium">{subsidiary.name}</p>
+                            <p className="mt-0.5 text-[12.5px] text-muted-foreground">
+                              {subsidiaryTeams.length
+                                ? subsidiaryTeams
+                                    .map((team) => team.name)
+                                    .join(", ")
+                                : "No team membership"}
+                            </p>
+                          </li>
+                        );
+                      })}
+                    </ul>
+                  )}
+                </Row>
+                <Row
+                  action={
+                    <Button
+                      nativeButton={false}
+                      render={
+                        <Link to="/identity-access/business-access/assignments" />
+                      }
+                      size="sm"
+                      variant="outline"
+                    >
+                      Review business access
+                    </Button>
+                  }
+                  title="Business access"
+                >
+                  {personAssignments.length === 0 ? (
+                    <MutedLine>
+                      No business roles. Access needs both a membership and an
+                      assignment.
+                    </MutedLine>
+                  ) : (
+                    <AssignmentSummary
+                      assignments={personAssignments}
+                      directory={directory.data}
+                      roles={policy.data?.roles ?? []}
+                    />
+                  )}
+                </Row>
+                <Row
+                  action={
+                    admin.canAdminister ? (
+                      <Button
+                        onClick={() => setEditingPosition("group")}
+                        size="sm"
+                        variant="outline"
                       >
-                        {relativeTime(event.at)}
-                      </time>
-                    </li>
-                  ))}
-                </ul>
-              )}
-              <div className="pt-2">
-                <Button
-                  nativeButton={false}
-                  render={<Link to="/identity-access/activity" />}
-                  size="sm"
-                  variant="ghost"
+                        Add or edit position
+                      </Button>
+                    ) : null
+                  }
+                  title="Position and reporting"
                 >
-                  View recent activity
-                </Button>
+                  <MutedLine>
+                    Titles describe the hierarchy and never grant permissions.
+                  </MutedLine>
+                  <div className="mt-2">
+                    <PositionSummary
+                      canEdit={admin.canAdminister}
+                      onEdit={setEditingPosition}
+                      personId={person.id}
+                      positions={directory.data?.positions ?? []}
+                      subsidiaries={directory.data?.subsidiaries ?? []}
+                    />
+                  </div>
+                </Row>
               </div>
-            </div>
-          </div>
-        </Disclosure>
+            </TabsContent>
+
+            <TabsContent value="sign-in">
+              <div className={PANEL}>
+                <Row
+                  title="Active sessions"
+                  trailing={
+                    sessions.data ? (
+                      <span className={`${FIGURE} text-muted-foreground`}>
+                        {sessions.data.length}
+                        {authenticationPolicy.data
+                          ? ` of ${authenticationPolicy.data.session.concurrentLimit}`
+                          : ""}
+                      </span>
+                    ) : null
+                  }
+                >
+                  {sessions.isPending ? (
+                    <div className="mt-2 gap-1.5 sm:grid-cols-2 xl:grid-cols-3 grid">
+                      <Skeleton className="h-12 rounded-md" />
+                      <Skeleton className="h-12 rounded-md" />
+                    </div>
+                  ) : sessions.isError ? (
+                    <p className="mt-1.5 text-xs text-destructive">
+                      {sessions.error.message}
+                    </p>
+                  ) : sessions.data.length === 0 ? (
+                    <MutedLine>No active sessions.</MutedLine>
+                  ) : (
+                    <ul className="mt-2 gap-1.5 sm:grid-cols-2 xl:grid-cols-3 grid">
+                      {sessions.data.map((session) => (
+                        <SessionCard
+                          canRevoke={admin.canRevokeSessions}
+                          key={session.id}
+                          pending={revoke.isPending}
+                          session={session}
+                          onRevoke={() => revoke.mutate(session.id)}
+                        />
+                      ))}
+                    </ul>
+                  )}
+                </Row>
+                <Row title="Linked accounts">
+                  {accounts.isPending ? (
+                    <Skeleton className="mt-2 h-8" />
+                  ) : accounts.isError ? (
+                    <p className="mt-1.5 text-xs text-destructive">
+                      {accounts.error.message}
+                    </p>
+                  ) : accounts.data.length === 0 ? (
+                    <MutedLine>No linked accounts.</MutedLine>
+                  ) : (
+                    <ul className="mt-1.5 flex flex-col">
+                      {accounts.data.map((account) => (
+                        <li
+                          className="gap-3 py-1.5 sm:grid-cols-[minmax(8rem,auto)_minmax(0,1fr)_auto] sm:items-baseline grid"
+                          key={account.id}
+                        >
+                          <p className="font-medium text-[13px] capitalize">
+                            {account.providerId}
+                          </p>
+                          <p
+                            className={`${MONO} truncate text-muted-foreground`}
+                          >
+                            {account.accountId}
+                          </p>
+                          <time className={`${FIGURE} text-muted-foreground`}>
+                            Linked{" "}
+                            {new Date(account.createdAt).toLocaleDateString()}
+                          </time>
+                        </li>
+                      ))}
+                    </ul>
+                  )}
+                </Row>
+              </div>
+            </TabsContent>
+
+            <TabsContent value="activity">
+              <div className={PANEL}>
+                <Row title="Account">
+                  <div className="mt-2 gap-4 sm:grid-cols-2 grid">
+                    <Fact
+                      label="Created"
+                      value={new Date(person.createdAt).toLocaleDateString()}
+                    />
+                    <Fact label="User ID" mono value={person.id} />
+                    {person.banned ? (
+                      <Fact
+                        label="Suspension reason"
+                        value={person.banReason || "No reason recorded"}
+                      />
+                    ) : null}
+                  </div>
+                </Row>
+                <Row
+                  action={
+                    <Button
+                      nativeButton={false}
+                      render={<Link to="/identity-access/activity" />}
+                      size="sm"
+                      variant="ghost"
+                    >
+                      View all activity
+                    </Button>
+                  }
+                  title="Recent activity"
+                >
+                  {recentEvents.length === 0 ? (
+                    <MutedLine>No recent activity for this account.</MutedLine>
+                  ) : (
+                    <ul className="mt-1.5 flex flex-col">
+                      {recentEvents.map((event) => (
+                        <li
+                          className="gap-3 py-1.5 flex items-baseline justify-between"
+                          key={event.id}
+                        >
+                          <p className="text-[13px]">{eventAction(event)}</p>
+                          <time
+                            className={`${FIGURE} shrink-0 text-muted-foreground`}
+                            dateTime={new Date(event.at).toISOString()}
+                          >
+                            {relativeTime(event.at)}
+                          </time>
+                        </li>
+                      ))}
+                    </ul>
+                  )}
+                </Row>
+              </div>
+            </TabsContent>
+          </Tabs>
+
+          <aside
+            aria-label="Sign-in summary"
+            className={`${PANEL} lg:mt-11 px-4`}
+          >
+            <dl className="grid grid-cols-[minmax(0,1fr)_auto] text-[13px]">
+              <SummaryFact label="Two-factor">
+                {person.twoFactorEnabled ? "On" : "Not set up"}
+              </SummaryFact>
+              <SummaryFact label="Password">
+                {person.mustChangePassword ? "Temporary" : "Current"}
+              </SummaryFact>
+              <SummaryFact label="Email">
+                {person.emailVerified ? "Verified" : "Not verified"}
+              </SummaryFact>
+              <SummaryFact label="Sessions">
+                {sessions.data ? (
+                  <span className={FIGURE}>
+                    {sessions.data.length}
+                    {authenticationPolicy.data
+                      ? ` of ${authenticationPolicy.data.session.concurrentLimit}`
+                      : ""}
+                  </span>
+                ) : sessions.isError ? (
+                  <span
+                    className="text-muted-foreground"
+                    title={sessions.error.message}
+                  >
+                    Unavailable
+                  </span>
+                ) : (
+                  <Skeleton className="h-3.5 w-10" />
+                )}
+              </SummaryFact>
+              <SummaryFact label="Last active">
+                <span className={FIGURE}>
+                  {health?.lastActiveAt
+                    ? relativeTime(health.lastActiveAt)
+                    : "Never"}
+                </span>
+              </SummaryFact>
+            </dl>
+          </aside>
+        </div>
       </div>
 
       {showSticky ? (
@@ -613,52 +578,48 @@ function PersonWorkspaceContent({
   );
 }
 
-function Disclosure({
+/** One block of a tab's work surface: title, its content, an optional action. */
+function Row({
+  action,
   children,
-  onToggle,
-  open,
-  summary,
   title,
+  trailing,
 }: {
+  action?: ReactNode;
   children: ReactNode;
-  onToggle: () => void;
-  open: boolean;
-  summary: string;
   title: string;
+  trailing?: ReactNode;
 }) {
   return (
-    <div className={PANEL}>
-      <button
-        aria-expanded={open}
-        className={cn(
-          "gap-2 px-3.5 py-3 flex w-full items-start justify-between text-left",
-          "ease-out transition-colors duration-150 hover:bg-muted/40",
-          "active:scale-[0.995]",
-          "motion-reduce:transition-none motion-reduce:active:scale-100",
-        )}
-        onClick={onToggle}
-        type="button"
-      >
-        <div className="min-w-0">
-          <p className={SECTION}>{title}</p>
-          <p className="mt-0.5 text-[12px] text-muted-foreground">{summary}</p>
+    <section className="gap-3 px-4 py-3.5 sm:flex-row sm:items-start flex flex-col border-t border-border first:border-t-0">
+      <div className="min-w-0 flex-1">
+        <div className="gap-3 flex items-baseline justify-between">
+          <h3 className={SECTION}>{title}</h3>
+          {trailing}
         </div>
-        <span className="text-[12px] text-muted-foreground tabular-nums">
-          {open ? "Hide" : "Show"}
-        </span>
-      </button>
-      <div
-        className={cn(
-          "ease-out grid transition-[grid-template-rows,opacity] duration-200",
-          "motion-reduce:transition-none",
-          open ? "grid-rows-[1fr] opacity-100" : "grid-rows-[0fr] opacity-0",
-        )}
-      >
-        <div className="min-h-0 overflow-hidden border-t border-border/60">
-          {children}
-        </div>
+        {children}
       </div>
-    </div>
+      {action ? <div className="sm:shrink-0">{action}</div> : null}
+    </section>
+  );
+}
+
+function SummaryFact({
+  children,
+  label,
+}: {
+  children: ReactNode;
+  label: string;
+}) {
+  return (
+    <>
+      <dt className="py-2.5 border-t border-border text-muted-foreground first:border-t-0">
+        {label}
+      </dt>
+      <dd className="py-2.5 flex items-center justify-end border-t border-border [dt:first-child+&]:border-t-0">
+        {children}
+      </dd>
+    </>
   );
 }
 
@@ -788,10 +749,6 @@ function PersonActionMenu({
   );
 }
 
-function SectionLabel({ children }: { children: ReactNode }) {
-  return <h3 className={SECTION}>{children}</h3>;
-}
-
 function MutedLine({ children }: { children: ReactNode }) {
   return <p className="mt-2 text-[12.5px] text-muted-foreground">{children}</p>;
 }
@@ -878,12 +835,22 @@ function identityRoleLabel(role: string | null | undefined): string {
   );
 }
 
+function accountAttentionTitle(person: Person): string {
+  if (standingOf(person) === "suspended") return "Sign-in is suspended.";
+  if (person.mustChangePassword) return "Still on a temporary password.";
+  return "Work email not verified.";
+}
+
 function accountAttention(person: Person): string {
   const issues = [
-    standingOf(person) === "suspended" ? "Sign-in is suspended." : null,
-    !person.emailVerified ? "The work email is not verified." : null,
+    standingOf(person) === "suspended"
+      ? "They cannot sign in until access is restored."
+      : null,
+    !person.emailVerified
+      ? "Recovery and security messages may not reach them."
+      : null,
     person.mustChangePassword
-      ? "The temporary password must be replaced before workspace access."
+      ? "They must replace it before reaching the workspace."
       : null,
   ].filter(Boolean);
   return issues.join(" ");
