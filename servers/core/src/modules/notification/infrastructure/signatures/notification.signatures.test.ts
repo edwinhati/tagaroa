@@ -98,3 +98,43 @@ test("accepts Meta's sha256 body signature and rejects a wrong secret", () => {
     false,
   );
 });
+
+test("refuses every provider's signature under an empty key, which anyone can forge", () => {
+  const payload = '{"type":"email.bounced"}';
+  const emptyKey = Buffer.alloc(0);
+  const svix = `v1,${createHmac("sha256", emptyKey)
+    .update(`msg_1.${stamp}.${payload}`)
+    .digest("base64")}`;
+
+  // An empty setting, and `whsec_` with nothing after it, both decode to no key.
+  for (const secret of ["", "whsec_"]) {
+    expect(
+      verifySvixSignature({
+        id: "msg_1",
+        now,
+        payload,
+        secret,
+        signature: svix,
+        timestamp: stamp,
+      }),
+    ).toBe(false);
+  }
+
+  const url = "https://core.example/api/notifications/webhooks/twilio";
+  expect(
+    verifyTwilioSignature({
+      authToken: "",
+      params: {},
+      signature: createHmac("sha1", emptyKey).update(url).digest("base64"),
+      url,
+    }),
+  ).toBe(false);
+
+  expect(
+    verifyMetaSignature({
+      appSecret: "",
+      payload,
+      signature: `sha256=${createHmac("sha256", emptyKey).update(payload).digest("hex")}`,
+    }),
+  ).toBe(false);
+});

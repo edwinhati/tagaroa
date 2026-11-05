@@ -27,7 +27,8 @@ export class NotificationDispatcher
 {
   private readonly logger = new Logger(NotificationDispatcher.name);
   private timer?: ReturnType<typeof setInterval>;
-  private draining = false;
+  /** The pass under way, if any. */
+  private pass?: Promise<void>;
 
   constructor(
     private readonly drainQueue: DrainQueueUseCase,
@@ -45,22 +46,34 @@ export class NotificationDispatcher
     this.timer.unref?.();
   }
 
-  onModuleDestroy(): void {
+  /**
+   * Stops the timer, then waits for a pass already under way. `@nestjs/drizzle`
+   * closes the pool in `onApplicationShutdown`, which Nest runs only once every
+   * `onModuleDestroy` has settled. A pass cut off by that close has handed a
+   * message to a provider but cannot mark it sent, so the claim is reclaimed
+   * later and the message goes out twice.
+   */
+  async onModuleDestroy(): Promise<void> {
     if (this.timer) clearInterval(this.timer);
+    await this.pass;
   }
 
   /** One pass. Overlapping passes are skipped rather than queued up. */
   async tick(): Promise<void> {
-    if (this.draining) return;
-    this.draining = true;
+    if (this.pass) return;
+    this.pass = this.drain().finally(() => {
+      this.pass = undefined;
+    });
+    await this.pass;
+  }
+
+  private async drain(): Promise<void> {
     try {
       await this.drainQueue.execute();
     } catch {
       this.logger.error(
         "Dispatcher pass failed; inspect notification state and provider health",
       );
-    } finally {
-      this.draining = false;
     }
   }
 }

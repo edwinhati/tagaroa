@@ -18,7 +18,15 @@ import * as databaseSchema from "./schema.registry";
 @Module({
   controllers: [AppController],
   imports: [
-    ConfigModule.forRoot({ isGlobal: true, validate: validateEnv }),
+    // `validateEnv` returns every setting the service reads, so `get()` answers
+    // from its result alone. Without `skipProcessEnv`, a value it drops — an
+    // empty `RESEND_WEBHOOK_SECRET=` it maps to `undefined` — falls back to the
+    // raw `""` in `process.env`, and an unset secret reads as a set one.
+    ConfigModule.forRoot({
+      isGlobal: true,
+      skipProcessEnv: true,
+      validate: validateEnv,
+    }),
     DatabaseModule.register(databaseSchema),
     AuditModule,
     AuthModule,
