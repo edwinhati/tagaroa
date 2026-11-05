@@ -1,0 +1,17 @@
+# Review-only fragment; merge through the inspected live renderer.
+# Not a complete configuration. Never install over the legacy config.
+[global]
+repo1-cipher-type=aes-256-cbc
+repo1-retention-full-type=count
+repo1-retention-full=2
+repo1-retention-diff=4
+repo2-type=s3
+repo2-cipher-type=aes-256-cbc
+repo2-retention-full-type=count
+repo2-retention-full=2
+repo2-retention-diff=4
+# Supply new empty repo1-path and repo2-path; retain legacy prefix/config.
+# B2 inputs: repo2-s3-bucket, repo2-s3-endpoint, repo2-s3-region,
+# repo2-s3-uri-style, repo2-s3-key and repo2-s3-key-secret.
+# Inject repo1-cipher-pass and repo2-cipher-pass using the real secret mechanism.
+# Keep certificate verification enabled. Do not set a WAL-deleting lifecycle.

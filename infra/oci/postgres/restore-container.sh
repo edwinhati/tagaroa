@@ -1,10 +1,13 @@
 #!/bin/sh
 set -eu
 stanza=${RESTORE_TEST_STANZA:-main}
+repo=${RESTORE_TEST_REPO:-1}
+case "$repo" in 1|2) ;; *) echo 'Invalid repository'; exit 1 ;; esac
+set -- --config=/run/pgbackrest.conf --stanza="$stanza" --repo="$repo"
 mkdir -p "$PGDATA" /var/log/pgbackrest /var/spool/pgbackrest
 chown -R postgres:postgres /var/lib/postgresql /var/log/pgbackrest /var/spool/pgbackrest
-gosu postgres pgbackrest --config=/run/pgbackrest.conf --stanza="$stanza" info --output=json > /restore/backup-info.json
-gosu postgres pgbackrest --config=/run/pgbackrest.conf --stanza="$stanza" restore --type=immediate --target-action=promote
+gosu postgres pgbackrest "$@" info --output=json > /restore/backup-info.json
+gosu postgres pgbackrest "$@" restore --type=immediate --target-action=promote
 
 # Only a Unix socket is exposed. WAL replay may read the repository, but this
 # container has no network in common with the live database.

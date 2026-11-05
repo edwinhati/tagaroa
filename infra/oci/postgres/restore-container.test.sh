@@ -15,7 +15,8 @@ cat > "$tmp/bin/gosu" <<'SH'
 shift
 command=$1; shift
 case "$command" in
-  pgbackrest|pg_isready) exit 0 ;;
+  pgbackrest) echo "$*" >> "$PSQL_CALLS"; exit 0 ;;
+  pg_isready) exit 0 ;;
   postgres) exec sleep 60 ;;
   psql)
     echo "$*" >> "$PSQL_CALLS"
@@ -46,6 +47,10 @@ run() {
 }
 
 # Provisioning still requires the database, without inventing application rows.
+run 0 RESTORE_TEST_REPO=2
+grep -qF -- '--repo=2 info --output=json' "$tmp/psql-calls"
+grep -qF -- '--repo=2 restore --type=immediate' "$tmp/psql-calls"
+run 1 RESTORE_TEST_REPO=3
 run 0 REQUIRE_TAGAROA_CONTENTS=0 RESTORED_CONTENTS=missing-table
 grep -qF "datname='tagaroa'" "$tmp/psql-calls"
 if grep -qF __drizzle_migrations "$tmp/psql-calls"; then

@@ -60,3 +60,20 @@ sh infra/oci/postgres/restore-container.test.sh
 
 This verifies restore capability in the current OCI tenancy; separate-account
 disaster recovery remains out of scope.
+
+## ISSUE-24 preparation (not installed)
+
+`RESTORE_TEST_REPO` accepts `1` (legacy default) or `2`. It selects the same
+repository for info/restore and checks freshness only in that repository and
+stanza. Run the two checks serially; the host lock prevents overlap. The new
+`pgbackrest_restore_repository_last_success_timestamp_seconds{repo="N"}` metric
+requires per-repository alerts before activation; the aggregate metric remains
+for the existing monitor. No scheduler or alerts are activated by these files.
+
+`pgbackrest-hardening.conf.example` is an incomplete, credential-free fragment
+for the selected B2/encryption/retention policy. It cannot replace the existing
+template. Live compose/template/renderer, installed version, archive command,
+spool settings, scheduler, endpoint/bucket/region/URI style and secret mount
+contracts are still needed. The override replaces every volume, so file-based
+secrets require explicit reviewed mounts before encrypted restore acceptance.
+Keep the legacy config and prefix; never enable encryption over its objects.

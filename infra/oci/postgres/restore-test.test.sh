@@ -40,7 +40,7 @@ case "$1 $2" in
     scratch=$(dirname "$override")
     cp "$override" "$FIXTURE_OVERRIDE"
     stop=$(($(date +%s) - AGE_HOURS * 3600))
-    echo "[{\"backup\":[{\"timestamp\":{\"stop\":$stop}}]}]" > "$scratch/result/backup-info.json"
+    echo "[{\"name\":\"main\",\"backup\":[{\"database\":{\"repo-key\":${INFO_REPO:-1}},\"timestamp\":{\"stop\":$stop}},{\"database\":{\"repo-key\":99},\"timestamp\":{\"stop\":$(date +%s)}}]}]" > "$scratch/result/backup-info.json"
     i=0; while [ $i -lt 30 ]; do i=$((i + 1)); echo "pgbackrest $i"; done > "$scratch/pgbackrest-log/main-restore.log"
     i=0; while [ $i -lt 60 ]; do i=$((i + 1)); echo "replay $i"; done
     echo 'Restored database checks passed.' ;;
@@ -67,6 +67,12 @@ run 0
 [ ! -e "$tmp/alert.json" ] || { echo 'FAIL: alert on pass'; exit 1; }
 grep -qF 'REQUIRE_TAGAROA: "0"' "$tmp/override.yml"
 grep -qF 'REQUIRE_TAGAROA_CONTENTS: "0"' "$tmp/override.yml"
+run 0 RESTORE_TEST_REPO=2 INFO_REPO=2
+grep -qF 'RESTORE_TEST_REPO: "2"' "$tmp/override.yml"
+run 1 RESTORE_TEST_REPO=2
+expect_alert 'No successful backup'
+run 1 RESTORE_TEST_REPO=3
+expect_alert 'Invalid repository'
 
 run 0 LIVE_DATABASE=1
 grep -qF 'REQUIRE_TAGAROA: "1"' "$tmp/override.yml"

@@ -48,6 +48,8 @@ trap 'exit 130' INT
 trap 'exit 143' TERM
 stanza=${RESTORE_TEST_STANZA:-main}
 [[ "$stanza" =~ ^[a-zA-Z0-9_-]+$ ]] || { echo 'Invalid stanza'; exit 1; }
+repo=${RESTORE_TEST_REPO:-1}
+[[ "$repo" =~ ^[12]$ ]] || { echo 'Invalid repository'; exit 1; }
 required=$(docker exec postgres psql -U postgres -Atc "SELECT count(*) FROM pg_database WHERE datname='tagaroa'")
 contents=0
 if [ "$required" = 1 ]; then
@@ -68,6 +70,7 @@ services:
     restart: "no"
     environment:
       RESTORE_TEST_STANZA: $stanza
+      RESTORE_TEST_REPO: "$repo"
       REQUIRE_TAGAROA: "$required"
       REQUIRE_TAGAROA_CONTENTS: "$contents"
     volumes: !override
@@ -92,10 +95,12 @@ step=restore-and-verify
 docker compose -p "$id" -f compose.yaml -f "$scratch/override.yml" run \
   --rm --no-deps --name "$id" postgres sh /restore-container.sh
 step=backup-age
-python3 - "$scratch/result/backup-info.json" <<'PY'
+python3 - "$scratch/result/backup-info.json" "$repo" "$stanza" <<'PY'
 import json, sys, time
 stanzas = json.load(open(sys.argv[1]))
-backups = [b for s in stanzas for b in s.get("backup", []) if not b.get("error")]
+backups = [b for s in stanzas if s.get("name") == sys.argv[3]
+           for b in s.get("backup", []) if not b.get("error")
+           and b.get("database", {}).get("repo-key") == int(sys.argv[2])]
 assert backups, "No successful backup"
 age = time.time() - max(b["timestamp"]["stop"] for b in backups)
 assert 0 <= age < 48 * 3600, "Newest backup is older than 48 hours"
@@ -106,5 +111,8 @@ docker network rm "$id" >/dev/null
 step=record-metric
 address=$(docker inspect victoriametrics --format '{{(index .NetworkSettings.Networks "monitoring_backend").IPAddress}}')
 printf 'pgbackrest_restore_test_last_success_timestamp_seconds %s\n' "$(date +%s)" \
+  | curl --fail --silent --show-error --max-time 30 --data-binary @- \
+      "http://$address:8428/api/v1/import/prometheus"
+printf 'pgbackrest_restore_repository_last_success_timestamp_seconds{repo="%s"} %s\n' "$repo" "$(date +%s)" \
   | curl --fail --silent --show-error --max-time 30 --data-binary @- \
       "http://$address:8428/api/v1/import/prometheus"

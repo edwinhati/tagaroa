@@ -1,7 +1,7 @@
 # Encrypted and offsite backups (ISSUE-24)
 
 Status: implementation proposal for review; nothing here changes live backups.
-Provider selection, spending, secrets and execution remain with Edwin. Do not install
+Provider and retention selected for preparation; spending, secrets and execution remain with Edwin. Do not install
 these examples as a replacement for the live configuration.
 
 ## Repository evidence and missing inputs
@@ -36,6 +36,12 @@ Before an execution PR, obtain a redacted copy of those files and record:
 
 ## Offsite decision
 
+Decision recorded on ISSUE-24: Backblaze B2 is repo2 in an account separate from
+OCI, with client-side pgBackRest encryption and continuous WAL archiving.
+Weekly full and daily differential backups, two full chains and four differentials
+per repository are approved for preparation. Account provisioning and activation
+remain unauthorized. The alternatives below are historical comparison only.
+
 Options checked against official documentation on 2026-11-05. S3 API support
 alone is not proof of compatibility with the installed pgBackRest version.
 
@@ -45,9 +51,35 @@ alone is not proof of compatibility with the installed pgBackRest version.
 | Cloudflare R2 in an independently recoverable account | Different provider; S3-compatible endpoint | S3 API differences, endpoint/region/URI settings, residency and isolated restore trial |
 | Another OCI region in the existing tenancy | Geographic separation | Does not meet the account-loss objective; cannot be the only offsite copy |
 
-Edwin must select the provider/account and approve costs before provisioning.
+Edwin must approve measured costs and account provisioning before activation.
 Compare measured backup/WAL traffic, requests and a complete restore transfer,
-not storage price alone. No provider/account has been chosen or purchased.
+not storage price alone. B2 is selected; no account has been created or purchased.
+
+### Measurement and activation budget gate
+
+The [B2 pricing page](https://www.backblaze.com/cloud-storage/pricing), checked
+2026-11-05, publishes $6.95/TB/month and free egress up to three times average
+monthly storage, then $0.01/GB. Recheck region and billing terms at activation.
+Use decimal TB/GB when applying those rates. This is no spending commitment.
+
+Before activation record actual compressed/encrypted object bytes for two full
+chains, four retained differentials, required WAL, metadata and any retained
+object versions. Measure daily byte-hours across at least two full cycles to
+derive average monthly storage `S` in TB; count the temporary third full during
+rotation and legacy OCI retention separately for peak capacity. Backup logical
+database size alone is insufficient. Record a measured independent restore's
+download volume and expected monthly rehearsal/incident frequency as egress `E`
+in decimal GB. Include other account egress when calculating shared allowances.
+
+Conservative B2 monthly model (before any free storage credit):
+`6.95 * S + 0.01 * max(0, E - 3000 * S)` USD. Add OCI outbound transfer,
+OCI storage/legacy overlap, taxes and any applicable account-specific charges
+separately. Record source measurements, sample dates, expected normal cost and
+peak restore cost for Edwin's approval. Storage/WAL/restore measurements are
+currently unavailable, so a numeric workload estimate would be invented.
+
+B2 endpoint, bucket, region and URI style must come from the selected account
+and installed-version compatibility trial. No endpoint or credential is assumed.
 
 Sources: [AWS S3](https://docs.aws.amazon.com/AmazonS3/latest/userguide/Welcome.html),
 [R2 API compatibility](https://developers.cloudflare.com/r2/api/s3/api/).
@@ -81,9 +113,9 @@ the real renderer after review. Inject `repo1-cipher-pass` and
 `repo2-cipher-pass` securely; never put secrets in command arguments or logs.
 Preserve the old repo1 transport settings only after inspecting them.
 
-Proposed schedule: weekly full plus daily differential **per repository**, with
-two full chains and four differentials retained in each. This is a starting
-proposal requiring recovery-window and cost approval, not an existing convention.
+Selected schedule: weekly full plus daily differential **per repository**, with
+two full chains and four differentials retained in each, plus continuous WAL.
+Recovery-window, measured cost and activation approval remain required.
 Count retention does not promise a fixed number of days if jobs fail or extra
 fulls are taken. Preserve WAL needed by retained backups; do not add independent
 bucket lifecycle deletion or aggressive archive expiration. Do not enable auto
@@ -105,7 +137,7 @@ Recheck syntax against the installed version before executing.
    template, credential references, backup labels and restore procedure in secure
    operator storage. Confirm an isolated restore of the current chain first.
    No stanza deletion, bucket purge or credential rotation is part of this plan.
-2. Approve provider, recovery access, budget and retention. Prepare new empty
+2. Confirm selected B2 account recovery access and approve measured budget. Prepare new empty
    prefixes for both encrypted repositories. Test the renderer and secret access
    in isolation; do not print a rendered secret-bearing config in CI or an issue.
 3. With the approved candidate configuration, initialize stanza `main` in both
@@ -153,16 +185,23 @@ Do not delete either history as a rollback step.
 
 ## Restore compatibility and acceptance
 
-The unchanged monthly runner defaults to stanza `main`, has no explicit repo or
-backup-set selector and checks freshness across all returned backup entries.
-Its single success metric cannot prove both repositories work. Its volume
+The prepared monthly runner defaults to stanza `main`, repo `1`; set
+`RESTORE_TEST_REPO=2` to test B2 separately. Both `info` and `restore` receive
+the same selector; freshness uses only the selected stanza and repository.
+It emits an additional per-repository success timestamp. The legacy aggregate
+metric remains for compatibility and cannot prove both repositories work. Its volume
 override also replaces all secret-file mounts; any new file-based secret delivery
 must be mounted explicitly and tested. Environment inheritance alone is not enough
 to prove that new cipher/credential material reaches the rendered config.
 
-Before activating two repositories, make a separate reviewed implementation to
-select the repository consistently for `info` and `restore`, evaluate freshness
-only for that repository, check both independently and alert on either failure.
+Before activating two repositories, wire two serial runner invocations into the
+inspected scheduler, ensuring the second runs even if the first fails and the
+combined job fails if either fails. Configure per-repository freshness alerts on
+`pgbackrest_restore_repository_last_success_timestamp_seconds{repo="1"}` and
+`{repo="2"}`, including missing-series detection. These changes require the live
+scheduler and monitoring inventory; they are not activated by this preparation.
+The runner selects the newest backup implicitly; an acceptance rehearsal must
+also pin and record a backup set through a separately reviewed runner extension.
 Preserve the isolation/cleanup and application checks in `restore-test.md`.
 The legacy unencrypted chain still requires its original config with cipher
 type `none`; the encrypted config cannot read it. Keep restore instructions for
