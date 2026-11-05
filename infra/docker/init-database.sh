@@ -24,6 +24,7 @@ exists() { test -n "$(psql_super --dbname "$POSTGRES_DB" -tAc "$1")"; }
 # Neon, traccar and the k8s-only databases are not served from this container.
 # The ventures need only their base database — server/src/test/harness.ts derives
 # and creates <db>_test itself on first run.
+# shellcheck disable=SC2043 # a list of one, kept as a list so more can be added
 for spec in tagaroa:tagaroa; do
     db="${spec%%:*}"; role="${spec##*:}"
 

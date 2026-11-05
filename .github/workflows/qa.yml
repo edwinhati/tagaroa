@@ -47,9 +47,25 @@ jobs:
           restore-keys: |
             turbo-v1-${{ runner.os }}-${{ runner.arch }}-ubuntu24-node${{ steps.node.outputs.node-version }}-bun${{ steps.bun.outputs.bun-version }}-${{ hashFiles('bun.lock') }}-
       - run: bun run lint
+      - run: bun run format
       - run: bun run check-types
+      - run: bun run boundaries
       - run: bun run test
       - run: bun run build
+      # Pinned by checksum; Dependabot does not see this one, so bump it by hand.
+      - name: Install actionlint
+        env:
+          VERSION: 1.7.12
+          SHA256: 8aca8db96f1b94770f1b0d72b6dddcb1ebb8123cb3712530b08cc387b349a3d8
+        run: |
+          archive="$RUNNER_TEMP/actionlint.tar.gz"
+          curl -fsSL --retry 3 -o "$archive" \
+            "https://github.com/rhysd/actionlint/releases/download/v$VERSION/actionlint_${VERSION}_linux_amd64.tar.gz"
+          echo "$SHA256  $archive" | sha256sum -c -
+          mkdir -p "$RUNNER_TEMP/bin"
+          tar -xzf "$archive" -C "$RUNNER_TEMP/bin" actionlint
+          echo "$RUNNER_TEMP/bin" >> "$GITHUB_PATH"
+      - run: bun run check:infra
       # Forks and other contributors can read public artifacts, but cannot publish them.
       - uses: actions/cache/save@v6
         if: >-
