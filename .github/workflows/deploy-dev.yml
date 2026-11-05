@@ -75,14 +75,26 @@ jobs:
             | jq -e '.workflow_runs | length > 0' >/dev/null
           echo "sha=$sha" >> "$GITHUB_OUTPUT"
 
+      # Everything prod will run is built here, once, and release.sh copies it by
+      # digest instead of rebuilding: core for both platforms (dev runs amd64, prod
+      # arm64) and prod's web image, which bakes in prod's URLs, for arm64. The build
+      # stages run natively and the runtime stages only copy, so arm64 costs little.
+      # Single-platform pushes without attestations, joined by `docker manifest`,
+      # work with the default buildx driver and Zot's plain HTTP.
       - name: Build and push images
         id: build
         env:
           SHA: ${{ steps.sha.outputs.sha }}
         run: |
+          core="$REGISTRY/tagaroa/core:$SHA"
           {
-            docker buildx build --platform linux/amd64 --push \
-              -f servers/core/Dockerfile -t "$REGISTRY/tagaroa/core:$SHA" .
+            for arch in amd64 arm64; do
+              docker buildx build --platform "linux/$arch" --provenance=false --sbom=false --push \
+                -f servers/core/Dockerfile -t "$core-$arch" .
+            done
+            docker manifest rm "$core" 2>/dev/null || true
+            docker manifest create --insecure "$core" "$core-amd64" "$core-arm64"
+            docker manifest push --insecure --purge "$core"
             docker buildx build --platform linux/amd64 --push \
               -f infra/web/Dockerfile -t "$REGISTRY/tagaroa/web-dev:$SHA" \
               --build-arg VITE_AUTH_BASE_URL=https://dev.tagaroa.cc \
@@ -91,6 +103,14 @@ jobs:
               --build-arg VITE_ADMIN_URL=https://admin.dev.tagaroa.cc \
               --build-arg VITE_POST_SIGNIN_URL=https://app.dev.tagaroa.cc \
               --build-arg VITE_TRUSTED_REDIRECT_ORIGINS=https://app.dev.tagaroa.cc,https://admin.dev.tagaroa.cc .
+            docker buildx build --platform linux/arm64 --push \
+              -f infra/web/Dockerfile -t "$REGISTRY/tagaroa/web-prod:$SHA" \
+              --build-arg VITE_AUTH_BASE_URL=https://tagaroa.cc \
+              --build-arg VITE_AUTH_URL=https://auth.tagaroa.cc \
+              --build-arg VITE_WORKSPACE_URL=https://app.tagaroa.cc \
+              --build-arg VITE_ADMIN_URL=https://admin.tagaroa.cc \
+              --build-arg VITE_POST_SIGNIN_URL=https://app.tagaroa.cc \
+              --build-arg VITE_TRUSTED_REDIRECT_ORIGINS=https://app.tagaroa.cc,https://admin.tagaroa.cc .
           } 2>&1 | tee -a "$LOG"
 
       # The runner mounts $APPS_DIR at the same path, so this is CT 105's own directory.

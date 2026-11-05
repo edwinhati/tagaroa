@@ -14,7 +14,7 @@ case "$*" in
   *) echo "Unexpected Multica call: $*" >&2; exit 99 ;;
 esac
 SH
-for tool in docker ssh scp; do
+for tool in docker skopeo ssh scp; do
   # TRACE is resolved by the generated fixture executable.
   # shellcheck disable=SC2016
   printf '#!/bin/sh\necho unsafe-%s >> "$TRACE"\nexit 99\n' "$tool" > "$tmp/bin/$tool"
@@ -58,6 +58,19 @@ cat > "$tmp/bin/docker" <<'SH'
 case "$1" in login) cat >/dev/null ;; esac
 echo "docker $*" >> "$TRACE"
 SH
+cat > "$tmp/bin/skopeo" <<'SH'
+#!/bin/sh
+case "$1" in
+  login) cat >/dev/null ;;
+  inspect)
+    case "$*" in
+      *--override-arch*) echo "${IMAGE_ARCH:-arm64}" ;;
+      *sin.ocir.io*) echo "${DEST_MANIFEST:-manifest-for-$(echo "$*" | sed 's/.*tagaroa\///; s/:.*//')}" ;;
+      *) echo "manifest-for-$(echo "$*" | sed 's/.*tagaroa\///; s/:.*//; s/-prod$//')" ;;
+    esac ;;
+  *) echo "skopeo $*" >> "$TRACE" ;;
+esac
+SH
 cat > "$tmp/bin/scp" <<'SH'
 #!/bin/sh
 exit 0
@@ -87,6 +100,19 @@ SH
 bash "$root/infra/release/release.sh"
 grep -q 'issue status fixture-id done' "$TRACE"
 if grep -q -- --rollback "$TRACE"; then echo 'Successful deploy rolled back'; exit 1; fi
+sha=aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
+grep -qF "skopeo copy --all --preserve-digests --retry-times 3 --src-tls-verify=false docker://10.10.10.14:8080/tagaroa/core:$sha docker://sin.ocir.io/fixture/tagaroa/core:$sha" "$TRACE"
+grep -qF "skopeo copy --all --preserve-digests --retry-times 3 --src-tls-verify=false docker://10.10.10.14:8080/tagaroa/web-prod:$sha docker://sin.ocir.io/fixture/tagaroa/web:$sha" "$TRACE"
+if grep -q '^docker ' "$TRACE"; then echo 'Release rebuilt images'; exit 1; fi
+# No arm64 image (a sha deployed before dev built for prod), or a copy that does
+# not match its source: refuse before anything reaches prod.
+for case in IMAGE_ARCH=amd64 DEST_MANIFEST=tampered; do
+  : > "$TRACE"
+  if env "$case" bash "$root/infra/release/release.sh"; then echo "Promotion accepted $case"; exit 1; fi
+  grep -q 'issue status fixture-id blocked' "$TRACE"
+  if grep -q 'deploy.sh' "$TRACE"; then echo "Deployed despite $case"; exit 1; fi
+done
+echo 'PASS: promotes dev-built images by digest and refuses a missing arm64 image or a mismatched copy'
 : > "$TRACE"
 export FAIL_DEPLOY=1
 if bash "$root/infra/release/release.sh"; then echo 'Failed deploy accepted'; exit 1; fi

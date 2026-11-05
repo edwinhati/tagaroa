@@ -71,17 +71,25 @@ multica issue comment add "$issue" --content "Releasing ${sha:0:7}. $RUN_URL" >/
 git checkout --quiet --detach "$sha"
 core="sin.ocir.io/$OCIR_NAMESPACE/tagaroa/core:$sha"
 web="sin.ocir.io/$OCIR_NAMESPACE/tagaroa/web:$sha"
-step=build
+# Prod runs what dev deploy built for this sha (deploy-dev.yml), copied by digest:
+# core is the very image dev runs; web-prod was built beside dev's web image from
+# the same commit, with prod's URLs. Nothing is rebuilt at release time.
+dev_registry=${DEV_REGISTRY:-10.10.10.14:8080}
+step=promote
 {
-printf '%s' "$OCIR_TOKEN" | docker login sin.ocir.io --username "$OCIR_USERNAME" --password-stdin
-docker buildx build --platform linux/arm64 --push -f servers/core/Dockerfile -t "$core" .
-docker buildx build --platform linux/arm64 --push -f infra/web/Dockerfile -t "$web" \
-  --build-arg VITE_AUTH_BASE_URL=https://tagaroa.cc \
-  --build-arg VITE_AUTH_URL=https://auth.tagaroa.cc \
-  --build-arg VITE_WORKSPACE_URL=https://app.tagaroa.cc \
-  --build-arg VITE_ADMIN_URL=https://admin.tagaroa.cc \
-  --build-arg VITE_POST_SIGNIN_URL=https://app.tagaroa.cc \
-  --build-arg VITE_TRUSTED_REDIRECT_ORIGINS=https://app.tagaroa.cc,https://admin.tagaroa.cc .
+printf '%s' "$OCIR_TOKEN" | skopeo login sin.ocir.io --username "$OCIR_USERNAME" --password-stdin
+for pair in "core:$sha $core" "web-prod:$sha $web"; do
+  read -r name dest <<< "$pair"
+  src="docker://$dev_registry/tagaroa/$name"
+  # A sha deployed to dev before images were built for prod has no arm64 image.
+  arch=$(skopeo inspect --tls-verify=false --override-os linux --override-arch arm64 --format '{{.Architecture}}' "$src")
+  [[ "$arch" == arm64 ]] || { echo "$name has no linux/arm64 image; redeploy $sha to dev first"; exit 1; }
+  skopeo copy --all --preserve-digests --retry-times 3 --src-tls-verify=false "$src" "docker://$dest"
+  want=$(skopeo inspect --raw --tls-verify=false "$src" | sha256sum)
+  got=$(skopeo inspect --raw "docker://$dest" | sha256sum)
+  [[ "$want" == "$got" ]] || { echo "$dest does not match $src after the copy"; exit 1; }
+  echo "Promoted $name -> $dest"
+done
 } >> "$log" 2>&1
 step=deploy
 scp infra/prod/compose.yml infra/prod/deploy.sh "$host:/home/tagaroa/apps/" >> "$log" 2>&1

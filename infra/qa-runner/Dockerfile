@@ -2,9 +2,9 @@
 # has no Docker socket, no host directories, no secrets and no sudo.
 # Build from the repo root's infra/qa-runner (compose.yml does this):
 #   docker compose --env-file .env up -d --build
-FROM oven/bun:1.4.2 AS bun
+FROM oven/bun:1.4.2@sha256:9114c058aeae42162ee16dd5084b95fe9473970bb6bcb5b232ab1630f0546895 AS bun
 
-FROM ghcr.io/actions/actions-runner:2.338.2
+FROM ghcr.io/actions/actions-runner:2.338.2@sha256:759a1d94a15b05941aba5196974ff43fe15b4cbba29b694b35cbc32a1166b232
 # Match apps/*/package.json's @playwright/test, so install-deps installs the
 # system libraries that version's browsers need.
 ARG PLAYWRIGHT_VERSION=1.64.1
