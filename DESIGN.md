@@ -227,7 +227,8 @@ Warm achromatic system. Sea is the only saturated brand accent, and it stays on 
   on bone for text at 13px and above.
 - **Hairline** (`oklch(0.895 0.008 240)`, `--border`): panel edges and dividers.
 - **Field rule** (`oklch(0.655 0.011 240)`, `--input`): resting input border, darker than a divider
-  so a field reads as interactive at rest.
+  so a field reads as interactive at rest. In dark it is `oklch(1 0 0 / 36%)`, which holds 3:1 on
+  both the ground and a card; a field rule under 3:1 fails the non-text contrast floor.
 
 ### Accent and semantic
 
@@ -333,7 +334,7 @@ Use it when adding a component or restyling one; never invent a variable for a r
 | --------------- | ----------------------------------------------------------------- |
 | bone            | `--background`                                                    |
 | ink             | `--foreground`                                                    |
-| ink-strong      | `--primary`, `--card-foreground`, `--popover-foreground`          |
+| ink-strong      | `--primary`, `--{card,popover,secondary,accent}-foreground`       |
 | bone on primary | `--primary-foreground`                                            |
 | wash            | `--secondary`, `--muted`, `--accent` (one value, three roles)     |
 | muted           | `--muted-foreground`                                              |
