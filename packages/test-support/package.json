@@ -4,10 +4,15 @@
   "private": true,
   "type": "module",
   "exports": {
+    "./axe-audit": "./src/axe-audit.ts",
     "./totp": "./src/totp.ts"
   },
   "scripts": {
     "check-types": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@axe-core/playwright": "^4.14.0",
+    "@playwright/test": "1.64.1"
   },
   "devDependencies": {
     "@repo/typescript-config": "*",

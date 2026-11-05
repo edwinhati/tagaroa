@@ -1,5 +1,5 @@
-import { auditRoutes, hideDevOverlays } from "@apps/auth/e2e/axe-audit";
 import { test } from "@playwright/test";
+import { auditRoutes, hideDevOverlays } from "@repo/test-support/axe-audit";
 
 import { signInOperator } from "./operator";
 
