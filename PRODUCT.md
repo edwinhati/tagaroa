@@ -184,7 +184,8 @@ A **group-level super-admin** exists as break-glass for a locked-out organizatio
 Open decisions, not to be invented:
 
 - Email verification is not configured, and is not needed while nothing is emailed.
-- Two-factor authentication is not installed. It should be, for the super-admin role.
+- Two-factor authentication and passkeys are installed (`servers/core/src/modules/auth/auth.ts`);
+  which roles must enrol is not decided beyond privileged assignments lapsing without it.
 - A person who belongs to several organizations or teams has no picker yet; the shell names
   the operator, not the subsidiary they are acting for. Deciding that is what turns the
   header from an identity line into a switcher.
@@ -193,20 +194,22 @@ Open decisions, not to be invented:
 
 ## Brand Commitments
 
-- Product name: **Tagaroa** — the Austronesian god of the sea. The name's origin is the
-  only brand fact confirmed so far; no logo, palette, typography, or voice has been
-  established.
-- Shared UI lives in `@repo/ui` (shadcn components over Base UI, Tailwind). `apps/auth`
-  does not depend on it yet.
+- Product name: **Tagaroa** — the Austronesian god of the sea.
+- The visual language is established in `DESIGN.md` ("Quiet work on warm ground"): the
+  three-bar mark (`@repo/ui/blocks/logo`), warm bone ground, ink primary actions, sea only
+  where the keyboard is, Geist and Geist Mono. Values live in
+  `packages/ui/src/styles/tagaroa.css`; change them there first.
+- Shared UI lives in `@repo/ui` (shadcn components over Base UI, Tailwind). Every app under
+  `apps/` and `domains/`, the door included, builds from it.
 
 ## Evidence on Hand
 
 - Working core service with real auth wiring: `servers/core` (NestJS + Better Auth + Drizzle).
 - Generated auth schema: `servers/core/src/modules/auth/infrastructure/persistence/drizzle/schema.ts`.
-- Component library: `packages/ui` (~80 components).
-- `apps/auth` is a bare TanStack Start SPA — one route rendering `<h1>Auth</h1>`.
-- No logo, brand assets, marketing copy, customer names, testimonials, or metrics exist.
-  Do not fabricate any.
+- Component library: `packages/ui` (~60 shadcn components plus hand-owned blocks).
+- `apps/auth` ships sign-in, the second factor, re-authentication and the locked-out page.
+- The mark and the design tokens are the only brand assets. No marketing copy, customer
+  names, testimonials, or metrics exist. Do not fabricate any.
 
 ## Product Principles
 
