@@ -1,5 +1,9 @@
 # Restore verification
 
+For the proposed encryption/offsite migration and its restore compatibility
+gates, see [backup hardening](../../../docs/ops/workflows/backup-hardening.md).
+That proposal is documentation only; the runner below remains unchanged.
+
 Run on the OCI PostgreSQL host as root. The compose override replaces every
 volume and network from the live service. The restore uses a fresh data volume,
 a dedicated network with repository egress, and a Unix socket with no published
