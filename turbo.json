@@ -1,11 +1,21 @@
 {
-  "$schema": "https://turborepo.dev/schema.json",
-  "ui": "tui",
+  "$schema": "./node_modules/turbo/schema.json",
+  "futureFlags": {
+    "globalConfiguration": true
+  },
+  "global": {
+    "ui": "tui",
+    "cacheMaxAge": "7d"
+  },
   "tasks": {
+    "transit": {
+      "description": "No script runs this. It chains through ^transit so check-types and test hash their internal dependencies' sources without waiting for those packages' own runs.",
+      "dependsOn": ["^transit"]
+    },
     "build": {
       "dependsOn": ["^build"],
       "inputs": ["$TURBO_DEFAULT$", ".env*"],
-      "outputs": [".next/**", "!.next/cache/**", "!.next/dev/**", "dist/**"]
+      "outputs": ["dist/**"]
     },
     "//#lint": {},
     "//#lint:fix": {
@@ -23,28 +33,23 @@
       "dependsOn": ["//#lint:fix", "//#format:fix"]
     },
     "check-types": {
-      "dependsOn": ["^check-types"]
+      "dependsOn": ["transit"]
     },
     "dev": {
       "cache": false,
       "persistent": true,
-      "env": [
-        "IMPECCABLE_LIVE",
-        "IMPECCABLE_LIVE_COPY_AGENT",
-        "IMPECCABLE_LIVE_COPY_AGENT_MODEL",
-        "IMPECCABLE_LIVE_COPY_AGENT_EFFORT",
-        "IMPECCABLE_LIVE_COPY_AGENT_TIMEOUT_MS"
-      ]
+      "passThroughEnv": ["IMPECCABLE_*"]
     },
     "test": {
-      "dependsOn": ["^test"]
+      "dependsOn": ["transit"]
     },
     "test:integration": {
       "cache": false,
-      "passThroughEnv": ["TAGAROA_TEST_POSTGRES"]
+      "passThroughEnv": ["TAGAROA_TEST_POSTGRES", "TEST_DATABASE_URL"]
     },
     "test:e2e": {
-      "cache": false
+      "cache": false,
+      "passThroughEnv": ["TEST_DATABASE_URL"]
     }
   }
 }
