@@ -1,6 +1,6 @@
 # Self-hosted GitHub Actions runner for CT 105 (and nothing else).
 # docker build -f infra/runner/Dockerfile --build-arg RUNNER_UID=<tagaroa uid> --build-arg DOCKER_GID=<host docker gid> infra/runner
-FROM ghcr.io/actions/actions-runner:2.338.2
+FROM ghcr.io/actions/actions-runner:2.338.2@sha256:759a1d94a15b05941aba5196974ff43fe15b4cbba29b694b35cbc32a1166b232
 ARG RUNNER_UID=1001
 ARG DOCKER_GID=999
 ARG COMPOSE_VERSION=v5.6.1
