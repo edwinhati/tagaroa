@@ -115,8 +115,8 @@ Three things about the shape are worth knowing before adding to it:
   `apps/admin` calls it **emergency access**.
 - **Impersonation** — a super-admin's Better Auth session as another person
   (`session.impersonatedBy`). `auth.ts` lets it reach only an allowlist of read routes and
-  `stop-impersonating`, refusing everything else with `IMPERSONATED_SESSION`; this service's
-  own privileged writes refuse it through `requireOwnSession`.
+  `stop-impersonating`, refusing everything else with `IMPERSONATED_SESSION`; outside
+  `/api/auth`, `ImpersonationInterceptor` refuses every write it sends.
 - **Factor recovery** (`identity_operations.factor_recovery`) — a verified request to reset a
   person's second factor, with reason and evidence. A different super-admin from the one who
   requested it must approve it before it takes effect.

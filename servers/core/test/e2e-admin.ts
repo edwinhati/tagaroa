@@ -18,6 +18,13 @@ const e2eAdmin = {
   password: "e2e-admin-password-12",
 };
 
+/** A super administrator no test signs in as or changes. */
+const e2eGuardian = {
+  email: "e2e-guardian@tagaroa.test",
+  name: "E2E Guardian",
+  password: "e2e-guardian-password-12",
+};
+
 /**
  * `apps/admin/e2e/operator.ts` repeats this naming. A parallel browser suite
  * seeds one operator per Playwright worker (`E2E_OPERATORS`) so the tests that
@@ -43,6 +50,17 @@ export async function seedE2eAdmin(): Promise<void> {
     secret: testEnv.BETTER_AUTH_SECRET,
   });
   const { internalAdapter } = await auth.$context;
+
+  // Tests promote an operator to super-admin and demote it again; the database
+  // refuses to leave none, so this one stays. Kept, never replaced, for that reason.
+  const guardian = await internalAdapter.findUserByEmail(e2eGuardian.email);
+  const guardianId =
+    guardian?.user.id ??
+    (await auth.api.signUpEmail({ body: e2eGuardian })).user.id;
+  await internalAdapter.updateUser(guardianId, {
+    banned: false,
+    role: "super-admin",
+  });
 
   const operators = [
     e2eAdmin,

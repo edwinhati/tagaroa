@@ -24,9 +24,10 @@ const folderBefore = () => {
   cpSync(drizzleFolder, folder, { recursive: true });
   const journalPath = join(folder, "meta/_journal.json");
   const journal = JSON.parse(readFileSync(journalPath, "utf8"));
-  journal.entries = journal.entries.filter(
-    (entry: { tag: string }) => entry.tag !== MIGRATION,
+  const cut = journal.entries.findIndex(
+    (entry: { tag: string }) => entry.tag === MIGRATION,
   );
+  journal.entries = journal.entries.slice(0, cut);
   writeFileSync(journalPath, JSON.stringify(journal));
   return folder;
 };

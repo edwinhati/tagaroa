@@ -51,6 +51,24 @@ export const renderText = (
   });
 
 /**
+ * The send-time half: fills only secret placeholders. A variable's value that
+ * contains `{{word}}` is someone's text, not syntax, so it is left as written.
+ */
+export const restoreSecrets = (
+  text: string,
+  secrets: Readonly<Record<string, string>>,
+  required: ReadonlySet<string>,
+): string =>
+  text.replace(VARIABLE, (placeholder, name: string) => {
+    const value = secrets[name];
+    if (value !== undefined) return value;
+    if (required.has(name)) {
+      throw new Error(`Template variable "${name}" was not supplied`);
+    }
+    return placeholder;
+  });
+
+/**
  * WhatsApp fills a Meta-approved template by position, not by name, so the
  * template row carries the order and this puts the values in it.
  */
