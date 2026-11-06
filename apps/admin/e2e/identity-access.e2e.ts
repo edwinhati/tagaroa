@@ -1634,10 +1634,8 @@ test("an operator can move from the work queue to a route-backed person", async 
 
   await expect(page).toHaveURL(/\/identity-access\/people\/[^/?]+/);
   await expect(page.getByRole("heading", { name: "E2E Admin" })).toBeVisible();
-  await expect(page.getByRole("button", { name: /^Access / })).toBeVisible();
-  await expect(
-    page.getByRole("button", { name: /^Authentication / }),
-  ).toBeVisible();
+  await expect(page.getByRole("tab", { name: "Access" })).toBeVisible();
+  await expect(page.getByRole("tab", { name: "Sign-in" })).toBeVisible();
 
   await page
     .getByRole("navigation", { name: "breadcrumb" })
