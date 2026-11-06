@@ -43,7 +43,6 @@
         "zod": "4.6.7",
       },
       "devDependencies": {
-        "@apps/auth": "*",
         "@axe-core/playwright": "^4.14.0",
         "@playwright/test": "1.64.1",
         "@repo/test-support": "*",
@@ -218,6 +217,10 @@
     "packages/test-support": {
       "name": "@repo/test-support",
       "version": "0.0.0",
+      "dependencies": {
+        "@axe-core/playwright": "^4.14.0",
+        "@playwright/test": "1.64.1",
+      },
       "devDependencies": {
         "@repo/typescript-config": "*",
         "@types/bun": "1.4.4",

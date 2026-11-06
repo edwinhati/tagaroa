@@ -1,7 +1,6 @@
 import { expect, test } from "@playwright/test";
+import { auditRoutes, hideDevOverlays } from "@repo/test-support/axe-audit";
 import { SQL } from "bun";
-
-import { auditRoutes, hideDevOverlays } from "./axe-audit";
 
 const core = "http://localhost:18080";
 
