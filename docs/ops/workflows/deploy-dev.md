@@ -144,7 +144,11 @@ One-time setup, done by whoever implements this (needs root on CT 105):
 5. Hand off to the release loop: create or update the release brief
    (`release-prod.md`, "Brief"). This is a separate `brief` job that needs `deploy`,
    so a brief failure is not reported as a broken dev. The run is done when the
-   brief is current.
+   brief is current. Multica reporting is optional: `infra/release/brief-step.sh`
+   turns a failed login or brief update into a `::warning::` and a `failed=true`
+   output, and the run stays green. Production still fails closed: with no current
+   approved brief `release-prod.yml` releases nothing, and `release.sh` stops on any
+   Multica error.
 
 ## On failure
 
@@ -156,6 +160,8 @@ for a failed sha.
 
 If the deploy succeeded and only the brief update failed, dev stays on the new images
 and the `brief` job sends `kind: dev-brief-failed` instead, with the brief log tail.
+Neither the brief nor that alert can fail the run: a failed alert delivery is a
+warning too. A failed build, deploy or smoke check still fails the run.
 
 ## Secrets (GitHub repo secrets, read only by the self-hosted runner)
 
