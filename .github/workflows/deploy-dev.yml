@@ -31,7 +31,8 @@ env:
   REGISTRY: 10.10.10.14:8080
   APPS_DIR: /home/tagaroa/apps
   DEV_URL: http://10.10.10.5:22830
-  MULTICA_SERVER_URL: https://multica.engineering.tagaroa.cc
+  # CT 105 reaches Multica over the LAN; the public proxy drops runner auth.
+  MULTICA_SERVER_URL: http://10.10.10.7:8080
   MULTICA_WORKSPACE_ID: 146a9d46-1689-41e0-a8f4-20c8468b372f
 
 jobs:
@@ -187,8 +188,8 @@ jobs:
           printf '%s\n' "$PROD_SSH_KEY" > ~/.ssh/id_ed25519
           printf '%s\n' "$PROD_SSH_KNOWN_HOSTS" > ~/.ssh/known_hosts
           chmod 600 ~/.ssh/id_ed25519 ~/.ssh/known_hosts
-          multica login --token "$MULTICA_TOKEN" >/dev/null
-          bash infra/release/brief.sh "$SHA" 2>&1 | tee -a "$LOG"
+          # Multica reporting is optional: a failure warns and alerts, it does not fail the run.
+          bash infra/release/brief-step.sh
 
       - name: Forget Multica login
         if: always()
@@ -197,7 +198,7 @@ jobs:
           rm -f ~/.ssh/id_ed25519 ~/.ssh/known_hosts
 
       - name: Alert Rex
-        if: failure()
+        if: steps.brief.outputs.failed == 'true'
         env:
           MULTICA_OPS_WEBHOOK: ${{ secrets.MULTICA_OPS_WEBHOOK }}
           SHA: ${{ needs.deploy.outputs.sha }}
@@ -206,4 +207,5 @@ jobs:
           if [ -z "$MULTICA_OPS_WEBHOOK" ]; then echo "::warning::MULTICA_OPS_WEBHOOK is not set; nobody was alerted."; exit 0; fi
           sh infra/ops/ops-alert.sh --kind dev-brief-failed \
             --id "${{ github.run_id }}-${{ github.run_attempt }}" --env dev \
-            --sha "$SHA" --step "Update release brief" --run-url "$RUN_URL" --log "$LOG"
+            --sha "$SHA" --step "Update release brief" --run-url "$RUN_URL" --log "$LOG" \
+            || echo "::warning::Ops alert could not be delivered; the brief warning above is the only record."

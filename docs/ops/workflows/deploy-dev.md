@@ -148,7 +148,11 @@ One-time setup, done by whoever implements this (needs root on CT 105):
 5. Hand off to the release loop: create or update the release brief
    (`release-prod.md`, "Brief"). This is a separate `brief` job that needs `deploy`,
    so a brief failure is not reported as a broken dev. The run is done when the
-   brief is current.
+   brief is current. Multica reporting is optional: `infra/release/brief-step.sh`
+   turns a failed login or brief update into a `::warning::` and a `failed=true`
+   output, and the run stays green. Production still fails closed: with no current
+   approved brief `release-prod.yml` releases nothing, and `release.sh` stops on any
+   Multica error.
 
 ## On failure
 
@@ -160,12 +164,24 @@ for a failed sha.
 
 If the deploy succeeded and only the brief update failed, dev stays on the new images
 and the `brief` job sends `kind: dev-brief-failed` instead, with the brief log tail.
+Neither the brief nor that alert can fail the run: a failed alert delivery is a
+warning too. A failed build, deploy or smoke check still fails the run.
 
 ## Secrets (GitHub repo secrets, read only by the self-hosted runner)
 
 - `MULTICA_TOKEN`: a Multica personal access token (`mul_…`) for edwinhati@tagaroa.com,
-  used with `multica login --token` and `MULTICA_SERVER_URL=https://multica.engineering.tagaroa.cc`.
+  used with `multica login --token` and `MULTICA_SERVER_URL=http://10.10.10.7:8080`
+  on the self-hosted CT 105 runner. The same PAT authenticates over this LAN path;
+  the public proxy path drops authentication from that runner (ISSUE-20).
+  `release-prod.yml` uses the same runner endpoint for its Multica CLI calls.
+  The public Multica UI and user-facing links remain `https://multica.engineering.tagaroa.cc`.
 - `MULTICA_OPS_WEBHOOK`: the "Ops alert" autopilot's webhook URL.
+
+`infra/ops/ops-alert.sh` posts directly to `MULTICA_OPS_WEBHOOK`; it does not use
+`MULTICA_SERVER_URL` or the CLI PAT. Changing the CLI endpoint therefore does not
+resolve the separately observed webhook 401. Verify the webhook's routing and
+authentication separately before changing its secret; do not rewrite its URL based
+on the CLI result. The OCI monitoring sender cannot reach the home LAN directly.
 
 ## Done when
 
