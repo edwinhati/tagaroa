@@ -8,7 +8,7 @@
 # else (docs, another app) reuses both installs from the layer cache.
 
 # turbo prune: one tree to build core in, one with only what it runs on.
-FROM --platform=$BUILDPLATFORM oven/bun:1.4.2@sha256:9114c058aeae42162ee16dd5084b95fe9473970bb6bcb5b232ab1630f0546895 AS prune
+FROM --platform=$BUILDPLATFORM oven/bun:1.4.4@sha256:1d22548f177f4ff38e0c15baa3c2c46c6c2060ba2d1bc573bb4720b407548f1d AS prune
 WORKDIR /repo
 ENV TURBO_TELEMETRY_DISABLED=1
 # turbo at the version bun.lock pins, installed before the source arrives.
@@ -18,7 +18,7 @@ COPY . .
 RUN turbo prune @servers/core --docker --out-dir /pruned/build \
  && turbo prune @servers/core --docker --production --out-dir /pruned/runtime
 
-FROM --platform=$BUILDPLATFORM oven/bun:1.4.2@sha256:9114c058aeae42162ee16dd5084b95fe9473970bb6bcb5b232ab1630f0546895 AS build
+FROM --platform=$BUILDPLATFORM oven/bun:1.4.4@sha256:1d22548f177f4ff38e0c15baa3c2c46c6c2060ba2d1bc573bb4720b407548f1d AS build
 WORKDIR /repo
 # The root `prepare` script installs git hooks unless CI is set.
 ENV CI=1
@@ -29,7 +29,7 @@ RUN cd servers/core && bun run build
 
 # Only workspaces core reaches through `dependencies`; turbo rewrites the pruned
 # manifests and lockfile so the frozen install still holds.
-FROM --platform=$BUILDPLATFORM oven/bun:1.4.2@sha256:9114c058aeae42162ee16dd5084b95fe9473970bb6bcb5b232ab1630f0546895 AS deps
+FROM --platform=$BUILDPLATFORM oven/bun:1.4.4@sha256:1d22548f177f4ff38e0c15baa3c2c46c6c2060ba2d1bc573bb4720b407548f1d AS deps
 WORKDIR /repo
 ENV CI=1
 COPY --from=prune /pruned/runtime/json/ .
@@ -38,7 +38,7 @@ COPY --from=prune /pruned/runtime/json/ .
 RUN bun install --frozen-lockfile --production
 COPY --from=prune /pruned/runtime/full/ .
 
-FROM oven/bun:1.4.2-slim@sha256:cb3bbbb08e13a4a2ff400f24c7a2a1d5efa83f6ef8544d52d95a519631e2fc61
+FROM oven/bun:1.4.4-slim@sha256:1846adf22496bd711036aae8be147e57bdebbaea2e5264e3e0b5af1db187d9a4
 ENV NODE_ENV=production
 WORKDIR /repo/servers/core
 COPY --from=deps --chown=bun:bun /repo/node_modules /repo/node_modules
