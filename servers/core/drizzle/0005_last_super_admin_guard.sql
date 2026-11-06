@@ -2,6 +2,8 @@
 -- remove-user check the count and write without a transaction, so two at once
 -- could leave none; this serialises them on the lock `retire` already takes.
 -- The pattern is SUPER_ADMIN_ROLE_PATTERN (identity-operations.service.ts).
+-- CREATE TRIGGER locks auth.user; fail fast rather than queue (docs/ops/migrations.md).
+SET LOCAL lock_timeout = '5s';--> statement-breakpoint
 CREATE FUNCTION "auth"."keep_an_active_super_admin"() RETURNS trigger
 LANGUAGE plpgsql AS $$
 DECLARE
