@@ -31,7 +31,8 @@ env:
   REGISTRY: 10.10.10.14:8080
   APPS_DIR: /home/tagaroa/apps
   DEV_URL: http://10.10.10.5:22830
-  MULTICA_SERVER_URL: https://multica.engineering.tagaroa.cc
+  # CT 105 reaches Multica over the LAN; the public proxy drops runner auth.
+  MULTICA_SERVER_URL: http://10.10.10.7:8080
   MULTICA_WORKSPACE_ID: 146a9d46-1689-41e0-a8f4-20c8468b372f
 
 jobs:

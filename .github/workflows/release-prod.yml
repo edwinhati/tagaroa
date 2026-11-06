@@ -22,7 +22,8 @@ jobs:
       - name: Release approved brief
         shell: bash
         env:
-          MULTICA_SERVER_URL: https://multica.engineering.tagaroa.cc
+          # Same CT 105 runner path as the dev brief; keep PAT authentication.
+          MULTICA_SERVER_URL: http://10.10.10.7:8080
           MULTICA_WORKSPACE_ID: 146a9d46-1689-41e0-a8f4-20c8468b372f
           MULTICA_TOKEN: ${{ secrets.MULTICA_TOKEN }}
           OCIR_USERNAME: ${{ secrets.OCIR_USERNAME }}

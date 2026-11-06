@@ -160,8 +160,18 @@ and the `brief` job sends `kind: dev-brief-failed` instead, with the brief log t
 ## Secrets (GitHub repo secrets, read only by the self-hosted runner)
 
 - `MULTICA_TOKEN`: a Multica personal access token (`mul_…`) for edwinhati@tagaroa.com,
-  used with `multica login --token` and `MULTICA_SERVER_URL=https://multica.engineering.tagaroa.cc`.
+  used with `multica login --token` and `MULTICA_SERVER_URL=http://10.10.10.7:8080`
+  on the self-hosted CT 105 runner. The same PAT authenticates over this LAN path;
+  the public proxy path drops authentication from that runner (ISSUE-20).
+  `release-prod.yml` uses the same runner endpoint for its Multica CLI calls.
+  The public Multica UI and user-facing links remain `https://multica.engineering.tagaroa.cc`.
 - `MULTICA_OPS_WEBHOOK`: the "Ops alert" autopilot's webhook URL.
+
+`infra/ops/ops-alert.sh` posts directly to `MULTICA_OPS_WEBHOOK`; it does not use
+`MULTICA_SERVER_URL` or the CLI PAT. Changing the CLI endpoint therefore does not
+resolve the separately observed webhook 401. Verify the webhook's routing and
+authentication separately before changing its secret; do not rewrite its URL based
+on the CLI result. The OCI monitoring sender cannot reach the home LAN directly.
 
 ## Done when
 
