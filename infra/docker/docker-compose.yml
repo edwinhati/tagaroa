@@ -30,7 +30,7 @@ services:
       - gateway-data:/app
 
   redis:
-    image: redis:7-alpine
+    image: redis:8-alpine
     restart: unless-stopped
     command: ["redis-server", "--requirepass", "redis"]
     volumes:
