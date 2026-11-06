@@ -68,7 +68,7 @@ test("a failed reconciliation is contained and does not wedge later ticks", asyn
   expect(reconcile.execute).toHaveBeenCalledTimes(2);
 });
 
-test("a transaction failure resets the running flag", async () => {
+test("a transaction failure does not wedge later ticks", async () => {
   const { worker, transaction, reconcile } = setup();
   transaction.mockRejectedValueOnce(new Error("database unavailable"));
   await expect(worker.tick()).resolves.toBeUndefined();
@@ -77,14 +77,32 @@ test("a transaction failure resets the running flag", async () => {
   expect(reconcile.execute).toHaveBeenCalledTimes(1);
 });
 
-test("unconfigured HR does not start a reconciliation", () => {
+test("unconfigured HR does not start a reconciliation", async () => {
   const { worker, transaction } = setup();
   worker.onApplicationBootstrap();
-  worker.onModuleDestroy();
+  await worker.onModuleDestroy();
   expect(transaction).not.toHaveBeenCalled();
 });
 
-test("configured HR ticks at startup and hourly, and clears its timer at shutdown", () => {
+test("shutdown waits for a reconciliation already under way", async () => {
+  const { worker, reconcile } = setup();
+  const pass = Promise.withResolvers<void>();
+  reconcile.execute.mockReturnValueOnce(pass.promise);
+  void worker.tick();
+
+  let stopped = false;
+  const shutdown = worker.onModuleDestroy().then(() => {
+    stopped = true;
+  });
+  await Bun.sleep(0);
+  expect(stopped).toBe(false);
+
+  pass.resolve();
+  await shutdown;
+  expect(stopped).toBe(true);
+});
+
+test("configured HR ticks at startup and hourly, and clears its timer at shutdown", async () => {
   const { worker } = setup([{ locked: true }], {
     url: "https://hr.example.test",
     apiKey: "key",
@@ -102,12 +120,31 @@ test("configured HR ticks at startup and hourly, and clears its timer at shutdow
     const callback = interval.mock.calls[0]![0] as () => void;
     callback();
     expect(tick).toHaveBeenCalledTimes(2);
-    worker.onModuleDestroy();
+    await worker.onModuleDestroy();
     expect(clear).toHaveBeenCalledWith(interval.mock.results[0]!.value);
   } finally {
-    worker.onModuleDestroy();
+    await worker.onModuleDestroy();
     interval.mockRestore();
     clear.mockRestore();
     tick.mockRestore();
   }
+});
+
+test("idle resolves once the pass under way has finished", async () => {
+  const { worker, reconcile } = setup();
+  const pass = Promise.withResolvers<void>();
+  reconcile.execute.mockReturnValueOnce(pass.promise);
+  void worker.tick();
+
+  let settled = false;
+  const idle = worker.idle().then(() => {
+    settled = true;
+  });
+  await Bun.sleep(0);
+  expect(settled).toBe(false);
+
+  pass.resolve();
+  await idle;
+  expect(settled).toBe(true);
+  await expect(worker.idle()).resolves.toBeUndefined();
 });

@@ -18,7 +18,7 @@ import { SessionOnly } from "./session-only.decorator";
 /**
  * The bodies a client sees when a request fails. There is no exception filter,
  * so this pins Nest's defaults for the exceptions core actually throws. The
- * ZodBody 400 (with `details`) is covered in `zod-body.test.ts`.
+ * schema 400 (with `details`) is covered in `schema-validation.test.ts`.
  */
 @Controller("items")
 class ItemsController {

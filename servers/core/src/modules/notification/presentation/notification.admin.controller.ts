@@ -13,7 +13,6 @@ import type { ApiDocument, Collection } from "@repo/contracts";
 import { Roles, Session, type UserSession } from "@thallesp/nestjs-better-auth";
 
 import type { QueryRecord } from "../../../platform/http/collection";
-import { ZodBody } from "../../../platform/http/zod-body";
 import type {
   MessageRow,
   NotificationOverview,
@@ -79,7 +78,7 @@ export class NotificationAdminController {
 
   @Post("templates")
   async createTemplate(
-    @Body(new ZodBody(templateDraftBody)) body: TemplateDraftBody,
+    @Body({ schema: templateDraftBody }) body: TemplateDraftBody,
     @Session() session: UserSession,
   ): Promise<{ id: string; version: number }> {
     return this.createTemplateUseCase.execute(body, session.user.id);
@@ -89,7 +88,7 @@ export class NotificationAdminController {
   @HttpCode(204)
   async editTemplate(
     @Param("id") id: string,
-    @Body(new ZodBody(editTemplateBody))
+    @Body({ schema: editTemplateBody })
     { expectedUpdatedAt, ...draft }: EditTemplateBody,
     @Session() session: UserSession,
   ): Promise<void> {

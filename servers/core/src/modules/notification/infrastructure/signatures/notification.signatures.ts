@@ -7,6 +7,13 @@ const matches = (expected: string, candidate: string): boolean => {
   return left.length === right.length && timingSafeEqual(left, right);
 };
 
+/**
+ * An HMAC under an empty key is one anyone can compute, so a check against an
+ * empty secret proves nothing about the sender. Every verifier refuses one
+ * rather than trusting each caller to have caught it.
+ */
+const usableKey = (key: string | Buffer): boolean => key.length > 0;
+
 /** How far a webhook's own timestamp may be from ours before it is a replay. */
 const TIMESTAMP_TOLERANCE_SECONDS = 5 * 60;
 
@@ -43,7 +50,9 @@ export const verifySvixSignature = ({
   const drift = Math.abs(Math.floor(now.getTime() / 1000) - seconds);
   if (drift > TIMESTAMP_TOLERANCE_SECONDS) return false;
 
+  // `whsec_` alone, the placeholder in `.env.example`, decodes to no key at all.
   const key = Buffer.from(secret.replace(/^whsec_/, ""), "base64");
+  if (!usableKey(key)) return false;
   const expected = createHmac("sha256", key)
     .update(`${id}.${timestamp}.${payload}`)
     .digest("base64");
@@ -75,6 +84,7 @@ export const verifyTwilioSignature = ({
   signature,
   url,
 }: TwilioVerification): boolean => {
+  if (!usableKey(authToken)) return false;
   const signed = Object.keys(params)
     .sort()
     .reduce((accumulator, name) => accumulator + name + params[name], url);
@@ -98,6 +108,7 @@ export const verifyMetaSignature = ({
   payload,
   signature,
 }: MetaVerification): boolean =>
+  usableKey(appSecret) &&
   matches(
     `sha256=${createHmac("sha256", appSecret).update(payload, "utf8").digest("hex")}`,
     signature,
