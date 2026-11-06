@@ -78,8 +78,7 @@ beforeAll(async () => {
   baseURL = await app.getUrl();
   db = app.get<Database>(DATABASE);
   // The reconciler starts a pass on bootstrap; let it finish against the empty roster.
-  const reconciler = app.get(HrReconciler) as unknown as { running: boolean };
-  while (reconciler.running) await Bun.sleep(10);
+  await app.get(HrReconciler).idle();
   listed = true;
 });
 

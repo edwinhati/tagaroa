@@ -39,35 +39,44 @@ service. Read this before adding or changing an endpoint.
 
 ## Request bodies: validate with Zod
 
-Parse a body with a schema through `ZodBody` (`platform/http/zod-body.ts`) instead of reading it as
+Declare a schema on the parameter with Nest's `schema` option instead of reading the body as
 `unknown` and checking fields by hand:
 
 ```ts
 @Post("assignments")
 @Roles(["admin", "super-admin"])
 async grantAssignment(
-  @Body(new ZodBody(grantAssignmentBody)) body: GrantAssignmentBody,
+  @Body({ schema: grantAssignmentBody }) body: GrantAssignmentBody,
   @Session() session: UserSession,
 ) {
   return { data: await this.access.grantAssignment(body, actorOf(session)) };
 }
 ```
 
+- The decorator only attaches the schema. Nest's `StandardSchemaValidationPipe`, bound once as
+  `APP_PIPE` in `AppModule` (`schemaValidation`, `platform/http/schema-validation.ts`), does the
+  parsing. A parameter with no schema passes through untouched. A module that mounts a controller
+  without `AppModule` (a test, a second entrypoint) must bind `schemaValidation` the same way, or
+  its handlers receive the raw value (see `directory.controller.test.ts`).
 - The schema holds the field rules and their sentences, and its output is the type the service
   takes. See `access-control.schemas.ts` for the worked example (trim, cross-field rule, parsed
   date).
 - A failure is a 400 with `message` (the first issue) and `details: [{ field, message }]` for a
   form that wants to show errors beside inputs.
+- Before parsing, the pipe strips `__proto__`, `prototype` and `constructor` keys at any depth.
 - Domain rules (a role cannot be assigned at that scope, a user is not a member) stay in the
   service. A schema checks shape; it does not replace those.
 - Keep Zod's key order meaningful: issues are reported in the order the keys are declared.
-- `ZodBody` parses a query object the same way (`@Query(new ZodBody(schema))`).
-- Every `access-control` route, the `PUT /directory/positions/...` routes, and template writes
-  in `notification.admin.controller.ts` parse their bodies this way. Template shape rules live
-  in `notification.schemas.ts`; domain rules stay in `TemplateDraft`. Move other controllers
-  over when you touch them; do not convert them in one sweep.
-- Signed webhooks verify their signatures over the raw bytes before parsing the decoded body
-  through `ZodBody`. Do not attach a body pipe that runs before signature verification.
+- A query object is parsed the same way (`@Query({ schema })`), and so is a route parameter
+  (`@Param("id", { schema })`).
+- Every `access-control` route, the `PUT /directory/positions/...` routes, the
+  `auth-management` writes, and template writes in `notification.admin.controller.ts` parse their
+  bodies this way. Template shape rules live in `notification.schemas.ts`; domain rules stay in
+  `TemplateDraft`. Move other controllers over when you touch them; do not convert them in one
+  sweep.
+- Signed webhooks verify their signatures over the raw bytes, then parse the decoded body with
+  `parseWith(schema, request.body)` (same parse, same 400). Never declare `@Body({ schema })` on
+  a webhook: the global pipe would parse the body before the signature is checked.
 
 ## Not adopted (and why)
 

@@ -1,8 +1,9 @@
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 
 import { type INestApplication, Module } from "@nestjs/common";
-import { NestFactory } from "@nestjs/core";
+import { APP_PIPE, NestFactory } from "@nestjs/core";
 
+import { schemaValidation } from "../../../platform/http/schema-validation";
 import { AssembleAdminDashboardUseCase } from "../application/use-cases/assemble-admin-dashboard.use-case";
 import { GetGroupDirectoryUseCase } from "../application/use-cases/get-group-directory.use-case";
 import { GetMyDirectoryProfileUseCase } from "../application/use-cases/get-my-directory-profile.use-case";
@@ -14,10 +15,12 @@ import { DirectoryController } from "./directory.controller";
 
 const saved: unknown[] = [];
 
-// Roles and the session guard are not mounted: this checks body parsing only.
+// Roles and the session guard are not mounted: this checks body parsing only,
+// so the global schema pipe `AppModule` binds is bound here the same way.
 @Module({
   controllers: [DirectoryController],
   providers: [
+    { provide: APP_PIPE, useValue: schemaValidation },
     {
       provide: ManagePositionUseCase,
       useValue: { save: async (input: unknown) => (saved.push(input), input) },

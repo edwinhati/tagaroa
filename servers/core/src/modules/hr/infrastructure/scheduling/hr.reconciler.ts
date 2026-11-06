@@ -31,7 +31,8 @@ export const RECONCILE_LOCK = 4_701_260_001;
 export class HrReconciler implements OnApplicationBootstrap, OnModuleDestroy {
   private readonly logger = new Logger(HrReconciler.name);
   private timer?: ReturnType<typeof setInterval>;
-  private running = false;
+  /** The pass under way, if any. */
+  private pass?: Promise<void>;
 
   constructor(
     private readonly reconcile: ReconcileEmployeesUseCase,
@@ -46,13 +47,30 @@ export class HrReconciler implements OnApplicationBootstrap, OnModuleDestroy {
     this.timer.unref?.();
   }
 
-  onModuleDestroy(): void {
+  /**
+   * Stops the timer, then waits for a pass already under way, so the pool that
+   * `@nestjs/drizzle` closes after every `onModuleDestroy` has settled is not
+   * pulled from under an open transaction halfway through issuing accounts.
+   */
+  async onModuleDestroy(): Promise<void> {
     if (this.timer) clearInterval(this.timer);
+    await this.idle();
+  }
+
+  /** Resolves once the pass under way, if any, has finished. */
+  async idle(): Promise<void> {
+    await this.pass;
   }
 
   async tick(): Promise<void> {
-    if (this.running) return;
-    this.running = true;
+    if (this.pass) return;
+    this.pass = this.reconcileOnce().finally(() => {
+      this.pass = undefined;
+    });
+    await this.pass;
+  }
+
+  private async reconcileOnce(): Promise<void> {
     try {
       await this.database.transaction(async (tx) => {
         const [row] = await tx.execute<{ locked: boolean }>(
@@ -62,8 +80,6 @@ export class HrReconciler implements OnApplicationBootstrap, OnModuleDestroy {
       });
     } catch {
       this.logger.error("Frappe HR could not be read; nothing was synced");
-    } finally {
-      this.running = false;
     }
   }
 }

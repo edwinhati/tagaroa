@@ -12,7 +12,6 @@ import {
 import { Roles, Session, type UserSession } from "@thallesp/nestjs-better-auth";
 
 import { SessionOnly } from "../../../platform/http/session-only.decorator";
-import { ZodBody } from "../../../platform/http/zod-body";
 import {
   AccessControlService,
   type AccessActor,
@@ -87,7 +86,7 @@ export class AccessControlController {
   @Roles(["admin", "super-admin"])
   async bindDomain(
     @Param("teamId") teamId: string,
-    @Body(new ZodBody(bindDomainBody)) body: BindDomainBody,
+    @Body({ schema: bindDomainBody }) body: BindDomainBody,
     @Session() session: UserSession,
   ) {
     return {
@@ -106,7 +105,7 @@ export class AccessControlController {
   async reviewAccess(
     @Param("kind") kind: string,
     @Param("subjectId") id: string,
-    @Body(new ZodBody(reviewAccessBody))
+    @Body({ schema: reviewAccessBody })
     body: ReviewAccessBody,
     @Session() session: UserSession,
   ) {
@@ -130,7 +129,7 @@ export class AccessControlController {
   @Post("roles")
   @Roles(["super-admin"])
   async createRole(
-    @Body(new ZodBody(createRoleBody)) body: CreateRoleBody,
+    @Body({ schema: createRoleBody }) body: CreateRoleBody,
     @Session() session: UserSession,
   ) {
     return { data: await this.access.createRole(body, actorOf(session)) };
@@ -140,7 +139,7 @@ export class AccessControlController {
   @Roles(["super-admin"])
   async updateRole(
     @Param("roleId") roleId: string,
-    @Body(new ZodBody(updateRoleBody)) body: UpdateRoleBody,
+    @Body({ schema: updateRoleBody }) body: UpdateRoleBody,
     @Session() session: UserSession,
   ) {
     return {
@@ -160,7 +159,7 @@ export class AccessControlController {
   @Post("assignments")
   @Roles(["admin", "super-admin"])
   async grantAssignment(
-    @Body(new ZodBody(grantAssignmentBody)) body: GrantAssignmentBody,
+    @Body({ schema: grantAssignmentBody }) body: GrantAssignmentBody,
     @Session() session: UserSession,
   ) {
     return {
@@ -172,7 +171,7 @@ export class AccessControlController {
   @Roles(["admin", "super-admin"])
   async updateAssignment(
     @Param("assignmentId") assignmentId: string,
-    @Body(new ZodBody(updateAssignmentBody))
+    @Body({ schema: updateAssignmentBody })
     body: UpdateAssignmentBody,
     @Session() session: UserSession,
   ) {
@@ -199,7 +198,7 @@ export class AccessControlController {
   @Get("me")
   @SessionOnly()
   async me(
-    @Query(new ZodBody(myPermissionsQuery))
+    @Query({ schema: myPermissionsQuery })
     query: MyPermissionsQuery,
     @Session() session: UserSession,
   ) {
@@ -221,7 +220,7 @@ export class AccessControlController {
   @Post("break-glass")
   @Roles(["super-admin"])
   async activateBreakGlass(
-    @Body(new ZodBody(breakGlassBody)) body: BreakGlassBody,
+    @Body({ schema: breakGlassBody }) body: BreakGlassBody,
     @Session() session: UserSession,
   ) {
     return {

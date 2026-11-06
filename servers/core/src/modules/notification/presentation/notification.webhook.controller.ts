@@ -16,7 +16,7 @@ import {
 import { asObject } from "@repo/contracts";
 import { AllowAnonymous } from "@thallesp/nestjs-better-auth";
 
-import { ZodBody } from "../../../platform/http/zod-body";
+import { parseWith } from "../../../platform/http/schema-validation";
 import { RecordReceiptsUseCase } from "../application/use-cases/record-receipts.use-case";
 import {
   isProviderName,
@@ -42,11 +42,6 @@ import {
   resendEvent,
   twilioStatusCallback,
 } from "./notification.webhook.schemas";
-
-/** Applied only once the signature has passed: an unsigned body is never parsed. */
-const resendBody = new ZodBody(resendEvent);
-const twilioBody = new ZodBody(twilioStatusCallback);
-const metaBody = new ZodBody(metaNotification);
 
 /**
  * What Express leaves on the request. `@thallesp/nestjs-better-auth` parses
@@ -131,11 +126,19 @@ export class NotificationWebhookController {
 
     await this.recordReceipts.execute(
       provider,
-      this.receipts(provider, request),
+      await this.receipts(provider, request),
     );
   }
 
-  private receipts(provider: ProviderName, request: ParsedRequest): Receipt[] {
+  /**
+   * Each body is parsed only once its signature has passed, so an unsigned
+   * body is never read. That is why these are `parseWith` calls rather than a
+   * `@Body({ schema })`, which the global pipe would parse before the handler.
+   */
+  private async receipts(
+    provider: ProviderName,
+    request: ParsedRequest,
+  ): Promise<Receipt[]> {
     if (provider === "resend") {
       const raw = rawJson(request);
       const verified =
@@ -148,7 +151,7 @@ export class NotificationWebhookController {
           timestamp: header(request, "svix-timestamp"),
         });
       if (!verified) throw new UnauthorizedException();
-      return resendReceipts(resendBody.transform(request.body));
+      return resendReceipts(await parseWith(resendEvent, request.body));
     }
 
     if (provider === "twilio") {
@@ -162,7 +165,9 @@ export class NotificationWebhookController {
           url: `${this.secrets.baseUrl}/twilio`,
         });
       if (!verified) throw new UnauthorizedException();
-      return twilioReceipts(twilioBody.transform(request.body));
+      return twilioReceipts(
+        await parseWith(twilioStatusCallback, request.body),
+      );
     }
 
     const verified =
@@ -173,6 +178,6 @@ export class NotificationWebhookController {
         signature: header(request, "x-hub-signature-256"),
       });
     if (!verified) throw new UnauthorizedException();
-    return metaReceipts(metaBody.transform(request.body));
+    return metaReceipts(await parseWith(metaNotification, request.body));
   }
 }

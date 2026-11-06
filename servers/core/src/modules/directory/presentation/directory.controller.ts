@@ -17,7 +17,6 @@ import {
   type QueryRecord,
 } from "../../../platform/http/collection";
 import { SessionOnly } from "../../../platform/http/session-only.decorator";
-import { ZodBody } from "../../../platform/http/zod-body";
 import type {
   DirectorySubsidiary,
   DirectoryTeam,
@@ -109,7 +108,7 @@ export class DirectoryController {
   @Roles(["admin", "super-admin"])
   async saveGroupPosition(
     @Param("userId") userId: string,
-    @Body(new ZodBody(savePositionBody)) body: SavePositionBody,
+    @Body({ schema: savePositionBody }) body: SavePositionBody,
     @Session() session: UserSession,
   ) {
     return {
@@ -143,7 +142,7 @@ export class DirectoryController {
   async saveSubsidiaryPosition(
     @Param("organizationId") organizationId: string,
     @Param("userId") userId: string,
-    @Body(new ZodBody(savePositionBody)) body: SavePositionBody,
+    @Body({ schema: savePositionBody }) body: SavePositionBody,
     @Session() session: UserSession,
   ) {
     return {
