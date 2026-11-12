@@ -10,10 +10,10 @@ import {
   type SuppressionRepository,
 } from "../../domain/repositories/suppression.repository";
 import {
-  PROVIDER_CHANNELS,
+  channelOf,
   type ProviderName,
-  type Receipt,
-} from "../../domain/value-objects/delivery-receipt.vo";
+} from "../../domain/value-objects/carrier.vo";
+import type { Receipt } from "../../domain/value-objects/delivery-receipt.vo";
 
 /**
  * What a provider says became of the messages it carried.
@@ -34,7 +34,7 @@ export class RecordReceiptsUseCase {
     provider: ProviderName,
     receipts: readonly Receipt[],
   ): Promise<void> {
-    const channel = PROVIDER_CHANNELS[provider];
+    const channel = channelOf(provider);
 
     for (const receipt of receipts) {
       await this.messages.applyReceipt(receipt);

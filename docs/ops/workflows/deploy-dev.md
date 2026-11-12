@@ -32,13 +32,13 @@ All files below are new and live in the repo; the workflow is `.github/workflows
    `core:<sha>-<arch>` without attestations and joined with `docker manifest create
    --insecure`, which works with the default buildx driver and Zot's plain HTTP.
    QEMU binfmt (`infra/runner/tagaroa-binfmt.openrc`) must be installed on CT 105.
-   - Build stages on `oven/bun` (version pinned to the repo's `1.4.2`): `turbo prune
-     @servers/core --docker`, with turbo at the version `bun.lock` pins, then `bun install
-     --frozen-lockfile` on the pruned manifests and lockfile and `bun run build` in
-     `servers/core`. A second `turbo prune --production` tree gets the production install.
+   - Build stages on `oven/bun` (the version in `engines.bun`; `check:infra` fails on
+     drift): `turbo prune @servers/core --docker`, with turbo at the version `bun.lock` pins,
+     then `bun install --frozen-lockfile` on the pruned manifests and lockfile and `bun run
+     build` in `servers/core`. A second `turbo prune --production` tree gets the production install.
      Both installs see only core's workspaces, so a change anywhere else (docs, another
      app) reuses them from the layer cache.
-   - Runtime stage `oven/bun:1.4.2-slim`: `dist/`, production dependencies, `drizzle/`
+   - Runtime stage `oven/bun:<version>-slim`: `dist/`, production dependencies, `drizzle/`
      (migration files) and `scripts/`. Default command `bun dist/main.js`. Non-root user.
    - Add `servers/core/src/migrate.ts` (compiled into `dist/migrate.js`): applies
      `drizzle/` with drizzle-orm's migrator on the same driver the app uses, then exits.

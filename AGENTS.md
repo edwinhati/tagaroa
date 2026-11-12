@@ -21,6 +21,10 @@ Multi-context: a root `CONTEXT-MAP.md` points at one `CONTEXT.md` per workspace.
 Include a changeset for user-visible changes. Read `.changeset/README.md` before
 recording changes or preparing a release.
 
+### Dependencies
+
+A dependency more than one workspace uses is pinned once, in the root `package.json` under `workspaces.catalog`, and each workspace names it as `"catalog:"`: bump it there. `engines.bun` is the Bun version for local installs and CI; the Docker images must use the same one, and `bun run check:infra` fails when they drift.
+
 ### CI
 
 QA runs on GitHub for every pull request, and `main` merges only once its required jobs pass; the repo is public, so hosted minutes are unlimited. Before pushing code, run what your change can break: `bun run lint`, `bun run format`, `bun run check-types`, `bun run boundaries`, `bun run test` and `bun run build`, plus `bun run check:infra` (shellcheck, actionlint, the `infra/**/*.test.sh` self-tests and `scripts/with-live.test.mjs`) when you touch infra, scripts or workflows. Integration tests and every browser project run on the PR; when the change can affect them, `bun run test:integration` and the chromium e2e suites give faster feedback locally (see the `local-ci` skill). Running QA's `checks` job in a container with local-ci is optional: `bunx run-local-ci run --quiet -w .github/workflows/qa.yml --pause-on-failure`; its `workflows` job always pauses at `test:integration` there, so abort it, and never run another workflow with local-ci. If a check fails on the PR, fix and push until it passes; don't report the work as done before then. Skip the local checks for changes that only touch `**.md` or `docs/**`.

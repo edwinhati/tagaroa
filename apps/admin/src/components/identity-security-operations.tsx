@@ -18,7 +18,7 @@ import {
 import { Textarea } from "@repo/ui/components/textarea";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { getRouteApi } from "@tanstack/react-router";
-import { useState } from "react";
+import { type ReactNode, useState } from "react";
 
 import {
   announce,
@@ -43,7 +43,7 @@ const shellRoute = getRouteApi("/_shell");
 export function IdentitySecurityOperations({ person }: { person: Person }) {
   const { session } = shellRoute.useRouteContext();
   const role = session?.user?.role;
-  const [mode, setMode] = useState<"recovery" | "offboard" | null>(null);
+  const [open, setOpen] = useState<"recovery" | "offboard" | null>(null);
   const other = person.id !== session?.user?.id;
   const canRequest = other && !person.banned && mayRun(role, "support");
   const canOffboard =
@@ -52,154 +52,266 @@ export function IdentitySecurityOperations({ person }: { person: Person }) {
     mayRun(role, "administer") &&
     canManageTarget(role, person.role);
   if (!canRequest && !canOffboard) return null;
+  const close = () => setOpen(null);
   return (
     <div className="gap-2 flex flex-wrap">
       {canRequest ? (
-        <Button size="sm" variant="outline" onClick={() => setMode("recovery")}>
+        <Button size="sm" variant="outline" onClick={() => setOpen("recovery")}>
           Request factor recovery
         </Button>
       ) : null}
       {canOffboard ? (
-        <Button size="sm" variant="outline" onClick={() => setMode("offboard")}>
+        <Button size="sm" variant="outline" onClick={() => setOpen("offboard")}>
           Offboard employee
         </Button>
       ) : null}
-      {mode ? (
-        <SecurityOperationDialog
-          person={person}
-          mode={mode}
-          onClose={() => setMode(null)}
-        />
+      {open === "recovery" ? (
+        <RequestRecoveryDialog onClose={close} person={person} />
+      ) : null}
+      {open === "offboard" ? (
+        <OffboardDialog onClose={close} person={person} />
       ) : null}
     </div>
   );
 }
 
-function SecurityOperationDialog({
-  person,
-  mode,
+const hasEvidence = (text: string) => text.trim().length >= EVIDENCE_LENGTH.min;
+
+/** A dialog that cannot be dismissed while its act is in flight. */
+function OperationDialog({
+  children,
   onClose,
+  pending,
 }: {
-  person: Person;
-  mode: "recovery" | "offboard";
+  children: ReactNode;
   onClose: () => void;
+  pending: boolean;
 }) {
+  return (
+    <Dialog
+      open
+      onOpenChange={(open) => {
+        if (!open && !pending) onClose();
+      }}
+    >
+      <DialogContent>{children}</DialogContent>
+    </Dialog>
+  );
+}
+
+/** A case note put on record: a reason, or how identity was verified. */
+function EvidenceText({
+  label,
+  onChange,
+  placeholder,
+  value,
+}: {
+  label: string;
+  onChange: (value: string) => void;
+  placeholder?: string;
+  value: string;
+}) {
+  return (
+    <label className="gap-1.5 text-xs grid">
+      {label}
+      <Textarea
+        value={value}
+        onChange={(event) => onChange(event.target.value)}
+        required
+        minLength={EVIDENCE_LENGTH.min}
+        maxLength={EVIDENCE_LENGTH.max}
+        placeholder={placeholder}
+      />
+    </label>
+  );
+}
+
+function VerifiedCheck({
+  checked,
+  children,
+  onChange,
+}: {
+  checked: boolean;
+  children: ReactNode;
+  onChange: (checked: boolean) => void;
+}) {
+  return (
+    <label className="gap-2 text-sm flex items-center">
+      <Checkbox
+        checked={checked}
+        onCheckedChange={(next) => onChange(next === true)}
+      />
+      {children}
+    </label>
+  );
+}
+
+function OperationFooter({
+  disabled,
+  onCancel,
+  pending,
+  pendingLabel,
+  submitLabel,
+  variant = "default",
+}: {
+  disabled: boolean;
+  onCancel: () => void;
+  pending: boolean;
+  pendingLabel: string;
+  submitLabel: string;
+  variant?: "default" | "destructive";
+}) {
+  return (
+    <DialogFooter>
+      <Button
+        type="button"
+        variant="outline"
+        disabled={pending}
+        onClick={onCancel}
+      >
+        Cancel
+      </Button>
+      <Button type="submit" variant={variant} disabled={pending || disabled}>
+        {pending ? pendingLabel : submitLabel}
+      </Button>
+    </DialogFooter>
+  );
+}
+
+/** One security act on a person, then the back office reads again. */
+function usePersonOperation(
+  person: Person,
+  operation: "factor-recovery" | "offboard",
+  done: string,
+  onClose: () => void,
+) {
   const client = useQueryClient();
-  const [reason, setReason] = useState("");
-  const [evidence, setEvidence] = useState("");
-  const [verified, setVerified] = useState(false);
-  const save = useMutation({
-    mutationFn: () =>
+  return useMutation({
+    mutationFn: (body: Record<string, unknown>) =>
       coreMutationDocument(
-        `/api/auth-management/users/${person.id}/${mode === "recovery" ? "factor-recovery" : "offboard"}`,
+        `/api/auth-management/users/${person.id}/${operation}`,
         "POST",
-        { reason, evidence, identityVerified: verified },
+        body,
         "Could not complete the security operation.",
       ),
     onError: announce.failed,
     onSuccess: async () => {
       await client.invalidateQueries({ queryKey: ["admin"] });
-      announce.done(
-        mode === "recovery"
-          ? "Recovery requested; independent approval required"
-          : "Employee offboarded",
-      );
+      announce.done(done);
       onClose();
     },
   });
+}
+
+function RequestRecoveryDialog({
+  onClose,
+  person,
+}: {
+  onClose: () => void;
+  person: Person;
+}) {
+  const [reason, setReason] = useState("");
+  const [evidence, setEvidence] = useState("");
+  const [verified, setVerified] = useState(false);
+  const request = usePersonOperation(
+    person,
+    "factor-recovery",
+    "Recovery requested; independent approval required",
+    onClose,
+  );
   return (
-    <Dialog
-      open
-      onOpenChange={(open) => {
-        if (!open && !save.isPending) onClose();
-      }}
-    >
-      <DialogContent>
-        <DialogHeader>
-          <DialogTitle>
-            {mode === "recovery"
-              ? "Request factor recovery"
-              : "Offboard employee"}
-          </DialogTitle>
-          <DialogDescription>
-            {mode === "recovery"
-              ? `For ${person.email}. A different super administrator must verify and approve. Approval removes all existing factors and sessions, and issues a temporary password.`
-              : `Suspend ${person.email}, revoke sessions and business grants, remove memberships and clear identity privileges. The account and audit history are retained.`}
-          </DialogDescription>
-        </DialogHeader>
-        <form
-          className="gap-4 grid"
-          onSubmit={(event) => {
-            event.preventDefault();
-            save.mutate();
-          }}
-        >
-          <label className="gap-1.5 text-xs grid">
-            Reason and case reference
-            <Textarea
-              value={reason}
-              onChange={(event) => setReason(event.target.value)}
-              required
-              minLength={EVIDENCE_LENGTH.min}
-              maxLength={EVIDENCE_LENGTH.max}
-            />
-          </label>
-          {mode === "recovery" ? (
-            <>
-              <label className="gap-1.5 text-xs grid">
-                Identity verification evidence
-                <Textarea
-                  value={evidence}
-                  onChange={(event) => setEvidence(event.target.value)}
-                  required
-                  minLength={EVIDENCE_LENGTH.min}
-                  maxLength={EVIDENCE_LENGTH.max}
-                  placeholder="Established callback channel, manager confirmation and case reference. No secrets or identity documents."
-                />
-              </label>
-              <label className="gap-2 text-sm flex items-center">
-                <Checkbox
-                  checked={verified}
-                  onCheckedChange={(checked) => setVerified(checked === true)}
-                />
-                I verified identity through established company channels.
-              </label>
-            </>
-          ) : (
-            <p className="text-xs text-muted-foreground">
-              Confirm HR authorization before proceeding. Restoring the account
-              later will require new memberships and business grants.
-            </p>
-          )}
-          <DialogFooter>
-            <Button
-              type="button"
-              variant="outline"
-              disabled={save.isPending}
-              onClick={onClose}
-            >
-              Cancel
-            </Button>
-            <Button
-              type="submit"
-              variant={mode === "offboard" ? "destructive" : "default"}
-              disabled={
-                save.isPending ||
-                reason.trim().length < EVIDENCE_LENGTH.min ||
-                (mode === "recovery" &&
-                  (!verified || evidence.trim().length < EVIDENCE_LENGTH.min))
-              }
-            >
-              {save.isPending
-                ? "Saving…"
-                : mode === "recovery"
-                  ? "Request recovery"
-                  : "Offboard employee"}
-            </Button>
-          </DialogFooter>
-        </form>
-      </DialogContent>
-    </Dialog>
+    <OperationDialog onClose={onClose} pending={request.isPending}>
+      <DialogHeader>
+        <DialogTitle>Request factor recovery</DialogTitle>
+        <DialogDescription>
+          For {person.email}. A different super administrator must verify and
+          approve. Approval removes all existing factors and sessions, and
+          issues a temporary password.
+        </DialogDescription>
+      </DialogHeader>
+      <form
+        className="gap-4 grid"
+        onSubmit={(event) => {
+          event.preventDefault();
+          request.mutate({ evidence, identityVerified: verified, reason });
+        }}
+      >
+        <EvidenceText
+          label="Reason and case reference"
+          onChange={setReason}
+          value={reason}
+        />
+        <EvidenceText
+          label="Identity verification evidence"
+          onChange={setEvidence}
+          placeholder="Established callback channel, manager confirmation and case reference. No secrets or identity documents."
+          value={evidence}
+        />
+        <VerifiedCheck checked={verified} onChange={setVerified}>
+          I verified identity through established company channels.
+        </VerifiedCheck>
+        <OperationFooter
+          disabled={!hasEvidence(reason) || !hasEvidence(evidence) || !verified}
+          onCancel={onClose}
+          pending={request.isPending}
+          pendingLabel="Saving…"
+          submitLabel="Request recovery"
+        />
+      </form>
+    </OperationDialog>
+  );
+}
+
+function OffboardDialog({
+  onClose,
+  person,
+}: {
+  onClose: () => void;
+  person: Person;
+}) {
+  const [reason, setReason] = useState("");
+  const offboard = usePersonOperation(
+    person,
+    "offboard",
+    "Employee offboarded",
+    onClose,
+  );
+  return (
+    <OperationDialog onClose={onClose} pending={offboard.isPending}>
+      <DialogHeader>
+        <DialogTitle>Offboard employee</DialogTitle>
+        <DialogDescription>
+          Suspend {person.email}, revoke sessions and business grants, remove
+          memberships and clear identity privileges. The account and audit
+          history are retained.
+        </DialogDescription>
+      </DialogHeader>
+      <form
+        className="gap-4 grid"
+        onSubmit={(event) => {
+          event.preventDefault();
+          offboard.mutate({ reason });
+        }}
+      >
+        <EvidenceText
+          label="Reason and case reference"
+          onChange={setReason}
+          value={reason}
+        />
+        <p className="text-xs text-muted-foreground">
+          Confirm HR authorization before proceeding. Restoring the account
+          later will require new memberships and business grants.
+        </p>
+        <OperationFooter
+          disabled={!hasEvidence(reason)}
+          onCancel={onClose}
+          pending={offboard.isPending}
+          pendingLabel="Saving…"
+          submitLabel="Offboard employee"
+          variant="destructive"
+        />
+      </form>
+    </OperationDialog>
   );
 }
 
@@ -316,93 +428,61 @@ function RecoveryApproval({
     },
   });
   return (
-    <Dialog
-      open
-      onOpenChange={(open) => {
-        if (!open && !approve.isPending) onClose();
-      }}
-    >
-      <DialogContent>
-        {approve.data ? (
-          <>
-            <DialogHeader>
-              <DialogTitle>Factors replaced</DialogTitle>
-              <DialogDescription>
-                {approve.data.onboarding.queued
-                  ? `A temporary password was queued to ${approve.data.onboarding.destination}.`
-                  : "Delivery was not queued. Share this temporary password through a separately verified channel."}{" "}
-                All old sessions and factors were revoked. The employee must
-                replace the password and enroll MFA again before privileged
-                access.
-              </DialogDescription>
-            </DialogHeader>
-            <TemporaryPassword password={approve.data.temporaryPassword} />
-            <DialogFooter>
-              <Button onClick={onClose}>Done</Button>
-            </DialogFooter>
-          </>
-        ) : (
-          <>
-            <DialogHeader>
-              <DialogTitle>Verify and approve recovery</DialogTitle>
-              <DialogDescription>
-                Verify identity independently of the requester. Approval
-                replaces the password and removes all existing passkeys,
-                authenticators, recovery codes, trusted-device records and
-                sessions.
-              </DialogDescription>
-            </DialogHeader>
-            <form
-              className="gap-4 grid"
-              onSubmit={(event) => {
-                event.preventDefault();
-                approve.mutate();
-              }}
-            >
-              <label className="gap-1.5 text-xs grid">
-                Independent verification evidence
-                <Textarea
-                  value={evidence}
-                  onChange={(event) => setEvidence(event.target.value)}
-                  required
-                  minLength={EVIDENCE_LENGTH.min}
-                  maxLength={EVIDENCE_LENGTH.max}
-                  placeholder="Established callback channel and case reference. No secrets."
-                />
-              </label>
-              <label className="gap-2 text-sm flex items-center">
-                <Checkbox
-                  checked={verified}
-                  onCheckedChange={(checked) => setVerified(checked === true)}
-                />
-                I independently verified the account holder's identity.
-              </label>
-              <DialogFooter>
-                <Button
-                  type="button"
-                  variant="outline"
-                  disabled={approve.isPending}
-                  onClick={onClose}
-                >
-                  Cancel
-                </Button>
-                <Button
-                  type="submit"
-                  disabled={
-                    approve.isPending ||
-                    !verified ||
-                    evidence.trim().length < EVIDENCE_LENGTH.min
-                  }
-                >
-                  {approve.isPending
-                    ? "Approving…"
-                    : "Approve and replace factors"}
-                </Button>
-              </DialogFooter>
-            </form>
-          </>
-        )}
-      </DialogContent>
-    </Dialog>
+    <OperationDialog onClose={onClose} pending={approve.isPending}>
+      {approve.data ? (
+        <>
+          <DialogHeader>
+            <DialogTitle>Factors replaced</DialogTitle>
+            <DialogDescription>
+              {approve.data.onboarding.queued
+                ? `A temporary password was queued to ${approve.data.onboarding.destination}.`
+                : "Delivery was not queued. Share this temporary password through a separately verified channel."}{" "}
+              All old sessions and factors were revoked. The employee must
+              replace the password and enroll MFA again before privileged
+              access.
+            </DialogDescription>
+          </DialogHeader>
+          <TemporaryPassword password={approve.data.temporaryPassword} />
+          <DialogFooter>
+            <Button onClick={onClose}>Done</Button>
+          </DialogFooter>
+        </>
+      ) : (
+        <>
+          <DialogHeader>
+            <DialogTitle>Verify and approve recovery</DialogTitle>
+            <DialogDescription>
+              Verify identity independently of the requester. Approval replaces
+              the password and removes all existing passkeys, authenticators,
+              recovery codes, trusted-device records and sessions.
+            </DialogDescription>
+          </DialogHeader>
+          <form
+            className="gap-4 grid"
+            onSubmit={(event) => {
+              event.preventDefault();
+              approve.mutate();
+            }}
+          >
+            <EvidenceText
+              label="Independent verification evidence"
+              onChange={setEvidence}
+              placeholder="Established callback channel and case reference. No secrets."
+              value={evidence}
+            />
+            <VerifiedCheck checked={verified} onChange={setVerified}>
+              I independently verified the account holder's identity.
+            </VerifiedCheck>
+            <OperationFooter
+              disabled={!verified || !hasEvidence(evidence)}
+              onCancel={onClose}
+              pending={approve.isPending}
+              pendingLabel="Approving…"
+              submitLabel="Approve and replace factors"
+            />
+          </form>
+        </>
+      )}
+    </OperationDialog>
   );
 }

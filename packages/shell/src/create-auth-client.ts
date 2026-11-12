@@ -36,3 +36,6 @@ export const createWorkspaceAuthClient = (baseURL: string) =>
   });
 
 export type WorkspaceAuthClient = ReturnType<typeof createWorkspaceAuthClient>;
+
+/** One signed-in device, as Better Auth lists them. */
+export type AuthSession = WorkspaceAuthClient["$Infer"]["Session"]["session"];

@@ -25,3 +25,21 @@ export async function attemptAuth<TData>(
     failure: messageFor(result.error, rejection),
   };
 }
+
+/**
+ * The same call for react-query, which needs a failure to throw: the server's
+ * sentence when it has one, `failure` otherwise, including when no answer came.
+ */
+export async function authCall<TData>(
+  call: () => Promise<{ data?: TData | null; error?: unknown }>,
+  failure: string,
+): Promise<TData | null | undefined> {
+  let result;
+  try {
+    result = await call();
+  } catch {
+    throw new Error(failure);
+  }
+  if (result.error) throw new Error(messageFor(result.error, failure));
+  return result.data;
+}

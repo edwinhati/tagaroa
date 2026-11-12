@@ -1,20 +1,40 @@
-import type { AuthEvent, VisibleAttentionKind } from "./admin";
+import type { AttentionKind } from "@repo/contracts/identity";
 
-export const attentionCopy: Record<
-  VisibleAttentionKind,
-  { action: string; consequence: string; title: string }
-> = {
+import type { AuthEvent } from "./admin";
+
+/**
+ * The attention the back office raises, most urgent first: recovery risk
+ * before domain access gaps. A temporary password has its own panel.
+ */
+export const attentionCopy = {
   "unverified-email": {
     action: "Review",
     consequence: "Recovery and security messages may not reach them.",
+    label: "Unverified email",
     title: "Email remains unverified",
   },
   "no-subsidiary": {
     action: "Assign access",
     consequence: "They cannot reach a working domain until they join a team.",
+    label: "No subsidiary",
     title: "No subsidiary access",
   },
-};
+} satisfies Partial<
+  Record<
+    AttentionKind,
+    { action: string; consequence: string; label: string; title: string }
+  >
+>;
+
+export type VisibleAttentionKind = keyof typeof attentionCopy;
+
+export const ATTENTION_ORDER = Object.keys(
+  attentionCopy,
+) as VisibleAttentionKind[];
+
+export const isVisibleAttention = (
+  kind: AttentionKind,
+): kind is VisibleAttentionKind => Object.hasOwn(attentionCopy, kind);
 
 /**
  * The trail speaks of suspending and restoring access. `user.banned` and

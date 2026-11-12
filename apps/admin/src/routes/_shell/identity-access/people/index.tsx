@@ -1,5 +1,9 @@
-import { IDENTITY_ROLES, primaryRoleLabel } from "@repo/contracts/identity";
-import { roleCan } from "@repo/contracts/identity";
+import {
+  type AttentionKind,
+  IDENTITY_ROLES,
+  primaryRoleLabel,
+  roleCan,
+} from "@repo/contracts/identity";
 import { AppTrail, Page } from "@repo/shell/app-shell";
 import {
   DataTableColumnVisibility,
@@ -48,13 +52,11 @@ import {
   usePersonAdmin,
 } from "../../../../components/person-admin";
 import type {
-  AttentionKind,
   PeopleQuery,
   PeopleSearch,
   PeopleSlice,
   PeopleSortField,
   Person,
-  VisibleAttentionKind,
 } from "../../../../lib/admin";
 import {
   dashboardQueryOptions,
@@ -65,6 +67,11 @@ import {
   teamNamesByUser,
 } from "../../../../lib/admin";
 import { useCollectionSearch } from "../../../../lib/collection-search";
+import {
+  attentionCopy,
+  isVisibleAttention,
+  type VisibleAttentionKind,
+} from "../../../../lib/identity-operations";
 
 type PersonTableRow = {
   account: string;
@@ -77,10 +84,8 @@ type PersonTableRow = {
   teams: string[];
 };
 
-const visibleAttention = (attention: AttentionKind[]): VisibleAttentionKind[] =>
-  attention.filter(
-    (kind): kind is VisibleAttentionKind => kind !== "temporary-password",
-  );
+const visibleAttention = (attention: AttentionKind[]) =>
+  attention.filter(isVisibleAttention);
 
 const columnHelper = createDataTableColumnHelper<PersonTableRow>();
 
@@ -154,11 +159,6 @@ const columns = columnHelper.columns([
   }),
 ]);
 
-const attentionLabels: Record<VisibleAttentionKind, string> = {
-  "no-subsidiary": "No subsidiary",
-  "unverified-email": "Unverified email",
-};
-
 function AttentionState({ row }: { row: PersonTableRow }) {
   if (row.standing === "suspended") {
     return <Mark label="Suspended" tone="bad" />;
@@ -173,7 +173,7 @@ function AttentionState({ row }: { row: PersonTableRow }) {
   return (
     <div className="gap-x-3 gap-y-1 flex flex-wrap">
       {visible.map((kind) => (
-        <Mark key={kind} label={attentionLabels[kind]} tone="warn" />
+        <Mark key={kind} label={attentionCopy[kind].label} tone="warn" />
       ))}
       {overflow > 0 ? (
         <span className={`${FIGURE} text-muted-foreground`}>+{overflow}</span>

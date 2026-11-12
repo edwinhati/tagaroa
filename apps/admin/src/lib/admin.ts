@@ -6,10 +6,12 @@ import {
 } from "@repo/contracts";
 import {
   ADMIN_ROLE_IDS,
+  type AttentionKind,
   IDENTITY_ROLE_IDS,
   REFUSAL_CODES,
 } from "@repo/contracts/identity";
 import { authClient } from "@repo/shell/auth-client";
+import type { AuthSession } from "@repo/shell/create-auth-client";
 import { AUTH_URL, CORE_URL } from "@repo/shell/urls";
 import { toast } from "@repo/ui/components/toast";
 import {
@@ -46,15 +48,6 @@ export interface Person {
   createdAt: string | Date;
 }
 
-export interface PersonSession {
-  id: string;
-  createdAt: string | Date;
-  updatedAt: string | Date;
-  expiresAt: string | Date;
-  ipAddress?: string | null;
-  userAgent?: string | null;
-}
-
 export interface LinkedAccount {
   accountId: string;
   createdAt: string | Date;
@@ -70,13 +63,6 @@ export interface AuthEvent {
   target?: string | null;
   type: string;
 }
-
-export type AttentionKind =
-  | "temporary-password"
-  | "unverified-email"
-  | "no-subsidiary";
-
-export type VisibleAttentionKind = Exclude<AttentionKind, "temporary-password">;
 
 export interface IdentityIssue {
   ageDays: number;
@@ -413,9 +399,9 @@ export const personSessionsQueryOptions = (userId: string) =>
   queryOptions({
     queryKey: ["admin", "people", userId, "sessions"],
     queryFn: () =>
-      read<PersonSession[]>(
+      read<AuthSession[]>(
         () => authClient.admin.listUserSessions({ userId }),
-        (data) => rows<PersonSession>(data, "sessions"),
+        (data) => rows<AuthSession>(data, "sessions"),
         "Could not read this person's sessions.",
       ),
   });

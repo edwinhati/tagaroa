@@ -25,32 +25,31 @@ export interface DomainMembership {
 }
 
 /**
- * Fail closed: memberships the server did not confirm are none, so an outage
- * shows the workspace with no domains and `admit` sends a domain visit back
- * to it, rather than admitting on a guess.
+ * Fail closed: memberships the server did not confirm are none, so an error
+ * answer shows the workspace with no domains and `admit` sends a domain visit
+ * back to it, rather than admitting on a guess. A request that got no answer
+ * fails, like the session read.
  */
 export async function fetchDomainMemberships(
   request: (url: string, init?: RequestInit) => Promise<Response> = fetch,
 ): Promise<DomainMembership[]> {
-  try {
-    const response = await request(`${CORE_URL}/api/access-control/domains`, {
-      credentials: "include",
-    });
-    if (!response.ok) return [];
-    const body = (await response.json()) as ApiDocument<unknown>;
-    if (!Array.isArray(body.data)) return [];
-    return body.data.filter(
-      (value): value is DomainMembership =>
-        typeof value === "object" &&
-        value !== null &&
-        typeof value.teamId === "string" &&
-        typeof value.organizationId === "string" &&
-        typeof value.domainSlug === "string" &&
-        typeof value.administered === "boolean",
-    );
-  } catch {
-    return [];
-  }
+  const response = await request(`${CORE_URL}/api/access-control/domains`, {
+    credentials: "include",
+  });
+  if (!response.ok) return [];
+  const body = (await response
+    .json()
+    .catch(() => null)) as ApiDocument<unknown> | null;
+  if (!Array.isArray(body?.data)) return [];
+  return body.data.filter(
+    (value): value is DomainMembership =>
+      typeof value === "object" &&
+      value !== null &&
+      typeof value.teamId === "string" &&
+      typeof value.organizationId === "string" &&
+      typeof value.domainSlug === "string" &&
+      typeof value.administered === "boolean",
+  );
 }
 
 export const domainMembershipQueryOptions = queryOptions({
