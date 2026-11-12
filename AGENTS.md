@@ -23,7 +23,7 @@ recording changes or preparing a release.
 
 ### Dependencies
 
-A dependency more than one workspace uses is pinned once, in the root `package.json` under `workspaces.catalog`, and each workspace names it as `"catalog:"`: bump it there. `engines.bun` is the Bun version for local installs and CI; the Docker images must use the same one, and `bun run check:infra` fails when they drift.
+A dependency more than one workspace uses is pinned once, in the root `package.json` under `workspaces.catalog`, and each workspace names it as `"catalog:"`: bump it there. `engines.bun` is the Bun version for local installs and CI; the Docker images and `devEngines` must use the same one, and `bun run check:infra` fails when they drift.
 
 ### CI
 

@@ -1,4 +1,4 @@
-import type { IncomingMessage } from "node:http";
+import { type IncomingMessage } from "node:http";
 
 import {
   BadRequestException,
@@ -13,11 +13,13 @@ import {
   Req,
   UnauthorizedException,
 } from "@nestjs/common";
+import { Throttle } from "@nestjs/throttler";
 import { asObject } from "@repo/contracts";
 import { AllowAnonymous } from "@thallesp/nestjs-better-auth";
 
+import { WEBHOOK_RATE_LIMIT } from "../../../platform/http/rate-limit";
 import { parseWith } from "../../../platform/http/schema-validation";
-import type { SignedRequest } from "../../../platform/http/signed-webhook";
+import { type SignedRequest } from "../../../platform/http/signed-webhook";
 import {
   WEBHOOK_SECRETS,
   webhookUrl,
@@ -28,7 +30,7 @@ import {
   isProviderName,
   type ProviderName,
 } from "../domain/value-objects/carrier.vo";
-import type { Receipt } from "../domain/value-objects/delivery-receipt.vo";
+import { type Receipt } from "../domain/value-objects/delivery-receipt.vo";
 import {
   verifyMetaSignature,
   verifySvixSignature,
@@ -85,6 +87,7 @@ const formFields = (request: SignedRequest): Record<string, string> =>
  * suppression — is `RecordReceiptsUseCase`.
  */
 @Controller("notifications/webhooks")
+@Throttle(WEBHOOK_RATE_LIMIT)
 export class NotificationWebhookController {
   constructor(
     private readonly recordReceipts: RecordReceiptsUseCase,

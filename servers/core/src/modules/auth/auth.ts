@@ -17,13 +17,14 @@ import { haveIBeenPwned } from "better-auth/plugins/haveibeenpwned";
 import { organization } from "better-auth/plugins/organization";
 import { twoFactor } from "better-auth/plugins/two-factor";
 
+import { ipAddressOptions } from "../../platform/http/rate-limit";
 import {
   adminAuditEvent,
   type AuthAuditInput,
   authenticationAuditEvent,
   endedSessionAuditEvent,
 } from "./audit-events";
-import type { AuthRepository } from "./infrastructure/persistence/auth.persistence.module";
+import { type AuthRepository } from "./infrastructure/persistence/auth.persistence.module";
 import { expiredTemporaryPassword, validateAdminWrite } from "./request-policy";
 import { SESSION_POLICY, temporaryPasswordExpired } from "./session-policy";
 
@@ -250,10 +251,7 @@ export const createAuth = (repository: AuthRepository, config: AuthConfig) => {
       // The rate limiter keys on this IP. Behind Pangolin and Caddy the header
       // holds several hops, which Better Auth only resolves when it knows which
       // of them are ours; without that every client shares one bucket.
-      ipAddress: {
-        ipAddressHeaders: ["x-forwarded-for"],
-        trustedProxies: config.trustedProxies,
-      },
+      ipAddress: ipAddressOptions(config.trustedProxies ?? []),
       // `__Host-` above replaces Better Auth's own `__Secure-` prefix.
       useSecureCookies: false,
     },

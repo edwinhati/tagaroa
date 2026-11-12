@@ -1,5 +1,16 @@
 import { Inject, Injectable } from "@nestjs/common";
-import { and, asc, eq, inArray, lt, lte, or, sql } from "drizzle-orm";
+import {
+  and,
+  asc,
+  eq,
+  inArray,
+  isNull,
+  lt,
+  lte,
+  ne,
+  or,
+  sql,
+} from "drizzle-orm";
 
 import { DATABASE } from "../../../../../platform/database/database.module";
 import type { Message } from "../../../domain/entities/message.entity";
@@ -7,6 +18,7 @@ import type { QueuedMessage } from "../../../domain/entities/queued-message.enti
 import type {
   EnqueuedMessage,
   MessageRepository,
+  ReceiptOutcome,
 } from "../../../domain/repositories/message.repository";
 import {
   type Receipt,
@@ -190,8 +202,8 @@ export class DrizzleMessageRepository implements MessageRepository {
    * Keyed by the provider's own id, which is all its webhook reports. Only
    * moves a message forward; an out-of-order receipt matches nothing.
    */
-  async applyReceipt(receipt: Receipt): Promise<void> {
-    await this.executor
+  async applyReceipt(receipt: Receipt): Promise<ReceiptOutcome> {
+    const applied = await this.executor
       .update(notificationMessage)
       .set({ completedAt: new Date(), status: receipt.status })
       .where(
@@ -200,7 +212,21 @@ export class DrizzleMessageRepository implements MessageRepository {
           inArray(notificationMessage.status, [
             ...replaceableBy(receipt.status),
           ]),
+          // The same news again keeps the time it first arrived.
+          or(
+            ne(notificationMessage.status, receipt.status),
+            isNull(notificationMessage.completedAt),
+          ),
         ),
-      );
+      )
+      .returning({ id: notificationMessage.id });
+    if (applied.length > 0) return "applied";
+
+    const [known] = await this.executor
+      .select({ id: notificationMessage.id })
+      .from(notificationMessage)
+      .where(eq(notificationMessage.providerId, receipt.providerId))
+      .limit(1);
+    return known ? "repeat" : "unmatched";
   }
 }

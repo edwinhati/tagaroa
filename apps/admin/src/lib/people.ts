@@ -7,7 +7,10 @@ import {
   IDENTITY_ROLE_IDS,
 } from "@repo/contracts/identity";
 import { authClient } from "@repo/shell/auth-client";
-import { type AuthSession } from "@repo/shell/create-auth-client";
+import {
+  type AuthSession,
+  type WorkspaceAuthClient,
+} from "@repo/shell/create-auth-client";
 import {
   keepPreviousData,
   type QueryClient,
@@ -31,20 +34,25 @@ import {
  * active organization use the core service's narrow management endpoints.
  * The shapes below are what the tables render, not the full rows.
  */
-export interface Person {
-  id: string;
-  email: string;
-  emailVerified: boolean;
-  name: string;
-  role: string | null;
-  banned: boolean | null;
-  banExpires?: string | Date | null;
-  banReason?: string | null;
-  mustChangePassword?: boolean;
-  temporaryPasswordExpiresAt?: string | Date | null;
-  twoFactorEnabled?: boolean;
-  createdAt: string | Date;
-}
+type AuthUser = WorkspaceAuthClient["$Infer"]["Session"]["user"];
+
+/** Better Auth's client turns dates back into `Date`s, so these are as inferred. */
+export type Person = Pick<
+  AuthUser,
+  "createdAt" | "email" | "emailVerified" | "id" | "name"
+> &
+  Partial<
+    Pick<
+      AuthUser,
+      | "banExpires"
+      | "banned"
+      | "banReason"
+      | "mustChangePassword"
+      | "role"
+      | "temporaryPasswordExpiresAt"
+      | "twoFactorEnabled"
+    >
+  >;
 
 /** What the core service says became of a message it was asked to send. */
 export interface OnboardingOutcome {

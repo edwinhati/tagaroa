@@ -6,10 +6,12 @@ import {
   Req,
   UnauthorizedException,
 } from "@nestjs/common";
+import { Throttle } from "@nestjs/throttler";
 import { AllowAnonymous } from "@thallesp/nestjs-better-auth";
 
+import { WEBHOOK_RATE_LIMIT } from "../../../platform/http/rate-limit";
 import { parseWith } from "../../../platform/http/schema-validation";
-import type { SignedRequest } from "../../../platform/http/signed-webhook";
+import { type SignedRequest } from "../../../platform/http/signed-webhook";
 import { SyncEmployeeUseCase } from "../application/use-cases/sync-employee.use-case";
 import {
   HR_OPTIONS,
@@ -24,6 +26,7 @@ import { frappeEmployeeWebhook } from "./hr-webhook.schemas";
  * has to name the employee: the record is re-read from Frappe.
  */
 @Controller("hr/webhooks")
+@Throttle(WEBHOOK_RATE_LIMIT)
 export class HrWebhookController {
   constructor(
     private readonly sync: SyncEmployeeUseCase,

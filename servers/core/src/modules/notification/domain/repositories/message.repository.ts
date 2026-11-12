@@ -53,5 +53,12 @@ export interface MessageRepository {
   ): Promise<void>;
 
   /** What a provider's webhook says became of a message it carried. */
-  applyReceipt(receipt: Receipt): Promise<void>;
+  applyReceipt(receipt: Receipt): Promise<ReceiptOutcome>;
 }
+
+/**
+ * What a receipt did: moved its message on, said what the message already
+ * says (a provider's retry, or news older than what it holds), or found no
+ * message with that id.
+ */
+export type ReceiptOutcome = "applied" | "repeat" | "unmatched";
