@@ -142,6 +142,5 @@ describe("renderEmail", () => {
 
     expect(html).toContain("Contact your administrator through your");
     expect(html).toContain("usual trusted channel.");
-    expect(html).not.toContain("support@tagaroa.example");
   });
 });

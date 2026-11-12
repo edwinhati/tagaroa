@@ -1,6 +1,7 @@
 import { describe, expect, test } from "bun:test";
 
-import { MIN_PASSWORD_LENGTH } from "./auth-client";
+import { PASSWORD_LENGTH } from "@repo/contracts/identity";
+
 import {
   errorFor as displayedErrorFor,
   newPasswordSchema,
@@ -23,7 +24,7 @@ function errorFor(
   return result.error?.issues.find((issue) => issue.path[0] === field)?.message;
 }
 
-const long = "a".repeat(MIN_PASSWORD_LENGTH);
+const long = "a".repeat(PASSWORD_LENGTH.min);
 
 describe("signInSchema", () => {
   test("accepts an email and a password", () => {
@@ -58,14 +59,14 @@ describe("newPasswordSchema", () => {
   });
 
   test("rejects a new password under the minimum length", () => {
-    const short = "a".repeat(MIN_PASSWORD_LENGTH - 1);
+    const short = "a".repeat(PASSWORD_LENGTH.min - 1);
     expect(
       errorFor(
         newPasswordSchema,
         { ...valid, password: short, confirm: short },
         "password",
       ),
-    ).toBe(`Use at least ${MIN_PASSWORD_LENGTH} characters.`);
+    ).toBe(`Use at least ${PASSWORD_LENGTH.min} characters.`);
   });
 
   test("rejects reusing the temporary password", () => {

@@ -11,10 +11,6 @@ export interface PositionRecord {
 }
 
 export interface PositionRepository {
-  find(
-    userId: string,
-    organizationId: string | null,
-  ): Promise<PositionRecord | null>;
   list(): Promise<PositionRecord[]>;
   /** Positions recorded for one person (group and subsidiary scopes). */
   listForUser(userId: string): Promise<PositionRecord[]>;

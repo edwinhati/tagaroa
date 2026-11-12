@@ -37,7 +37,7 @@ port. Do not propose it again without re-testing both.
   the notification webhooks verify provider signatures against those, since a parse and
   re-serialise does not reproduce the bytes that were signed.
   A domain app asks `GET /api/access-control/me` for the person in front of it. The shell's
-  `isDomainAdmin(session, slug, administeredTeams)` still refuses anyone `isAdmitted()`
+  `isDomainAdmin(session, slug, memberships)` still refuses anyone `isAdmitted()`
   refuses, then matches only teams for which that effective permission check succeeded.
   Identity `admin` and `super-admin` roles do not silently bypass business access.
 

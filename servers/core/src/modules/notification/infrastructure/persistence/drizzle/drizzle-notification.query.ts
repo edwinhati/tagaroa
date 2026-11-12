@@ -1,5 +1,10 @@
 import { Inject, Injectable } from "@nestjs/common";
 import type { Collection } from "@repo/contracts";
+import {
+  MESSAGE_STATUSES,
+  NOTIFICATION_CHANNELS,
+  SUPPRESSION_REASONS,
+} from "@repo/contracts/notifications";
 import { sql } from "drizzle-orm";
 
 import { collectionOver } from "../../../../../platform/database/collection";
@@ -14,25 +19,7 @@ import type {
   SuppressionRow,
 } from "../../../application/dto/notification.read-models";
 import type { NotificationQuery } from "../../../application/ports/notification-query.port";
-import { NOTIFICATION_CHANNELS } from "../../../domain/value-objects/notification-channel.vo";
 import { notificationMessage, notificationSuppression } from "./schema";
-
-const MESSAGE_STATUSES = [
-  "pending",
-  "sending",
-  "sent",
-  "delivered",
-  "failed",
-  "bounced",
-  "suppressed",
-] as const;
-
-const SUPPRESSION_REASONS = [
-  "bounced",
-  "complained",
-  "opted-out",
-  "failed",
-] as const;
 
 /**
  * The log carries the rendered subject and body, not just the metadata: the

@@ -4,6 +4,7 @@
 #   - shellcheck on every tracked shell script
 #   - actionlint on the workflows (it also shellchecks their run: blocks)
 #   - every *.test.sh self-test that runs with stubs only
+#   - the dev wrapper's own tests (scripts/with-live.test.mjs)
 #
 #   bash scripts/ci/check-infra.sh      (or: bun run check:infra)
 #
@@ -39,6 +40,9 @@ while IFS= read -r test; do
     *) sh "$test" ;;
   esac || failed+=("$test")
 done < <(git ls-files '*.test.sh')
+
+section scripts/with-live.test.mjs
+node --test scripts/with-live.test.mjs || failed+=(scripts/with-live.test.mjs)
 
 if ((${#failed[@]})); then
   printf '\nFailed: %s\n' "${failed[*]}" >&2

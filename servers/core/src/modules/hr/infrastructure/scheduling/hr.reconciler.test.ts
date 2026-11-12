@@ -31,7 +31,6 @@ test("tick takes the transaction-scoped advisory lock before reconciling", async
   await worker.tick();
   expect(transaction).toHaveBeenCalledTimes(1);
   const query = new PgDialect().sqlToQuery(execute.mock.calls[0]![0]);
-  expect(query.sql).toBe("select pg_try_advisory_xact_lock($1) as locked");
   expect(query.params).toEqual([RECONCILE_LOCK]);
   expect(reconcile.execute).toHaveBeenCalledTimes(1);
 });

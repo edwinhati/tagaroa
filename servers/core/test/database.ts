@@ -1,5 +1,6 @@
 import { resolve } from "node:path";
 
+import { TEST_DATABASE_URL } from "@repo/test-support/e2e-stack";
 import { SQL } from "bun";
 import { drizzle } from "drizzle-orm/bun-sql";
 import { migrate } from "drizzle-orm/bun-sql/migrator";
@@ -10,9 +11,7 @@ const composeFile = resolve(
   "../../infra/docker/docker-compose.yml",
 );
 
-const testDatabaseUrl =
-  process.env.TEST_DATABASE_URL ??
-  "postgresql://tagaroa:tagaroa@127.0.0.1:5432/tagaroa_test";
+const testDatabaseUrl = TEST_DATABASE_URL;
 const testPort = process.env.E2E_CORE_PORT ?? "8080";
 const trustedOrigins =
   process.env.E2E_TRUSTED_ORIGINS ?? "http://localhost:3001";
@@ -26,8 +25,8 @@ export const testEnv = {
   // where it was enqueued rather than raced against a timer.
   NOTIFICATION_WORKER: "0",
   PORT: testPort,
-  // Provider credentials are fixtures: nothing is sent outside production, but
-  // the webhooks still verify their signatures with these.
+  // Provider credentials are fixtures: with NOTIFICATION_WORKER off nothing is
+  // sent, but the webhooks still verify their signatures with these.
   TWILIO_ACCOUNT_SID: "AC-test-account",
   TWILIO_AUTH_TOKEN: "test-auth-token",
   TWILIO_FROM: "+15550100",

@@ -1,3 +1,4 @@
+import { EVIDENCE_LENGTH } from "@repo/contracts/identity";
 import { Button } from "@repo/ui/components/button";
 import {
   Dialog,
@@ -271,8 +272,8 @@ function ReviewDialog({
             Review evidence
             <Textarea
               required
-              minLength={10}
-              maxLength={500}
+              minLength={EVIDENCE_LENGTH.min}
+              maxLength={EVIDENCE_LENGTH.max}
               value={note}
               onChange={(event) => setNote(event.target.value)}
               placeholder="Manager confirmation, case reference, or the concern to investigate"
@@ -289,7 +290,9 @@ function ReviewDialog({
             </Button>
             <Button
               type="submit"
-              disabled={save.isPending || note.trim().length < 10}
+              disabled={
+                save.isPending || note.trim().length < EVIDENCE_LENGTH.min
+              }
             >
               {save.isPending ? "Recording…" : "Record review"}
             </Button>

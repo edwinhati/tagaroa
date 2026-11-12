@@ -1,8 +1,5 @@
 import type { Database } from "../../../../../platform/database/database.module";
 
-/** The handle a `database.transaction` callback is given. */
-export type Transaction = Parameters<Parameters<Database["transaction"]>[0]>[0];
-
 /**
  * Whatever the statements run against: the pool, or one open transaction.
  *

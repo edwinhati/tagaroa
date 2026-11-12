@@ -1,17 +1,22 @@
+import { WORKING_DOMAINS } from "@repo/contracts";
+import { EVIDENCE_LENGTH } from "@repo/contracts/identity";
 import * as z from "zod";
 
 import {
+  evidenceText,
+  objectBody,
+  requiredText as required,
+} from "../../../platform/http/request-fields";
+import {
   ACCESS_SCOPE_TYPES,
   type AccessScopeType,
+  isPermissionKey,
+  type PermissionKey,
 } from "../domain/access-policy";
-
-const required = (label: string) =>
-  z
-    .string({ error: `${label} is required.` })
-    .trim()
-    .min(1, `${label} is required.`);
-
-const OBJECT_BODY = { error: "Request body must be a JSON object." };
+import {
+  REVIEW_DECISIONS,
+  REVIEW_KINDS,
+} from "../domain/repositories/access-review.repository";
 
 const scope = z.enum(ACCESS_SCOPE_TYPES, {
   error: "Scope must be subsidiary or team.",
@@ -52,92 +57,94 @@ const teamForScope = <T extends { scope: AccessScopeType; teamId?: unknown }>(
 };
 
 /** `POST /access-control/assignments`: the input `grantAssignment` takes. */
-export const grantAssignmentBody = z
-  .object(
-    {
-      // Key order is the order issues are reported in; scope comes first.
-      scope,
-      expiresAt: expiration,
-      organizationId: required("Subsidiary"),
-      roleId: required("Role"),
-      teamId: z.unknown().optional(),
-      userId: required("Person"),
-    },
-    OBJECT_BODY,
-  )
-  .transform(teamForScope);
+export const grantAssignmentBody = objectBody({
+  // Key order is the order issues are reported in; scope comes first.
+  scope,
+  expiresAt: expiration,
+  organizationId: required("Subsidiary"),
+  roleId: required("Role"),
+  teamId: z.unknown().optional(),
+  userId: required("Person"),
+}).transform(teamForScope);
 
 export type GrantAssignmentBody = z.output<typeof grantAssignmentBody>;
 
 /** `PATCH /access-control/assignments/:assignmentId`. */
-export const updateAssignmentBody = z.object(
-  { expiresAt: expiration },
-  OBJECT_BODY,
-);
+export const updateAssignmentBody = objectBody({ expiresAt: expiration });
 
 export type UpdateAssignmentBody = z.output<typeof updateAssignmentBody>;
 
 /** `POST /access-control/break-glass`: the input `activateBreakGlass` takes. */
-export const breakGlassBody = z
-  .object(
-    {
-      scope,
-      organizationId: required("Subsidiary"),
-      permission: required("Permission"),
-      // The service owns the reason's length rule.
-      reason: z.unknown().optional(),
-      teamId: z.unknown().optional(),
-    },
-    OBJECT_BODY,
-  )
-  .transform(teamForScope);
+export const breakGlassBody = objectBody({
+  scope,
+  organizationId: required("Subsidiary"),
+  permission: required("Permission"),
+  reason: required("Reason", 240),
+  teamId: z.unknown().optional(),
+}).transform(teamForScope);
 
 export type BreakGlassBody = z.output<typeof breakGlassBody>;
 
-// The role and review fields are cleaned and checked in the service (trimmed
-// text, key format, permission catalogue), so these schemas only fix the shape.
-// Zod 4 rejects a missing `z.unknown()` key, so each is `.optional()`: an absent
-// field reaches the service and gets its sentence, as before.
+const CHOOSE_PERMISSIONS = "Choose at least one permission.";
+
+// Repeats collapse; anything outside the catalogue is refused.
+const permissions = z
+  .array(z.unknown(), { error: CHOOSE_PERMISSIONS })
+  .min(1, CHOOSE_PERMISSIONS)
+  .transform((values) => [...new Set(values)])
+  .refine(
+    (values): values is PermissionKey[] =>
+      values.every(
+        (value) => typeof value === "string" && isPermissionKey(value),
+      ),
+    "The role contains an unknown permission.",
+  );
 
 /** `POST /access-control/roles`. */
-export const createRoleBody = z.object(
-  {
-    description: z.unknown().optional(),
-    key: z.unknown().optional(),
-    name: z.unknown().optional(),
-    permissions: z.unknown().optional(),
-  },
-  OBJECT_BODY,
-);
+export const createRoleBody = objectBody({
+  description: required("Description", 240),
+  key: required("Role key", 64).regex(
+    /^[a-z][a-z0-9]*(?:-[a-z0-9]+)*$/,
+    "Role key must use lowercase letters, numbers, and single hyphens.",
+  ),
+  name: required("Role name", 80),
+  permissions,
+});
 
 export type CreateRoleBody = z.output<typeof createRoleBody>;
 
-/** `PATCH /access-control/roles/:roleId`. */
+/** `PATCH /access-control/roles/:roleId`. The key never changes. */
 export const updateRoleBody = createRoleBody.omit({ key: true });
 
 export type UpdateRoleBody = z.output<typeof updateRoleBody>;
 
 /** `POST /access-control/reviews/:kind/:subjectId`. */
-export const reviewAccessBody = z.object(
-  {
-    decision: z.unknown().optional(),
-    note: z.unknown().optional(),
-    snapshot: z.unknown().optional(),
-  },
-  OBJECT_BODY,
-);
+export const reviewKindParam = z.enum(REVIEW_KINDS, {
+  error: "Unknown review type.",
+});
+
+export const reviewAccessBody = objectBody({
+  decision: z.enum(REVIEW_DECISIONS, {
+    error: "Choose confirmed or flagged.",
+  }),
+  note: evidenceText(
+    `Record the review evidence in ${EVIDENCE_LENGTH.min} to ${EVIDENCE_LENGTH.max} characters.`,
+  ),
+  // Compared with the subject as it stands; any other value is a stale read.
+  snapshot: z.unknown().optional(),
+});
 
 export type ReviewAccessBody = z.output<typeof reviewAccessBody>;
 
 /** `PUT /access-control/teams/:teamId/domain`: a domain slug, or null for none. */
-export const bindDomainBody = z.object(
-  {
-    domainSlug: z
-      .string({ error: "Choose a known domain or no domain." })
-      .nullable(),
-  },
-  OBJECT_BODY,
-);
+export const bindDomainBody = objectBody({
+  domainSlug: z
+    .enum(
+      WORKING_DOMAINS.map((domain) => domain.slug),
+      { error: "Choose a known domain or no domain." },
+    )
+    .nullable(),
+});
 
 export type BindDomainBody = z.output<typeof bindDomainBody>;
 

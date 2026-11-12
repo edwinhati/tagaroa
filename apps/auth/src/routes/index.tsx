@@ -1,3 +1,5 @@
+import { PASSWORD_LENGTH } from "@repo/contracts/identity";
+import { attemptAuth } from "@repo/shell/attempt-auth";
 import { Button } from "@repo/ui/components/button";
 import { Checkbox } from "@repo/ui/components/checkbox";
 import {
@@ -32,12 +34,7 @@ import {
   ScreenHeading,
   Submit,
 } from "../components/auth-shell";
-import {
-  attemptAuth,
-  authClient,
-  MIN_PASSWORD_LENGTH,
-  postSignInTarget,
-} from "../lib/auth-client";
+import { authClient, postSignInTarget } from "../lib/auth-client";
 import { errorFor, newPasswordSchema, signInSchema } from "../lib/forms";
 import { sessionQueryOptions, signInDestination } from "../lib/session";
 import { signInOutcome, twoFactorFailure } from "../lib/sign-in";
@@ -454,7 +451,7 @@ function ChoosePasswordStep({
                 label="New password"
                 autoComplete="new-password"
                 autoFocus={knowsTemporaryPassword}
-                hint={`${MIN_PASSWORD_LENGTH} characters minimum`}
+                hint={`${PASSWORD_LENGTH.min} characters minimum`}
                 value={field.state.value}
                 onBlur={field.handleBlur}
                 onChange={(event) => field.handleChange(event.target.value)}

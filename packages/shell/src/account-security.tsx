@@ -16,14 +16,14 @@ import { Skeleton } from "@repo/ui/components/skeleton";
 import { Spinner } from "@repo/ui/components/spinner";
 import { cn } from "@repo/ui/lib/utils";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { useState, type FormEvent, type ReactNode } from "react";
+import { useState, type ReactNode } from "react";
 
 import {
   AuthenticatorSetupFlow,
   RecoveryCodesFlow,
 } from "./account-security-totp";
 import { authClient } from "./auth-client";
-import type { SecurityAuthClient } from "./security-auth-client";
+import { sessionQueryOptions } from "./session";
 
 type SecurityTask = "setup-authenticator" | "replace-recovery-codes" | null;
 
@@ -55,17 +55,10 @@ function SettingsGroup({
 }
 
 export function AccountSecurityPanel({
-  client = authClient as SecurityAuthClient,
   onTwoFactorChange,
-  passkeyAddHref,
-  showHeading = true,
   twoFactorEnabled,
 }: {
-  client?: SecurityAuthClient;
   onTwoFactorChange?: (enabled: boolean) => void;
-  /** When set, “Add passkey” opens the door (WebAuthn origin). */
-  passkeyAddHref?: string;
-  showHeading?: boolean;
   twoFactorEnabled: boolean;
 }) {
   const queryClient = useQueryClient();
@@ -87,7 +80,7 @@ export function AccountSecurityPanel({
   const passkeys = useQuery({
     queryKey: ["account", "passkeys"],
     queryFn: async () => {
-      const { data, error } = await client.passkey.listUserPasskeys();
+      const { data, error } = await authClient.passkey.listUserPasskeys();
       if (error) {
         throw new Error(
           error.message ||
@@ -100,13 +93,14 @@ export function AccountSecurityPanel({
 
   const add = useMutation({
     mutationFn: async () => {
-      const { error } = await client.passkey.addPasskey({
+      const { error } = await authClient.passkey.addPasskey({
         name: name.trim() || "My passkey",
       });
       if (error) {
+        const code = "code" in error ? error.code : undefined;
         throw new Error(
-          error.code === "ERROR_CEREMONY_ABORTED" ||
-            error.code === "ERROR_PASSTHROUGH_SEE_CAUSE_PROPERTY"
+          code === "ERROR_CEREMONY_ABORTED" ||
+            code === "ERROR_PASSTHROUGH_SEE_CAUSE_PROPERTY"
             ? "Passkey setup was canceled or timed out. Try again and complete your device’s prompt."
             : error.message ||
                 "Could not add the passkey. Complete the device prompt and try again.",
@@ -123,7 +117,7 @@ export function AccountSecurityPanel({
 
   const remove = useMutation({
     mutationFn: async (id: string) => {
-      const { error } = await client.passkey.deletePasskey({ id });
+      const { error } = await authClient.passkey.deletePasskey({ id });
       if (error) {
         throw new Error(
           error.message || "Could not remove the passkey. Try again.",
@@ -143,13 +137,15 @@ export function AccountSecurityPanel({
     setEnabled(true);
     onTwoFactorChange?.(true);
     setSecurityTask(null);
-    void queryClient.invalidateQueries({ queryKey: ["session"] });
+    void queryClient.invalidateQueries({
+      queryKey: sessionQueryOptions.queryKey,
+    });
   }
 
   if (securityTask === "setup-authenticator") {
     return (
       <AuthenticatorSetupFlow
-        client={client}
+        client={authClient}
         completionLabel="Back to security"
         onCancel={() => setSecurityTask(null)}
         onDone={finishAuthenticatorSetup}
@@ -160,7 +156,7 @@ export function AccountSecurityPanel({
   if (securityTask === "replace-recovery-codes") {
     return (
       <RecoveryCodesFlow
-        client={client}
+        client={authClient}
         completionLabel="Back to security"
         onCancel={() => setSecurityTask(null)}
         onDone={() => setSecurityTask(null)}
@@ -171,12 +167,6 @@ export function AccountSecurityPanel({
   return (
     <>
       <div className="gap-3 flex flex-col">
-        {showHeading ? (
-          <p className="leading-relaxed text-[0.8125rem] text-muted-foreground">
-            Authenticator and passkeys for this account.
-          </p>
-        ) : null}
-
         <SettingsGroup>
           <div className="gap-3 px-3.5 py-3.5 flex items-center justify-between">
             <div className="min-w-0">
@@ -218,16 +208,6 @@ export function AccountSecurityPanel({
             >
               Passkeys
             </h3>
-            {passkeyAddHref ? (
-              <Button
-                nativeButton={false}
-                render={<a href={passkeyAddHref} />}
-                size="sm"
-                variant="ghost"
-              >
-                Add on door
-              </Button>
-            ) : null}
           </div>
 
           {passkeys.isPending ? (
@@ -291,71 +271,57 @@ export function AccountSecurityPanel({
             </p>
           ) : null}
 
-          {passkeyAddHref ? (
-            passkeys.isSuccess && !passkeys.data?.length ? (
-              <SettingsGroup>
-                <p className="px-3.5 py-3.5 text-[0.8125rem] text-muted-foreground">
-                  None yet. Use Add on door above.
+          <form
+            onSubmit={(event) => {
+              event.preventDefault();
+              add.mutate();
+            }}
+          >
+            <SettingsGroup className="p-3.5">
+              {passkeys.isSuccess && !passkeys.data?.length ? (
+                <p className="mb-3 text-[0.8125rem] text-muted-foreground">
+                  None yet. Name this device to add one.
                 </p>
-              </SettingsGroup>
-            ) : null
-          ) : (
-            <form
-              onSubmit={async (event: FormEvent) => {
-                event.preventDefault();
-                try {
-                  await add.mutateAsync();
-                } catch {
-                  // Mutation error renders below.
-                }
-              }}
-            >
-              <SettingsGroup className="p-3.5">
-                {passkeys.isSuccess && !passkeys.data?.length ? (
-                  <p className="mb-3 text-[0.8125rem] text-muted-foreground">
-                    None yet. Name this device to add one.
-                  </p>
-                ) : null}
-                <div className="gap-1.5 flex flex-col">
-                  <Label htmlFor="passkey-name">
-                    New passkey name{" "}
-                    <span className="font-normal text-muted-foreground">
-                      Optional
-                    </span>
-                  </Label>
-                  <Input
-                    autoComplete="off"
-                    id="passkey-name"
-                    name="passkey-name"
-                    onChange={(event) => setName(event.target.value)}
-                    placeholder="Work laptop…"
-                    spellCheck={false}
-                    value={name}
-                  />
+              ) : null}
+              <div className="gap-1.5 flex flex-col">
+                <Label htmlFor="passkey-name">
+                  New passkey name{" "}
+                  <span className="font-normal text-muted-foreground">
+                    Optional
+                  </span>
+                </Label>
+                <Input
+                  autoComplete="off"
+                  id="passkey-name"
+                  name="passkey-name"
+                  onChange={(event) => setName(event.target.value)}
+                  placeholder="Work laptop…"
+                  spellCheck={false}
+                  value={name}
+                />
+              </div>
+              {add.isError ? (
+                <div className="mt-3">
+                  <FormError>
+                    {add.error instanceof Error
+                      ? add.error.message
+                      : "Could not add the passkey."}
+                  </FormError>
                 </div>
-                {add.isError ? (
-                  <div className="mt-3">
-                    <FormError>
-                      {add.error instanceof Error
-                        ? add.error.message
-                        : "Could not add the passkey."}
-                    </FormError>
-                  </div>
+              ) : null}
+              <Button
+                className="mt-3 self-start"
+                disabled={add.isPending}
+                size="sm"
+                type="submit"
+              >
+                {add.isPending ? (
+                  <Spinner aria-hidden="true" data-icon="inline-start" />
                 ) : null}
-                <Button
-                  className="mt-3 self-start"
-                  disabled={add.isPending}
-                  size="sm"
-                  type="submit"
-                >
-                  {add.isPending ? (
-                    <Spinner aria-hidden="true" data-icon="inline-start" />
-                  ) : null}
-                  {add.isPending ? "Waiting for device…" : "Add passkey"}
-                </Button>
-              </SettingsGroup>
-            </form>
-          )}
+                {add.isPending ? "Waiting for device…" : "Add passkey"}
+              </Button>
+            </SettingsGroup>
+          </form>
         </section>
       </div>
 

@@ -1,11 +1,11 @@
 import { Inject, Injectable } from "@nestjs/common";
+import type { NotificationChannel } from "@repo/contracts/notifications";
 import { and, eq, inArray } from "drizzle-orm";
 
 import { DATABASE } from "../../../../../platform/database/database.module";
 import { QueuedMessage } from "../../../domain/entities/queued-message.entity";
 import type { Suppression } from "../../../domain/entities/suppression.entity";
 import type { SuppressionRepository } from "../../../domain/repositories/suppression.repository";
-import type { NotificationChannel } from "../../../domain/value-objects/notification-channel.vo";
 import type { Executor } from "./notification.executor";
 import { suppressionMapper } from "./notification.mappers";
 import { notificationSuppression } from "./schema";

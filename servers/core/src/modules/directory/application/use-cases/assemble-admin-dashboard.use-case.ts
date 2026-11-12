@@ -1,4 +1,5 @@
 import { Inject, Injectable } from "@nestjs/common";
+import { reviewWeekStart } from "@repo/contracts/identity";
 
 import {
   AUDIT_TRAIL,
@@ -26,7 +27,6 @@ import {
   timeline,
   TIMELINE_DEPTH,
 } from "../../domain/services/timeline.service";
-import { ReviewWeek } from "../../domain/value-objects/review-week.vo";
 import type { DashboardModel } from "../dto/group-snapshot.dto";
 
 /**
@@ -50,7 +50,7 @@ export class AssembleAdminDashboardUseCase {
   ) {}
 
   async execute(now: Date): Promise<DashboardModel> {
-    const week = ReviewWeek.containing(now);
+    const weekStart = reviewWeekStart(now);
 
     const [
       people,
@@ -74,14 +74,14 @@ export class AssembleAdminDashboardUseCase {
 
     const activityByPerson = new Map(activity.map((row) => [row.userId, row]));
     const attention = attentionFor(people, membershipIds, now);
-    const privileged = privilegedAccess(people, reviews, week);
+    const privileged = privilegedAccess(people, reviews, weekStart);
 
     return {
       accessReview: {
         people: privileged,
         reviewed: privileged.filter((person) => person.reviewed).length,
         total: privileged.length,
-        weekStartedAt: week.start,
+        weekStartedAt: weekStart,
       },
       attention,
       counts: {

@@ -35,10 +35,6 @@ const subsidiaries = (
 const positions = (initial: PositionRecord[] = []) => {
   const rows = [...initial];
   const repository: PositionRepository = {
-    find: async (userId, organizationId) =>
-      rows.find(
-        (row) => row.userId === userId && row.organizationId === organizationId,
-      ) ?? null,
     list: async () => rows,
     listForUser: async (userId) => rows.filter((row) => row.userId === userId),
     remove: async (userId, organizationId) => {

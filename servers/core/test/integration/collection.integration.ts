@@ -7,6 +7,10 @@ import {
   test,
 } from "bun:test";
 
+import {
+  NOTIFICATION_CHANNELS,
+  SUPPRESSION_REASONS,
+} from "@repo/contracts/notifications";
 import { SQL } from "bun";
 import { like } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/bun-sql";
@@ -43,11 +47,11 @@ const SUPPRESSIONS = collectionOver<{
   filters: {
     channel: {
       column: notificationSuppression.channel,
-      values: ["email", "sms", "whatsapp"],
+      values: NOTIFICATION_CHANNELS,
     },
     reason: {
       column: notificationSuppression.reason,
-      values: ["bounced", "complained", "opted-out", "failed"],
+      values: SUPPRESSION_REASONS,
     },
   },
   search: [notificationSuppression.destination],

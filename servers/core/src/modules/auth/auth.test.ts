@@ -1,6 +1,8 @@
 import { describe, expect, test } from "bun:test";
 
+import { SESSION_ACTIONS, USER_ACTIONS } from "@repo/contracts/identity";
 import { APIError, getIP } from "better-auth/api";
+import { defaultStatements } from "better-auth/plugins/admin/access";
 
 import type { AuthConfig } from "./auth";
 import {
@@ -10,7 +12,7 @@ import {
   createAuth,
   endedSessionAuditEvent,
   excessSessionTokens,
-  temporaryPasswordExpired,
+  removesSuperAdminRole,
   validateAdminUserUpdate,
   validatePersonalEmail,
   validateProfileUpdate,
@@ -539,29 +541,26 @@ test("an admin update may change only the fields apps/admin edits", () => {
   ).not.toThrow();
 });
 
-test("a temporary password expires only while it still has to be replaced", () => {
-  const now = Date.UTC(2026, 10, 5);
-  const past = new Date(now - 1);
-  expect(
-    temporaryPasswordExpired(
-      { mustChangePassword: true, temporaryPasswordExpiresAt: past },
-      now,
-    ),
-  ).toBe(true);
-  expect(
-    temporaryPasswordExpired(
-      {
-        mustChangePassword: true,
-        temporaryPasswordExpiresAt: past.toISOString(),
-      },
-      now,
-    ),
-  ).toBe(true);
-  for (const user of [
-    { mustChangePassword: false, temporaryPasswordExpiresAt: past },
-    { mustChangePassword: true, temporaryPasswordExpiresAt: null },
-    { mustChangePassword: true, temporaryPasswordExpiresAt: new Date(now + 1) },
-    undefined,
-  ])
-    expect(temporaryPasswordExpired(user, now)).toBe(false);
+test("demotion to another privileged role still removes super-admin authority", () => {
+  for (const role of [
+    "admin",
+    "helpdesk",
+    "access-reviewer",
+    "user",
+    ["admin", "helpdesk"],
+  ]) {
+    expect(removesSuperAdminRole("super-admin", role)).toBe(true);
+  }
+  expect(removesSuperAdminRole("super-admin", "admin, super-admin")).toBe(
+    false,
+  );
+  expect(removesSuperAdminRole("super-admin", ["admin", "super-admin"])).toBe(
+    false,
+  );
+  expect(removesSuperAdminRole("admin", "user")).toBe(false);
+});
+
+test("the role catalog's statements are Better Auth's, so break-glass misses none", () => {
+  expect([...USER_ACTIONS]).toEqual([...defaultStatements.user]);
+  expect([...SESSION_ACTIONS]).toEqual([...defaultStatements.session]);
 });

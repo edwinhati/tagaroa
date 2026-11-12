@@ -25,8 +25,8 @@ export interface AppEnv {
   /** Public base URL of the provider webhooks; Twilio signs the URL it was given. */
   NOTIFICATION_WEBHOOK_URL: string;
 
-  // Providers. Every one is optional: outside production nothing is sent to a
-  // third party, so the repo runs with none of them set.
+  // Providers. Every one is optional: a channel without credentials writes to
+  // the log instead (production refuses it), so the repo runs with none set.
   RESEND_API_KEY?: string;
   RESEND_FROM?: string;
   RESEND_WEBHOOK_SECRET?: string;

@@ -6,9 +6,7 @@ import { AppController } from "./app.controller";
 import { AccessControlModule } from "./modules/access-control/access-control.module";
 import { AuditModule } from "./modules/audit/audit.module";
 import { AuthModule } from "./modules/auth/auth.module";
-import { ImpersonationInterceptor } from "./modules/auth/impersonation.interceptor";
-import { PrivilegedMfaInterceptor } from "./modules/auth/privileged-mfa.interceptor";
-import { TemporaryPasswordInterceptor } from "./modules/auth/temporary-password.interceptor";
+import { SessionPolicyInterceptor } from "./modules/auth/session-policy.interceptor";
 import { DirectoryModule } from "./modules/directory/directory.module";
 import { HrModule } from "./modules/hr/hr.module";
 import { NotificationModule } from "./modules/notification/notification.module";
@@ -38,9 +36,7 @@ import * as databaseSchema from "./schema.registry";
     NotificationModule,
   ],
   providers: [
-    { provide: APP_INTERCEPTOR, useClass: TemporaryPasswordInterceptor },
-    { provide: APP_INTERCEPTOR, useClass: PrivilegedMfaInterceptor },
-    { provide: APP_INTERCEPTOR, useClass: ImpersonationInterceptor },
+    { provide: APP_INTERCEPTOR, useClass: SessionPolicyInterceptor },
     // Parses every `@Body({ schema })` / `@Query({ schema })`; see the file.
     { provide: APP_PIPE, useValue: schemaValidation },
   ],

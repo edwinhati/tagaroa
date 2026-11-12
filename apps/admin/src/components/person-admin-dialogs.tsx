@@ -1,3 +1,4 @@
+import { IDENTITY_ROLE_IDS, primaryRole } from "@repo/contracts/identity";
 import { authClient } from "@repo/shell/auth-client";
 import { Button } from "@repo/ui/components/button";
 import {
@@ -27,12 +28,12 @@ import {
   announce,
   onboardingOutcome,
   personalEmailQueryOptions,
+  refreshPeople,
   write,
 } from "../lib/admin";
 import {
   AccountRoleField,
   AccountTextField,
-  type AccountRole,
   accountRoles,
 } from "./account-fields";
 import {
@@ -53,26 +54,10 @@ const accountSchema = z.object({
       (value) => value === "" || z.email().safeParse(value).success,
       "Enter a valid personal email.",
     ),
-  role: z.enum(["user", "access-reviewer", "helpdesk", "admin", "super-admin"]),
+  role: z.enum(IDENTITY_ROLE_IDS),
 });
 
 type AccountValues = z.infer<typeof accountSchema>;
-
-const roleOf = (person: Person): AccountRole => {
-  const roles = (person.role ?? "").split(",").map((role) => role.trim());
-  if (roles.includes("super-admin")) return "super-admin";
-  if (roles.includes("admin")) return "admin";
-  if (roles.includes("helpdesk")) return "helpdesk";
-  if (roles.includes("access-reviewer")) return "access-reviewer";
-  return "user";
-};
-
-const refreshPerson = (queryClient: ReturnType<typeof useQueryClient>) =>
-  Promise.all([
-    queryClient.invalidateQueries({ queryKey: ["admin", "people"] }),
-    queryClient.invalidateQueries({ queryKey: ["admin", "dashboard"] }),
-    queryClient.invalidateQueries({ queryKey: ["admin", "directory"] }),
-  ]);
 
 export function EditPersonDialog({
   canAssignSuperAdmin,
@@ -130,7 +115,7 @@ function EditPersonForm({
   personalEmail: string;
 }) {
   const queryClient = useQueryClient();
-  const currentRole = roleOf(person);
+  const currentRole = primaryRole(person.role);
   const availableRoles = canAssignSuperAdmin
     ? accountRoles
     : accountRoles.filter((role) => role.value !== "super-admin");
@@ -163,7 +148,7 @@ function EditPersonForm({
     onSuccess: (changed) => {
       if (changed) {
         announce.done(`Updated account details for ${person.email}`);
-        void refreshPerson(queryClient);
+        void refreshPeople(queryClient);
       }
       onDone();
     },
@@ -235,7 +220,9 @@ function EditPersonForm({
               description={
                 canChangeRole
                   ? "Identity administrators manage group identity. Super administrators can impersonate other administrators."
-                  : "You cannot change your own role."
+                  : canAssignSuperAdmin
+                    ? "You cannot change your own role."
+                    : "Only a super administrator can change identity roles."
               }
               disabled={!canChangeRole}
               field={field}
@@ -342,7 +329,7 @@ function ResetPasswordContent({
     onError: announce.failed,
     onSuccess: () => {
       announce.done(`Issued a new password to ${person.email}`);
-      void refreshPerson(queryClient);
+      void refreshPeople(queryClient);
     },
   });
 
@@ -463,7 +450,7 @@ function SuspendPersonForm({
     onError: announce.failed,
     onSuccess: () => {
       announce.done(`${person.email} can no longer sign in`);
-      void refreshPerson(queryClient);
+      void refreshPeople(queryClient);
       onDone();
     },
   });

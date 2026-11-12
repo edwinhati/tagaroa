@@ -1,16 +1,11 @@
-import {
-  Inject,
-  Injectable,
-  Logger,
-  type OnApplicationBootstrap,
-  type OnModuleDestroy,
-} from "@nestjs/common";
+import { Inject, Injectable } from "@nestjs/common";
 import { sql } from "drizzle-orm";
 
 import {
   DATABASE,
   type Database,
 } from "../../../../platform/database/database.module";
+import { IntervalJob } from "../../../../platform/scheduling/interval-job";
 import { ReconcileEmployeesUseCase } from "../../application/use-cases/reconcile-employees.use-case";
 import { HR_OPTIONS, type HrOptions } from "../config/hr.options";
 
@@ -21,65 +16,32 @@ const RECONCILE_MS = 60 * 60_000;
 export const RECONCILE_LOCK = 4_701_260_001;
 
 /**
- * The timer, and only the timer: once at startup, then hourly. Off while HR is
- * unconfigured. Overlapping passes are skipped rather than queued up — within a
- * process by a flag, across replicas by a transaction-scoped advisory lock, so
- * a pass is one replica's at a time and the lock goes with its transaction even
- * if the process dies mid-pass.
+ * Once at startup, then hourly; off while HR is unconfigured. Across replicas a
+ * transaction-scoped advisory lock makes a pass one replica's at a time, and
+ * the lock goes with its transaction even if the process dies mid-pass.
  */
 @Injectable()
-export class HrReconciler implements OnApplicationBootstrap, OnModuleDestroy {
-  private readonly logger = new Logger(HrReconciler.name);
-  private timer?: ReturnType<typeof setInterval>;
-  /** The pass under way, if any. */
-  private pass?: Promise<void>;
+export class HrReconciler extends IntervalJob {
+  protected readonly failure = "HR reconciliation failed; nothing was synced";
 
   constructor(
     private readonly reconcile: ReconcileEmployeesUseCase,
     @Inject(DATABASE) private readonly database: Database,
     @Inject(HR_OPTIONS) private readonly options: HrOptions,
-  ) {}
-
-  onApplicationBootstrap(): void {
-    if (!this.options) return;
-    void this.tick();
-    this.timer = setInterval(() => void this.tick(), RECONCILE_MS);
-    this.timer.unref?.();
+  ) {
+    super();
   }
 
-  /**
-   * Stops the timer, then waits for a pass already under way, so the pool that
-   * `@nestjs/drizzle` closes after every `onModuleDestroy` has settled is not
-   * pulled from under an open transaction halfway through issuing accounts.
-   */
-  async onModuleDestroy(): Promise<void> {
-    if (this.timer) clearInterval(this.timer);
-    await this.idle();
+  protected schedule() {
+    return this.options ? { atStartup: true, everyMs: RECONCILE_MS } : null;
   }
 
-  /** Resolves once the pass under way, if any, has finished. */
-  async idle(): Promise<void> {
-    await this.pass;
-  }
-
-  async tick(): Promise<void> {
-    if (this.pass) return;
-    this.pass = this.reconcileOnce().finally(() => {
-      this.pass = undefined;
+  protected run(): Promise<void> {
+    return this.database.transaction(async (tx) => {
+      const [row] = await tx.execute<{ locked: boolean }>(
+        sql`select pg_try_advisory_xact_lock(${RECONCILE_LOCK}) as locked`,
+      );
+      if (row?.locked) await this.reconcile.execute();
     });
-    await this.pass;
-  }
-
-  private async reconcileOnce(): Promise<void> {
-    try {
-      await this.database.transaction(async (tx) => {
-        const [row] = await tx.execute<{ locked: boolean }>(
-          sql`select pg_try_advisory_xact_lock(${RECONCILE_LOCK}) as locked`,
-        );
-        if (row?.locked) await this.reconcile.execute();
-      });
-    } catch {
-      this.logger.error("Frappe HR could not be read; nothing was synced");
-    }
   }
 }

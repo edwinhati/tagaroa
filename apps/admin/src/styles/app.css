@@ -7,10 +7,9 @@
 @import "tailwindcss";
 @import "@repo/ui/globals.css";
 @import "@repo/ui/tagaroa.css";
+@import "@repo/shell/styles.css";
 
 @source "../";
-@source "../../../../packages/ui/src";
-@source "../../../../packages/shell/src";
 
 /* macOS renders text heavier than drawn; the correction belongs once, at the
    root, never per component. */

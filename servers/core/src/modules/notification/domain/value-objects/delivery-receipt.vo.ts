@@ -1,4 +1,8 @@
-import type { NotificationChannel } from "./notification-channel.vo";
+import type {
+  MessageStatus,
+  SuppressionReason,
+} from "@repo/contracts/notifications";
+import type { NotificationChannel } from "@repo/contracts/notifications";
 
 /**
  * One provider's word on one message. `suppress` is set when the outcome says
@@ -9,7 +13,7 @@ export interface Receipt {
   providerId: string;
   status: "bounced" | "delivered" | "sent";
   destination: string | null;
-  suppress: string | null;
+  suppress: SuppressionReason | null;
 }
 
 /**
@@ -18,12 +22,16 @@ export interface Receipt {
  * `delivery_delayed` must not turn a delivered message back into a sent one.
  * A bounce outranks a delivery: it is the later and the more useful news.
  */
-export const replaceableBy = (status: Receipt["status"]): readonly string[] =>
-  ({
-    bounced: ["sent", "delivered", "bounced"],
-    delivered: ["sent", "delivered"],
-    sent: ["sent"],
-  })[status];
+export const replaceableBy = (
+  status: Receipt["status"],
+): readonly MessageStatus[] =>
+  (
+    {
+      bounced: ["sent", "delivered", "bounced"],
+      delivered: ["sent", "delivered"],
+      sent: ["sent"],
+    } satisfies Record<Receipt["status"], MessageStatus[]>
+  )[status];
 
 /** Which channel each provider speaks for; a suppression is per channel. */
 export const PROVIDER_CHANNELS = {

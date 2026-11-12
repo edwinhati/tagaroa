@@ -23,7 +23,7 @@ recording changes or preparing a release.
 
 ### CI
 
-GitHub Actions minutes are limited (free plan), so run QA locally with the `local-ci` skill before opening or updating a PR that changes code: `bunx run-local-ci run --quiet -w .github/workflows/qa.yml --pause-on-failure`. Only its `checks` job (lint, format, types, boundaries, unit tests, build, and `bun run check:infra`: shellcheck, actionlint and the `infra/**/*.test.sh` self-tests) counts; the `workflows` job always pauses at `test:integration` there, which is expected — abort it (see the skill). When the change can affect them, also run `bun run test:integration` and the chromium e2e suites directly (see the skill). If anything fails, fix and retry until it passes; don't report the work as done before then. Skip all of it for changes that only touch `**.md` or `docs/**`. Never run another workflow with local-ci.
+GitHub Actions minutes are limited (free plan), so run QA locally with the `local-ci` skill before opening or updating a PR that changes code: `bunx run-local-ci run --quiet -w .github/workflows/qa.yml --pause-on-failure`. Only its `checks` job (lint, format, types, boundaries, unit tests, build, and `bun run check:infra`: shellcheck, actionlint, the `infra/**/*.test.sh` self-tests and `scripts/with-live.test.mjs`) counts; the `workflows` job always pauses at `test:integration` there, which is expected — abort it (see the skill). When the change can affect them, also run `bun run test:integration` and the chromium e2e suites directly (see the skill). If anything fails, fix and retry until it passes; don't report the work as done before then. Skip all of it for changes that only touch `**.md` or `docs/**`. Never run another workflow with local-ci.
 
 ## Frontend apps
 

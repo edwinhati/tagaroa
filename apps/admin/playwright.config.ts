@@ -1,8 +1,8 @@
 import { defineConfig, devices } from "@playwright/test";
+import { E2E_ORIGINS, portOf } from "@repo/test-support/e2e-stack";
 
-const adminOrigin = "http://localhost:13003";
-const coreOrigin = "http://localhost:18080";
-// Each worker signs in as its own seeded operator (`e2e/operator.ts`), so this
+const { admin: adminOrigin, auth, core: coreOrigin, workspace } = E2E_ORIGINS;
+// Each worker signs in as its own seeded operator (`e2eOperator`), so this
 // is also the number of operators the core service seeds. CI stays serial: a
 // 4-vCPU Actions runner already hosts four Vite dev servers compiling on
 // demand, and every extra browser starves them until 5 s waits time out.
@@ -22,7 +22,7 @@ export default defineConfig({
   },
   webServer: [
     {
-      command: `E2E_CORE_PORT=18080 E2E_OPERATORS=${workers} E2E_TRUSTED_ORIGINS=http://localhost:13001,http://localhost:13003,http://localhost:13002 bun run start:e2e`,
+      command: `E2E_CORE_PORT=${portOf(coreOrigin)} E2E_OPERATORS=${workers} E2E_TRUSTED_ORIGINS=${auth},${adminOrigin},${workspace} bun run start:e2e`,
       cwd: "../../servers/core",
       reuseExistingServer: false,
       timeout: 120_000,
@@ -30,41 +30,39 @@ export default defineConfig({
     },
     {
       // Avoid compiling and mounting developer tools on every test navigation.
-      command:
-        "NODE_ENV=production bun run dev:plain -- --mode production --port 13003",
+      command: `NODE_ENV=production bun run dev:plain -- --mode production --port ${portOf(adminOrigin)}`,
       env: {
         VITE_AUTH_BASE_URL: coreOrigin,
-        VITE_AUTH_URL: "http://localhost:13001",
-        VITE_WORKSPACE_URL: "http://localhost:13002",
+        VITE_AUTH_URL: auth,
+        VITE_WORKSPACE_URL: workspace,
       },
       reuseExistingServer: false,
       timeout: 120_000,
       url: adminOrigin,
     },
     {
-      command:
-        "NODE_ENV=production bun run dev:plain -- --mode production --port 13002",
+      command: `NODE_ENV=production bun run dev:plain -- --mode production --port ${portOf(workspace)}`,
       cwd: "../workspace",
       env: {
         VITE_AUTH_BASE_URL: coreOrigin,
-        VITE_AUTH_URL: "http://localhost:13001",
-        VITE_WORKSPACE_URL: "http://localhost:13002",
+        VITE_AUTH_URL: auth,
+        VITE_WORKSPACE_URL: workspace,
         VITE_ADMIN_URL: adminOrigin,
       },
       reuseExistingServer: false,
       timeout: 120_000,
-      url: "http://localhost:13002",
+      url: workspace,
     },
     {
-      command: "bun run dev:plain -- --port 13001",
+      command: `bun run dev:plain -- --port ${portOf(auth)}`,
       cwd: "../auth",
       env: {
         VITE_AUTH_BASE_URL: coreOrigin,
-        VITE_TRUSTED_REDIRECT_ORIGINS: `${adminOrigin},http://localhost:13002`,
+        VITE_TRUSTED_REDIRECT_ORIGINS: `${adminOrigin},${workspace}`,
       },
       reuseExistingServer: false,
       timeout: 120_000,
-      url: "http://localhost:13001",
+      url: auth,
     },
   ],
   projects: [

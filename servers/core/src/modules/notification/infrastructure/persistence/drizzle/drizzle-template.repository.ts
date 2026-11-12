@@ -1,12 +1,12 @@
 import { randomUUID } from "node:crypto";
 
 import { Inject, Injectable } from "@nestjs/common";
+import type { NotificationChannel } from "@repo/contracts/notifications";
 import { and, desc, eq, inArray, max, sql } from "drizzle-orm";
 
 import { DATABASE } from "../../../../../platform/database/database.module";
 import type { Template } from "../../../domain/entities/template.entity";
 import type { TemplateRepository } from "../../../domain/repositories/template.repository";
-import type { NotificationChannel } from "../../../domain/value-objects/notification-channel.vo";
 import type { TemplateDraft } from "../../../domain/value-objects/template-draft.vo";
 import type { Executor } from "./notification.executor";
 import { templateMapper } from "./notification.mappers";

@@ -1,6 +1,7 @@
 import { expect, it } from "bun:test";
 
 import { authClient } from "./auth-client";
+import { CORE_URL } from "./urls";
 
 it("limits each identity role to its intended account and session permissions", () => {
   const roles = [
@@ -66,9 +67,7 @@ it("reads sessions from the configured core with cookies and a request deadline"
     fetchOptions: {
       customFetchImpl: async (url, init) => {
         requested = true;
-        expect(String(url)).toBe(
-          `${import.meta.env.VITE_AUTH_BASE_URL ?? "http://localhost:8080"}/api/auth/get-session`,
-        );
+        expect(String(url)).toBe(`${CORE_URL}/api/auth/get-session`);
         expect(init?.credentials).toBe("include");
         expect(init?.signal).toBeInstanceOf(AbortSignal);
         expect(init?.signal?.aborted).toBe(false);

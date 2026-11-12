@@ -1,11 +1,4 @@
-import { passkeyClient } from "@better-auth/passkey/client";
-import { messageFor } from "@repo/contracts";
-import {
-  adminClient,
-  organizationClient,
-  twoFactorClient,
-} from "better-auth/client/plugins";
-import { createAuthClient } from "better-auth/react";
+import { createWorkspaceAuthClient } from "@repo/shell/create-auth-client";
 
 /**
  * Deployed, the door calls core on the API host like every other app, so the
@@ -26,28 +19,8 @@ function authBaseURL(): string {
   return "http://localhost:3001";
 }
 
-/**
- * The plugin list mirrors createAuth() on the server. TRUSTED_ORIGINS on core
- * must still list this app's origin.
- */
-export const authClient = createAuthClient({
-  fetchOptions: { timeout: 20_000 },
-  baseURL: authBaseURL(),
-  plugins: [
-    organizationClient(),
-    adminClient(),
-    twoFactorClient({
-      onTwoFactorRedirect() {
-        // The route owns the redirect so the requested destination survives.
-      },
-    }),
-    passkeyClient(),
-  ],
-});
-
-export const MIN_PASSWORD_LENGTH = 12;
-
-const CANNOT_REACH = "Can't reach the sign-in service. Try again in a moment.";
+/** TRUSTED_ORIGINS on core must list this app's origin. */
+export const authClient = createWorkspaceAuthClient(authBaseURL());
 
 const originOf = (value: string | undefined): string | undefined => {
   if (!value) return undefined;
@@ -84,31 +57,4 @@ export function postSignInTarget(redirect?: string): string {
   } catch {
     return fallback;
   }
-}
-
-/**
- * One Better Auth call, with both ways it can fail turned into a sentence: it
- * rejects outright when the server is unreachable, and resolves with an `error`
- * when the server has an opinion.
- *
- * The `code` rides along beside the sentence because a few refusals are not
- * something to print — they are somewhere to send the person instead.
- */
-export async function attemptAuth<TData>(
-  call: () => Promise<{ data?: TData | null; error?: unknown }>,
-  rejection: string,
-): Promise<{ code?: string; data?: TData | null; failure?: string }> {
-  let result;
-  try {
-    result = await call();
-  } catch {
-    return { failure: CANNOT_REACH };
-  }
-  if (!result.error) return { data: result.data };
-
-  const code = (result.error as { code?: unknown }).code;
-  return {
-    ...(typeof code === "string" ? { code } : {}),
-    failure: messageFor(result.error, rejection),
-  };
 }

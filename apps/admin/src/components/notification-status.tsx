@@ -1,3 +1,7 @@
+import type {
+  MessageStatus,
+  SuppressionReason,
+} from "@repo/contracts/notifications";
 import { cn } from "@repo/ui/lib/utils";
 import { MailIcon, SmartphoneIcon, type LucideIcon } from "lucide-react";
 
@@ -22,10 +26,21 @@ const STATUS = {
   sending: { label: "Sending", tone: "waiting" },
   sent: { label: "Sent", tone: "away" },
   suppressed: { label: "Suppressed", tone: "bad" },
-} as const satisfies Record<string, { label: string; tone: MarkTone }>;
+} as const satisfies Record<MessageStatus, { label: string; tone: MarkTone }>;
 
 export const statusLabel = (status: string): string =>
-  STATUS[status as keyof typeof STATUS]?.label ?? status;
+  STATUS[status as MessageStatus]?.label ?? status;
+
+const REASON = {
+  bounced: "Bounced",
+  complained: "Complained",
+  failed: "Failed",
+  "opted-out": "Opted out",
+} as const satisfies Record<SuppressionReason, string>;
+
+/** Why a destination is suppressed: its own words, not a message's status. */
+export const reasonLabel = (reason: string): string =>
+  REASON[reason as SuppressionReason] ?? reason;
 
 export function Status({
   className,
@@ -41,24 +56,6 @@ export function Status({
     <Mark className={className} label={entry?.label ?? status} tone={tone} />
   );
 }
-
-const MINUTE = 60_000;
-const HOUR = 60 * MINUTE;
-const DAY = 24 * HOUR;
-
-/** Recent things get a distance, older things get a date. */
-export const relativeTime = (value: string | Date | null): string => {
-  if (!value) return "—";
-  const elapsed = Date.now() - new Date(value).getTime();
-  if (elapsed < MINUTE) return "just now";
-  if (elapsed < HOUR) return `${Math.floor(elapsed / MINUTE)}m ago`;
-  if (elapsed < DAY) return `${Math.floor(elapsed / HOUR)}h ago`;
-  if (elapsed < 7 * DAY) return `${Math.floor(elapsed / DAY)}d ago`;
-  return new Date(value).toLocaleDateString(undefined, {
-    day: "numeric",
-    month: "short",
-  });
-};
 
 export const exactTime = (value: string | Date | null): string =>
   value ? new Date(value).toLocaleString() : "";

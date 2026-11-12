@@ -1,6 +1,9 @@
 import { AccountSecurityPanel } from "@repo/shell/account-security";
 import { authClient } from "@repo/shell/auth-client";
 import { sessionQueryOptions } from "@repo/shell/session";
+import { parseUserAgent } from "@repo/shell/session-device";
+import { SessionDeviceMarks } from "@repo/shell/session-device-mark";
+import { CORE_URL } from "@repo/shell/urls";
 import { Avatar, AvatarFallback } from "@repo/ui/components/avatar";
 import { Button } from "@repo/ui/components/button";
 import {
@@ -14,6 +17,7 @@ import { Field, FieldError, FieldLabel } from "@repo/ui/components/field";
 import { Input } from "@repo/ui/components/input";
 import { Skeleton } from "@repo/ui/components/skeleton";
 import { Tabs, TabsList, TabsTrigger } from "@repo/ui/components/tabs";
+import { relativeTime } from "@repo/ui/lib/relative-time";
 import { cn } from "@repo/ui/lib/utils";
 import {
   useIsMutating,
@@ -23,9 +27,6 @@ import {
 } from "@tanstack/react-query";
 import { useRouter } from "@tanstack/react-router";
 import { useRef, useState, type ReactNode } from "react";
-
-import { parseUserAgent, relativeTime } from "../lib/session-device";
-import { SessionDeviceMarks } from "./session-device-mark";
 
 type Section = "profile" | "security" | "sessions";
 
@@ -62,8 +63,6 @@ const SECTIONS = [
   ["security", "Security"],
   ["sessions", "Sessions"],
 ] as const satisfies ReadonlyArray<readonly [Section, string]>;
-
-const CORE_URL = import.meta.env.VITE_AUTH_BASE_URL ?? "http://localhost:8080";
 
 function initialsFromName(name: string): string {
   const parts = name.trim().split(/\s+/).filter(Boolean);
@@ -541,7 +540,6 @@ export function AccountSettingsDialog({
               <div className="outline-none" role="tabpanel">
                 <AccountSecurityPanel
                   onTwoFactorChange={setMfaEnabled}
-                  showHeading={false}
                   twoFactorEnabled={mfaEnabled}
                 />
               </div>

@@ -5,7 +5,9 @@
   "type": "module",
   "exports": {
     "./axe-audit": "./src/axe-audit.ts",
-    "./totp": "./src/totp.ts"
+    "./totp": "./src/totp.ts",
+    "./e2e-stack": "./src/e2e-stack.ts",
+    "./sign-in": "./src/sign-in.ts"
   },
   "scripts": {
     "check-types": "tsc --noEmit"

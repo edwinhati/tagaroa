@@ -1,6 +1,5 @@
 import type { AccessReview } from "../entities/access-review.entity";
 import type { Person } from "../entities/person.entity";
-import type { ReviewWeek } from "../value-objects/review-week.vo";
 
 export interface PrivilegedPerson {
   userId: string;
@@ -18,7 +17,7 @@ export interface PrivilegedPerson {
 export const privilegedAccess = (
   people: readonly Person[],
   reviews: readonly AccessReview[],
-  week: ReviewWeek,
+  weekStart: Date,
 ): PrivilegedPerson[] => {
   const reviewByPerson = new Map(reviews.map((row) => [row.userId, row]));
 
@@ -29,7 +28,7 @@ export const privilegedAccess = (
       return {
         email: person.email,
         name: person.name,
-        reviewed: Boolean(review?.standsFor(person, week)),
+        reviewed: Boolean(review?.standsFor(person, weekStart)),
         reviewedAt: review?.reviewedAt ?? null,
         role: person.role ?? "admin",
         userId: person.id,

@@ -1,4 +1,5 @@
 import { Inject, Injectable, Logger } from "@nestjs/common";
+import type { NotificationChannel } from "@repo/contracts/notifications";
 
 import { Message } from "../../domain/entities/message.entity";
 import type { EnqueuedMessage } from "../../domain/repositories/message.repository";
@@ -7,11 +8,7 @@ import {
   type NotificationRepositories,
   type NotificationUnitOfWork,
 } from "../../domain/repositories/notification.unit-of-work";
-import type { NotificationChannel } from "../../domain/value-objects/notification-channel.vo";
-import {
-  WORDING_OPTIONS,
-  type WordingOptions,
-} from "../../infrastructure/config/notification.options";
+import { WORDING_OPTIONS, type WordingOptions } from "../notification.options";
 
 export interface SendInput {
   /** The template key, e.g. `account.issued`. */

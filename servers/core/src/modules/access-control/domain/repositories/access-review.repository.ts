@@ -1,8 +1,10 @@
 export const ACCESS_REVIEW_REPOSITORY = Symbol(
   "BUSINESS_ACCESS_REVIEW_REPOSITORY",
 );
-export type ReviewKind = "assignment" | "emergency";
-export type ReviewDecision = "confirmed" | "flagged";
+export const REVIEW_KINDS = ["assignment", "emergency"] as const;
+export const REVIEW_DECISIONS = ["confirmed", "flagged"] as const;
+export type ReviewKind = (typeof REVIEW_KINDS)[number];
+export type ReviewDecision = (typeof REVIEW_DECISIONS)[number];
 
 export interface BusinessAccessReview {
   id: string;

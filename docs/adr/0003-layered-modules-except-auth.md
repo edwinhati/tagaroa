@@ -66,7 +66,7 @@ never holds a driver transaction object.
   would trade working `on delete` integrity for a move nobody has committed to.
   That belongs in the migration that precedes an extraction, not before it.
 - Two casts are accepted and documented: Drizzle's builder generics cannot follow
-  a table passed as a parameter (`shared/database/collection.ts`), and its
+  a table passed as a parameter (`platform/database/collection.ts`), and its
   transaction handle carries the same query builders as the database without
   sharing its type (`drizzle-notification.unit-of-work.ts`).
 - If Better Auth is ever replaced by something we own, `auth` is re-examined

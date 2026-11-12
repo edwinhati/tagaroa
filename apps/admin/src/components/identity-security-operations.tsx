@@ -1,3 +1,10 @@
+import {
+  ACCESS_WINDOWS,
+  canManageTarget,
+  EVIDENCE_LENGTH,
+  isSuperAdmin,
+  mayRun,
+} from "@repo/contracts/identity";
 import { Button } from "@repo/ui/components/button";
 import { Checkbox } from "@repo/ui/components/checkbox";
 import {
@@ -18,7 +25,6 @@ import {
   coreMutationDocument,
   everyPersonQueryOptions,
   factorRecoveryQueryOptions,
-  securityOperationFailed,
   type Person,
   type FactorRecoveryRequest,
   type OnboardingOutcome,
@@ -36,27 +42,15 @@ const shellRoute = getRouteApi("/_shell");
 
 export function IdentitySecurityOperations({ person }: { person: Person }) {
   const { session } = shellRoute.useRouteContext();
-  const roles = (session?.user?.role ?? "")
-    .split(",")
-    .map((role) => role.trim());
+  const role = session?.user?.role;
   const [mode, setMode] = useState<"recovery" | "offboard" | null>(null);
   const other = person.id !== session?.user?.id;
-  const canRequest =
-    other &&
-    !person.banned &&
-    roles.some((role) => ["helpdesk", "admin", "super-admin"].includes(role));
-  const targetPrivileged = (person.role ?? "")
-    .split(",")
-    .some((role) =>
-      ["helpdesk", "access-reviewer", "admin", "super-admin"].includes(
-        role.trim(),
-      ),
-    );
+  const canRequest = other && !person.banned && mayRun(role, "support");
   const canOffboard =
     other &&
     !person.banned &&
-    (roles.includes("super-admin") ||
-      (roles.includes("admin") && !targetPrivileged));
+    mayRun(role, "administer") &&
+    canManageTarget(role, person.role);
   if (!canRequest && !canOffboard) return null;
   return (
     <div className="gap-2 flex flex-wrap">
@@ -102,7 +96,7 @@ function SecurityOperationDialog({
         { reason, evidence, identityVerified: verified },
         "Could not complete the security operation.",
       ),
-    onError: securityOperationFailed,
+    onError: announce.failed,
     onSuccess: async () => {
       await client.invalidateQueries({ queryKey: ["admin"] });
       announce.done(
@@ -146,8 +140,8 @@ function SecurityOperationDialog({
               value={reason}
               onChange={(event) => setReason(event.target.value)}
               required
-              minLength={10}
-              maxLength={500}
+              minLength={EVIDENCE_LENGTH.min}
+              maxLength={EVIDENCE_LENGTH.max}
             />
           </label>
           {mode === "recovery" ? (
@@ -158,8 +152,8 @@ function SecurityOperationDialog({
                   value={evidence}
                   onChange={(event) => setEvidence(event.target.value)}
                   required
-                  minLength={10}
-                  maxLength={500}
+                  minLength={EVIDENCE_LENGTH.min}
+                  maxLength={EVIDENCE_LENGTH.max}
                   placeholder="Established callback channel, manager confirmation and case reference. No secrets or identity documents."
                 />
               </label>
@@ -191,9 +185,9 @@ function SecurityOperationDialog({
               variant={mode === "offboard" ? "destructive" : "default"}
               disabled={
                 save.isPending ||
-                reason.trim().length < 10 ||
+                reason.trim().length < EVIDENCE_LENGTH.min ||
                 (mode === "recovery" &&
-                  (!verified || evidence.trim().length < 10))
+                  (!verified || evidence.trim().length < EVIDENCE_LENGTH.min))
               }
             >
               {save.isPending
@@ -214,9 +208,7 @@ export function FactorRecoveryQueue() {
   const requests = useQuery(factorRecoveryQueryOptions);
   const people = useQuery(everyPersonQueryOptions);
   const [selected, setSelected] = useState<FactorRecoveryRequest | null>(null);
-  const superAdmin = (session?.user?.role ?? "")
-    .split(",")
-    .some((role) => role.trim() === "super-admin");
+  const superAdmin = isSuperAdmin(session?.user?.role);
   if (requests.isPending || people.isPending) return <PanelSkeleton rows={2} />;
   const error = requests.error || people.error;
   if (error)
@@ -234,7 +226,7 @@ export function FactorRecoveryQueue() {
     <SurfaceSection
       framed={false}
       title="Factor recovery"
-      description="Independent identity verification and super-administrator approval are required. Pending requests expire after one hour."
+      description={`Independent identity verification and super-administrator approval are required. Pending requests expire after ${ACCESS_WINDOWS.factorRecoveryMinutes} minutes.`}
     >
       {!requests.data?.length ? (
         <Nothing framed={false} title="No factor recovery requests" />
@@ -317,7 +309,7 @@ function RecoveryApproval({
       void client.invalidateQueries({
         queryKey: factorRecoveryQueryOptions.queryKey,
       });
-      securityOperationFailed(error);
+      announce.failed(error);
     },
     onSuccess: () => {
       void client.invalidateQueries({ queryKey: ["admin"] });
@@ -373,8 +365,8 @@ function RecoveryApproval({
                   value={evidence}
                   onChange={(event) => setEvidence(event.target.value)}
                   required
-                  minLength={10}
-                  maxLength={500}
+                  minLength={EVIDENCE_LENGTH.min}
+                  maxLength={EVIDENCE_LENGTH.max}
                   placeholder="Established callback channel and case reference. No secrets."
                 />
               </label>
@@ -399,7 +391,7 @@ function RecoveryApproval({
                   disabled={
                     approve.isPending ||
                     !verified ||
-                    evidence.trim().length < 10
+                    evidence.trim().length < EVIDENCE_LENGTH.min
                   }
                 >
                   {approve.isPending

@@ -1,8 +1,8 @@
 import { randomBytes } from "node:crypto";
 
+import { isSuperAdmin } from "@repo/contracts/identity";
 import { SQL } from "bun";
 
-import { rolesOf } from "../src/modules/auth/access-policy";
 import { auth } from "../src/modules/auth/auth.bootstrap";
 import { validateEnv } from "../src/platform/config/env";
 
@@ -25,7 +25,7 @@ async function main(email: string | undefined) {
   try {
     const roles: { role: string | null }[] =
       await client`select role from auth."user"`;
-    if (roles.some((row) => rolesOf(row.role).includes("super-admin")))
+    if (roles.some((row) => isSuperAdmin(row.role)))
       throw new Error("A super-admin already exists; nothing to bootstrap.");
   } finally {
     await client.close();

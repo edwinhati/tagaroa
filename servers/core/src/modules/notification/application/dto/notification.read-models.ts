@@ -1,6 +1,9 @@
 import type { Collection } from "@repo/contracts";
-
-import type { NotificationChannel } from "../../domain/value-objects/notification-channel.vo";
+import type {
+  MessageStatus,
+  NotificationChannel,
+  TemplateStatus,
+} from "@repo/contracts/notifications";
 
 /**
  * The read side.
@@ -18,7 +21,7 @@ export interface TemplateRow {
   channel: NotificationChannel;
   locale: string;
   version: number;
-  status: string;
+  status: TemplateStatus;
   subject: string | null;
   body: string;
   variables: string[];
@@ -37,7 +40,7 @@ export interface MessageRow {
   channel: NotificationChannel;
   locale: string;
   destination: string;
-  status: string;
+  status: MessageStatus;
   attempts: number;
   error: string | null;
   providerId: string | null;
@@ -71,9 +74,9 @@ export interface ChannelHealth {
 
 export interface NotificationOverview {
   /**
-   * False outside production, where every channel writes to the log instead of
-   * a provider. The surface says so rather than letting an admin believe a
-   * message left the building.
+   * False when no channel holds credentials, so every message writes to the
+   * log instead of reaching a provider. The surface says so rather than letting
+   * an admin believe a message left the building.
    */
   live: boolean;
   channels: Collection<ChannelHealth>;

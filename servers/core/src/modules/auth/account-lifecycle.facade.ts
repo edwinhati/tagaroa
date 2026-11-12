@@ -2,13 +2,13 @@ import { randomBytes } from "node:crypto";
 
 import { ForbiddenException, Inject, Injectable } from "@nestjs/common";
 import { asObject } from "@repo/contracts";
+import { isPrivilegedRole } from "@repo/contracts/identity";
 import { AuthService } from "@thallesp/nestjs-better-auth";
 
 import {
   AUDIT_TRAIL,
   type AuditTrail,
 } from "../audit/application/audit.facade";
-import { isPrivilegedRole } from "./access-policy";
 import type { Auth } from "./auth";
 import { IdentityOperationsService } from "./identity-operations.service";
 

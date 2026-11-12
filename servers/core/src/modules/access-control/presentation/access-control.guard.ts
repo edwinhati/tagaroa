@@ -6,9 +6,9 @@ import {
   Injectable,
 } from "@nestjs/common";
 import { Reflector } from "@nestjs/core";
+import { hasAnyRole } from "@repo/contracts/identity";
 
 import { SESSION_ONLY } from "../../../platform/http/session-only.decorator";
-import { rolesOf } from "../../auth/access-policy";
 import {
   ACCESS_CONTROL,
   type AccessControl,
@@ -18,14 +18,29 @@ import {
   type RequiredPermission,
 } from "./requires-permission.decorator";
 
+/** The metadata keys `@AllowAnonymous()` and `@Roles()` set in nestjs-better-auth. */
+const LIBRARY_PUBLIC = "PUBLIC";
+const LIBRARY_ROLES = "ROLES";
+
 interface SessionRequest {
   params?: Record<string, string | undefined>;
   session?: {
-    session?: { createdAt?: Date | string; id?: string };
+    session?: { id?: string };
     user?: { id?: string; role?: string | null };
   } | null;
 }
 
+const denied = () =>
+  new ForbiddenException({
+    code: "ACCESS_DENIED",
+    message: "You do not have access to this resource.",
+  });
+
+/**
+ * Every route declares who may reach it, and one that declares nothing is
+ * refused (docs/agents/authorization.md). A `@RequiresPermission` route is
+ * decided by business access in the scope its parameters name.
+ */
 @Injectable()
 export class AccessControlGuard implements CanActivate {
   constructor(
@@ -34,66 +49,44 @@ export class AccessControlGuard implements CanActivate {
   ) {}
 
   async canActivate(context: ExecutionContext): Promise<boolean> {
-    const requirement = this.reflector.getAllAndOverride<RequiredPermission>(
-      REQUIRED_PERMISSION,
-      [context.getHandler(), context.getClass()],
-    );
+    const targets = [context.getHandler(), context.getClass()];
+    const declared = <T>(key: string | symbol) =>
+      this.reflector.getAllAndOverride<T>(key, targets);
     const request = context.switchToHttp().getRequest<SessionRequest>();
+    const user = request.session?.user;
+    const requirement = declared<RequiredPermission>(REQUIRED_PERMISSION);
+
     if (!requirement) {
-      const targets = [context.getHandler(), context.getClass()];
-      if (this.reflector.getAllAndOverride<boolean>("PUBLIC", targets))
-        return true;
-      const roles = this.reflector.getAllAndOverride<string[]>(
-        "ROLES",
-        targets,
-      );
+      if (declared<boolean>(LIBRARY_PUBLIC)) return true;
       if (
-        request.session?.user?.id &&
-        (this.reflector.getAllAndOverride<boolean>(SESSION_ONLY, targets) ||
-          rolesOf(request.session.user.role).some((role) =>
-            roles?.includes(role),
-          ))
+        user?.id &&
+        (declared<boolean>(SESSION_ONLY) ||
+          hasAnyRole(user.role, declared<string[]>(LIBRARY_ROLES) ?? []))
       )
         return true;
-      throw new ForbiddenException({
-        code: "ACCESS_DENIED",
-        message: "You do not have access to this resource.",
-      });
+      throw denied();
     }
 
-    const session = request.session;
+    const sessionId = request.session?.session?.id;
     const organizationId = request.params?.[requirement.organizationParam];
     const teamId = requirement.teamParam
       ? request.params?.[requirement.teamParam]
       : undefined;
     if (
-      !session?.user?.id ||
-      !session.session?.id ||
-      !session.session.createdAt ||
+      !user?.id ||
+      !sessionId ||
       !organizationId ||
       (requirement.teamParam && !teamId)
-    ) {
-      throw new ForbiddenException({
-        code: "ACCESS_DENIED",
-        message: "You do not have access to this resource.",
-      });
-    }
+    )
+      throw denied();
 
     const allowed = await this.access.can({
-      identityRole: session.user.role,
+      operator: { id: user.id, role: user.role, sessionId },
       organizationId,
       permission: requirement.permission,
-      sessionCreatedAt: new Date(session.session.createdAt),
-      sessionId: session.session.id,
       teamId: teamId ?? null,
-      userId: session.user.id,
     });
-    if (!allowed) {
-      throw new ForbiddenException({
-        code: "ACCESS_DENIED",
-        message: "You do not have access to this resource.",
-      });
-    }
+    if (!allowed) throw denied();
     return true;
   }
 }

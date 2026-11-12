@@ -1,8 +1,13 @@
-import { Injectable } from "@nestjs/common";
+import { Inject, Injectable } from "@nestjs/common";
 
-import type { RecordEventInput } from "../domain/entities/audit-event.entity";
-import { ListAuditEventsUseCase } from "./use-cases/list-audit-events.use-case";
-import { RecordAuditEventUseCase } from "./use-cases/record-audit-event.use-case";
+import {
+  AuditEvent,
+  type RecordEventInput,
+} from "../domain/entities/audit-event.entity";
+import {
+  AUDIT_EVENT_REPOSITORY,
+  type AuditEventRepository,
+} from "../domain/repositories/audit-event.repository";
 
 export const AUDIT_TRAIL = Symbol("AUDIT_TRAIL");
 
@@ -19,8 +24,8 @@ export interface RecordedEvent {
 /**
  * The whole of what `audit` promises anyone outside it.
  *
- * `auth` and `directory` depend on this interface and on nothing else in the
- * module — not its entities, not its repository, not its tables. That is what
+ * Every module that records or reads the trail depends on this interface and
+ * on nothing else in this one — not its entities, its repository or its tables. That is what
  * makes the trail movable: the day it becomes its own service, an HTTP client
  * is bound to `AUDIT_TRAIL` and no caller changes.
  *
@@ -36,16 +41,17 @@ export interface AuditTrail {
 @Injectable()
 export class AuditTrailFacade implements AuditTrail {
   constructor(
-    private readonly recordEvent: RecordAuditEventUseCase,
-    private readonly listEvents: ListAuditEventsUseCase,
+    @Inject(AUDIT_EVENT_REPOSITORY)
+    private readonly events: AuditEventRepository,
   ) {}
 
+  /** `AuditEvent.record` owns the event's id and timestamp, not the caller. */
   async record(event: RecordEventInput): Promise<void> {
-    await this.recordEvent.execute(event);
+    await this.events.append(AuditEvent.record(event));
   }
 
   async recent(limit: number): Promise<RecordedEvent[]> {
-    const events = await this.listEvents.execute(limit);
+    const events = await this.events.listNewestFirst(limit);
 
     return events.map((event) => ({
       actorId: event.actorId,

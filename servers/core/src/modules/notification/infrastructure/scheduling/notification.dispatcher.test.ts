@@ -1,7 +1,7 @@
 import { expect, mock, test } from "bun:test";
 
+import type { DispatchOptions } from "../../application/notification.options";
 import type { DrainQueueUseCase } from "../../application/use-cases/drain-queue.use-case";
-import type { DispatchOptions } from "../config/notification.options";
 import { NotificationDispatcher } from "./notification.dispatcher";
 
 const setup = () => {
@@ -12,7 +12,6 @@ const setup = () => {
       batchSize: 20,
       maxAttempts: 5,
       pollMilliseconds: 2000,
-      providers: { strict: false },
       worker: true,
     } satisfies DispatchOptions,
   );

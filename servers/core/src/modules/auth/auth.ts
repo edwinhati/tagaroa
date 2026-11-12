@@ -1,6 +1,16 @@
 import { passkey } from "@better-auth/passkey";
 import { asObject } from "@repo/contracts";
 import {
+  ADMIN_ROLE_IDS,
+  canManageTarget,
+  IDENTITY_ROLES,
+  isPrivilegedRole,
+  isSuperAdmin,
+  mayRun,
+  PASSWORD_LENGTH,
+  REFUSAL_CODES,
+} from "@repo/contracts/identity";
+import {
   APIError,
   createAuthMiddleware,
   getAuthoritativeSessionFromCtx,
@@ -9,31 +19,25 @@ import { deleteSessionCookie, setRequestCookie } from "better-auth/cookies";
 import { betterAuth } from "better-auth/minimal";
 import { openAPI } from "better-auth/plugins";
 import { admin } from "better-auth/plugins/admin";
-import {
-  defaultAc,
-  defaultStatements,
-  userAc,
-} from "better-auth/plugins/admin/access";
+import { defaultAc } from "better-auth/plugins/admin/access";
 import { bearer } from "better-auth/plugins/bearer";
 import { haveIBeenPwned } from "better-auth/plugins/haveibeenpwned";
 import { organization } from "better-auth/plugins/organization";
 import { twoFactor } from "better-auth/plugins/two-factor";
 
 import {
-  ADMIN_ROLE_CATALOG,
-  ADMIN_ROLE_IDS,
-  canManageTarget,
-  isPrivilegedRole,
-  isSuperAdmin,
-  OWN_OPERATOR_ACCOUNT_REQUIRED,
-  rolesOf,
-  removesSuperAdminRole,
-} from "./access-policy";
-import {
   updateProfileBody,
   type UpdateProfileBody,
 } from "./auth-management.schemas";
 import type { AuthRepository } from "./infrastructure/persistence/auth.persistence.module";
+import {
+  isFresh,
+  isRead,
+  REFUSALS,
+  SESSION_POLICY,
+  temporaryPasswordExpired,
+  temporaryPasswordRefusal,
+} from "./session-policy";
 
 export interface AuthConfig {
   baseURL: string;
@@ -53,13 +57,6 @@ export interface AuthAuditInput {
   targetUserId?: string;
   type: string;
 }
-
-const MIN_PASSWORD_LENGTH = 12;
-const MAX_PASSWORD_LENGTH = 256;
-
-/** A person may hold up to this many live sessions; the least recently used go. */
-const MAX_CONCURRENT_SESSIONS = 3;
-export const TEMPORARY_PASSWORD_LIFETIME_MS = 24 * 60 * 60 * 1_000;
 
 /**
  * The admin routes that hand an employee a temporary password, and the field
@@ -92,16 +89,16 @@ export const validateTemporaryPassword = (
   const password = temporaryPassword(path, body);
   if (password === undefined) return;
 
-  if (password.length < MIN_PASSWORD_LENGTH) {
+  if (password.length < PASSWORD_LENGTH.min) {
     throw new APIError("BAD_REQUEST", {
       code: "PASSWORD_TOO_SHORT",
-      message: `Password must be at least ${MIN_PASSWORD_LENGTH} characters`,
+      message: `Password must be at least ${PASSWORD_LENGTH.min} characters`,
     });
   }
-  if (password.length > MAX_PASSWORD_LENGTH) {
+  if (password.length > PASSWORD_LENGTH.max) {
     throw new APIError("BAD_REQUEST", {
       code: "PASSWORD_TOO_LONG",
-      message: `Password must be at most ${MAX_PASSWORD_LENGTH} characters`,
+      message: `Password must be at most ${PASSWORD_LENGTH.max} characters`,
     });
   }
 };
@@ -193,24 +190,8 @@ export const validateAdminUserUpdate = (path: string, body: unknown): void => {
   });
 };
 
-export const temporaryPasswordExpired = (
-  user: Record<string, unknown> | undefined,
-  now: number = Date.now(),
-): boolean => {
-  const expiresAt = user?.temporaryPasswordExpiresAt;
-  return (
-    user?.mustChangePassword === true &&
-    (expiresAt instanceof Date || typeof expiresAt === "string") &&
-    new Date(expiresAt).getTime() <= now
-  );
-};
-
 const expiredTemporaryPassword = () =>
-  new APIError("FORBIDDEN", {
-    code: "TEMPORARY_PASSWORD_EXPIRED",
-    message:
-      "That temporary password has expired. Ask an administrator to issue a new one.",
-  });
+  new APIError("FORBIDDEN", REFUSALS.temporaryPasswordExpired);
 
 interface TemporaryPasswordUpdate {
   mustChangePassword: boolean;
@@ -508,7 +489,7 @@ export const applyTemporaryPasswordLifecycle = async (
   if (!update) return;
 
   const temporaryPasswordExpiresAt = update.mustChangePassword
-    ? new Date(now.getTime() + TEMPORARY_PASSWORD_LIFETIME_MS)
+    ? new Date(now.getTime() + SESSION_POLICY.temporaryPasswordMs)
     : null;
 
   await updateUser(update.userId, {
@@ -537,7 +518,7 @@ export const excessSessionTokens = (
     updatedAt: Date;
   }[],
   now: Date = new Date(),
-  limit: number = MAX_CONCURRENT_SESSIONS,
+  limit: number = SESSION_POLICY.concurrentSessions,
 ): string[] =>
   sessions
     // An operator's impersonation holds none of the person's own slots.
@@ -548,30 +529,15 @@ export const excessSessionTokens = (
     .slice(limit)
     .map((session) => session.token);
 
-/**
- * Group-level break-glass. It holds every statement the admin role does plus
- * `impersonate-admins`, which is what lets it restore a locked-out subsidiary
- * admin. See docs/adr/0001-admin-managed-accounts.md.
- */
-const roleDefinition = (id: string) =>
-  ADMIN_ROLE_CATALOG.find((role) => role.id === id)?.permissions;
-
-const superAdminAc = defaultAc.newRole({
-  session: [...defaultStatements.session],
-  user: [...defaultStatements.user],
-});
-const accessReviewerAc = defaultAc.newRole({
-  session: [...(roleDefinition("access-reviewer")?.session ?? [])],
-  user: [...(roleDefinition("access-reviewer")?.user ?? [])],
-});
-const helpdeskAc = defaultAc.newRole({
-  session: [...(roleDefinition("helpdesk")?.session ?? [])],
-  user: [...(roleDefinition("helpdesk")?.user ?? [])],
-});
-const adminAc = defaultAc.newRole({
-  session: [...(roleDefinition("admin")?.session ?? [])],
-  user: [...(roleDefinition("admin")?.user ?? [])],
-});
+const accessControlRoles = Object.fromEntries(
+  IDENTITY_ROLES.map(({ id, permissions }) => [
+    id,
+    defaultAc.newRole({
+      session: [...permissions.session],
+      user: [...permissions.user],
+    }),
+  ]),
+);
 
 const TARGETED_ADMIN_ROUTES = new Set([
   "/admin/list-user-sessions",
@@ -584,6 +550,16 @@ const TARGETED_ADMIN_ROUTES = new Set([
   "/admin/revoke-user-sessions",
   "/admin/impersonate-user",
 ]);
+
+/** Whether a role change takes super-admin away from someone who holds it. */
+export const removesSuperAdminRole = (
+  currentRole: string | null | undefined,
+  nextRole: unknown,
+): boolean =>
+  isSuperAdmin(currentRole) &&
+  ![nextRole]
+    .flat()
+    .some((role) => typeof role === "string" && isSuperAdmin(role));
 
 const requestedRole = (path: string, body: unknown): unknown => {
   const request = asObject(body);
@@ -600,18 +576,6 @@ const containsPrivilegedRole = (role: unknown): boolean =>
         typeof value === "string" ? isPrivilegedRole(value) : false,
       )
     : typeof role === "string" && isPrivilegedRole(role);
-
-const sessionIsFresh = (
-  session: { session?: { createdAt?: Date | string } },
-  now = new Date(),
-): boolean => {
-  const createdAt = session.session?.createdAt;
-  const age =
-    createdAt === undefined
-      ? Number.NaN
-      : now.getTime() - new Date(createdAt).getTime();
-  return Number.isFinite(age) && age >= 0 && age < 15 * 60 * 1_000;
-};
 
 /**
  * What an impersonated session may still reach: reads, and the way back out.
@@ -637,10 +601,7 @@ const isImpersonated = (session: { session?: unknown } | null): boolean =>
   Boolean(asObject(session?.session)?.impersonatedBy);
 
 const refuseImpersonation = (): never => {
-  throw new APIError("FORBIDDEN", {
-    code: "IMPERSONATED_SESSION",
-    message: OWN_OPERATOR_ACCOUNT_REQUIRED,
-  });
+  throw new APIError("FORBIDDEN", REFUSALS.impersonated);
 };
 
 /**
@@ -688,20 +649,13 @@ const enforceAdminPolicy = createAuthMiddleware(async (ctx) => {
   if (isImpersonated(session) && !IMPERSONATION_ADMIN_ROUTES.has(ctx.path))
     refuseImpersonation();
 
-  if (session.user.mustChangePassword === true) {
-    throw new APIError("FORBIDDEN", {
-      code: "PASSWORD_CHANGE_REQUIRED",
-      message: "Replace the temporary password before using administration.",
-    });
-  }
+  const temporary = temporaryPasswordRefusal(session.user);
+  if (temporary) throw new APIError("FORBIDDEN", temporary);
 
   const actorRole = session.user.role;
   const actorIsSuperAdmin = isSuperAdmin(actorRole);
   if (isPrivilegedRole(actorRole) && !session.user.twoFactorEnabled) {
-    throw new APIError("FORBIDDEN", {
-      code: "PRIVILEGED_TWO_FACTOR_REQUIRED",
-      message: "Set up two-factor authentication before using administration.",
-    });
+    throw new APIError("FORBIDDEN", REFUSALS.privilegedTwoFactor);
   }
 
   if (
@@ -715,10 +669,10 @@ const enforceAdminPolicy = createAuthMiddleware(async (ctx) => {
   }
   if (
     containsPrivilegedRole(requestedRole(ctx.path, ctx.body)) &&
-    !sessionIsFresh(session)
+    !isFresh(session.session.createdAt)
   ) {
     throw new APIError("FORBIDDEN", {
-      code: "SESSION_NOT_FRESH",
+      code: REFUSAL_CODES.sessionNotFresh,
       message: "Sign in again before granting privileged access.",
     });
   }
@@ -729,10 +683,10 @@ const enforceAdminPolicy = createAuthMiddleware(async (ctx) => {
       "/admin/impersonate-user",
       "/admin/remove-user",
     ].includes(ctx.path) &&
-    !sessionIsFresh(session)
+    !isFresh(session.session.createdAt)
   ) {
     throw new APIError("FORBIDDEN", {
-      code: "SESSION_NOT_FRESH",
+      code: REFUSAL_CODES.sessionNotFresh,
       message:
         "Sign in again before recovering, impersonating, or deleting an account.",
     });
@@ -748,10 +702,7 @@ const enforceAdminPolicy = createAuthMiddleware(async (ctx) => {
     typeof targetRole === "string" ? targetRole : undefined;
 
   if (!canManageTarget(actorRole, normalizedTargetRole)) {
-    throw new APIError("FORBIDDEN", {
-      code: "PRIVILEGED_TARGET_REQUIRES_SUPER_ADMIN",
-      message: "Only a super administrator can manage a privileged account.",
-    });
+    throw new APIError("FORBIDDEN", REFUSALS.privilegedTarget);
   }
 
   const disablesSuperAdmin =
@@ -806,22 +757,16 @@ const DIRECT_ORGANIZATION_WRITES = new Set([
 const enforceOrganizationWrite = createAuthMiddleware(async (ctx) => {
   if (!ctx.path.startsWith("/organization/") || !ctx.request) return;
   const session = await requestSession(ctx);
-  if (session?.user.mustChangePassword === true) {
-    throw new APIError("FORBIDDEN", {
-      code: "PASSWORD_CHANGE_REQUIRED",
-      message:
-        "Replace the temporary password before accessing subsidiary data.",
-    });
-  }
-  if (["GET", "HEAD", "OPTIONS"].includes(ctx.request.method)) return;
+  const temporary = temporaryPasswordRefusal(session?.user);
+  if (temporary) throw new APIError("FORBIDDEN", temporary);
+  if (isRead(ctx.request.method)) return;
   if (
     isImpersonated(session) &&
     !IMPERSONATION_ORGANIZATION_ROUTES.has(ctx.path)
   )
     refuseImpersonation();
   if (PERSONAL_ORGANIZATION_ROUTES.has(ctx.path)) return;
-  const role = session?.user.role;
-  if (!session || (!isSuperAdmin(role) && !rolesOf(role).includes("admin"))) {
+  if (!session || !mayRun(session.user.role, "administer")) {
     throw new APIError("FORBIDDEN", {
       code: "IDENTITY_ADMIN_REQUIRED",
       message:
@@ -1024,21 +969,14 @@ export const createAuth = (repository: AuthRepository, config: AuthConfig) => {
       // test or development shortcut depends on a door the product does not have.
       disableSignUp: true,
       enabled: true,
-      maxPasswordLength: MAX_PASSWORD_LENGTH,
-      minPasswordLength:
-        config.nodeEnv === "production" ? MIN_PASSWORD_LENGTH : 8,
+      maxPasswordLength: PASSWORD_LENGTH.max,
+      minPasswordLength: PASSWORD_LENGTH.min,
     },
     plugins: [
       admin({
         adminRoles: [...ADMIN_ROLE_IDS],
         defaultRole: "user",
-        roles: {
-          "access-reviewer": accessReviewerAc,
-          admin: adminAc,
-          helpdesk: helpdeskAc,
-          "super-admin": superAdminAc,
-          user: userAc,
-        },
+        roles: accessControlRoles,
       }),
       twoFactor({
         accountLockout: {
@@ -1048,8 +986,8 @@ export const createAuth = (repository: AuthRepository, config: AuthConfig) => {
         },
         backupCodeOptions: { storeBackupCodes: "encrypted" },
         issuer: "Tagaroa",
-        trustDeviceMaxAge: 30 * 24 * 60 * 60,
-        twoFactorCookieMaxAge: 10 * 60,
+        trustDeviceMaxAge: SESSION_POLICY.trustedDeviceDays * 24 * 60 * 60,
+        twoFactorCookieMaxAge: SESSION_POLICY.twoFactorChallengeMinutes * 60,
       }),
       passkey({
         authenticatorSelection: { userVerification: "required" },
@@ -1105,9 +1043,7 @@ export const createAuth = (repository: AuthRepository, config: AuthConfig) => {
       enabled: config.nodeEnv !== "test",
       storage: "database",
     },
-    // Better Auth and app-owned access checks use the same definition of a
-    // recent sign-in for sensitive changes.
-    session: { freshAge: 15 * 60 },
+    session: { freshAge: SESSION_POLICY.freshAuthenticationMs / 1_000 },
     secret: config.secret,
     trustedOrigins: config.trustedOrigins,
   });

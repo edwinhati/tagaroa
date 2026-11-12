@@ -1,8 +1,7 @@
+import type { NotificationChannel } from "@repo/contracts/notifications";
+
 import type { ChannelError } from "../errors/channel.error";
-import type {
-  NotificationChannel,
-  NotificationPayload,
-} from "../value-objects/notification-channel.vo";
+import type { NotificationPayload } from "../value-objects/notification-channel.vo";
 import { restoreSecrets } from "../value-objects/rendered-payload.vo";
 import {
   type DeliveryOutcome,

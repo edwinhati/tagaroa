@@ -1,16 +1,22 @@
 import AxeBuilder from "@axe-core/playwright";
 import { expect, test } from "@playwright/test";
 import type { BrowserContext, Page } from "@playwright/test";
+import { hideDevOverlays } from "@repo/test-support/axe-audit";
+import {
+  E2E_ADMIN,
+  E2E_ORIGINS,
+  e2eOperator,
+  TEST_DATABASE_URL,
+} from "@repo/test-support/e2e-stack";
+import { signInOperator } from "@repo/test-support/sign-in";
 import { authenticatorCode } from "@repo/test-support/totp";
 import { SQL } from "bun";
 
-import { operator } from "./operator";
+const operator = e2eOperator();
 
-const adminOrigin = "http://localhost:13003";
-const coreOrigin = "http://localhost:18080";
-const databaseUrl =
-  process.env.TEST_DATABASE_URL ??
-  "postgresql://tagaroa:tagaroa@127.0.0.1:5432/tagaroa_test";
+const adminOrigin = E2E_ORIGINS.admin;
+const coreOrigin = E2E_ORIGINS.core;
+const databaseUrl = TEST_DATABASE_URL;
 
 async function filterAccounts(page: Page, email: string) {
   await page.getByRole("textbox", { name: "Filter accounts" }).fill(email);
@@ -41,41 +47,8 @@ const settleAnimations = (page: Page) =>
   );
 
 test.beforeEach(async ({ page, context }) => {
-  // Development overlays can cover controls; they are absent in production.
-  await context.addInitScript(() => {
-    const install = () => {
-      const style = document.createElement("style");
-      style.textContent =
-        "#impeccable-live-global-bar, #internal-devtools, button[aria-label='Open TanStack Devtools'] { display: none !important; }";
-      document.head.append(style);
-    };
-    if (document.head) install();
-    else document.addEventListener("DOMContentLoaded", install, { once: true });
-  });
-  const sql = new SQL(databaseUrl);
-  await sql`
-    UPDATE "auth"."user"
-    SET "two_factor_enabled" = false
-    WHERE "email" = ${operator.email}
-  `;
-
-  const signedIn = await page.request.post(
-    `${coreOrigin}/api/auth/sign-in/email`,
-    {
-      data: operator,
-      headers: { origin: adminOrigin },
-    },
-  );
-  expect(signedIn.ok()).toBe(true);
-
-  // The fixture has no authenticator seed. Enable MFA after sign-in so the
-  // operator can inspect MFA state without blocking later fixture logins.
-  await sql`
-    UPDATE "auth"."user"
-    SET "two_factor_enabled" = true
-    WHERE "email" = ${operator.email}
-  `;
-  await sql.close();
+  await hideDevOverlays(context);
+  await signInOperator(page, operator, adminOrigin);
 });
 
 test("account settings end one session and all other sessions while retaining this device", async ({
@@ -104,7 +77,7 @@ test("account settings end one session and all other sessions while retaining th
       return context;
     };
     const openSessions = async () => {
-      await page.goto("http://localhost:13002/");
+      await page.goto(`${E2E_ORIGINS.workspace}/`);
       await expect(
         page.getByRole("heading", { name: "Home", exact: true }),
       ).toBeVisible();
@@ -177,7 +150,7 @@ test("remaining account profile and sessions recover from failed reads", async (
   isMobile,
 }) => {
   test.setTimeout(90_000);
-  await page.goto("http://localhost:13002/");
+  await page.goto(`${E2E_ORIGINS.workspace}/`);
   await expect(
     page.getByRole("heading", { name: "Home", exact: true }),
   ).toBeVisible();
@@ -271,7 +244,7 @@ test("account settings edit the display name, refuse admin-managed fields and re
     await sql`select id, name, personal_email from auth."user" where email = ${operator.email}`;
   const renamed = `QA Renamed ${test.info().project.name}`;
   const openProfile = async () => {
-    await page.goto("http://localhost:13002/");
+    await page.goto(`${E2E_ORIGINS.workspace}/`);
     await expect(
       page.getByRole("heading", { name: "Home", exact: true }),
     ).toBeVisible();
@@ -290,7 +263,7 @@ test("account settings edit the display name, refuse admin-managed fields and re
       `${coreOrigin}/api/auth/update-user`,
       {
         data: { name: "Ada", personalEmail: "ada@example.test" },
-        headers: { origin: "http://localhost:13002" },
+        headers: { origin: E2E_ORIGINS.workspace },
       },
     );
     expect(refused.status()).toBe(400);
@@ -470,7 +443,7 @@ test("remaining emergency reads retry and a stale open dialog requires reauthent
       .click();
     expect((await activation).status()).toBe(403);
     await expect(page).toHaveURL(/\/reauth\?redirect=/);
-    expect(new URL(page.url()).origin).toBe("http://localhost:13001");
+    expect(new URL(page.url()).origin).toBe(E2E_ORIGINS.auth);
     await expect(
       page.getByRole("heading", { name: "Confirm it’s you" }),
     ).toBeVisible();
@@ -682,7 +655,7 @@ test("remaining identity role affordances match the operator permissions", async
     }
     await sql`update auth."user" set role = 'user' where email = ${operator.email}`;
     await page.goto("/identity-access/people");
-    await expect(page).toHaveURL("http://localhost:13002/");
+    await expect(page).toHaveURL(`${E2E_ORIGINS.workspace}/`);
   } finally {
     await sql`update auth."user" set role = 'super-admin' where email = ${operator.email}`;
     if (userId)
@@ -1343,7 +1316,7 @@ test("membership, scoped assignment, emergency access, impersonation and deletio
       .getByRole("menuitem", { name: "Impersonate", exact: true })
       .click();
     await page.getByRole("button", { name: "Start impersonating" }).click();
-    await expect(page).toHaveURL("http://localhost:13002/");
+    await expect(page).toHaveURL(`${E2E_ORIGINS.workspace}/`);
     await expect(
       page.getByText("Impersonating", { exact: true }),
     ).toBeVisible();
@@ -1357,7 +1330,7 @@ test("membership, scoped assignment, emergency access, impersonation and deletio
     await expect(
       page.getByRole("heading", { name: "Home", exact: true }),
     ).toBeVisible();
-    await expect(page).toHaveURL("http://localhost:13002/");
+    await expect(page).toHaveURL(`${E2E_ORIGINS.workspace}/`);
     await expect(page.getByText("Impersonating", { exact: true })).toHaveCount(
       0,
     );
@@ -1595,10 +1568,10 @@ test("administration pages pass accessibility checks in both themes and reflow o
     page.getByRole("textbox", { name: "Filter accounts" }),
   ).toBeVisible();
   await page.getByRole("textbox", { name: "Filter accounts" }).focus();
-  await page.keyboard.type("e2e-admin@tagaroa.test");
+  await page.keyboard.type(E2E_ADMIN.email);
   await expect(
     page.getByRole("textbox", { name: "Filter accounts" }),
-  ).toHaveValue("e2e-admin@tagaroa.test");
+  ).toHaveValue(E2E_ADMIN.email);
   expect(
     await page.evaluate(
       () => document.documentElement.scrollWidth <= innerWidth,
@@ -1642,34 +1615,6 @@ test("an operator can move from the work queue to a route-backed person", async 
     .getByRole("link", { name: "People", exact: true })
     .click();
   await expect(page).toHaveURL(/\/identity-access\/people(?:\?.*)?$/);
-});
-
-test("legacy identity routes redirect to their task-based destinations", async ({
-  page,
-}) => {
-  await page.goto("/work-queue");
-  await expect(page).toHaveURL(/\/identity-access\/work-queue$/);
-
-  await page.goto("/roles");
-  await expect(page).toHaveURL(/\/identity-access\/business-access\/roles$/);
-  await expect(
-    page.getByRole("heading", { name: "Business access" }),
-  ).toBeVisible();
-
-  await page.goto("/security");
-  await expect(page).toHaveURL(/\/identity-access\/reviews$/);
-  await expect(page.getByRole("heading", { name: "Reviews" })).toBeVisible();
-
-  for (const path of ["/settings", "/policy", "/identity-access/policy"]) {
-    await page.goto(path);
-    await expect(page).toHaveURL(/\/identity-access\/privileged-access$/);
-    await expect(
-      page.getByRole("heading", { name: "Privileged access", exact: true }),
-    ).toBeVisible();
-    await expect(
-      page.getByRole("link", { name: "Policy", exact: true }),
-    ).toHaveCount(0);
-  }
 });
 
 test("all administration pages load without page errors or horizontal overflow", async ({
@@ -1730,7 +1675,7 @@ test("an administrator issues, edits, suspends, restores and reissues an account
   ).trim();
   const employee = await browser.newContext();
   try {
-    const headers = { origin: "http://localhost:13003" };
+    const headers = { origin: E2E_ORIGINS.admin };
     const signIn = () =>
       employee.request.post(`${coreOrigin}/api/auth/sign-in/email`, {
         headers,

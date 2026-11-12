@@ -1,7 +1,3 @@
-/** The three ways a message can leave the building. */
-export const NOTIFICATION_CHANNELS = ["email", "sms", "whatsapp"] as const;
-export type NotificationChannel = (typeof NOTIFICATION_CHANNELS)[number];
-
 /**
  * What was rendered for one message, kept as written.
  *

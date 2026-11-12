@@ -1,8 +1,12 @@
 import { defineConfig, devices } from "@playwright/test";
+import { E2E_ORIGINS, portOf } from "@repo/test-support/e2e-stack";
 
-const authOrigin = "http://localhost:13001";
-const coreServiceOrigin = "http://localhost:18080";
-const workspaceOrigin = "http://localhost:13002";
+const {
+  auth: authOrigin,
+  core: coreServiceOrigin,
+  engineering,
+  workspace: workspaceOrigin,
+} = E2E_ORIGINS;
 
 export default defineConfig({
   testDir: "./e2e",
@@ -20,26 +24,25 @@ export default defineConfig({
   },
   webServer: [
     {
-      command:
-        "E2E_CORE_PORT=18080 E2E_TRUSTED_ORIGINS=http://localhost:13001,http://localhost:13002,http://localhost:13010 PASSKEY_ORIGINS=http://localhost:13001,http://localhost:13002 PASSKEY_RP_ID=localhost bun run start:e2e",
+      command: `E2E_CORE_PORT=${portOf(coreServiceOrigin)} E2E_TRUSTED_ORIGINS=${authOrigin},${workspaceOrigin},${engineering} PASSKEY_ORIGINS=${authOrigin},${workspaceOrigin} PASSKEY_RP_ID=localhost bun run start:e2e`,
       cwd: "../../servers/core",
       reuseExistingServer: false,
       timeout: 120_000,
       url: `${coreServiceOrigin}/api/health/live`,
     },
     {
-      command: "bun run dev:plain -- --port 13001",
+      command: `bun run dev:plain -- --port ${portOf(authOrigin)}`,
       env: {
         VITE_AUTH_BASE_URL: coreServiceOrigin,
         VITE_POST_SIGNIN_URL: `${authOrigin}/locked-out`,
-        VITE_TRUSTED_REDIRECT_ORIGINS: `${workspaceOrigin},http://localhost:13010`,
+        VITE_TRUSTED_REDIRECT_ORIGINS: `${workspaceOrigin},${engineering}`,
       },
       reuseExistingServer: false,
       timeout: 120_000,
       url: authOrigin,
     },
     {
-      command: "bun run dev:plain -- --port 13002",
+      command: `bun run dev:plain -- --port ${portOf(workspaceOrigin)}`,
       cwd: "../workspace",
       env: {
         VITE_AUTH_BASE_URL: coreServiceOrigin,
@@ -50,7 +53,7 @@ export default defineConfig({
       url: workspaceOrigin,
     },
     {
-      command: "bun run dev:plain -- --port 13010",
+      command: `bun run dev:plain -- --port ${portOf(engineering)}`,
       cwd: "../../domains/engineering",
       env: {
         VITE_AUTH_BASE_URL: coreServiceOrigin,
@@ -59,7 +62,7 @@ export default defineConfig({
       },
       reuseExistingServer: false,
       timeout: 120_000,
-      url: "http://localhost:13010/engineering",
+      url: `${engineering}/engineering`,
     },
   ],
   projects: [

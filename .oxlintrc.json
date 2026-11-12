@@ -83,7 +83,11 @@
   },
   "overrides": [
     {
-      "files": ["packages/ui/src/components/**", "packages/ui/src/blocks/**"],
+      "files": [
+        "packages/ui/src/components/**",
+        "packages/ui/src/blocks/**",
+        "packages/shell/src/devtools/**"
+      ],
       "rules": { "shadcn/no-restyle": "off" }
     },
     {

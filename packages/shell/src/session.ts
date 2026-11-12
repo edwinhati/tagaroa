@@ -5,50 +5,17 @@ import { redirect } from "@tanstack/react-router";
 
 import { authClient } from "./auth-client";
 import { type Domain, domainsForSlugs } from "./domains";
+import {
+  createSessionQueryOptions,
+  isAdmin,
+  isAdmitted,
+  type SessionState,
+} from "./session-state";
+import { AUTH_URL, CORE_URL, WORKSPACE_URL } from "./urls";
 
-/** What `authClient.getSession()` hands back, narrowed to what the shell reads. */
-export type SessionState =
-  | {
-      session?: {
-        impersonatedBy?: string | null;
-      };
-      user?: {
-        id?: string;
-        name?: string;
-        email?: string;
-        mustChangePassword?: boolean;
-        twoFactorEnabled?: boolean;
-        /** Group-wide identity role(s) stored by Better Auth's admin plugin. */
-        role?: string | null;
-      };
-    }
-  | null
-  | undefined;
-
-export async function fetchSession(
-  getSession: () => Promise<{ data: unknown }> = () => authClient.getSession(),
-): Promise<SessionState> {
-  try {
-    const { data } = await getSession();
-    return data as SessionState;
-  } catch {
-    // An unreachable core service is a session we cannot prove, which is the
-    // same answer as no session: send them to the door and let it explain.
-    return null;
-  }
-}
-
-/**
- * Fetched once per page load and shared by every route that guards on it, so a
- * visit to two guarded routes is still one request.
- */
-export const sessionQueryOptions = queryOptions({
-  queryKey: ["session"],
-  // The guard blocks the render, so it must not wait out three backoff retries
-  // against a server that is plainly down.
-  retry: false,
-  queryFn: () => fetchSession(),
-});
+export const sessionQueryOptions = createSessionQueryOptions(() =>
+  authClient.getSession(),
+);
 
 export interface DomainMembership {
   teamId: string;
@@ -57,6 +24,11 @@ export interface DomainMembership {
   administered: boolean;
 }
 
+/**
+ * Fail closed: memberships the server did not confirm are none, so an outage
+ * shows the workspace with no domains and `admit` sends a domain visit back
+ * to it, rather than admitting on a guess.
+ */
 export async function fetchDomainMemberships(
   request: (url: string, init?: RequestInit) => Promise<Response> = fetch,
 ): Promise<DomainMembership[]> {
@@ -87,21 +59,6 @@ export const domainMembershipQueryOptions = queryOptions({
   queryFn: () => fetchDomainMemberships(),
 });
 
-export const AUTH_URL =
-  import.meta.env.VITE_AUTH_URL ?? "http://localhost:3001";
-
-/**
- * The other origins in the workspace. Only the domain front ends live behind the
- * microfrontends proxy; `apps/admin` stands on its own, so a link to it is a
- * document navigation to another origin rather than a path on this one.
- */
-export const WORKSPACE_URL =
-  import.meta.env.VITE_WORKSPACE_URL ?? "http://localhost:3000";
-export const ADMIN_URL =
-  import.meta.env.VITE_ADMIN_URL ?? "http://localhost:3003";
-
-const CORE_URL = import.meta.env.VITE_AUTH_BASE_URL ?? "http://localhost:8080";
-
 /**
  * The door, carrying the way back. `apps/auth` only honours a `?redirect=` whose
  * origin it trusts (VITE_TRUSTED_REDIRECT_ORIGINS), so this app's origin must be
@@ -112,30 +69,6 @@ export function signInUrl(current: string, authUrl: string = AUTH_URL): string {
   door.searchParams.set("redirect", current);
   return door.toString();
 }
-
-/**
- * A temporary password is still a session, so the guard cannot pass it: the door
- * routes `mustChangePassword` to the password step itself.
- */
-export const isAdmitted = (session: SessionState): boolean =>
-  Boolean(
-    session?.user &&
-    !session.user.mustChangePassword &&
-    (!isAdmin(session) || session.user.twoFactorEnabled),
-  );
-
-/** Server decisions for current memberships; identity roles do not imply business access. */
-export async function fetchAdministeredDomains(): Promise<string[]> {
-  return (await fetchDomainMemberships())
-    .filter((team) => team.administered)
-    .map((team) => team.domainSlug);
-}
-
-export const administeredDomainsQueryOptions = queryOptions({
-  queryKey: ["administered-domains"],
-  retry: false,
-  queryFn: () => fetchAdministeredDomains(),
-});
 
 /**
  * May this person administer this domain's configuration?
@@ -149,14 +82,14 @@ export const administeredDomainsQueryOptions = queryOptions({
 export function isDomainAdmin(
   session: SessionState,
   slug: string,
-  administeredDomains: readonly string[] = [],
+  memberships: readonly DomainMembership[],
 ): boolean {
-  // The adminships are argued in, so this must not take them as proof of a
+  // The memberships are argued in, so this must not take them as proof of a
   // session: no session, or one still on a temporary password, administers
   // nothing whatever list it arrives with.
   if (!isAdmitted(session)) return false;
-  return domainsForSlugs(administeredDomains).some(
-    (domain) => domain.slug === slug,
+  return memberships.some(
+    (team) => team.administered && team.domainSlug === slug,
   );
 }
 
@@ -187,23 +120,6 @@ export async function admit(
 }
 
 /**
- * Mirrors `adminRoles` in servers/core's createAuth(). Kept as a list because
- * better-auth stores the role as a comma-separated string when a person holds
- * more than one.
- */
-const ADMIN_ROLES = new Set([
-  "access-reviewer",
-  "helpdesk",
-  "admin",
-  "super-admin",
-]);
-
-export const isAdmin = (session: SessionState): boolean =>
-  (session?.user?.role ?? "")
-    .split(",")
-    .some((role) => ADMIN_ROLES.has(role.trim()));
-
-/**
  * Admission to the admin surface. Two different refusals, deliberately: no
  * session at all is a trip to the door, but a valid session without the role is
  * sent back to the workspace — telling a signed-in operator to sign in again
@@ -226,11 +142,3 @@ export async function admitAdmin(
   }
   return session;
 }
-
-/** The address to show for whoever is signed in. */
-export const operatorOf = (session: SessionState): string =>
-  session?.user?.email ?? session?.user?.name ?? "";
-
-/** Whether Better Auth issued this session on behalf of a super-admin. */
-export const isImpersonating = (session: SessionState): boolean =>
-  Boolean(session?.session?.impersonatedBy);

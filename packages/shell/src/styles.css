@@ -1,0 +1,2 @@
+/* Lets each app's Tailwind build see the classes the shell renders. */
+@source "./**/*.{ts,tsx}";

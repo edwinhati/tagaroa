@@ -10,7 +10,6 @@ import { requestRecoveryBody } from "./auth-management.schemas";
 import {
   IdentityOperationsService,
   requireVerifiedOperator,
-  type IdentityOperator,
 } from "./identity-operations.service";
 import {
   account,
@@ -24,14 +23,15 @@ import {
 } from "./infrastructure/persistence/drizzle/schema";
 import { OnboardingHook } from "./onboarding.hook";
 import { factorRecovery } from "./operations.schema";
+import type { Operator } from "./session-policy";
 
-const actor = (
-  overrides: Partial<IdentityOperator> = {},
-): IdentityOperator => ({
+const actor = (overrides: Partial<Operator> = {}): Operator => ({
   id: "requester",
+  impersonatedBy: null,
   role: "super-admin",
-  twoFactorEnabled: true,
   sessionCreatedAt: new Date(),
+  sessionId: "session",
+  twoFactorEnabled: true,
   ...overrides,
 });
 const request = requestRecoveryBody.parse({
@@ -493,13 +493,8 @@ describe("IdentityOperationsService offboarding", () => {
 });
 
 test("security operations require a fresh, non-impersonated MFA operator", () => {
-  const actor: IdentityOperator = {
-    id: "operator",
-    role: "super-admin",
-    twoFactorEnabled: true,
-    sessionCreatedAt: new Date(),
-  };
-  expect(() => requireVerifiedOperator(actor)).not.toThrow();
+  const operator = actor({ id: "operator" });
+  expect(() => requireVerifiedOperator(operator)).not.toThrow();
   for (const change of [
     { impersonatedBy: "other" },
     { twoFactorEnabled: false },
@@ -507,5 +502,5 @@ test("security operations require a fresh, non-impersonated MFA operator", () =>
     { sessionCreatedAt: new Date(Date.now() + 60_000) },
     { sessionCreatedAt: new Date(Date.now() - 15 * 60_000) },
   ])
-    expect(() => requireVerifiedOperator({ ...actor, ...change })).toThrow();
+    expect(() => requireVerifiedOperator({ ...operator, ...change })).toThrow();
 });

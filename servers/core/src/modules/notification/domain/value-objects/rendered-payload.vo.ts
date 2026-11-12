@@ -1,7 +1,6 @@
-import type {
-  NotificationChannel,
-  NotificationPayload,
-} from "./notification-channel.vo";
+import type { NotificationChannel } from "@repo/contracts/notifications";
+
+import type { NotificationPayload } from "./notification-channel.vo";
 
 /** `{{ name }}`, with or without the spaces. */
 const VARIABLE = /\{\{\s*([A-Za-z0-9_]+)\s*\}\}/g;

@@ -1,16 +1,11 @@
-import {
-  Inject,
-  Injectable,
-  Logger,
-  type OnApplicationBootstrap,
-  type OnModuleDestroy,
-} from "@nestjs/common";
+import { Inject, Injectable } from "@nestjs/common";
 
-import { DrainQueueUseCase } from "../../application/use-cases/drain-queue.use-case";
+import { IntervalJob } from "../../../../platform/scheduling/interval-job";
 import {
   DISPATCH_OPTIONS,
   type DispatchOptions,
-} from "../config/notification.options";
+} from "../../application/notification.options";
+import { DrainQueueUseCase } from "../../application/use-cases/drain-queue.use-case";
 
 /**
  * The timer, and only the timer.
@@ -19,61 +14,30 @@ import {
  * running on an interval is a fact about this deployment rather than about
  * sending. `NOTIFICATION_WORKER=0` turns it off, so moving the dispatcher into
  * its own process means a second entrypoint calling the same use case, not a
- * rewrite — and `for update skip locked` already makes two of them safe.
+ * rewrite — and `for update skip locked` already makes two of them safe. A pass
+ * cut off by shutdown would have handed a message to a provider without marking
+ * it sent, so it would go out twice; `IntervalJob` waits for it.
  */
 @Injectable()
-export class NotificationDispatcher
-  implements OnApplicationBootstrap, OnModuleDestroy
-{
-  private readonly logger = new Logger(NotificationDispatcher.name);
-  private timer?: ReturnType<typeof setInterval>;
-  /** The pass under way, if any. */
-  private pass?: Promise<void>;
+export class NotificationDispatcher extends IntervalJob {
+  protected readonly failure =
+    "Dispatcher pass failed; inspect notification state and provider health";
 
   constructor(
     private readonly drainQueue: DrainQueueUseCase,
     @Inject(DISPATCH_OPTIONS) private readonly options: DispatchOptions,
-  ) {}
-
-  onApplicationBootstrap(): void {
-    if (!this.options.worker) {
-      this.logger.log("Dispatcher disabled; nothing will be sent");
-      return;
-    }
-    this.timer = setInterval(() => {
-      void this.tick();
-    }, this.options.pollMilliseconds);
-    this.timer.unref?.();
+  ) {
+    super();
   }
 
-  /**
-   * Stops the timer, then waits for a pass already under way. `@nestjs/drizzle`
-   * closes the pool in `onApplicationShutdown`, which Nest runs only once every
-   * `onModuleDestroy` has settled. A pass cut off by that close has handed a
-   * message to a provider but cannot mark it sent, so the claim is reclaimed
-   * later and the message goes out twice.
-   */
-  async onModuleDestroy(): Promise<void> {
-    if (this.timer) clearInterval(this.timer);
-    await this.pass;
+  protected schedule() {
+    if (this.options.worker)
+      return { atStartup: false, everyMs: this.options.pollMilliseconds };
+    this.logger.log("Dispatcher disabled; nothing will be sent");
+    return null;
   }
 
-  /** One pass. Overlapping passes are skipped rather than queued up. */
-  async tick(): Promise<void> {
-    if (this.pass) return;
-    this.pass = this.drain().finally(() => {
-      this.pass = undefined;
-    });
-    await this.pass;
-  }
-
-  private async drain(): Promise<void> {
-    try {
-      await this.drainQueue.execute();
-    } catch {
-      this.logger.error(
-        "Dispatcher pass failed; inspect notification state and provider health",
-      );
-    }
+  protected run(): Promise<void> {
+    return this.drainQueue.execute();
   }
 }

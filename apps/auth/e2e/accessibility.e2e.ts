@@ -1,5 +1,6 @@
 import AxeBuilder from "@axe-core/playwright";
 import { expect, test } from "@playwright/test";
+import { hideDevOverlays } from "@repo/test-support/axe-audit";
 
 test("sign-in and locked-out guidance remain accessible in both themes, on tablet and at zoom-equivalent width", async ({
   page,
@@ -11,18 +12,7 @@ test("sign-in and locked-out guidance remain accessible in both themes, on table
     if (error.message.includes("Importing a module script failed."))
       moduleErrors.push(error.message);
   });
-  await page.addInitScript(() => {
-    document.addEventListener(
-      "DOMContentLoaded",
-      () => {
-        const style = document.createElement("style");
-        style.textContent =
-          "#impeccable-live-global-bar, #internal-devtools, button[aria-label='Open TanStack Devtools'] { display: none !important; }";
-        document.head.append(style);
-      },
-      { once: true },
-    );
-  });
+  await hideDevOverlays(page.context());
   await page.goto("/");
   await page
     .getByRole("button", { name: "Show password", exact: true })
@@ -43,7 +33,9 @@ test("sign-in and locked-out guidance remain accessible in both themes, on table
     ]) {
       await page.setViewportSize({ width: 768, height: 1024 });
       await page.goto(path);
-      await expect(page.getByRole("heading").first()).toBeVisible();
+      await expect(
+        page.getByRole("main").getByRole("heading").first(),
+      ).toBeVisible();
       await page.evaluate(async () => {
         const animations =
           document.querySelector("main")?.getAnimations({ subtree: true }) ??

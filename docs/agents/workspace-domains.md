@@ -31,15 +31,18 @@ endpoints answer only for teams the caller is in.
 
 1. Copy `domains/engineering` to `domains/<slug>` as `@domains/<slug>`, replacing
    `engineering` in `vite.config.ts` (`base`), `src/router.tsx` (`basepath`),
-   `src/routes/_shell.tsx` (`current`), the `<title>`, and the dev script's fallback port.
-2. Flip the domain's `live` flag in `packages/shell/src/domains.ts`.
+   `src/routes/_shell.tsx` (`current` and the `admit(…, "<slug>")` call),
+   `src/routes/__root.tsx` (the `documentHead` title and `AppDocument app="domains/<slug>"`),
+   and the dev script's fallback port.
+2. Mark the domain live in `packages/shell/src/domains.ts` (the `live` rule names the built
+   domains).
 
 The port and the path already exist in `microfrontends.json`; `domains.ts` is the same list
 in TypeScript and the two are kept in step by hand.
 
 The chrome is not copied: `@repo/shell` owns the header, the domain rule, admission
-(`admit()`) and the session query, so every app wears the same one. A domain app owns its
-routes and nothing else.
+(`admit()`) and the session query. A domain wears `WorkspaceShell`; the workspace and the
+back office wear `AppShell`. A domain app owns its routes and nothing else.
 
 The rule is per person, not per repo: `admit()` reads the signed-in person's domain
 memberships from `GET /api/access-control/domains`. Server-owned team-id/domain-slug

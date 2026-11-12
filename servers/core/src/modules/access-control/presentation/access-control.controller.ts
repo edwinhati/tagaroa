@@ -9,15 +9,15 @@ import {
   Put,
   Query,
 } from "@nestjs/common";
+import { IDENTITY_OPERATIONS } from "@repo/contracts/identity";
 import { Roles, Session, type UserSession } from "@thallesp/nestjs-better-auth";
 
 import { SessionOnly } from "../../../platform/http/session-only.decorator";
-import {
-  AccessControlService,
-  type AccessActor,
-} from "../application/access-control.service";
+import { operatorOf } from "../../auth/session-policy";
+import { AccessControlService } from "../application/access-control.service";
 import { AccessReviewService } from "../application/access-review.service";
 import { DomainAccessService } from "../application/domain-access.service";
+import type { ReviewKind } from "../domain/repositories/access-review.repository";
 import {
   bindDomainBody,
   breakGlassBody,
@@ -25,6 +25,7 @@ import {
   grantAssignmentBody,
   myPermissionsQuery,
   reviewAccessBody,
+  reviewKindParam,
   updateAssignmentBody,
   updateRoleBody,
   type BindDomainBody,
@@ -37,31 +38,6 @@ import {
   type UpdateRoleBody,
 } from "./access-control.schemas";
 
-const ACCESS_READ_ROLES = [
-  "helpdesk",
-  "access-reviewer",
-  "admin",
-  "super-admin",
-] as const;
-
-const actorOf = (value: UserSession): AccessActor => {
-  const authSession = value as UserSession & {
-    session: {
-      createdAt: Date | string;
-      id: string;
-      impersonatedBy?: string | null;
-    };
-    user: { id: string; role?: string | null };
-  };
-  return {
-    id: authSession.user.id,
-    identityRole: authSession.user.role,
-    sessionCreatedAt: new Date(authSession.session.createdAt),
-    sessionId: authSession.session.id,
-    impersonatedBy: authSession.session.impersonatedBy,
-  };
-};
-
 @Controller("access-control")
 export class AccessControlController {
   constructor(
@@ -73,102 +49,106 @@ export class AccessControlController {
   @Get("domains")
   @SessionOnly()
   async myDomains(@Session() session: UserSession) {
-    return { data: await this.domains.mine(actorOf(session)) };
+    return { data: await this.domains.mine(operatorOf(session)) };
   }
 
   @Get("team-domains")
-  @Roles([...ACCESS_READ_ROLES])
+  @Roles([...IDENTITY_OPERATIONS.operate])
   async teamDomains() {
     return { data: await this.domains.list() };
   }
 
   @Put("teams/:teamId/domain")
-  @Roles(["admin", "super-admin"])
+  @Roles([...IDENTITY_OPERATIONS.administer])
   async bindDomain(
     @Param("teamId") teamId: string,
     @Body({ schema: bindDomainBody }) body: BindDomainBody,
     @Session() session: UserSession,
   ) {
     return {
-      data: await this.domains.bind(teamId, body.domainSlug, actorOf(session)),
+      data: await this.domains.bind(
+        teamId,
+        body.domainSlug,
+        operatorOf(session),
+      ),
     };
   }
 
   @Get("reviews")
-  @Roles([...ACCESS_READ_ROLES])
+  @Roles([...IDENTITY_OPERATIONS.operate])
   async reviewQueue() {
     return { data: await this.reviews.list() };
   }
 
   @Post("reviews/:kind/:subjectId")
-  @Roles(["access-reviewer", "admin", "super-admin"])
+  @Roles([...IDENTITY_OPERATIONS.review])
   async reviewAccess(
-    @Param("kind") kind: string,
+    @Param("kind", { schema: reviewKindParam }) kind: ReviewKind,
     @Param("subjectId") id: string,
     @Body({ schema: reviewAccessBody })
     body: ReviewAccessBody,
     @Session() session: UserSession,
   ) {
     return {
-      data: await this.reviews.record(kind, id, body, actorOf(session)),
+      data: await this.reviews.record(kind, id, body, operatorOf(session)),
     };
   }
 
   @Get("policy")
-  @Roles([...ACCESS_READ_ROLES])
+  @Roles([...IDENTITY_OPERATIONS.operate])
   async policy() {
     return { data: await this.access.policy() };
   }
 
   @Get("assignments")
-  @Roles([...ACCESS_READ_ROLES])
+  @Roles([...IDENTITY_OPERATIONS.operate])
   async assignments() {
     return { data: await this.access.listAssignments() };
   }
 
   @Post("roles")
-  @Roles(["super-admin"])
+  @Roles([...IDENTITY_OPERATIONS.superAdmin])
   async createRole(
     @Body({ schema: createRoleBody }) body: CreateRoleBody,
     @Session() session: UserSession,
   ) {
-    return { data: await this.access.createRole(body, actorOf(session)) };
+    return { data: await this.access.createRole(body, operatorOf(session)) };
   }
 
   @Patch("roles/:roleId")
-  @Roles(["super-admin"])
+  @Roles([...IDENTITY_OPERATIONS.superAdmin])
   async updateRole(
     @Param("roleId") roleId: string,
     @Body({ schema: updateRoleBody }) body: UpdateRoleBody,
     @Session() session: UserSession,
   ) {
     return {
-      data: await this.access.updateRole(roleId, body, actorOf(session)),
+      data: await this.access.updateRole(roleId, body, operatorOf(session)),
     };
   }
 
   @Delete("roles/:roleId")
-  @Roles(["super-admin"])
+  @Roles([...IDENTITY_OPERATIONS.superAdmin])
   async archiveRole(
     @Param("roleId") roleId: string,
     @Session() session: UserSession,
   ) {
-    return { data: await this.access.archiveRole(roleId, actorOf(session)) };
+    return { data: await this.access.archiveRole(roleId, operatorOf(session)) };
   }
 
   @Post("assignments")
-  @Roles(["admin", "super-admin"])
+  @Roles([...IDENTITY_OPERATIONS.administer])
   async grantAssignment(
     @Body({ schema: grantAssignmentBody }) body: GrantAssignmentBody,
     @Session() session: UserSession,
   ) {
     return {
-      data: await this.access.grantAssignment(body, actorOf(session)),
+      data: await this.access.grantAssignment(body, operatorOf(session)),
     };
   }
 
   @Patch("assignments/:assignmentId")
-  @Roles(["admin", "super-admin"])
+  @Roles([...IDENTITY_OPERATIONS.administer])
   async updateAssignment(
     @Param("assignmentId") assignmentId: string,
     @Body({ schema: updateAssignmentBody })
@@ -179,19 +159,22 @@ export class AccessControlController {
       data: await this.access.updateAssignmentExpiry(
         assignmentId,
         body.expiresAt,
-        actorOf(session),
+        operatorOf(session),
       ),
     };
   }
 
   @Delete("assignments/:assignmentId")
-  @Roles(["admin", "super-admin"])
+  @Roles([...IDENTITY_OPERATIONS.administer])
   async revokeAssignment(
     @Param("assignmentId") assignmentId: string,
     @Session() session: UserSession,
   ) {
     return {
-      data: await this.access.revokeAssignment(assignmentId, actorOf(session)),
+      data: await this.access.revokeAssignment(
+        assignmentId,
+        operatorOf(session),
+      ),
     };
   }
 
@@ -202,46 +185,41 @@ export class AccessControlController {
     query: MyPermissionsQuery,
     @Session() session: UserSession,
   ) {
-    const actor = actorOf(session);
     return {
       data: {
         permissions: await this.access.effectivePermissions({
-          identityRole: actor.identityRole,
-          organizationId: query.organizationId,
-          sessionCreatedAt: actor.sessionCreatedAt,
-          sessionId: actor.sessionId,
-          teamId: query.teamId,
-          userId: actor.id,
+          ...query,
+          operator: operatorOf(session),
         }),
       },
     };
   }
 
   @Post("break-glass")
-  @Roles(["super-admin"])
+  @Roles([...IDENTITY_OPERATIONS.superAdmin])
   async activateBreakGlass(
     @Body({ schema: breakGlassBody }) body: BreakGlassBody,
     @Session() session: UserSession,
   ) {
     return {
-      data: await this.access.activateBreakGlass(body, actorOf(session)),
+      data: await this.access.activateBreakGlass(body, operatorOf(session)),
     };
   }
 
   @Get("break-glass")
-  @Roles(["super-admin"])
+  @Roles([...IDENTITY_OPERATIONS.superAdmin])
   async activeBreakGlass(@Session() session: UserSession) {
-    return { data: await this.access.activeBreakGlass(actorOf(session)) };
+    return { data: await this.access.activeBreakGlass(operatorOf(session)) };
   }
 
   @Delete("break-glass/:elevationId")
-  @Roles(["super-admin"])
+  @Roles([...IDENTITY_OPERATIONS.superAdmin])
   async endBreakGlass(
     @Param("elevationId") elevationId: string,
     @Session() session: UserSession,
   ) {
     return {
-      data: await this.access.endBreakGlass(elevationId, actorOf(session)),
+      data: await this.access.endBreakGlass(elevationId, operatorOf(session)),
     };
   }
 }

@@ -7,7 +7,9 @@ import {
   grantAssignmentBody,
   myPermissionsQuery,
   reviewAccessBody,
+  reviewKindParam,
   updateAssignmentBody,
+  updateRoleBody,
 } from "./access-control.schemas";
 
 const valid = {
@@ -114,11 +116,15 @@ describe("the other access-control bodies", () => {
     ).toBe("Expiration must be an ISO date and time.");
   });
 
-  test("a domain binding takes a slug or null", () => {
+  test("a domain binding takes a known slug or null", () => {
     expect(bindDomainBody.parse({ domainSlug: null }).domainSlug).toBeNull();
-    expect(bindDomainBody.safeParse({}).error?.issues[0]!.message).toBe(
-      "Choose a known domain or no domain.",
+    expect(bindDomainBody.parse({ domainSlug: "finance" }).domainSlug).toBe(
+      "finance",
     );
+    for (const domainSlug of ["unknown", "Engineering", "", undefined, 1, {}])
+      expect(
+        bindDomainBody.safeParse({ domainSlug }).error?.issues[0]!.message,
+      ).toBe("Choose a known domain or no domain.");
   });
 
   test("my permissions need a subsidiary; a blank team is none", () => {
@@ -135,14 +141,71 @@ describe("the other access-control bodies", () => {
   });
 });
 
-test("a missing service-checked field reaches the service as undefined", () => {
-  expect(createRoleBody.parse({})).toEqual({});
-  expect(reviewAccessBody.parse({})).toEqual({});
+describe("role bodies", () => {
+  const valid = {
+    description: " Configure domains ",
+    key: "custom-admin",
+    name: " Custom ",
+    permissions: ["domain:administer", "domain:administer"],
+  };
+  const message = (body: unknown) =>
+    createRoleBody.safeParse(body).error?.issues[0]!.message;
+
+  test("trim the text and collapse repeated permissions", () => {
+    expect(createRoleBody.parse(valid)).toEqual({
+      description: "Configure domains",
+      key: "custom-admin",
+      name: "Custom",
+      permissions: ["domain:administer"],
+    });
+    expect(updateRoleBody.parse(valid)).not.toHaveProperty("key");
+  });
+
+  test("name each rule in its own sentence", () => {
+    expect(message({ ...valid, description: " " })).toBe(
+      "Description is required.",
+    );
+    expect(message({ ...valid, name: "x".repeat(81) })).toBe(
+      "Role name must be 80 characters or fewer.",
+    );
+    expect(message({ ...valid, key: "Custom--admin" })).toBe(
+      "Role key must use lowercase letters, numbers, and single hyphens.",
+    );
+    expect(message({ ...valid, permissions: [] })).toBe(
+      "Choose at least one permission.",
+    );
+    expect(message({ ...valid, permissions: ["domain:delete"] })).toBe(
+      "The role contains an unknown permission.",
+    );
+  });
+});
+
+test("an emergency needs a reason of at most 240 characters", () => {
+  const body = { organizationId: "o", permission: "p", scope: "subsidiary" };
+  expect(breakGlassBody.safeParse(body).error?.issues[0]!.message).toBe(
+    "Reason is required.",
+  );
   expect(
-    breakGlassBody.parse({
-      organizationId: "o",
-      permission: "p",
-      scope: "subsidiary",
-    }).reason,
-  ).toBeUndefined();
+    breakGlassBody.safeParse({ ...body, reason: "x".repeat(241) }).error
+      ?.issues[0]!.message,
+  ).toBe("Reason must be 240 characters or fewer.");
+});
+
+test("a review needs a decision and evidence of 10 to 500 characters", () => {
+  const valid = {
+    decision: "confirmed",
+    note: "Manager approved, case 12",
+  } as const;
+  expect(reviewAccessBody.parse(valid)).toEqual(valid);
+  expect(
+    reviewAccessBody.safeParse({ ...valid, decision: "maybe" }).error
+      ?.issues[0]!.message,
+  ).toBe("Choose confirmed or flagged.");
+  expect(
+    reviewAccessBody.safeParse({ ...valid, note: " short " }).error?.issues[0]!
+      .message,
+  ).toBe("Record the review evidence in 10 to 500 characters.");
+  expect(reviewKindParam.safeParse("other").error?.issues[0]!.message).toBe(
+    "Unknown review type.",
+  );
 });

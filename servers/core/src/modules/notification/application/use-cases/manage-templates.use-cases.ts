@@ -5,6 +5,10 @@ import {
   NotFoundException,
 } from "@nestjs/common";
 import type { Collection } from "@repo/contracts";
+import {
+  NOTIFICATION_CHANNELS,
+  TEMPLATE_STATUSES,
+} from "@repo/contracts/notifications";
 
 import {
   pageCollection,
@@ -23,14 +27,11 @@ import {
   TEMPLATE_REPOSITORY,
   type TemplateRepository,
 } from "../../domain/repositories/template.repository";
-import { NOTIFICATION_CHANNELS } from "../../domain/value-objects/notification-channel.vo";
 import {
   TemplateDraft,
   type TemplateDraftProps,
 } from "../../domain/value-objects/template-draft.vo";
 import type { TemplateRow } from "../dto/notification.read-models";
-
-const TEMPLATE_STATUSES = ["draft", "published", "archived"] as const;
 
 /**
  * Which wording an audit event is about. Never the subject or the body: the
@@ -116,7 +117,7 @@ export class CreateTemplateUseCase {
     input: TemplateDraftProps,
     authorId: string,
   ): Promise<{ id: string; version: number }> {
-    const draft = TemplateDraft.parse(input);
+    const draft = TemplateDraft.create(input);
     const version =
       (await this.templates.highestVersion(
         draft.key,
@@ -159,7 +160,7 @@ export class EditTemplateUseCase {
     expectedUpdatedAt: Date,
     authorId: string,
   ): Promise<void> {
-    const draft = TemplateDraft.parse(input);
+    const draft = TemplateDraft.create(input);
     const edited = await this.templates.updateDraft(
       id,
       draft,

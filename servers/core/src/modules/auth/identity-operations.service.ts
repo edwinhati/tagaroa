@@ -7,6 +7,11 @@ import {
   Injectable,
   NotFoundException,
 } from "@nestjs/common";
+import {
+  canManageTarget,
+  isSuperAdmin,
+  mayRun,
+} from "@repo/contracts/identity";
 import { hashPassword } from "better-auth/crypto";
 import { and, count, eq, gt, isNull, ne, sql } from "drizzle-orm";
 
@@ -18,14 +23,6 @@ import {
   AUDIT_TRAIL,
   type AuditTrail,
 } from "../audit/application/audit.facade";
-import {
-  canManageTarget,
-  isSuperAdmin,
-  OWN_OPERATOR_ACCOUNT_REQUIRED,
-  requireOwnSession,
-  rolesOf,
-} from "./access-policy";
-import { TEMPORARY_PASSWORD_LIFETIME_MS } from "./auth";
 import type {
   ApproveRecoveryBody,
   RequestRecoveryBody,
@@ -42,6 +39,13 @@ import {
 } from "./infrastructure/persistence/drizzle/schema";
 import { OnboardingHook } from "./onboarding.hook";
 import { factorRecovery } from "./operations.schema";
+import {
+  type Operator,
+  REFUSALS,
+  requireFresh,
+  requireOwnSession,
+  SESSION_POLICY,
+} from "./session-policy";
 
 /**
  * `rolesOf` splits the role column on commas and `.trim()`s each part, so the
@@ -53,24 +57,11 @@ const TRIM =
   "[\\t\\n\\v\\f\\r \\u00a0\\u1680\\u2000-\\u200a\\u2028\\u2029\\u202f\\u205f\\u3000\\ufeff]*";
 export const SUPER_ADMIN_ROLE_PATTERN = `(^|,)${TRIM}super-admin${TRIM}(,|$)`;
 
-export interface IdentityOperator {
-  id: string;
-  role: string | null | undefined;
-  twoFactorEnabled: boolean;
-  sessionCreatedAt: Date;
-  impersonatedBy?: string | null;
-}
-
-export const requireVerifiedOperator = (actor: IdentityOperator): void => {
-  const age = Date.now() - actor.sessionCreatedAt.getTime();
+export const requireVerifiedOperator = (actor: Operator): void => {
   requireOwnSession(actor);
   if (!actor.twoFactorEnabled)
-    throw new ForbiddenException(OWN_OPERATOR_ACCOUNT_REQUIRED);
-  if (!Number.isFinite(age) || age < 0 || age >= 15 * 60_000)
-    throw new ForbiddenException({
-      code: "SESSION_NOT_FRESH",
-      message: "Sign in again before changing account security.",
-    });
+    throw new ForbiddenException(REFUSALS.impersonated.message);
+  requireFresh(actor, "Sign in again before changing account security.");
 };
 const digest = (value: unknown): string =>
   createHash("sha256").update(JSON.stringify(value)).digest("hex");
@@ -132,15 +123,10 @@ export class IdentityOperationsService {
   async requestRecovery(
     userId: string,
     { reason, evidence }: RequestRecoveryBody,
-    actor: IdentityOperator,
+    actor: Operator,
   ) {
     requireVerifiedOperator(actor);
-    if (
-      !rolesOf(actor.role).some((role) =>
-        ["helpdesk", "admin", "super-admin"].includes(role),
-      )
-    )
-      throw new ForbiddenException();
+    if (!mayRun(actor.role, "support")) throw new ForbiddenException();
     if (actor.id === userId)
       throw new ForbiddenException(
         "Another operator must request your recovery.",
@@ -194,7 +180,7 @@ export class IdentityOperationsService {
         userId,
         requestedBy: actor.id,
         requestedAt: new Date(),
-        expiresAt: new Date(Date.now() + 60 * 60_000),
+        expiresAt: new Date(Date.now() + SESSION_POLICY.factorRecoveryMs),
         reason,
         evidence,
         snapshot,
@@ -212,7 +198,7 @@ export class IdentityOperationsService {
   async approveRecovery(
     id: string,
     { evidence }: ApproveRecoveryBody,
-    actor: IdentityOperator,
+    actor: Operator,
   ) {
     requireVerifiedOperator(actor);
     if (!isSuperAdmin(actor.role))
@@ -244,9 +230,7 @@ export class IdentityOperationsService {
         !requester ||
         requester.banned ||
         !requester.twoFactorEnabled ||
-        !rolesOf(requester.role).some((role) =>
-          ["helpdesk", "admin", "super-admin"].includes(role),
-        )
+        !mayRun(requester.role, "support")
       )
         throw new ConflictException(
           "The requester is no longer an authorized operator.",
@@ -300,7 +284,7 @@ export class IdentityOperationsService {
           twoFactorEnabled: false,
           mustChangePassword: true,
           temporaryPasswordExpiresAt: new Date(
-            now.getTime() + TEMPORARY_PASSWORD_LIFETIME_MS,
+            now.getTime() + SESSION_POLICY.temporaryPasswordMs,
           ),
           updatedAt: now,
         })
@@ -338,7 +322,7 @@ export class IdentityOperationsService {
    * read from the stored row, and the same rule as every targeted admin route
    * keeps a privileged account's sessions to a super administrator.
    */
-  async revokeSession(sessionId: string, actor: IdentityOperator) {
+  async revokeSession(sessionId: string, actor: Operator) {
     const [owner] = await this.database
       .select({ id: user.id, role: user.role })
       .from(session)
@@ -346,10 +330,7 @@ export class IdentityOperationsService {
       .where(eq(session.id, sessionId));
     if (!owner) throw new NotFoundException("Session not found.");
     if (!canManageTarget(actor.role, owner.role))
-      throw new ForbiddenException({
-        code: "PRIVILEGED_TARGET_REQUIRES_SUPER_ADMIN",
-        message: "Only a super administrator can manage a privileged account.",
-      });
+      throw new ForbiddenException(REFUSALS.privilegedTarget);
     await this.database.delete(session).where(eq(session.id, sessionId));
     await this.audit.record({
       actorId: actor.id,
@@ -360,14 +341,9 @@ export class IdentityOperationsService {
     return { revoked: true };
   }
 
-  async offboard(userId: string, detail: string, actor: IdentityOperator) {
+  async offboard(userId: string, detail: string, actor: Operator) {
     requireVerifiedOperator(actor);
-    if (
-      !rolesOf(actor.role).some((role) =>
-        ["admin", "super-admin"].includes(role),
-      )
-    )
-      throw new ForbiddenException();
+    if (!mayRun(actor.role, "administer")) throw new ForbiddenException();
     if (actor.id === userId)
       throw new ForbiddenException(
         "Another administrator must offboard your account.",

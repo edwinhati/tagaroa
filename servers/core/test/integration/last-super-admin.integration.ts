@@ -1,10 +1,10 @@
 import { afterAll, beforeAll, expect, setDefaultTimeout, test } from "bun:test";
 
 import type { INestApplication } from "@nestjs/common";
+import { isSuperAdmin } from "@repo/contracts/identity";
 import { betterAuth } from "better-auth/minimal";
 import { admin, testUtils } from "better-auth/plugins";
 
-import { rolesOf } from "../../src/modules/auth/access-policy";
 import {
   IdentityOperationsService,
   SUPER_ADMIN_ROLE_PATTERN,
@@ -91,7 +91,7 @@ test("two concurrent retirements of the last two super administrators leave one"
   expect(active).toHaveLength(1);
 });
 
-test("the SQL role match agrees with rolesOf for every character that can pad a token", async () => {
+test("the SQL role match agrees with isSuperAdmin for every character that can pad a token", async () => {
   // Every BMP code unit except NUL and the surrogates PostgreSQL cannot chr().
   const padded = await sql`
     select n from generate_series(1, 65535) n
@@ -101,8 +101,7 @@ test("the SQL role match agrees with rolesOf for every character that can pad a 
   for (let n = 1; n <= 65535; n++) {
     if (n >= 0xd800 && n <= 0xdfff) continue;
     const c = String.fromCharCode(n);
-    if (rolesOf(`${c}super-admin${c}`).includes("super-admin"))
-      expected.push(n);
+    if (isSuperAdmin(`${c}super-admin${c}`)) expected.push(n);
   }
   expect(padded.map((row: { n: number }) => row.n)).toEqual(expected);
   expect(expected).toContain(0xa0);
@@ -122,7 +121,7 @@ test("the SQL role match agrees with rolesOf for every character that can pad a 
   ] as const) {
     const [row] = await sql`select ${role} ~ ${SUPER_ADMIN_ROLE_PATTERN} as ok`;
     expect([role, row.ok]).toEqual([role, matches]);
-    expect(rolesOf(role).includes("super-admin")).toBe(matches);
+    expect(isSuperAdmin(role)).toBe(matches);
   }
 });
 

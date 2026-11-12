@@ -1,9 +1,11 @@
 import { randomUUID } from "node:crypto";
 
 import type {
+  MessageStatus,
   NotificationChannel,
-  NotificationPayload,
-} from "../value-objects/notification-channel.vo";
+} from "@repo/contracts/notifications";
+
+import type { NotificationPayload } from "../value-objects/notification-channel.vo";
 
 export interface EnqueueInput {
   key: string;
@@ -29,7 +31,7 @@ interface MessageProps {
   secrets: Record<string, string> | null;
   templateId: string | null;
   idempotencyKey: string | null;
-  status: string;
+  status: MessageStatus;
   error: string | null;
   completedAt: Date | null;
 }
@@ -106,7 +108,7 @@ export class Message {
     return this.props.idempotencyKey;
   }
 
-  get status(): string {
+  get status(): MessageStatus {
     return this.props.status;
   }
 

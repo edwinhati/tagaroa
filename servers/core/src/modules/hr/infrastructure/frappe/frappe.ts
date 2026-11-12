@@ -1,7 +1,6 @@
-import { createHmac, timingSafeEqual } from "node:crypto";
-
 import { asObject } from "@repo/contracts";
 
+import { hmacMatches } from "../../../../platform/http/signed-webhook";
 import type { Employee } from "../../domain/employee";
 import type { EmployeeSource } from "../../domain/repositories/employee-source.port";
 
@@ -21,13 +20,13 @@ export const verifyFrappeSignature = (
   payload: string,
   signature: string,
 ): boolean => {
-  const expected = Buffer.from(
-    createHmac("sha256", secret).update(payload).digest("base64"),
-  );
-  const candidate = Buffer.from(signature);
-  return (
-    expected.length === candidate.length && timingSafeEqual(expected, candidate)
-  );
+  return hmacMatches({
+    algorithm: "sha256",
+    encoding: "base64",
+    key: secret,
+    payload,
+    signature,
+  });
 };
 
 const text = (value: unknown): string | null =>

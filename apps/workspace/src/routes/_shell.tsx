@@ -1,11 +1,7 @@
 import { AppShell } from "@repo/shell/app-shell";
-import {
-  ADMIN_URL,
-  admit,
-  isImpersonating,
-  operatorOf,
-  WORKSPACE_URL,
-} from "@repo/shell/session";
+import { admit } from "@repo/shell/session";
+import { isImpersonating, operatorOf } from "@repo/shell/session-state";
+import { ADMIN_URL, WORKSPACE_URL } from "@repo/shell/urls";
 import { createFileRoute, Outlet } from "@tanstack/react-router";
 import { useState } from "react";
 
@@ -42,7 +38,7 @@ function Shell() {
     <>
       <AppShell
         activeGroupKey="home"
-        adminHref={admin ? `${ADMIN_URL}/overview` : undefined}
+        adminHref={admin ? ADMIN_URL : undefined}
         brandHref={WORKSPACE_URL}
         contentId="workspace-content"
         contextTitle="Workspace"

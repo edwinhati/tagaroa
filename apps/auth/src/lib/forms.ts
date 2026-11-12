@@ -1,6 +1,5 @@
+import { PASSWORD_LENGTH } from "@repo/contracts/identity";
 import * as z from "zod";
-
-import { MIN_PASSWORD_LENGTH } from "./auth-client";
 
 /**
  * Field-level rules for the two credential forms. Kept out of the route files so
@@ -18,8 +17,8 @@ export const newPasswordSchema = z
     password: z
       .string()
       .min(
-        MIN_PASSWORD_LENGTH,
-        `Use at least ${MIN_PASSWORD_LENGTH} characters.`,
+        PASSWORD_LENGTH.min,
+        `Use at least ${PASSWORD_LENGTH.min} characters.`,
       ),
     confirm: z.string(),
   })

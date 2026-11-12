@@ -1,8 +1,15 @@
 import type { Collection } from "@repo/contracts";
+import type {
+  MessageStatus,
+  NotificationChannel,
+  SuppressionReason,
+  TemplateStatus,
+} from "@repo/contracts/notifications";
 import { queryOptions } from "@tanstack/react-query";
 
 import {
-  CORE_URL,
+  DEFAULT_PAGE_SIZE,
+  coreMutationDocument,
   coreReadCollection,
   coreReadCollectionPage,
   coreReadDocument,
@@ -16,7 +23,7 @@ import {
  * `servers/core` behind the same admin role.
  */
 
-export type Channel = "email" | "sms" | "whatsapp";
+export type Channel = NotificationChannel;
 
 export interface Template {
   id: string;
@@ -24,8 +31,8 @@ export interface Template {
   channel: Channel;
   locale: string;
   version: number;
-  /** `draft`, `published`, or `archived` — one published per key/channel/locale. */
-  status: string;
+  /** One published per key/channel/locale. */
+  status: TemplateStatus;
   subject: string | null;
   body: string;
   variables: string[];
@@ -44,8 +51,7 @@ export interface Message {
   channel: Channel;
   locale: string;
   destination: string;
-  /** `pending`, `sending`, `sent`, `delivered`, `bounced`, `failed`, `suppressed`. */
-  status: string;
+  status: MessageStatus;
   attempts: number;
   error: string | null;
   /** The provider's own id — what its webhook reports against. */
@@ -91,7 +97,7 @@ export interface Suppression {
   id: string;
   channel: Channel;
   destination: string;
-  reason: string;
+  reason: SuppressionReason;
   createdAt: string | Date;
 }
 
@@ -143,7 +149,7 @@ export const overviewQueryOptions = queryOptions({
 
 export const messagesQueryOptions = (filter: LogFilter) => {
   const query = new URLSearchParams({
-    limit: String(filter.limit ?? 25),
+    limit: String(filter.limit ?? DEFAULT_PAGE_SIZE),
     page: String(filter.page ?? 1),
     sort: filter.sort || "-createdAt",
   });
@@ -164,7 +170,7 @@ export const messagesQueryOptions = (filter: LogFilter) => {
 
 export const suppressionsQueryOptions = (filter: LogFilter) => {
   const query = new URLSearchParams({
-    limit: String(filter.limit ?? 25),
+    limit: String(filter.limit ?? DEFAULT_PAGE_SIZE),
     page: String(filter.page ?? 1),
     sort: filter.sort || "-createdAt",
   });
@@ -184,49 +190,19 @@ export const suppressionsQueryOptions = (filter: LogFilter) => {
 
 /** Lifting one lets the workspace write to that destination again. */
 export const liftSuppression = (id: string) =>
-  coreWrite(
+  coreMutationDocument<void>(
     `/api/notifications/suppressions/${id}`,
     "DELETE",
+    undefined,
     "Could not lift that suppression.",
   );
 
-/**
- * The core service reads the body off the request stream — the Nest app runs
- * with `bodyParser: false` so Better Auth sees its own requests untouched — so
- * these send JSON and read the failure out of the response themselves.
- */
-async function coreWrite(
-  path: string,
-  method: string,
-  failure: string,
-  body?: unknown,
-): Promise<void> {
-  const response = await fetch(`${CORE_URL}${path}`, {
-    credentials: "include",
-    ...(body === undefined
-      ? {}
-      : {
-          body: JSON.stringify(body),
-          headers: { "content-type": "application/json" },
-        }),
-    method,
-  });
-  if (response.ok) return;
-
-  const said = await response.json().catch(() => null);
-  throw new Error(
-    (said && typeof said === "object" && "message" in said
-      ? String((said as { message: unknown }).message)
-      : "") || failure,
-  );
-}
-
 export const createTemplate = (draft: TemplateDraft) =>
-  coreWrite(
+  coreMutationDocument<void>(
     "/api/notifications/templates",
     "POST",
-    "Could not save that wording.",
     draft,
+    "Could not save that wording.",
   );
 
 export const editTemplate = (
@@ -234,25 +210,27 @@ export const editTemplate = (
   draft: TemplateDraft,
   updatedAt: string | Date,
 ) =>
-  coreWrite(
+  coreMutationDocument<void>(
     `/api/notifications/templates/${id}`,
     "PUT",
-    "Could not save that draft.",
     { ...draft, expectedUpdatedAt: new Date(updatedAt).toISOString() },
+    "Could not save that draft.",
   );
 
 /** Publishing retires whichever version was published before it. */
 export const publishTemplate = (id: string) =>
-  coreWrite(
+  coreMutationDocument<void>(
     `/api/notifications/templates/${id}/publish`,
     "POST",
+    undefined,
     "Could not publish that version.",
   );
 
 export const deleteTemplate = (id: string) =>
-  coreWrite(
+  coreMutationDocument<void>(
     `/api/notifications/templates/${id}`,
     "DELETE",
+    undefined,
     "Could not discard that draft.",
   );
 

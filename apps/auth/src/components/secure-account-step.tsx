@@ -1,10 +1,7 @@
 import { AuthenticatorSetupFlow } from "@repo/shell/account-security-totp";
-import type { SecurityAuthClient } from "@repo/shell/security-auth-client";
 
 import { authClient } from "../lib/auth-client";
 import { AuthShell, Panel, ScreenHeading } from "./auth-shell";
-
-const doorClient = authClient as unknown as SecurityAuthClient;
 
 /**
  * First-sign-in authenticator enrollment for privileged roles. Ongoing
@@ -24,7 +21,7 @@ export function SecureAccountStep({
       </ScreenHeading>
       <Panel>
         <AuthenticatorSetupFlow
-          client={doorClient}
+          client={authClient}
           completionLabel={completionLabel}
           hideIntro
           onDone={onDone}

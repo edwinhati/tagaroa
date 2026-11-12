@@ -1,3 +1,4 @@
+import { NOTIFICATION_CHANNELS } from "@repo/contracts/notifications";
 import { renderEmail } from "@repo/email";
 import {
   AlertDialog,
@@ -42,7 +43,7 @@ import {
 import { CodeEditor } from "./code-editor";
 import { ChannelName, MONO } from "./notification-status";
 
-const CHANNELS: Channel[] = ["email", "sms", "whatsapp"];
+const CHANNELS = NOTIFICATION_CHANNELS;
 
 /** GSM-7 segments. The second one costs the same as the first did. */
 const SMS_SEGMENT = 160;

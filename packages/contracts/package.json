@@ -4,7 +4,9 @@
   "private": true,
   "type": "module",
   "exports": {
-    ".": "./src/index.ts"
+    ".": "./src/index.ts",
+    "./identity": "./src/identity.ts",
+    "./notifications": "./src/notifications.ts"
   },
   "scripts": {
     "check-types": "tsc --noEmit",

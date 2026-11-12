@@ -8,14 +8,19 @@ import {
   Injectable,
   NotFoundException,
 } from "@nestjs/common";
+import { ACCESS_WINDOWS, isSuperAdmin } from "@repo/contracts/identity";
 
+import { conflictOnUniqueViolation } from "../../../platform/database/unique-violation";
 import {
   AUDIT_TRAIL,
   type AuditTrail,
 } from "../../audit/application/audit.facade";
-import { isSuperAdmin, requireOwnSession } from "../../auth/access-policy";
 import {
-  DOMAIN_ADMINISTRATOR_ROLE,
+  type Operator,
+  requireFresh,
+  requireOwnSession,
+} from "../../auth/session-policy";
+import {
   isPermissionKey,
   PERMISSION_CATALOG,
   permissionsArePrivileged,
@@ -35,89 +40,9 @@ import type {
   AccessDecisionInput,
 } from "./access-control.facade";
 
-export const FRESH_AUTHENTICATION_MS = 15 * 60 * 1_000;
-export const BREAK_GLASS_LIFETIME_MS = 15 * 60 * 1_000;
+const BREAK_GLASS_LIFETIME_MS = ACCESS_WINDOWS.breakGlassMinutes * 60_000;
 
-export interface AccessActor {
-  id: string;
-  identityRole: string | null | undefined;
-  sessionCreatedAt: Date;
-  sessionId: string;
-  impersonatedBy?: string | null;
-}
-
-const isUniqueViolation = (error: unknown): boolean => {
-  const { cause, errno } = (error ?? {}) as {
-    cause?: unknown;
-    errno?: unknown;
-  };
-  return (
-    errno === "23505" ||
-    (cause !== undefined && cause !== error && isUniqueViolation(cause))
-  );
-};
-
-/** The pre-check can lose a race; the unique index then answers instead. */
-const rejectUniqueViolation = async <T>(
-  write: () => Promise<T>,
-  message: string,
-): Promise<T> => {
-  try {
-    return await write();
-  } catch (error) {
-    if (isUniqueViolation(error)) throw new ConflictException(message);
-    throw error;
-  }
-};
-
-const cleanText = (value: unknown, label: string, maximum: number): string => {
-  if (typeof value !== "string" || value.trim().length === 0) {
-    throw new BadRequestException(`${label} is required.`);
-  }
-  const cleaned = value.trim();
-  if (cleaned.length > maximum) {
-    throw new BadRequestException(
-      `${label} must be ${maximum} characters or fewer.`,
-    );
-  }
-  return cleaned;
-};
-
-const cleanKey = (value: unknown): string => {
-  const key = cleanText(value, "Role key", 64);
-  if (!/^[a-z][a-z0-9]*(?:-[a-z0-9]+)*$/.test(key)) {
-    throw new BadRequestException(
-      "Role key must use lowercase letters, numbers, and single hyphens.",
-    );
-  }
-  return key;
-};
-
-const cleanPermissions = (value: unknown): PermissionKey[] => {
-  if (!Array.isArray(value) || value.length === 0) {
-    throw new BadRequestException("Choose at least one permission.");
-  }
-  const permissions = [...new Set(value)];
-  if (
-    permissions.some(
-      (permission) =>
-        typeof permission !== "string" || !isPermissionKey(permission),
-    )
-  ) {
-    throw new BadRequestException("The role contains an unknown permission.");
-  }
-  return permissions as PermissionKey[];
-};
-
-export const requireFresh = (actor: AccessActor, now: Date): void => {
-  const age = now.getTime() - actor.sessionCreatedAt.getTime();
-  if (!Number.isFinite(age) || age < 0 || age >= FRESH_AUTHENTICATION_MS) {
-    throw new ForbiddenException({
-      code: "SESSION_NOT_FRESH",
-      message: "Sign in again before changing sensitive access.",
-    });
-  }
-};
+export const SENSITIVE = "Sign in again before changing sensitive access.";
 
 const rolePermissions = (role: AccessRoleRecord): PermissionKey[] =>
   role.permissions.filter(isPermissionKey);
@@ -165,24 +90,17 @@ export class AccessControlService implements AccessControl {
 
   async createRole(
     input: {
-      description?: unknown;
-      key?: unknown;
-      name?: unknown;
-      permissions?: unknown;
+      description: string;
+      key: string;
+      name: string;
+      permissions: PermissionKey[];
     },
-    actor: AccessActor,
+    actor: Operator,
     now = new Date(),
   ) {
     requireOwnSession(actor);
-    requireFresh(actor, now);
-    const role = {
-      description: cleanText(input.description, "Description", 240),
-      id: randomUUID(),
-      key: cleanKey(input.key),
-      name: cleanText(input.name, "Role name", 80),
-      permissions: cleanPermissions(input.permissions),
-      userId: actor.id,
-    };
+    requireFresh(actor, SENSITIVE, now);
+    const role = { ...input, id: randomUUID(), userId: actor.id };
     if (scopesForPermissions(role.permissions).length === 0) {
       throw new BadRequestException(
         "These permissions do not share an assignable scope.",
@@ -191,7 +109,7 @@ export class AccessControlService implements AccessControl {
     if (await this.repository.roleKeyOrNameExists(role.key, role.name)) {
       throw new ConflictException("A role already uses that name or key.");
     }
-    await rejectUniqueViolation(
+    await conflictOnUniqueViolation(
       () => this.repository.createRole(role),
       "A role already uses that name or key.",
     );
@@ -205,34 +123,36 @@ export class AccessControlService implements AccessControl {
 
   async updateRole(
     id: string,
-    input: { description?: unknown; name?: unknown; permissions?: unknown },
-    actor: AccessActor,
+    {
+      description,
+      name,
+      permissions,
+    }: { description: string; name: string; permissions: PermissionKey[] },
+    actor: Operator,
     now = new Date(),
   ) {
     requireOwnSession(actor);
-    requireFresh(actor, now);
+    requireFresh(actor, SENSITIVE, now);
     const existing = await this.repository.findRole(id);
     if (!existing || existing.archivedAt)
       throw new NotFoundException("Role not found.");
     if (existing.system) {
       throw new BadRequestException("Built-in roles cannot be changed.");
     }
-    const permissions = cleanPermissions(input.permissions);
     if (scopesForPermissions(permissions).length === 0) {
       throw new BadRequestException(
         "These permissions do not share an assignable scope.",
       );
     }
-    const name = cleanText(input.name, "Role name", 80);
     if (
       await this.repository.roleKeyOrNameExists(existing.key, name, existing.id)
     ) {
       throw new ConflictException("A role already uses that name.");
     }
-    await rejectUniqueViolation(
+    await conflictOnUniqueViolation(
       () =>
         this.repository.updateRole({
-          description: cleanText(input.description, "Description", 240),
+          description,
           id,
           name,
           permissions,
@@ -248,9 +168,9 @@ export class AccessControlService implements AccessControl {
     return this.repository.findRole(id);
   }
 
-  async archiveRole(id: string, actor: AccessActor, now = new Date()) {
+  async archiveRole(id: string, actor: Operator, now = new Date()) {
     requireOwnSession(actor);
-    requireFresh(actor, now);
+    requireFresh(actor, SENSITIVE, now);
     const role = await this.repository.findRole(id);
     if (!role || role.archivedAt)
       throw new NotFoundException("Role not found.");
@@ -305,7 +225,7 @@ export class AccessControlService implements AccessControl {
       teamId: string | null;
       userId: string;
     },
-    actor: AccessActor,
+    actor: Operator,
     now = new Date(),
   ): Promise<AccessAssignmentRecord> {
     requireOwnSession(actor);
@@ -343,12 +263,12 @@ export class AccessControlService implements AccessControl {
     }
     const privileged = permissionsArePrivileged(permissions);
     if (privileged) {
-      if (!isSuperAdmin(actor.identityRole)) {
+      if (!isSuperAdmin(actor.role)) {
         throw new ForbiddenException(
           "Only a super administrator can grant privileged access.",
         );
       }
-      requireFresh(actor, now);
+      requireFresh(actor, SENSITIVE, now);
       if (!(await this.repository.userHasTwoFactor(input.userId))) {
         throw new BadRequestException(
           "The person must set up two-factor authentication before receiving this role.",
@@ -385,7 +305,7 @@ export class AccessControlService implements AccessControl {
   async updateAssignmentExpiry(
     id: string,
     expiresAt: Date | null,
-    actor: AccessActor,
+    actor: Operator,
     now = new Date(),
   ) {
     requireOwnSession(actor);
@@ -396,12 +316,12 @@ export class AccessControlService implements AccessControl {
       throw new NotFoundException("Assignment not found.");
     }
     if (permissionsArePrivileged(rolePermissions(assignment.role))) {
-      if (!isSuperAdmin(actor.identityRole)) {
+      if (!isSuperAdmin(actor.role)) {
         throw new ForbiddenException(
           "Only a super administrator can change privileged access.",
         );
       }
-      requireFresh(actor, now);
+      requireFresh(actor, SENSITIVE, now);
     }
     if (expiresAt && expiresAt <= now) {
       throw new BadRequestException("Expiration must be in the future.");
@@ -416,7 +336,7 @@ export class AccessControlService implements AccessControl {
     return updated;
   }
 
-  async revokeAssignment(id: string, actor: AccessActor, now = new Date()) {
+  async revokeAssignment(id: string, actor: Operator, now = new Date()) {
     requireOwnSession(actor);
     const revoked = await this.repository.revokeAssignment(id, actor.id, now);
     if (!revoked) throw new NotFoundException("Active assignment not found.");
@@ -433,20 +353,20 @@ export class AccessControlService implements AccessControl {
     input: {
       organizationId: string;
       permission: string;
-      reason?: unknown;
+      reason: string;
       scope: AccessScopeType;
       teamId: string | null;
     },
-    actor: AccessActor,
+    actor: Operator,
     now = new Date(),
   ) {
     requireOwnSession(actor);
-    if (!isSuperAdmin(actor.identityRole)) {
+    if (!isSuperAdmin(actor.role)) {
       throw new ForbiddenException(
         "Only a super administrator can activate emergency access.",
       );
     }
-    requireFresh(actor, now);
+    requireFresh(actor, SENSITIVE, now);
     if (
       !isPermissionKey(input.permission) ||
       !PERMISSION_CATALOG[input.permission].breakGlass
@@ -470,7 +390,7 @@ export class AccessControlService implements AccessControl {
       id: randomUUID(),
       organizationId: input.organizationId,
       permission: input.permission,
-      reason: cleanText(input.reason, "Reason", 240),
+      reason: input.reason,
       sessionId: actor.sessionId,
       teamId: input.teamId,
       userId: actor.id,
@@ -484,7 +404,7 @@ export class AccessControlService implements AccessControl {
     return elevation;
   }
 
-  async endBreakGlass(id: string, actor: AccessActor, now = new Date()) {
+  async endBreakGlass(id: string, actor: Operator, now = new Date()) {
     requireOwnSession(actor);
     if (!(await this.repository.endElevation(id, actor.sessionId, now))) {
       throw new NotFoundException("Active emergency access not found.");
@@ -497,29 +417,29 @@ export class AccessControlService implements AccessControl {
     return { ended: true as const };
   }
 
-  activeBreakGlass(actor: AccessActor, now = new Date()) {
+  activeBreakGlass(actor: Operator, now = new Date()) {
     return this.repository.activeElevations(actor.id, actor.sessionId, now);
   }
 
-  async can(input: AccessDecisionInput): Promise<boolean> {
+  async can({ operator, ...scope }: AccessDecisionInput): Promise<boolean> {
     const now = new Date();
     if (
-      input.teamId !== null &&
-      (await this.repository.teamOrganizationId(input.teamId)) !==
-        input.organizationId
+      scope.teamId !== null &&
+      (await this.repository.teamOrganizationId(scope.teamId)) !==
+        scope.organizationId
     )
       return false;
-    if (await this.repository.hasEffectivePermission({ ...input, at: now })) {
-      return true;
-    }
-    if (!isSuperAdmin(input.identityRole)) return false;
-    const elevated = await this.repository.hasActiveElevation({
-      ...input,
+    const input = {
+      ...scope,
       at: now,
-    });
-    if (!elevated) return false;
+      sessionId: operator.sessionId,
+      userId: operator.id,
+    };
+    if (await this.repository.hasEffectivePermission(input)) return true;
+    if (!isSuperAdmin(operator.role)) return false;
+    if (!(await this.repository.hasActiveElevation(input))) return false;
     await this.audit.record({
-      actorId: input.userId,
+      actorId: operator.id,
       detail: `${input.permission} on ${input.teamId ?? input.organizationId}`,
       type: "access.break-glass.used",
     });
@@ -537,5 +457,3 @@ export class AccessControlService implements AccessControl {
     return permissions;
   }
 }
-
-export { DOMAIN_ADMINISTRATOR_ROLE };

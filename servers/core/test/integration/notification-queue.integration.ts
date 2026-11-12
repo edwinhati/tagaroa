@@ -116,7 +116,6 @@ const options = {
   maxAttempts: 3,
   pollMilliseconds: 1000,
   worker: false,
-  providers: { strict: false },
 };
 
 test("queue retries transient failure only when due and clears secrets after success", () =>
@@ -278,11 +277,11 @@ test("a suppression arriving after enqueue blocks its channel and lifting it per
     const refusal = Suppression.raise({
       channel: "email",
       destination,
-      reason: "bounce",
+      reason: "bounced",
     });
     await suppressions.add(refusal);
     await suppressions.add(refusal);
-    expect(await suppressions.reasonFor("email", destination)).toBe("bounce");
+    expect(await suppressions.reasonFor("email", destination)).toBe("bounced");
     const sent: string[] = [];
     const drain = new DrainQueueUseCase(
       messages,
