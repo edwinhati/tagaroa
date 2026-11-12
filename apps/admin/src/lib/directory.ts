@@ -1,4 +1,4 @@
-import { type Collection, type Wire } from "@repo/contracts";
+import { PAGE_SIZE, type Collection, type Wire } from "@repo/contracts";
 import {
   type AttentionIssue,
   type DashboardModel,
@@ -10,6 +10,7 @@ import {
   type PrivilegedPerson,
   type TimelineEntry,
 } from "@repo/contracts/directory";
+import { type SavePositionBody } from "@repo/contracts/requests/directory";
 import { queryOptions } from "@tanstack/react-query";
 
 import { coreMutationDocument, coreReadDocument, exhaustNested } from "./api";
@@ -41,18 +42,21 @@ type DashboardDocument = Wire<
  */
 export type Directory = Wire<GroupSnapshot>;
 
-export const savePosition = (input: {
-  managerUserId: string | null;
-  organizationId: string | null;
-  title: string;
-  userId: string;
-}) =>
+export const savePosition = (
+  input: Wire<SavePositionBody> & {
+    organizationId: string | null;
+    userId: string;
+  },
+) =>
   coreMutationDocument<Wire<PositionRecord>>(
     input.organizationId
       ? `/api/directory/positions/subsidiaries/${input.organizationId}/${input.userId}`
       : `/api/directory/positions/group/${input.userId}`,
     "PUT",
-    { managerUserId: input.managerUserId, title: input.title },
+    {
+      managerUserId: input.managerUserId,
+      title: input.title,
+    } satisfies Wire<SavePositionBody>,
     "Could not save the position.",
   );
 
@@ -74,7 +78,7 @@ export const dashboardQueryOptions = queryOptions({
   queryFn: async ({ signal }) => {
     const failure = "Could not read authentication activity.";
     const document = await coreReadDocument<DashboardDocument>(
-      "/api/directory/dashboard?accessReviewPeopleLimit=100&attentionLimit=100&eventsLimit=100&peopleLimit=100",
+      `/api/directory/dashboard?accessReviewPeopleLimit=${PAGE_SIZE.max}&attentionLimit=${PAGE_SIZE.max}&eventsLimit=${PAGE_SIZE.max}&peopleLimit=${PAGE_SIZE.max}`,
       failure,
       signal,
     );
@@ -121,7 +125,7 @@ export const directoryQueryOptions = queryOptions({
         teams: Collection<DirectoryTeam>;
       }>
     >(
-      "/api/directory?positionsLimit=100&subsidiariesLimit=100&teamsLimit=100",
+      `/api/directory?positionsLimit=${PAGE_SIZE.max}&subsidiariesLimit=${PAGE_SIZE.max}&teamsLimit=${PAGE_SIZE.max}`,
       failure,
       signal,
     );

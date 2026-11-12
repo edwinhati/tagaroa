@@ -15,6 +15,10 @@ import {
   type PositionRecord,
 } from "@repo/contracts/directory";
 import { IDENTITY_OPERATIONS } from "@repo/contracts/identity";
+import {
+  savePositionBody,
+  type SavePositionBody,
+} from "@repo/contracts/requests/directory";
 import { Roles, Session, type UserSession } from "@thallesp/nestjs-better-auth";
 
 import {
@@ -34,7 +38,6 @@ import { ListLinkedAccountsUseCase } from "../application/use-cases/list-linked-
 import { ManagePositionUseCase } from "../application/use-cases/manage-position.use-case";
 import { ReadPersonalEmailUseCase } from "../application/use-cases/read-personal-email.use-case";
 import { RecordAccessReviewUseCase } from "../application/use-cases/record-access-review.use-case";
-import { savePositionBody, type SavePositionBody } from "./directory.schemas";
 
 interface Directory {
   positions: Collection<PositionRecord>;

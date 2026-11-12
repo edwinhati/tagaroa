@@ -20,7 +20,8 @@
     "./session-state": "./src/session-state.ts",
     "./create-auth-client": "./src/create-auth-client.ts",
     "./router": "./src/router.tsx",
-    "./vite": "./src/vite.ts"
+    "./vite": "./src/vite.ts",
+    "./zod-jitless": "./src/zod-jitless.ts"
   },
   "scripts": {
     "check-types": "tsc --noEmit",
@@ -46,7 +47,8 @@
     "qrcode.react": "4.2.0",
     "react": "catalog:",
     "react-dom": "catalog:",
-    "thinking-orbs": "^0.3.2"
+    "thinking-orbs": "^0.3.2",
+    "zod": "catalog:"
   },
   "devDependencies": {
     "@repo/typescript-config": "*",

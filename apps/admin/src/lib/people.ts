@@ -1,4 +1,4 @@
-import { type Wire } from "@repo/contracts";
+import { PAGE_SIZE, type Wire } from "@repo/contracts";
 import { type LinkedAccount } from "@repo/contracts/directory";
 import {
   ADMIN_ROLE_IDS,
@@ -306,7 +306,7 @@ export const linkedAccountsQueryOptions = (userId: string) =>
     queryKey: ["admin", "people", userId, "accounts"],
     queryFn: () =>
       coreReadCollection<Wire<LinkedAccount>>(
-        `/api/directory/users/${userId}/accounts?limit=100`,
+        `/api/directory/users/${userId}/accounts?limit=${PAGE_SIZE.max}`,
         "Could not read this person's linked accounts.",
       ).then((collection) => collection.data),
   });

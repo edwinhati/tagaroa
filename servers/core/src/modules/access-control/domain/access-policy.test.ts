@@ -1,7 +1,8 @@
 import { describe, expect, test } from "bun:test";
 
+import { isPermissionKey } from "@repo/contracts/access-control";
+
 import {
-  isPermissionKey,
   permissionsArePrivileged,
   scopesForPermissions,
 } from "./access-policy";

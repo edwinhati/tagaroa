@@ -1,6 +1,5 @@
+import { objectBody } from "@repo/contracts/requests/fields";
 import * as z from "zod";
-
-import { objectBody } from "../../../platform/http/request-fields";
 
 /**
  * The parts of each provider's payload the receipt parsers read. The payloads

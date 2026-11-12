@@ -1,4 +1,7 @@
-import { type PermissionDefinition } from "@repo/contracts/access-control";
+import {
+  type PermissionDefinition,
+  type PermissionKey,
+} from "@repo/contracts/access-control";
 import { isSuperAdmin, mayRun } from "@repo/contracts/identity";
 import { Button } from "@repo/ui/components/button";
 import { Checkbox } from "@repo/ui/components/checkbox";
@@ -224,7 +227,7 @@ function RoleEditor({
   onOpenChange,
 }: {
   open: boolean;
-  permissions: PermissionDefinition[];
+  permissions: PermissionDefinition<PermissionKey>[];
   role: BusinessRole | null;
   onOpenChange: (open: boolean) => void;
 }) {
@@ -232,7 +235,9 @@ function RoleEditor({
   const [name, setName] = useState(role?.name ?? "");
   const [key, setKey] = useState(role?.key ?? "");
   const [description, setDescription] = useState(role?.description ?? "");
-  const [selected, setSelected] = useState<string[]>(role?.permissions ?? []);
+  const [selected, setSelected] = useState<PermissionKey[]>(
+    role?.permissions ?? [],
+  );
   const save = useMutation({
     mutationFn: () =>
       role

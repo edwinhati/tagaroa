@@ -15,6 +15,20 @@ import {
   IDENTITY_OPERATIONS,
 } from "@repo/contracts/identity";
 import {
+  addMemberBody,
+  type AddMemberBody,
+  approveRecoveryBody,
+  type ApproveRecoveryBody,
+  createSubsidiaryBody,
+  type CreateSubsidiaryBody,
+  createTeamBody,
+  type CreateTeamBody,
+  offboardBody,
+  type OffboardBody,
+  requestRecoveryBody,
+  type RequestRecoveryBody,
+} from "@repo/contracts/requests/auth-management";
+import {
   AuthService,
   Roles,
   Session,
@@ -28,20 +42,6 @@ import {
   type AuditTrail,
 } from "../audit/application/audit.facade";
 import { type Auth } from "./auth";
-import {
-  addMemberBody,
-  type AddMemberBody,
-  approveRecoveryBody,
-  type ApproveRecoveryBody,
-  createSubsidiaryBody,
-  type CreateSubsidiaryBody,
-  createTeamBody,
-  type CreateTeamBody,
-  offboardBody,
-  type OffboardBody,
-  requestRecoveryBody,
-  type RequestRecoveryBody,
-} from "./auth-management.schemas";
 import { IdentityOperationsService } from "./identity-operations.service";
 import { operatorOf, SESSION_POLICY } from "./session-policy";
 

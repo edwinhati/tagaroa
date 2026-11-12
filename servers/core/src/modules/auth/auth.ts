@@ -4,6 +4,7 @@ import {
   ADMIN_ROLE_IDS,
   IDENTITY_ROLES,
   PASSWORD_LENGTH,
+  USER_ADDITIONAL_FIELDS,
 } from "@repo/contracts/identity";
 import { createAuthMiddleware } from "better-auth/api";
 import { deleteSessionCookie } from "better-auth/cookies";
@@ -336,32 +337,7 @@ export const createAuth = (repository: AuthRepository, config: AuthConfig) => {
       }),
     ],
     user: {
-      additionalFields: {
-        mustChangePassword: {
-          defaultValue: false,
-          input: false,
-          required: false,
-          type: "boolean",
-        },
-        temporaryPasswordExpiresAt: {
-          input: false,
-          required: false,
-          type: "date",
-        },
-        /**
-         * Where onboarding reaches a new hire before they have a workspace
-         * mailbox. `input: true` because an admin is exactly who should set it,
-         * and `returned: false` so it never rides along in a listing: the one
-         * admin acting on one person reads it through `directory`, and every
-         * other admin never holds it at all.
-         */
-        personalEmail: {
-          input: true,
-          required: false,
-          returned: false,
-          type: "string",
-        },
-      },
+      additionalFields: USER_ADDITIONAL_FIELDS,
     },
     rateLimit: {
       enabled: config.nodeEnv !== "test",

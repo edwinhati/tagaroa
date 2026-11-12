@@ -11,13 +11,6 @@ import {
 } from "@nestjs/common";
 import { type ReviewKind } from "@repo/contracts/access-control";
 import { IDENTITY_OPERATIONS } from "@repo/contracts/identity";
-import { Roles, Session, type UserSession } from "@thallesp/nestjs-better-auth";
-
-import { SessionOnly } from "../../../platform/http/session-only.decorator";
-import { operatorOf } from "../../auth/session-policy";
-import { AccessControlService } from "../application/access-control.service";
-import { AccessReviewService } from "../application/access-review.service";
-import { DomainAccessService } from "../application/domain-access.service";
 import {
   bindDomainBody,
   breakGlassBody,
@@ -36,7 +29,14 @@ import {
   type ReviewAccessBody,
   type UpdateAssignmentBody,
   type UpdateRoleBody,
-} from "./access-control.schemas";
+} from "@repo/contracts/requests/access-control";
+import { Roles, Session, type UserSession } from "@thallesp/nestjs-better-auth";
+
+import { SessionOnly } from "../../../platform/http/session-only.decorator";
+import { operatorOf } from "../../auth/session-policy";
+import { AccessControlService } from "../application/access-control.service";
+import { AccessReviewService } from "../application/access-review.service";
+import { DomainAccessService } from "../application/domain-access.service";
 
 @Controller("access-control")
 export class AccessControlController {

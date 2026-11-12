@@ -4,13 +4,19 @@ import {
   type AccessReviewSubject,
   type AccessRoleRecord,
   type AccessRoleView,
-  type AccessScopeType,
   type AssignmentView,
   type BusinessAccessPolicy,
   type EmergencyElevation,
-  type ReviewDecision,
   type TeamDomain,
 } from "@repo/contracts/access-control";
+import {
+  type BindDomainBody,
+  type BreakGlassBody,
+  type CreateRoleBody,
+  type GrantAssignmentBody,
+  type ReviewAccessBody,
+  type UpdateRoleBody,
+} from "@repo/contracts/requests/access-control";
 import { queryOptions } from "@tanstack/react-query";
 
 import { coreMutationDocument, coreReadDocument } from "./api";
@@ -37,12 +43,7 @@ export const businessAssignmentsQueryOptions = queryOptions({
     ),
 });
 
-export const createBusinessRole = (input: {
-  description: string;
-  key: string;
-  name: string;
-  permissions: string[];
-}) =>
+export const createBusinessRole = (input: Wire<CreateRoleBody>) =>
   coreMutationDocument<Wire<AccessRoleRecord>>(
     "/api/access-control/roles",
     "POST",
@@ -52,7 +53,7 @@ export const createBusinessRole = (input: {
 
 export const updateBusinessRole = (
   roleId: string,
-  input: { description: string; name: string; permissions: string[] },
+  input: Wire<UpdateRoleBody>,
 ) =>
   coreMutationDocument<Wire<AccessRoleRecord>>(
     `/api/access-control/roles/${roleId}`,
@@ -69,14 +70,7 @@ export const archiveBusinessRole = (roleId: string) =>
     "Could not archive the role.",
   );
 
-export const grantBusinessAssignment = (input: {
-  expiresAt: string | null;
-  organizationId: string;
-  roleId: string;
-  scope: AccessScopeType;
-  teamId: string | null;
-  userId: string;
-}) =>
+export const grantBusinessAssignment = (input: Wire<GrantAssignmentBody>) =>
   coreMutationDocument<Wire<AccessAssignmentRecord>>(
     "/api/access-control/assignments",
     "POST",
@@ -92,13 +86,7 @@ export const revokeBusinessAssignment = (assignmentId: string) =>
     "Could not revoke access.",
   );
 
-export const activateEmergencyAccess = (input: {
-  organizationId: string;
-  permission: string;
-  reason: string;
-  scope: AccessScopeType;
-  teamId: string | null;
-}) =>
+export const activateEmergencyAccess = (input: Wire<BreakGlassBody>) =>
   coreMutationDocument<Wire<EmergencyElevation>>(
     "/api/access-control/break-glass",
     "POST",
@@ -136,7 +124,7 @@ export const accessReviewQueueQueryOptions = queryOptions({
 
 export const recordBusinessAccessReview = (input: {
   subject: ReviewSubject;
-  decision: ReviewDecision;
+  decision: ReviewAccessBody["decision"];
   note: string;
 }) =>
   coreMutationDocument(
@@ -146,7 +134,7 @@ export const recordBusinessAccessReview = (input: {
       snapshot: input.subject.snapshot,
       decision: input.decision,
       note: input.note,
-    },
+    } satisfies Wire<ReviewAccessBody>,
     "Could not record the review.",
   );
 
@@ -159,10 +147,13 @@ export const teamDomainBindingsQueryOptions = queryOptions({
     ),
 });
 
-export const bindTeamDomain = (teamId: string, domainSlug: string | null) =>
+export const bindTeamDomain = (
+  teamId: string,
+  domainSlug: BindDomainBody["domainSlug"],
+) =>
   coreMutationDocument(
     `/api/access-control/teams/${teamId}/domain`,
     "PUT",
-    { domainSlug },
+    { domainSlug } satisfies BindDomainBody,
     "Could not change the team's domain.",
   );

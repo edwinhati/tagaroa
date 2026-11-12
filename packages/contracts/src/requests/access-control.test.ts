@@ -10,7 +10,7 @@ import {
   reviewKindParam,
   updateAssignmentBody,
   updateRoleBody,
-} from "./access-control.schemas";
+} from "./access-control";
 
 const valid = {
   organizationId: " org-1 ",

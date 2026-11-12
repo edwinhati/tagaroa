@@ -9,6 +9,9 @@ import {
   NotFoundException,
 } from "@nestjs/common";
 import {
+  isPermissionKey,
+  PERMISSION_CATALOG,
+  type PermissionKey,
   type AccessRoleView,
   type BusinessAccessPolicy,
   type AccessScopeType,
@@ -29,11 +32,8 @@ import {
   requireOwnSession,
 } from "../../auth/session-policy";
 import {
-  isPermissionKey,
-  PERMISSION_CATALOG,
   permissionsArePrivileged,
   scopesForPermissions,
-  type PermissionKey,
 } from "../domain/access-policy";
 import {
   ACCESS_CONTROL_REPOSITORY,

@@ -1,12 +1,11 @@
 import {
+  type PermissionKey,
   type AccessAssignmentRecord,
   type AccessRoleRecord,
   type AssignmentView,
   type EmergencyElevation,
   type AccessScopeType,
 } from "@repo/contracts/access-control";
-
-import { type PermissionKey } from "../access-policy";
 
 export const ACCESS_CONTROL_REPOSITORY = Symbol("ACCESS_CONTROL_REPOSITORY");
 

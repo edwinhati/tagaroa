@@ -17,6 +17,12 @@ import {
   type SuppressionRow,
   type TemplateRow,
 } from "@repo/contracts/notifications";
+import {
+  editTemplateBody,
+  templateDraftBody,
+  type EditTemplateBody,
+  type TemplateDraftBody,
+} from "@repo/contracts/requests/notifications";
 import { Roles, Session, type UserSession } from "@thallesp/nestjs-better-auth";
 
 import { type QueryRecord } from "../../../platform/http/collection";
@@ -33,12 +39,6 @@ import {
   ListTemplatesUseCase,
   PublishTemplateUseCase,
 } from "../application/use-cases/manage-templates.use-cases";
-import {
-  editTemplateBody,
-  templateDraftBody,
-  type EditTemplateBody,
-  type TemplateDraftBody,
-} from "./notification.schemas";
 
 /**
  * The wording and what became of it, for `apps/admin`.

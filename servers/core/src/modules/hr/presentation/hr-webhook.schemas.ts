@@ -1,6 +1,5 @@
+import { objectBody } from "@repo/contracts/requests/fields";
 import * as z from "zod";
-
-import { objectBody } from "../../../platform/http/request-fields";
 
 const NAME_REQUIRED = "Send the employee's name";
 

@@ -236,6 +236,41 @@ export interface FactorRecoveryRequest {
 /** Bounds for the case reference an operator records with a sensitive act. */
 export const EVIDENCE_LENGTH = { max: 500, min: 10 } as const;
 
+/**
+ * The columns core adds to Better Auth's user. Core configures Better Auth with
+ * this object and the clients infer the user's type from it, so neither side
+ * writes the fields out again.
+ */
+export const USER_ADDITIONAL_FIELDS = {
+  mustChangePassword: {
+    defaultValue: false,
+    input: false,
+    required: false,
+    type: "boolean",
+  },
+  temporaryPasswordExpiresAt: {
+    input: false,
+    required: false,
+    type: "date",
+  },
+  /**
+   * Where onboarding reaches a new hire before they have a workspace
+   * mailbox. `input: true` because an admin is exactly who should set it,
+   * and `returned: false` so it never rides along in a listing: the one
+   * admin acting on one person reads it through `directory`, and every
+   * other admin never holds it at all.
+   */
+  personalEmail: {
+    input: true,
+    required: false,
+    returned: false,
+    type: "string",
+  },
+} as const;
+
+/** The longest display name a person may give themselves. */
+export const DISPLAY_NAME_MAX_LENGTH = 80;
+
 /** What a password must be; Better Auth enforces it, the door says it first. */
 export const PASSWORD_LENGTH = { max: 256, min: 12 } as const;
 

@@ -1,24 +1,9 @@
 import {
   ACCESS_SCOPE_TYPES,
   type AccessScopeType,
-  type PermissionDefinition,
+  PERMISSION_CATALOG,
+  type PermissionKey,
 } from "@repo/contracts/access-control";
-
-export const PERMISSION_CATALOG = {
-  "domain:administer": {
-    breakGlass: true,
-    description: "Change configuration owned by a working domain.",
-    key: "domain:administer",
-    label: "Administer domain configuration",
-    privileged: true,
-    scopes: ["subsidiary", "team"],
-  },
-} as const satisfies Record<string, PermissionDefinition>;
-
-export type PermissionKey = keyof typeof PERMISSION_CATALOG;
-
-export const isPermissionKey = (value: string): value is PermissionKey =>
-  Object.hasOwn(PERMISSION_CATALOG, value);
 
 export const scopesForPermissions = (
   permissions: readonly PermissionKey[],

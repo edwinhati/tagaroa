@@ -2,18 +2,18 @@ import { WORKING_DOMAINS } from "@repo/contracts";
 import {
   ACCESS_SCOPE_TYPES,
   type AccessScopeType,
+  isPermissionKey,
+  type PermissionKey,
   REVIEW_DECISIONS,
   REVIEW_KINDS,
 } from "@repo/contracts/access-control";
 import { EVIDENCE_LENGTH } from "@repo/contracts/identity";
-import * as z from "zod";
-
 import {
   evidenceText,
   objectBody,
   requiredText as required,
-} from "../../../platform/http/request-fields";
-import { isPermissionKey, type PermissionKey } from "../domain/access-policy";
+} from "@repo/contracts/requests/fields";
+import * as z from "zod";
 
 const scope = z.enum(ACCESS_SCOPE_TYPES, {
   error: "Scope must be subsidiary or team.",

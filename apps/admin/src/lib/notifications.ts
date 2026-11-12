@@ -1,4 +1,4 @@
-import type { Wire } from "@repo/contracts";
+import { PAGE_SIZE, type Wire } from "@repo/contracts";
 import {
   MESSAGE_SORT_FIELDS,
   MESSAGE_STATUSES,
@@ -12,6 +12,10 @@ import {
   type SuppressionRow,
   type TemplateRow,
 } from "@repo/contracts/notifications";
+import {
+  type EditTemplateBody,
+  type TemplateDraftBody,
+} from "@repo/contracts/requests/notifications";
 import { queryOptions } from "@tanstack/react-query";
 
 import {
@@ -86,21 +90,13 @@ export const validateSuppressionSearch = (
 /** Every notification read sits under this key, so a write refreshes them all. */
 export const NOTIFICATIONS_QUERY_KEY = ["admin", "notifications"] as const;
 
-export interface TemplateDraft {
-  key: string;
-  channel: Channel;
-  locale: string;
-  subject: string | null;
-  body: string;
-  variables: string[];
-  secrets: string[];
-}
+export type TemplateDraft = TemplateDraftBody;
 
 export const templatesQueryOptions = queryOptions({
   queryKey: [...NOTIFICATIONS_QUERY_KEY, "templates"],
   queryFn: () =>
     coreReadCollection<Template>(
-      "/api/notifications/templates?limit=100",
+      `/api/notifications/templates?limit=${PAGE_SIZE.max}`,
       "Could not read the message wording.",
     ).then((collection) => collection.data),
 });
@@ -113,7 +109,7 @@ export const overviewQueryOptions = queryOptions({
   queryKey: [...NOTIFICATIONS_QUERY_KEY, "overview"],
   queryFn: () =>
     coreReadDocument<NotificationOverview>(
-      "/api/notifications/overview?channelsLimit=100&seriesLimit=100",
+      `/api/notifications/overview?channelsLimit=${PAGE_SIZE.max}&seriesLimit=${PAGE_SIZE.max}`,
       "Could not read delivery health.",
     ).then((document) => ({
       ...document,
@@ -178,7 +174,10 @@ export const editTemplate = (
   coreMutationDocument<void>(
     `/api/notifications/templates/${id}`,
     "PUT",
-    { ...draft, expectedUpdatedAt: new Date(updatedAt).toISOString() },
+    {
+      ...draft,
+      expectedUpdatedAt: new Date(updatedAt).toISOString(),
+    } satisfies Wire<EditTemplateBody>,
     "Could not save that draft.",
   );
 

@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test";
 
-import { savePositionBody } from "./directory.schemas";
+import { savePositionBody } from "./directory";
 
 const message = (input: unknown) => {
   const result = savePositionBody.safeParse(input);

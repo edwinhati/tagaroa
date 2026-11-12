@@ -1,9 +1,5 @@
+import { objectBody, requiredText } from "@repo/contracts/requests/fields";
 import * as z from "zod";
-
-import {
-  objectBody,
-  requiredText,
-} from "../../../platform/http/request-fields";
 
 /** `PUT /directory/positions/...`: a title and an optional manager. */
 export const savePositionBody = objectBody({

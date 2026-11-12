@@ -1,6 +1,5 @@
 import { SetMetadata } from "@nestjs/common";
-
-import type { PermissionKey } from "../domain/access-policy";
+import { type PermissionKey } from "@repo/contracts/access-control";
 
 export const REQUIRED_PERMISSION = Symbol("REQUIRED_PERMISSION");
 

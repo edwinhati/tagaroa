@@ -8,16 +8,16 @@ import {
   REFUSAL_CODES,
 } from "@repo/contracts/identity";
 import {
+  updateProfileBody,
+  type UpdateProfileBody,
+} from "@repo/contracts/requests/auth-management";
+import {
   APIError,
   createAuthMiddleware,
   getAuthoritativeSessionFromCtx,
 } from "better-auth/api";
 import { setRequestCookie } from "better-auth/cookies";
 
-import {
-  updateProfileBody,
-  type UpdateProfileBody,
-} from "./auth-management.schemas";
 import {
   isFresh,
   isRead,

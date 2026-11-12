@@ -5,6 +5,11 @@ import {
   isSuperAdmin,
   mayRun,
 } from "@repo/contracts/identity";
+import {
+  type ApproveRecoveryBody,
+  type OffboardBody,
+  type RequestRecoveryBody,
+} from "@repo/contracts/requests/auth-management";
 import { Button } from "@repo/ui/components/button";
 import { Checkbox } from "@repo/ui/components/checkbox";
 import {
@@ -75,6 +80,11 @@ export function IdentitySecurityOperations({ person }: { person: Person }) {
 }
 
 const hasEvidence = (text: string) => text.trim().length >= EVIDENCE_LENGTH.min;
+
+/** The checkbox is sent as it stands; core refuses an unverified request in its own words. */
+type Attested<Body> = Omit<Body, "identityVerified"> & {
+  identityVerified: boolean;
+};
 
 /** A dialog that cannot be dismissed while its act is in flight. */
 function OperationDialog({
@@ -186,7 +196,7 @@ function usePersonOperation(
 ) {
   const client = useQueryClient();
   return useMutation({
-    mutationFn: (body: Record<string, unknown>) =>
+    mutationFn: (body: Attested<RequestRecoveryBody> | OffboardBody) =>
       coreMutationDocument(
         `/api/auth-management/users/${person.id}/${operation}`,
         "POST",
@@ -413,7 +423,10 @@ function RecoveryApproval({
       }>(
         `/api/auth-management/recoveries/${request.id}/approve`,
         "POST",
-        { evidence, identityVerified: verified },
+        {
+          evidence,
+          identityVerified: verified,
+        } satisfies Attested<ApproveRecoveryBody>,
         "Could not approve recovery.",
       ),
     onError: (error) => {
