@@ -17,8 +17,11 @@ import {
   PANEL,
   PanelSkeleton,
 } from "../../../components/admin-surface";
-import type { AuthEvent, IdentityIssue } from "../../../lib/admin";
-import { dashboardQueryOptions } from "../../../lib/admin";
+import {
+  type AuthEvent,
+  type IdentityIssue,
+  dashboardQueryOptions,
+} from "../../../lib/directory";
 import {
   ATTENTION_ORDER,
   attentionCopy,

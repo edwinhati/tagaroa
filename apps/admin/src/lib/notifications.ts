@@ -1,14 +1,16 @@
-import type { Collection } from "@repo/contracts";
+import type { Wire } from "@repo/contracts";
 import {
   MESSAGE_SORT_FIELDS,
   MESSAGE_STATUSES,
-  type MessageStatus,
   NOTIFICATION_CHANNELS,
   type NotificationChannel,
   SUPPRESSION_REASONS,
   SUPPRESSION_SORT_FIELDS,
-  type SuppressionReason,
-  type TemplateStatus,
+  type ChannelHealth,
+  type MessageRow,
+  type NotificationOverview,
+  type SuppressionRow,
+  type TemplateRow,
 } from "@repo/contracts/notifications";
 import { queryOptions } from "@tanstack/react-query";
 
@@ -17,7 +19,7 @@ import {
   coreReadCollection,
   coreReadCollectionPage,
   coreReadDocument,
-} from "./admin";
+} from "./api";
 import {
   type CollectionSearch,
   collectionRequest,
@@ -35,81 +37,17 @@ import {
 
 export type Channel = NotificationChannel;
 
-export interface Template {
-  id: string;
-  key: string;
-  channel: Channel;
-  locale: string;
-  version: number;
-  /** One published per key/channel/locale. */
-  status: TemplateStatus;
-  subject: string | null;
-  body: string;
-  variables: string[];
-  /**
-   * The values this wording keeps out of the message log — `password` on the
-   * two account templates. Read back and sent again on every edit, so a new
-   * version of an existing wording cannot silently lose the declaration.
-   */
-  secrets: string[];
-  updatedAt: string | Date;
-}
+export type Template = Wire<TemplateRow>;
 
-export interface Message {
-  id: string;
-  key: string;
-  channel: Channel;
-  locale: string;
-  destination: string;
-  status: MessageStatus;
-  attempts: number;
-  error: string | null;
-  /** The provider's own id — what its webhook reports against. */
-  providerId: string | null;
-  subject: string | null;
-  body: string;
-  createdAt: string | Date;
-  sentAt: string | Date | null;
-  completedAt: string | Date | null;
-}
+export type Message = Wire<MessageRow>;
 
-export interface ChannelHealth {
-  channel: Channel;
-  provider: string;
-  configured: boolean;
-  queued: number;
-  sent: number;
-  delivered: number;
-  failed: number;
-  suppressed: number;
-}
-
-export interface Overview {
-  /** False outside production, where every channel writes to the log instead. */
-  live: boolean;
+/** The overview with its two lists read in full. */
+export type Overview = Omit<NotificationOverview, "channels" | "series"> & {
   channels: ChannelHealth[];
-  totals: {
-    queued: number;
-    sent: number;
-    delivered: number;
-    failed: number;
-    suppressed: number;
-  };
-  series: { day: string; sent: number; failed: number }[];
-}
-
-type OverviewDocument = Omit<Overview, "channels" | "series"> & {
-  channels: Collection<ChannelHealth>;
-  series: Collection<Overview["series"][number]>;
+  series: NotificationOverview["series"]["data"];
 };
 
-export interface Suppression {
-  id: string;
-  channel: Channel;
-  destination: string;
-  reason: SuppressionReason;
-  createdAt: string | Date;
-}
+export type Suppression = Wire<SuppressionRow>;
 
 export interface DeliverySearch extends CollectionSearch {
   channel?: string[];
@@ -174,7 +112,7 @@ export const templatesQueryOptions = queryOptions({
 export const overviewQueryOptions = queryOptions({
   queryKey: [...NOTIFICATIONS_QUERY_KEY, "overview"],
   queryFn: () =>
-    coreReadDocument<OverviewDocument>(
+    coreReadDocument<NotificationOverview>(
       "/api/notifications/overview?channelsLimit=100&seriesLimit=100",
       "Could not read delivery health.",
     ).then((document) => ({

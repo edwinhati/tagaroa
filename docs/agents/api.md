@@ -11,6 +11,10 @@ service. Read this before adding or changing an endpoint.
   repo exists, not before.
 - **Envelope.** A single resource answers `{ data }` (`ApiDocument<T>`). A list answers
   `{ data: T[], meta, links }` (`Collection<T>`). Types live in `packages/contracts`.
+- **Response types.** What an endpoint answers with is declared once in `@repo/contracts`
+  (`access-control`, `directory`, `identity`, `notifications`), with `Date` fields as core builds
+  them. Core's ports and services use those types, so a renamed or dropped field fails core's type
+  check. The apps read them as `Wire<T>`, where every `Date` is an ISO string.
 - **Collections.** Offset paging only: `page` (from 1) and `limit` (default 25, max 100). Build the
   query with `parseCollectionQuery` and the reply with `pageCollection` / `collectionOf`
   (`platform/http/collection.ts`). Sorting is an allow-list (`sort=-name,id`), filters list their
@@ -92,6 +96,6 @@ async grantAssignment(
   particular, have none. `@nestjs/throttler` with a generous global default is the proposed fix.
 - **Webhook repeats.** Providers retry. Confirm `hr-webhook` and `notification.webhook` ignore an
   event ID they have already processed.
-- **Shared schemas.** `apps/admin/src/lib/admin.ts` re-declares request shapes
+- **Shared schemas.** `apps/admin/src/lib/business-access.ts` re-declares request shapes
   (`grantBusinessAssignment`). Moving a schema into `@repo/contracts` lets both ends share it; that
   needs `zod` added to the package.

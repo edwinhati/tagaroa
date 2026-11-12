@@ -1,6 +1,6 @@
 import { primaryRoleLabel } from "@repo/contracts/identity";
 import { AppTrail, Page } from "@repo/shell/app-shell";
-import type { AuthSession } from "@repo/shell/create-auth-client";
+import { type AuthSession } from "@repo/shell/create-auth-client";
 import { parseUserAgent } from "@repo/shell/session-device";
 import { SessionDeviceMarks } from "@repo/shell/session-device-mark";
 import { Button } from "@repo/ui/components/button";
@@ -43,27 +43,29 @@ import {
   PositionSummary,
   usePersonAdmin,
 } from "../../../components/person-admin";
-import type {
-  BusinessAssignment,
-  Directory,
-  PeopleSearch,
-  Person,
-} from "../../../lib/admin";
+import { announce } from "../../../lib/api";
 import {
-  accessPolicyQueryOptions,
-  announce,
+  type BusinessAssignment,
   businessAccessPolicyQueryOptions,
   businessAssignmentsQueryOptions,
+} from "../../../lib/business-access";
+import {
+  type Directory,
   dashboardQueryOptions,
   directoryQueryOptions,
+} from "../../../lib/directory";
+import { attentionCopy, eventAction } from "../../../lib/identity-operations";
+import {
+  type PeopleSearch,
+  type Person,
+  accessPolicyQueryOptions,
   everyPersonQueryOptions,
   linkedAccountsQueryOptions,
   personQueryOptions,
   personSessionsQueryOptions,
   revokeSession,
   standingOf,
-} from "../../../lib/admin";
-import { attentionCopy, eventAction } from "../../../lib/identity-operations";
+} from "../../../lib/people";
 
 export const Route = createFileRoute(
   "/_shell/identity-access/people/$personId",

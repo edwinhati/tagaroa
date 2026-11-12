@@ -9,17 +9,17 @@ import {
   Put,
   Query,
 } from "@nestjs/common";
-import type { ApiDocument, Collection } from "@repo/contracts";
+import { type ApiDocument, type Collection } from "@repo/contracts";
 import { IDENTITY_OPERATIONS } from "@repo/contracts/identity";
+import {
+  type MessageRow,
+  type NotificationOverview,
+  type SuppressionRow,
+  type TemplateRow,
+} from "@repo/contracts/notifications";
 import { Roles, Session, type UserSession } from "@thallesp/nestjs-better-auth";
 
-import type { QueryRecord } from "../../../platform/http/collection";
-import type {
-  MessageRow,
-  NotificationOverview,
-  SuppressionRow,
-  TemplateRow,
-} from "../application/dto/notification.read-models";
+import { type QueryRecord } from "../../../platform/http/collection";
 import {
   GetNotificationOverviewUseCase,
   ListMessagesUseCase,

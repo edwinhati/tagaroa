@@ -1,5 +1,8 @@
-export const ACCESS_SCOPE_TYPES = ["subsidiary", "team"] as const;
-export type AccessScopeType = (typeof ACCESS_SCOPE_TYPES)[number];
+import {
+  ACCESS_SCOPE_TYPES,
+  type AccessScopeType,
+  type PermissionDefinition,
+} from "@repo/contracts/access-control";
 
 export const PERMISSION_CATALOG = {
   "domain:administer": {
@@ -10,7 +13,7 @@ export const PERMISSION_CATALOG = {
     privileged: true,
     scopes: ["subsidiary", "team"],
   },
-} as const;
+} as const satisfies Record<string, PermissionDefinition>;
 
 export type PermissionKey = keyof typeof PERMISSION_CATALOG;
 

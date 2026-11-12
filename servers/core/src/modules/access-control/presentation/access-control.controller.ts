@@ -9,6 +9,7 @@ import {
   Put,
   Query,
 } from "@nestjs/common";
+import { type ReviewKind } from "@repo/contracts/access-control";
 import { IDENTITY_OPERATIONS } from "@repo/contracts/identity";
 import { Roles, Session, type UserSession } from "@thallesp/nestjs-better-auth";
 
@@ -17,7 +18,6 @@ import { operatorOf } from "../../auth/session-policy";
 import { AccessControlService } from "../application/access-control.service";
 import { AccessReviewService } from "../application/access-review.service";
 import { DomainAccessService } from "../application/domain-access.service";
-import type { ReviewKind } from "../domain/repositories/access-review.repository";
 import {
   bindDomainBody,
   breakGlassBody,

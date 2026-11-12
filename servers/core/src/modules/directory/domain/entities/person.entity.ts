@@ -1,4 +1,5 @@
-import { type AttentionKind, isPrivilegedRole } from "@repo/contracts/identity";
+import { type AttentionIssue } from "@repo/contracts/directory";
+import { isPrivilegedRole } from "@repo/contracts/identity";
 
 const DAY = 24 * 60 * 60 * 1000;
 
@@ -7,14 +8,6 @@ const UNVERIFIED_GRACE_DAYS = 7;
 
 export const ageInDays = (value: Date, now: Date): number =>
   Math.max(0, Math.floor((now.getTime() - value.getTime()) / DAY));
-
-export interface AttentionIssue {
-  userId: string;
-  name: string;
-  email: string;
-  ageDays: number;
-  kind: AttentionKind;
-}
 
 export interface PersonProps {
   id: string;

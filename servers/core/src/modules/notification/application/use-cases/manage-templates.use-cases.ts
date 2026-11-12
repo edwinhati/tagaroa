@@ -4,8 +4,9 @@ import {
   Injectable,
   NotFoundException,
 } from "@nestjs/common";
-import type { Collection } from "@repo/contracts";
+import { type Collection } from "@repo/contracts";
 import {
+  type TemplateRow,
   NOTIFICATION_CHANNELS,
   TEMPLATE_STATUSES,
 } from "@repo/contracts/notifications";
@@ -31,7 +32,6 @@ import {
   TemplateDraft,
   type TemplateDraftProps,
 } from "../../domain/value-objects/template-draft.vo";
-import type { TemplateRow } from "../dto/notification.read-models";
 
 /**
  * Which wording an audit event is about. Never the subject or the body: the

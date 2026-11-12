@@ -1,13 +1,12 @@
 import { describe, expect, test } from "bun:test";
 
-import type { AuditTrail } from "../../../audit/application/audit.facade";
+import { type PositionRecord } from "@repo/contracts/directory";
+
+import { type AuditTrail } from "../../../audit/application/audit.facade";
 import { person } from "../../domain/entities/person.fixture";
-import type { PersonRepository } from "../../domain/repositories/person.repository";
-import type {
-  PositionRecord,
-  PositionRepository,
-} from "../../domain/repositories/position.repository";
-import type { SubsidiaryRepository } from "../../domain/repositories/subsidiary.repository";
+import { type PersonRepository } from "../../domain/repositories/person.repository";
+import { type PositionRepository } from "../../domain/repositories/position.repository";
+import { type SubsidiaryRepository } from "../../domain/repositories/subsidiary.repository";
 import { ManagePositionUseCase } from "./manage-position.use-case";
 
 const people: PersonRepository = {

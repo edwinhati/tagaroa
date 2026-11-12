@@ -1,14 +1,15 @@
 import { describe, expect, mock, setSystemTime, test } from "bun:test";
 
-import type { AuditTrail } from "../../audit/application/audit.facade";
-import type { Operator } from "../../auth/session-policy";
-import type { PermissionKey } from "../domain/access-policy";
-import type {
-  AccessAssignmentRecord,
-  AccessControlRepository,
-  AccessRoleRecord,
-  AssignmentView,
-} from "../domain/repositories/access-control.repository";
+import {
+  type AccessAssignmentRecord,
+  type AccessRoleRecord,
+  type AssignmentView,
+} from "@repo/contracts/access-control";
+
+import { type AuditTrail } from "../../audit/application/audit.facade";
+import { type Operator } from "../../auth/session-policy";
+import { type PermissionKey } from "../domain/access-policy";
+import { type AccessControlRepository } from "../domain/repositories/access-control.repository";
 import { AccessControlService } from "./access-control.service";
 
 const NOW = new Date("2026-09-01T12:00:00.000Z");

@@ -42,6 +42,18 @@ export interface Collection<T> {
   links: PaginationLinks;
 }
 
+/**
+ * A response type as the apps receive it. The types here are written as core
+ * builds them, with `Date`s; JSON turns every one into an ISO string.
+ */
+export type Wire<T> = T extends Date
+  ? string
+  : T extends readonly (infer U)[]
+    ? Wire<U>[]
+    : T extends object
+      ? { [K in keyof T]: Wire<T[K]> }
+      : T;
+
 /** The value as a plain object, or undefined when it is not one. */
 export function asObject(value: unknown): ObjectLike | undefined {
   return typeof value === "object" && value !== null

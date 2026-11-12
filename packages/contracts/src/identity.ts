@@ -207,6 +207,32 @@ export type AttentionKind =
   | "unverified-email"
   | "no-subsidiary";
 
+/** The session rules core enforces, as `/api/auth-management/access-policy` reports them. */
+export interface AuthenticationPolicy {
+  session: {
+    concurrentLimit: number;
+    freshAuthenticationMinutes: number;
+    temporaryPasswordHours: number;
+    trustedDeviceDays: number;
+    twoFactorChallengeMinutes: number;
+  };
+}
+
+/** A request to reset someone's second factor, waiting for a super administrator. */
+export interface FactorRecoveryRequest {
+  approvalEvidence: string | null;
+  approvedBy: string | null;
+  completedAt: Date | null;
+  evidence: string;
+  expired: boolean;
+  expiresAt: Date;
+  id: string;
+  reason: string;
+  requestedAt: Date;
+  requestedBy: string | null;
+  userId: string;
+}
+
 /** Bounds for the case reference an operator records with a sensitive act. */
 export const EVIDENCE_LENGTH = { max: 500, min: 10 } as const;
 

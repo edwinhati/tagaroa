@@ -1,43 +1,14 @@
-import type { AccessScopeType, PermissionKey } from "../access-policy";
+import {
+  type AccessAssignmentRecord,
+  type AccessRoleRecord,
+  type AssignmentView,
+  type EmergencyElevation,
+  type AccessScopeType,
+} from "@repo/contracts/access-control";
+
+import { type PermissionKey } from "../access-policy";
 
 export const ACCESS_CONTROL_REPOSITORY = Symbol("ACCESS_CONTROL_REPOSITORY");
-
-export interface AccessRoleRecord {
-  archivedAt: Date | null;
-  createdAt: Date;
-  description: string;
-  id: string;
-  key: string;
-  name: string;
-  permissions: string[];
-  system: boolean;
-  updatedAt: Date;
-}
-
-export interface AccessAssignmentRecord {
-  expiresAt: Date | null;
-  grantedAt: Date;
-  grantedBy: string | null;
-  id: string;
-  organizationId: string;
-  revokedAt: Date | null;
-  roleId: string;
-  teamId: string | null;
-  userId: string;
-}
-
-export interface AssignmentView extends AccessAssignmentRecord {
-  active: boolean;
-  inactiveReason:
-    | "expired"
-    | "left-subsidiary"
-    | "left-team"
-    | "mfa-required"
-    | "revoked"
-    | "role-archived"
-    | null;
-  role: AccessRoleRecord;
-}
 
 export interface CreateRoleInput {
   description: string;
@@ -64,16 +35,7 @@ export interface AccessControlRepository {
     userId: string,
     sessionId: string,
     at: Date,
-  ): Promise<
-    {
-      id: string;
-      expiresAt: Date;
-      organizationId: string;
-      teamId: string | null;
-      permission: string;
-      reason: string;
-    }[]
-  >;
+  ): Promise<EmergencyElevation[]>;
   archiveRole(id: string, userId: string, now: Date): Promise<boolean>;
   createRole(input: CreateRoleInput): Promise<void>;
   endElevation(id: string, sessionId: string, now: Date): Promise<boolean>;

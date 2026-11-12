@@ -1,4 +1,5 @@
 import { Inject, Injectable } from "@nestjs/common";
+import { type GroupSnapshot } from "@repo/contracts/directory";
 
 import {
   POSITION_REPOSITORY,
@@ -8,7 +9,6 @@ import {
   SUBSIDIARY_REPOSITORY,
   type SubsidiaryRepository,
 } from "../../domain/repositories/subsidiary.repository";
-import type { GroupSnapshot } from "../dto/group-snapshot.dto";
 
 /**
  * The whole group, for whoever administers it.

@@ -1,5 +1,11 @@
 import { Inject, Injectable, NotFoundException } from "@nestjs/common";
-import type { ApiDocument, Collection } from "@repo/contracts";
+import { type ApiDocument, type Collection } from "@repo/contracts";
+import {
+  type ChannelHealth,
+  type MessageRow,
+  type NotificationOverview,
+  type SuppressionRow,
+} from "@repo/contracts/notifications";
 
 import {
   pageCollection,
@@ -18,12 +24,6 @@ import {
   CHANNEL_STATUS,
   type DeliveryStatus,
 } from "../../domain/services/channel-status.service";
-import type {
-  ChannelHealth,
-  MessageRow,
-  NotificationOverview,
-  SuppressionRow,
-} from "../dto/notification.read-models";
 import {
   NOTIFICATION_QUERY,
   type NotificationQuery,

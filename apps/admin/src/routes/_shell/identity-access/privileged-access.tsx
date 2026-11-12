@@ -1,3 +1,4 @@
+import { type PermissionDefinition } from "@repo/contracts/access-control";
 import {
   ACCESS_WINDOWS,
   isSuperAdmin,
@@ -44,20 +45,20 @@ import {
   PanelSkeleton,
 } from "../../../components/admin-surface";
 import { FieldSelect } from "../../../components/business-access";
+import { announce, write } from "../../../lib/api";
 import {
   activateEmergencyAccess,
-  announce,
   businessAccessPolicyQueryOptions,
-  directoryQueryOptions,
   emergencyAccessQueryOptions,
   endEmergencyAccess,
+} from "../../../lib/business-access";
+import { directoryQueryOptions } from "../../../lib/directory";
+import {
   everyPersonQueryOptions,
-  type BusinessPermission,
   type Person,
   accessPolicyQueryOptions,
   refreshPeople,
-  write,
-} from "../../../lib/admin";
+} from "../../../lib/people";
 
 export const Route = createFileRoute(
   "/_shell/identity-access/privileged-access",
@@ -436,7 +437,7 @@ function EmergencyAccessDialog({
   onOpenChange,
 }: {
   open: boolean;
-  permissions: BusinessPermission[];
+  permissions: PermissionDefinition[];
   subsidiaries: { id: string; name: string }[];
   teams: { id: string; name: string; organizationId: string }[];
   onOpenChange: (open: boolean) => void;

@@ -1,4 +1,5 @@
 import { Inject, Injectable } from "@nestjs/common";
+import { type DashboardModel } from "@repo/contracts/directory";
 import { reviewWeekStart } from "@repo/contracts/identity";
 
 import {
@@ -27,7 +28,6 @@ import {
   timeline,
   TIMELINE_DEPTH,
 } from "../../domain/services/timeline.service";
-import type { DashboardModel } from "../dto/group-snapshot.dto";
 
 /**
  * What an operator sees when they open the back office.

@@ -1,4 +1,6 @@
-import type { AttentionIssue, Person } from "../entities/person.entity";
+import { type AttentionIssue } from "@repo/contracts/directory";
+
+import { type Person } from "../entities/person.entity";
 
 /**
  * Everything the group should act on, across everybody.

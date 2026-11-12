@@ -5,6 +5,8 @@
   "type": "module",
   "exports": {
     ".": "./src/index.ts",
+    "./access-control": "./src/access-control.ts",
+    "./directory": "./src/directory.ts",
     "./identity": "./src/identity.ts",
     "./notifications": "./src/notifications.ts"
   },

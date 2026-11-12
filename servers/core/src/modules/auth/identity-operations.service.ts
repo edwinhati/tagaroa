@@ -9,6 +9,7 @@ import {
 } from "@nestjs/common";
 import {
   canManageTarget,
+  type FactorRecoveryRequest,
   isSuperAdmin,
   mayRun,
 } from "@repo/contracts/identity";
@@ -23,9 +24,9 @@ import {
   AUDIT_TRAIL,
   type AuditTrail,
 } from "../audit/application/audit.facade";
-import type {
-  ApproveRecoveryBody,
-  RequestRecoveryBody,
+import {
+  type ApproveRecoveryBody,
+  type RequestRecoveryBody,
 } from "./auth-management.schemas";
 import {
   account,
@@ -101,7 +102,7 @@ export class IdentityOperationsService {
     private readonly onboarding: OnboardingHook,
   ) {}
 
-  async listRecoveries() {
+  async listRecoveries(): Promise<FactorRecoveryRequest[]> {
     const rows = await this.database
       .select({
         id: factorRecovery.id,

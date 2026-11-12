@@ -25,9 +25,9 @@ import {
   ShieldIcon,
   UsersIcon,
 } from "lucide-react";
-import type { ComponentType } from "react";
+import { type ComponentType } from "react";
 
-import { directoryQueryOptions } from "../lib/admin";
+import { directoryQueryOptions } from "../lib/directory";
 
 type NavIcon = ComponentType<{
   className?: string;

@@ -1,4 +1,9 @@
 import { Inject, Injectable } from "@nestjs/common";
+import {
+  type AccessAssignmentRecord,
+  type AccessRoleRecord,
+  type AssignmentView,
+} from "@repo/contracts/access-control";
 import { and, asc, eq, gt, inArray, isNull, ne, or, sql } from "drizzle-orm";
 
 import {
@@ -17,13 +22,10 @@ import {
   PERMISSION_CATALOG,
   type PermissionKey,
 } from "../../../domain/access-policy";
-import type {
-  AccessAssignmentRecord,
-  AccessRoleRecord,
-  AssignmentView,
-  AccessControlRepository,
-  CreateRoleInput,
-  GrantAssignmentInput,
+import {
+  type AccessControlRepository,
+  type CreateRoleInput,
+  type GrantAssignmentInput,
 } from "../../../domain/repositories/access-control.repository";
 import {
   accessAssignment,

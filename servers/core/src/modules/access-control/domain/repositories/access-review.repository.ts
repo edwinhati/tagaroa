@@ -1,21 +1,11 @@
+import {
+  type BusinessAccessReview,
+  type ReviewKind,
+} from "@repo/contracts/access-control";
+
 export const ACCESS_REVIEW_REPOSITORY = Symbol(
   "BUSINESS_ACCESS_REVIEW_REPOSITORY",
 );
-export const REVIEW_KINDS = ["assignment", "emergency"] as const;
-export const REVIEW_DECISIONS = ["confirmed", "flagged"] as const;
-export type ReviewKind = (typeof REVIEW_KINDS)[number];
-export type ReviewDecision = (typeof REVIEW_DECISIONS)[number];
-
-export interface BusinessAccessReview {
-  id: string;
-  kind: ReviewKind;
-  subjectId: string;
-  snapshot: string;
-  decision: ReviewDecision;
-  note: string;
-  reviewedAt: Date;
-  reviewedBy: string | null;
-}
 
 export interface EmergencyAccessRecord {
   id: string;

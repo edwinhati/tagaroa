@@ -1,3 +1,4 @@
+import { type PermissionDefinition } from "@repo/contracts/access-control";
 import { isSuperAdmin, mayRun } from "@repo/contracts/identity";
 import { Button } from "@repo/ui/components/button";
 import { Checkbox } from "@repo/ui/components/checkbox";
@@ -27,15 +28,14 @@ import {
   SurfaceSection,
 } from "../../../../components/admin-surface";
 import { BusinessAccessPage } from "../../../../components/business-access";
+import { announce } from "../../../../lib/api";
 import {
-  announce,
   archiveBusinessRole,
   businessAccessPolicyQueryOptions,
   createBusinessRole,
-  type BusinessPermission,
   type BusinessRole,
   updateBusinessRole,
-} from "../../../../lib/admin";
+} from "../../../../lib/business-access";
 
 const shellRoute = getRouteApi("/_shell");
 
@@ -224,7 +224,7 @@ function RoleEditor({
   onOpenChange,
 }: {
   open: boolean;
-  permissions: BusinessPermission[];
+  permissions: PermissionDefinition[];
   role: BusinessRole | null;
   onOpenChange: (open: boolean) => void;
 }) {

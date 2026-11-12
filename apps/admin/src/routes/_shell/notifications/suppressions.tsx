@@ -34,7 +34,7 @@ import {
   exactTime,
   reasonLabel,
 } from "../../../components/notification-status";
-import { announce } from "../../../lib/admin";
+import { announce } from "../../../lib/api";
 import {
   facetOptions,
   useCollectionSearch,

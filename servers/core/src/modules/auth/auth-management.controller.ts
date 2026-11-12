@@ -9,7 +9,11 @@ import {
   Param,
   Post,
 } from "@nestjs/common";
-import { IDENTITY_OPERATIONS } from "@repo/contracts/identity";
+import { type ApiDocument } from "@repo/contracts";
+import {
+  type AuthenticationPolicy,
+  IDENTITY_OPERATIONS,
+} from "@repo/contracts/identity";
 import {
   AuthService,
   Roles,
@@ -23,7 +27,7 @@ import {
   AUDIT_TRAIL,
   type AuditTrail,
 } from "../audit/application/audit.facade";
-import type { Auth } from "./auth";
+import { type Auth } from "./auth";
 import {
   addMemberBody,
   type AddMemberBody,
@@ -117,7 +121,7 @@ export class AuthManagementController {
 
   @Get("access-policy")
   @Roles([...IDENTITY_OPERATIONS.operate])
-  accessPolicy() {
+  accessPolicy(): ApiDocument<AuthenticationPolicy> {
     return {
       data: {
         session: {

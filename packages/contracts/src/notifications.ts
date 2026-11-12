@@ -1,3 +1,5 @@
+import type { Collection } from "@repo/contracts";
+
 /** The words the notification module and its admin console share. */
 
 /** The three ways a message can leave the building. */
@@ -44,3 +46,84 @@ export const SUPPRESSION_SORT_FIELDS = [
   "reason",
 ] as const;
 export const NEWEST_FIRST = "-createdAt";
+
+/**
+ * What the notification admin endpoints answer with. Rows as the console lists
+ * them, not entities: the log is filtered, faceted and paged in SQL, so core's
+ * query port answers in these and its write side keeps the entities.
+ */
+export interface TemplateRow {
+  id: string;
+  key: string;
+  channel: NotificationChannel;
+  locale: string;
+  version: number;
+  status: TemplateStatus;
+  subject: string | null;
+  body: string;
+  variables: string[];
+  /**
+   * Which variables this wording withholds from the message log. Read back so
+   * that editing wording carries the declaration into the next version rather
+   * than quietly dropping it.
+   */
+  secrets: string[];
+  updatedAt: Date;
+}
+
+export interface MessageRow {
+  id: string;
+  key: string;
+  channel: NotificationChannel;
+  locale: string;
+  destination: string;
+  status: MessageStatus;
+  attempts: number;
+  error: string | null;
+  /** The provider's own id, which its webhook reports against. */
+  providerId: string | null;
+  subject: string | null;
+  body: string;
+  createdAt: Date;
+  sentAt: Date | null;
+  completedAt: Date | null;
+}
+
+export interface SuppressionRow {
+  id: string;
+  channel: NotificationChannel;
+  destination: string;
+  reason: SuppressionReason;
+  createdAt: Date;
+}
+
+export interface ChannelHealth {
+  channel: NotificationChannel;
+  /** Who carries it: Resend, Twilio, Meta. */
+  provider: string;
+  /** Whether this deployment holds credentials for it. */
+  configured: boolean;
+  queued: number;
+  sent: number;
+  delivered: number;
+  failed: number;
+  suppressed: number;
+}
+
+export interface NotificationOverview {
+  /**
+   * False when no channel holds credentials, so every message writes to the
+   * log instead of reaching a provider.
+   */
+  live: boolean;
+  channels: Collection<ChannelHealth>;
+  totals: {
+    queued: number;
+    sent: number;
+    delivered: number;
+    failed: number;
+    suppressed: number;
+  };
+  /** One point per day for a fortnight, zero-filled. */
+  series: Collection<{ day: string; sent: number; failed: number }>;
+}

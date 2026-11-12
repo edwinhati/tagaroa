@@ -1,3 +1,4 @@
+import { type ChannelHealth } from "@repo/contracts/notifications";
 import { AppTrail, Page } from "@repo/shell/app-shell";
 import { Button } from "@repo/ui/components/button";
 import {
@@ -29,7 +30,6 @@ import {
   channelLabel,
 } from "../../../components/notification-status";
 import {
-  type ChannelHealth,
   type Overview,
   overviewQueryOptions,
 } from "../../../lib/notifications";

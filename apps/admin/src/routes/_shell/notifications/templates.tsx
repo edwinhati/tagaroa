@@ -34,7 +34,7 @@ import {
 } from "../../../components/notification-status";
 import { TemplateDetail } from "../../../components/template-detail";
 import { WordingEditor } from "../../../components/wording-editor";
-import { announce } from "../../../lib/admin";
+import { announce } from "../../../lib/api";
 import {
   type Template,
   deleteTemplate,

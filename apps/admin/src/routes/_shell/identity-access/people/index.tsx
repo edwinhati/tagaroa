@@ -51,27 +51,27 @@ import {
   PersonActionItems,
   usePersonAdmin,
 } from "../../../../components/person-admin";
-import type {
-  PeopleQuery,
-  PeopleSearch,
-  PeopleSlice,
-  PeopleSortField,
-  Person,
-} from "../../../../lib/admin";
+import { useCollectionSearch } from "../../../../lib/collection-search";
 import {
   dashboardQueryOptions,
-  PEOPLE_SORT_FIELDS,
   directoryQueryOptions,
-  peopleQueryOptions,
-  standingOf,
   teamNamesByUser,
-} from "../../../../lib/admin";
-import { useCollectionSearch } from "../../../../lib/collection-search";
+} from "../../../../lib/directory";
 import {
   attentionCopy,
   isVisibleAttention,
   type VisibleAttentionKind,
 } from "../../../../lib/identity-operations";
+import {
+  type PeopleQuery,
+  type PeopleSearch,
+  type PeopleSlice,
+  type PeopleSortField,
+  type Person,
+  PEOPLE_SORT_FIELDS,
+  peopleQueryOptions,
+  standingOf,
+} from "../../../../lib/people";
 
 type PersonTableRow = {
   account: string;
