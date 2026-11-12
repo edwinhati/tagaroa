@@ -408,6 +408,48 @@ test("a drainer that stalled past the reclaim window cannot overwrite the newer 
     expect(row?.attempts).toBe(2);
   }));
 
+test("a repeated receipt keeps the time it first arrived", () =>
+  isolated(async (database) => {
+    const messages = new DrizzleMessageRepository(database);
+    const queued = message();
+    await messages.enqueue(queued);
+    await database
+      .update(notificationMessage)
+      .set({ nextAttemptAt: new Date(0) })
+      .where(eq(notificationMessage.id, queued.id));
+    const [claimed] = await messages.claimDue(1);
+    await messages.markSent(claimed!, "qa-repeat");
+
+    const bounce = () =>
+      messages.applyReceipt({
+        destination: null,
+        providerId: "qa-repeat",
+        status: "bounced",
+        suppress: null,
+      });
+    const completedAt = async () =>
+      (
+        await database
+          .select({ completedAt: notificationMessage.completedAt })
+          .from(notificationMessage)
+          .where(eq(notificationMessage.id, queued.id))
+      )[0]?.completedAt;
+
+    expect(await bounce()).toBe("applied");
+    const first = await completedAt();
+    expect(first).toBeInstanceOf(Date);
+    expect(await bounce()).toBe("repeat");
+    expect(await completedAt()).toEqual(first!);
+    expect(
+      await messages.applyReceipt({
+        destination: null,
+        providerId: "qa-unknown",
+        status: "delivered",
+        suppress: null,
+      }),
+    ).toBe("unmatched");
+  }));
+
 test("an out-of-order receipt does not move a delivered message backwards", () =>
   isolated(async (database) => {
     const messages = new DrizzleMessageRepository(database);

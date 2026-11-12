@@ -37,9 +37,16 @@ export class RecordReceiptsUseCase {
     const channel = channelOf(provider);
 
     for (const receipt of receipts) {
-      await this.messages.applyReceipt(receipt);
+      const outcome = await this.messages.applyReceipt(receipt);
 
-      if (receipt.suppress === null || receipt.destination === null) continue;
+      // A repeat changes nothing: a provider retrying an old bounce must not
+      // block again an address an admin has since cleared.
+      if (
+        outcome === "repeat" ||
+        receipt.suppress === null ||
+        receipt.destination === null
+      )
+        continue;
 
       await this.suppressions.add(
         Suppression.raise({

@@ -48,8 +48,10 @@ node --test scripts/with-live.test.mjs || failed+=(scripts/with-live.test.mjs)
 section "bun version"
 bun_version=$(node -p 'require("./package.json").engines.bun')
 drift=$(git grep -hoE 'oven/bun:[0-9.]+' -- '*Dockerfile' | sort -u | grep -vx "oven/bun:$bun_version")
+dev_engine=$(node -p 'require("./package.json").devEngines.packageManager.version')
+[[ $dev_engine == "$bun_version" ]] || drift+="${drift:+$'\n'}devEngines.packageManager $dev_engine"
 if [[ -n $drift ]]; then
-  printf 'engines.bun is %s, but images use:\n%s\n' "$bun_version" "$drift"
+  printf 'engines.bun is %s, but these use:\n%s\n' "$bun_version" "$drift"
   failed+=("bun version")
 fi
 
