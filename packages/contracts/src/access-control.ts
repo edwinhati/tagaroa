@@ -6,14 +6,30 @@
 export const ACCESS_SCOPE_TYPES = ["subsidiary", "team"] as const;
 export type AccessScopeType = (typeof ACCESS_SCOPE_TYPES)[number];
 
-export interface PermissionDefinition {
+export interface PermissionDefinition<Key extends string = string> {
   breakGlass: boolean;
   description: string;
-  key: string;
+  key: Key;
   label: string;
   privileged: boolean;
   scopes: readonly AccessScopeType[];
 }
+
+export const PERMISSION_CATALOG = {
+  "domain:administer": {
+    breakGlass: true,
+    description: "Change configuration owned by a working domain.",
+    key: "domain:administer",
+    label: "Administer domain configuration",
+    privileged: true,
+    scopes: ["subsidiary", "team"],
+  },
+} as const satisfies Record<string, PermissionDefinition>;
+
+export type PermissionKey = keyof typeof PERMISSION_CATALOG;
+
+export const isPermissionKey = (value: string): value is PermissionKey =>
+  Object.hasOwn(PERMISSION_CATALOG, value);
 
 export interface AccessRoleRecord {
   archivedAt: Date | null;
@@ -30,6 +46,8 @@ export interface AccessRoleRecord {
 /** A role with what its permissions add up to, as the policy lists it. */
 export interface AccessRoleView extends AccessRoleRecord {
   assignableScopes: AccessScopeType[];
+  /** Only the permissions the server knows; the rest are in `invalidPermissions`. */
+  permissions: PermissionKey[];
   assignmentCount: number;
   /** Stored permissions the server no longer knows; a role holding one cannot be assigned. */
   invalidPermissions: string[];
@@ -37,7 +55,7 @@ export interface AccessRoleView extends AccessRoleRecord {
 }
 
 export interface BusinessAccessPolicy {
-  permissions: PermissionDefinition[];
+  permissions: PermissionDefinition<PermissionKey>[];
   roles: AccessRoleView[];
 }
 

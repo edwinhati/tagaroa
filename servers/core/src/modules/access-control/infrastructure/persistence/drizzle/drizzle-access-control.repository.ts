@@ -1,5 +1,8 @@
 import { Inject, Injectable } from "@nestjs/common";
 import {
+  isPermissionKey,
+  PERMISSION_CATALOG,
+  type PermissionKey,
   type AccessAssignmentRecord,
   type AccessRoleRecord,
   type AssignmentView,
@@ -17,11 +20,6 @@ import {
   teamMember,
   user,
 } from "../../../../auth/infrastructure/persistence/drizzle/schema";
-import {
-  isPermissionKey,
-  PERMISSION_CATALOG,
-  type PermissionKey,
-} from "../../../domain/access-policy";
 import {
   type AccessControlRepository,
   type CreateRoleInput,

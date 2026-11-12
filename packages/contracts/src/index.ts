@@ -36,6 +36,15 @@ export interface AggregationBucket {
 
 export type Aggregations = Record<string, AggregationBucket[]>;
 
+/** Rows per collection page: core's default and cap, and the sizes the tables offer. */
+export const PAGE_SIZE = { default: 25, max: 100 } as const;
+export const PAGE_SIZES: readonly number[] = [
+  10,
+  PAGE_SIZE.default,
+  50,
+  PAGE_SIZE.max,
+];
+
 export interface Collection<T> {
   data: T[];
   meta: PaginationMeta & { aggregations?: Aggregations };

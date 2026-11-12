@@ -1,7 +1,11 @@
 import { passkeyClient } from "@better-auth/passkey/client";
-import { IDENTITY_ROLES } from "@repo/contracts/identity";
+import {
+  IDENTITY_ROLES,
+  USER_ADDITIONAL_FIELDS,
+} from "@repo/contracts/identity";
 import {
   adminClient,
+  inferAdditionalFields,
   organizationClient,
   twoFactorClient,
 } from "better-auth/client/plugins";
@@ -32,6 +36,7 @@ export const createWorkspaceAuthClient = (baseURL: string) =>
       adminClient({ roles }),
       twoFactorClient(),
       passkeyClient(),
+      inferAdditionalFields({ user: USER_ADDITIONAL_FIELDS }),
     ],
   });
 

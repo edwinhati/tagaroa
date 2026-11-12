@@ -1,7 +1,4 @@
-import {
-  DATA_TABLE_DEFAULT_PAGE_SIZE,
-  DATA_TABLE_PAGE_SIZES,
-} from "@repo/ui/blocks/data-table";
+import { PAGE_SIZE, PAGE_SIZES } from "@repo/contracts";
 import { useNavigate, useRouter } from "@tanstack/react-router";
 import {
   functionalUpdate,
@@ -49,8 +46,7 @@ export function parseCollectionSearch(
     page: Number.isInteger(page) && page > 1 ? page : undefined,
     q: q || undefined,
     size:
-      size !== DATA_TABLE_DEFAULT_PAGE_SIZE &&
-      DATA_TABLE_PAGE_SIZES.includes(size)
+      size !== PAGE_SIZE.default && PAGE_SIZES.includes(size)
         ? size
         : undefined,
     sort:
@@ -112,7 +108,7 @@ export function collectionRequest<S extends CollectionSearch>(
   facets: { [K in keyof S]?: readonly string[] },
 ) {
   const query = new URLSearchParams({
-    limit: String(search.size ?? DATA_TABLE_DEFAULT_PAGE_SIZE),
+    limit: String(search.size ?? PAGE_SIZE.default),
     page: String(search.page ?? 1),
   });
   if (search.sort) query.set("sort", search.sort);
@@ -149,7 +145,7 @@ export function useCollectionSearch<S extends CollectionSearch>({
   const router = useRouter();
   const q = search.q ?? "";
   const page = search.page ?? 1;
-  const size = search.size ?? DATA_TABLE_DEFAULT_PAGE_SIZE;
+  const size = search.size ?? PAGE_SIZE.default;
   const sort = search.sort ?? defaultSort;
 
   const [searchText, setText] = useState(q);
@@ -229,10 +225,7 @@ export function useCollectionSearch<S extends CollectionSearch>({
         const next = functionalUpdate(updater, pagination);
         write({
           page: next.pageIndex > 0 ? next.pageIndex + 1 : undefined,
-          size:
-            next.pageSize === DATA_TABLE_DEFAULT_PAGE_SIZE
-              ? undefined
-              : next.pageSize,
+          size: next.pageSize === PAGE_SIZE.default ? undefined : next.pageSize,
         } as Partial<S>);
       },
       onSortingChange: (updater: Updater<SortingState>) => {

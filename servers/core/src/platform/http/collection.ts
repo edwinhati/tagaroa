@@ -1,4 +1,5 @@
 import { BadRequestException } from "@nestjs/common";
+import { PAGE_SIZE } from "@repo/contracts";
 import type {
   Aggregations,
   Collection,
@@ -41,8 +42,8 @@ export function parseCollectionQuery(
   const prefix = options.prefix ?? "";
   const page = positiveInteger(query[keyFor(prefix, "page")], 1);
   const limit = Math.min(
-    positiveInteger(query[keyFor(prefix, "limit")], 25),
-    100,
+    positiveInteger(query[keyFor(prefix, "limit")], PAGE_SIZE.default),
+    PAGE_SIZE.max,
   );
   const allowedSort = new Set(options.sortable ?? []);
   const requestedSort = values(query[keyFor(prefix, "sort")])

@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test";
 
-import { editTemplateBody, templateDraftBody } from "./notification.schemas";
+import { editTemplateBody, templateDraftBody } from "./notifications";
 
 const valid = {
   body: "Hello {{name}}",

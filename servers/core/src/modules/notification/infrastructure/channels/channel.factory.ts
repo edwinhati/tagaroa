@@ -1,5 +1,8 @@
 import { Logger } from "@nestjs/common";
-import { type NotificationChannel } from "@repo/contracts/notifications";
+import {
+  NOTIFICATION_CHANNELS,
+  type NotificationChannel,
+} from "@repo/contracts/notifications";
 
 import { ChannelError } from "../../domain/errors/channel.error";
 import type {
@@ -7,6 +10,7 @@ import type {
   MessageCarrier,
   OutgoingMessage,
 } from "../../domain/repositories/message-carrier.port";
+import { CARRIERS } from "../../domain/value-objects/carrier.vo";
 import { resendSender, type ResendConfig } from "./resend.channel";
 import { twilioSender, type TwilioConfig } from "./twilio.channel";
 import { whatsAppSender, type WhatsAppConfig } from "./whatsapp.channel";
@@ -31,6 +35,23 @@ export interface NotificationProviders {
   whatsapp?: WhatsAppConfig;
 }
 
+type Credential = (typeof CARRIERS)[NotificationChannel]["credential"];
+
+/** The sender each credential builds; `CARRIERS` says which channel it carries. */
+const SENDERS: {
+  [K in Credential]: (
+    config: NonNullable<NotificationProviders[K]>,
+  ) => ChannelSender;
+} = { resend: resendSender, twilio: twilioSender, whatsapp: whatsAppSender };
+
+const senderFor = <K extends Credential>(
+  credential: K,
+  providers: NotificationProviders,
+): ChannelSender | undefined => {
+  const config = providers[credential];
+  return config ? SENDERS[credential](config) : undefined;
+};
+
 const consoleSender =
   (logger: Logger): ChannelSender =>
   async (message) => {
@@ -53,13 +74,12 @@ const createChannels = (
   const missing = (channel: NotificationChannel): ChannelSender =>
     providers.strict ? unconfigured(channel) : consoleSender(logger);
 
-  return {
-    email: providers.resend ? resendSender(providers.resend) : missing("email"),
-    sms: providers.twilio ? twilioSender(providers.twilio) : missing("sms"),
-    whatsapp: providers.whatsapp
-      ? whatsAppSender(providers.whatsapp)
-      : missing("whatsapp"),
-  };
+  return Object.fromEntries(
+    NOTIFICATION_CHANNELS.map((channel) => [
+      channel,
+      senderFor(CARRIERS[channel].credential, providers) ?? missing(channel),
+    ]),
+  ) as Record<NotificationChannel, ChannelSender>;
 };
 
 /**

@@ -63,7 +63,10 @@ async grantAssignment(
   without `AppModule` (a test, a second entrypoint) must bind `schemaValidation` the same way, or
   its handlers receive the raw value (see `directory.controller.test.ts`).
 - The schema holds the field rules and their sentences, and its output is the type the service
-  takes. See `access-control.schemas.ts` for the worked example (trim, cross-field rule, parsed
+  takes. Schemas for bodies an app sends live in `@repo/contracts/requests/*` (`access-control`,
+  `auth-management`, `directory`, `notifications`), with the field helpers in `requests/fields`.
+  The app types what it sends as `Wire<XBody>` with a type-only import, so Zod stays out of its
+  bundle. See `requests/access-control.ts` for the worked example (trim, cross-field rule, parsed
   date).
 - A failure is a 400 with `message` (the first issue) and `details: [{ field, message }]` for a
   form that wants to show errors beside inputs.
@@ -75,8 +78,8 @@ async grantAssignment(
   (`@Param("id", { schema })`).
 - Every `access-control` route, the `PUT /directory/positions/...` routes, the
   `auth-management` writes, and template writes in `notification.admin.controller.ts` parse their
-  bodies this way. Template shape rules live in `notification.schemas.ts`; domain rules stay in
-  `TemplateDraft`. Move other controllers over when you touch them; do not convert them in one
+  bodies this way. Template shape rules live in `requests/notifications.ts`; domain rules stay
+  in `TemplateDraft`. Move other controllers over when you touch them; do not convert them in one
   sweep.
 - Signed webhooks verify their signatures over the raw bytes, then parse the decoded body with
   `parseWith(schema, request.body)` (same parse, same 400). Never declare `@Body({ schema })` on
@@ -96,6 +99,3 @@ async grantAssignment(
   particular, have none. `@nestjs/throttler` with a generous global default is the proposed fix.
 - **Webhook repeats.** Providers retry. Confirm `hr-webhook` and `notification.webhook` ignore an
   event ID they have already processed.
-- **Shared schemas.** `apps/admin/src/lib/business-access.ts` re-declares request shapes
-  (`grantBusinessAssignment`). Moving a schema into `@repo/contracts` lets both ends share it; that
-  needs `zod` added to the package.

@@ -1,9 +1,10 @@
 import { createFileRoute, redirect } from "@tanstack/react-router";
 import { useState } from "react";
 
+import { SignInStep } from "../components/sign-in-step";
+import { TwoFactorStep } from "../components/two-factor-step";
 import { postSignInTarget } from "../lib/auth-client";
 import { sessionQueryOptions } from "../lib/session";
-import { SignInStep, TwoFactorStep } from "./index";
 
 export const Route = createFileRoute("/reauth")({
   head: () => ({ meta: [{ title: "Confirm it’s you · Tagaroa" }] }),

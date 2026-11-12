@@ -30,12 +30,11 @@ endpoints answer only for teams the caller is in.
 `domains/engineering` is the worked example — copy it. To add another domain front end:
 
 1. Copy `domains/engineering` to `domains/<slug>` as `@domains/<slug>`, replacing
-   `engineering` in `vite.config.ts` (`base`, and `port` with the slug's port in
-   `microfrontends.json`), `src/routes/_shell.tsx` (`current` and the `admit(…, "<slug>")`
-   call), and `src/routes/__root.tsx` (the `documentHead` title and
+   `engineering` in `vite.config.ts` (`base`), `src/routes/_shell.tsx` (`current` and the
+   `admit(…, "<slug>")` call), and `src/routes/__root.tsx` (the `documentHead` title and
    `AppDocument app="domains/<slug>"`). The router (`@repo/shell/router`) takes its base path
-   from `base`, and under `turbo dev` turbo hands the Vite setup (`@repo/shell/vite`) the port
-   from `microfrontends.json`.
+   from `base`, and the Vite setup (`@repo/shell/vite`) reads the app's port from
+   `microfrontends.json` by its package name.
 2. Mark the domain live in `packages/shell/src/domains.ts` (the `live` rule names the built
    domains).
 3. Serve it in production: add `domains/<slug>` to both app loops and the `COPY` lines in

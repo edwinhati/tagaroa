@@ -357,15 +357,13 @@ export function DataTableColumnVisibility<TData extends RowData>({
   );
 }
 
-// The core service caps a page at 100 rows.
-export const DATA_TABLE_PAGE_SIZES = [10, 25, 50, 100];
-export const DATA_TABLE_DEFAULT_PAGE_SIZE = 25;
-
 export function DataTablePagination<TData extends RowData>({
   countLabel,
+  pageSizes,
   table,
 }: {
   countLabel: string;
+  pageSizes: readonly number[];
   table: DataTableInstance<TData>;
 }) {
   const pageCount = Math.max(1, table.getPageCount());
@@ -391,7 +389,7 @@ export function DataTablePagination<TData extends RowData>({
           size="sm"
           value={String(table.state.pagination.pageSize)}
         >
-          {DATA_TABLE_PAGE_SIZES.map((size) => (
+          {pageSizes.map((size) => (
             <NativeSelectOption key={size} value={size}>
               {size} rows
             </NativeSelectOption>

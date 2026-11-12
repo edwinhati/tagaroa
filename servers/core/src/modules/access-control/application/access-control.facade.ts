@@ -1,5 +1,6 @@
-import type { Operator } from "../../auth/session-policy";
-import type { PermissionKey } from "../domain/access-policy";
+import { type PermissionKey } from "@repo/contracts/access-control";
+
+import { type Operator } from "../../auth/session-policy";
 
 export const ACCESS_CONTROL = Symbol("ACCESS_CONTROL");
 

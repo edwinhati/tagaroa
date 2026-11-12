@@ -1,21 +1,28 @@
 import { isPrivilegedRole } from "@repo/contracts/identity";
 import { queryOptions } from "@tanstack/react-query";
 
-/** What `authClient.getSession()` hands back, narrowed to what the shell reads. */
+import type { WorkspaceAuthClient } from "./create-auth-client";
+
+type AuthSessionData = WorkspaceAuthClient["$Infer"]["Session"];
+
+/**
+ * What `authClient.getSession()` hands back, narrowed to the fields the shell
+ * reads. Their types are Better Auth's, inferred from the server's plugins.
+ */
 export type SessionState =
   | {
-      session?: {
-        impersonatedBy?: string | null;
-      };
-      user?: {
-        id?: string;
-        name?: string;
-        email?: string;
-        mustChangePassword?: boolean;
-        twoFactorEnabled?: boolean | null;
-        /** Group-wide identity role(s) stored by Better Auth's admin plugin. */
-        role?: string | null;
-      };
+      session?: Partial<Pick<AuthSessionData["session"], "impersonatedBy">>;
+      user?: Partial<
+        Pick<
+          AuthSessionData["user"],
+          | "email"
+          | "id"
+          | "mustChangePassword"
+          | "name"
+          | "role"
+          | "twoFactorEnabled"
+        >
+      >;
     }
   | null
   | undefined;

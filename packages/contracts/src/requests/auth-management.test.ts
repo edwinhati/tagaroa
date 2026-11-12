@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test";
 
-import type { ZodType } from "zod";
+import { type ZodType } from "zod";
 
 import {
   addMemberBody,
@@ -10,7 +10,7 @@ import {
   offboardBody,
   requestRecoveryBody,
   updateProfileBody,
-} from "./auth-management.schemas";
+} from "./auth-management";
 
 const messageOf = (schema: ZodType, input: unknown) => {
   const result = schema.safeParse(input);

@@ -1,12 +1,12 @@
 import { describe, expect, test } from "bun:test";
 
+import { requestRecoveryBody } from "@repo/contracts/requests/auth-management";
 import { verifyPassword } from "better-auth/crypto";
 import { eq, type SQL } from "drizzle-orm";
 import { PgDialect, type PgTable } from "drizzle-orm/pg-core";
 
-import type { Database } from "../../platform/database/database.module";
-import type { AuditTrail } from "../audit/application/audit.facade";
-import { requestRecoveryBody } from "./auth-management.schemas";
+import { type Database } from "../../platform/database/database.module";
+import { type AuditTrail } from "../audit/application/audit.facade";
 import {
   IdentityOperationsService,
   requireVerifiedOperator,
@@ -23,7 +23,7 @@ import {
 } from "./infrastructure/persistence/drizzle/schema";
 import { OnboardingHook } from "./onboarding.hook";
 import { factorRecovery } from "./operations.schema";
-import type { Operator } from "./session-policy";
+import { type Operator } from "./session-policy";
 
 const actor = (overrides: Partial<Operator> = {}): Operator => ({
   id: "requester",

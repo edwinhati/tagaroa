@@ -1,6 +1,7 @@
 import { describe, expect, mock, setSystemTime, test } from "bun:test";
 
 import {
+  type PermissionKey,
   type AccessAssignmentRecord,
   type AccessRoleRecord,
   type AssignmentView,
@@ -8,7 +9,6 @@ import {
 
 import { type AuditTrail } from "../../audit/application/audit.facade";
 import { type Operator } from "../../auth/session-policy";
-import { type PermissionKey } from "../domain/access-policy";
 import { type AccessControlRepository } from "../domain/repositories/access-control.repository";
 import { AccessControlService } from "./access-control.service";
 

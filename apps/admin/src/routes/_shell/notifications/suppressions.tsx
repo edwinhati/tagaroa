@@ -1,3 +1,4 @@
+import { PAGE_SIZES } from "@repo/contracts";
 import { NEWEST_FIRST } from "@repo/contracts/notifications";
 import { AppTrail, Page } from "@repo/shell/app-shell";
 import {
@@ -269,6 +270,7 @@ function SuppressionList() {
         />
       )}
       <DataTablePagination
+        pageSizes={PAGE_SIZES}
         countLabel={`${suppressions.data?.meta.total ?? 0} suppressed`}
         table={table}
       />

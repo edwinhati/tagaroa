@@ -1,12 +1,14 @@
-import { EVIDENCE_LENGTH } from "@repo/contracts/identity";
-import * as z from "zod";
-
+import {
+  DISPLAY_NAME_MAX_LENGTH,
+  EVIDENCE_LENGTH,
+} from "@repo/contracts/identity";
 import {
   evidenceText,
   NOT_AN_OBJECT,
   objectBody,
   requiredText as required,
-} from "../../platform/http/request-fields";
+} from "@repo/contracts/requests/fields";
+import * as z from "zod";
 
 // Recovery and offboarding keep a case reference in the audit trail.
 const evidence = (label: string) =>
@@ -73,7 +75,10 @@ export type AddMemberBody = z.output<typeof addMemberBody>;
  */
 export const updateProfileBody = z.strictObject(
   {
-    name: required("Name").max(80, "Name must be 80 characters or fewer."),
+    name: required("Name").max(
+      DISPLAY_NAME_MAX_LENGTH,
+      `Name must be ${DISPLAY_NAME_MAX_LENGTH} characters or fewer.`,
+    ),
   },
   {
     error: (issue) =>

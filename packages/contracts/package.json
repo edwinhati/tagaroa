@@ -8,11 +8,15 @@
     "./access-control": "./src/access-control.ts",
     "./directory": "./src/directory.ts",
     "./identity": "./src/identity.ts",
-    "./notifications": "./src/notifications.ts"
+    "./notifications": "./src/notifications.ts",
+    "./requests/*": "./src/requests/*.ts"
   },
   "scripts": {
     "check-types": "tsc --noEmit",
     "test": "bun test src"
+  },
+  "dependencies": {
+    "zod": "catalog:"
   },
   "devDependencies": {
     "@repo/typescript-config": "*",

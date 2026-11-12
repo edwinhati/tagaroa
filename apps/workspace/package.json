@@ -14,6 +14,7 @@
   "dependencies": {
     "@fontsource-variable/geist": "catalog:",
     "@fontsource-variable/geist-mono": "catalog:",
+    "@repo/contracts": "*",
     "@repo/shell": "*",
     "@repo/ui": "*",
     "@tanstack/react-query": "catalog:",

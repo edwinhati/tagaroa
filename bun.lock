@@ -93,6 +93,7 @@
       "dependencies": {
         "@fontsource-variable/geist": "catalog:",
         "@fontsource-variable/geist-mono": "catalog:",
+        "@repo/contracts": "*",
         "@repo/shell": "*",
         "@repo/ui": "*",
         "@tanstack/react-query": "catalog:",
@@ -141,6 +142,9 @@
     "packages/contracts": {
       "name": "@repo/contracts",
       "version": "0.0.0",
+      "dependencies": {
+        "zod": "catalog:",
+      },
       "devDependencies": {
         "@repo/typescript-config": "*",
         "@types/bun": "catalog:",
@@ -186,6 +190,7 @@
         "react": "catalog:",
         "react-dom": "catalog:",
         "thinking-orbs": "^0.3.2",
+        "zod": "catalog:",
       },
       "devDependencies": {
         "@repo/typescript-config": "*",

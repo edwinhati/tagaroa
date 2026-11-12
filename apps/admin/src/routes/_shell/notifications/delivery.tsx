@@ -1,3 +1,4 @@
+import { PAGE_SIZES } from "@repo/contracts";
 import { NEWEST_FIRST } from "@repo/contracts/notifications";
 import { AppTrail, Page } from "@repo/shell/app-shell";
 import {
@@ -258,6 +259,7 @@ function DeliveryLog() {
         />
       )}
       <DataTablePagination
+        pageSizes={PAGE_SIZES}
         countLabel={`${messages.data?.meta.total ?? 0} messages · refreshed every 15 seconds`}
         table={table}
       />

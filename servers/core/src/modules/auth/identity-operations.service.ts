@@ -13,6 +13,10 @@ import {
   isSuperAdmin,
   mayRun,
 } from "@repo/contracts/identity";
+import {
+  type ApproveRecoveryBody,
+  type RequestRecoveryBody,
+} from "@repo/contracts/requests/auth-management";
 import { hashPassword } from "better-auth/crypto";
 import { and, count, eq, gt, isNull, ne, sql } from "drizzle-orm";
 
@@ -24,10 +28,6 @@ import {
   AUDIT_TRAIL,
   type AuditTrail,
 } from "../audit/application/audit.facade";
-import {
-  type ApproveRecoveryBody,
-  type RequestRecoveryBody,
-} from "./auth-management.schemas";
 import {
   account,
   member,
