@@ -21,6 +21,11 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@repo/ui/components/dialog";
+import {
+  DropdownMenuGroup,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+} from "@repo/ui/components/dropdown-menu";
 import { Input } from "@repo/ui/components/input";
 import { Label } from "@repo/ui/components/label";
 import {
@@ -29,7 +34,7 @@ import {
 } from "@repo/ui/components/native-select";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { getRouteApi } from "@tanstack/react-router";
-import { useCallback, useState } from "react";
+import { Fragment, type ReactNode, useCallback, useState } from "react";
 
 import type { Person } from "../lib/admin";
 import {
@@ -58,6 +63,31 @@ export type PersonAction =
   | "suspend";
 
 /**
+ * Every act a person can be the object of, in the order and groups every
+ * surface offers them.
+ */
+const ACTION_GROUPS: readonly (readonly PersonAction[])[] = [
+  ["edit"],
+  ["password", "sessions", "impersonate"],
+  ["suspend", "restore", "delete"],
+];
+
+/** Each a verb naming its effect on them ("Revoke all sessions", not "Clear"). */
+export const ACTION_LABELS: Record<PersonAction, string> = {
+  delete: "Delete account",
+  edit: "Edit account",
+  impersonate: "Impersonate",
+  password: "Issue new password",
+  restore: "Restore access",
+  sessions: "Revoke all sessions",
+  suspend: "Suspend access",
+};
+
+export const DESTRUCTIVE = new Set<PersonAction>(["delete", "suspend"]);
+
+export type PersonAdmin = ReturnType<typeof usePersonAdmin>;
+
+/**
  * What the operator in front of us may do to this person, and the machinery to
  * do it.
  *
@@ -77,15 +107,20 @@ export function usePersonAdmin(person: Person) {
   // privileged account. Reviewers are read-only; helpdesk can reset a standard
   // account and revoke its sessions, but cannot edit or suspend it.
   const targetIsManageable = canManageTarget(role, person.role);
-  const canAdminister = roleCan(role, "user", "update") && targetIsManageable;
-  const canResetPassword =
-    roleCan(role, "user", "set-password") && targetIsManageable && !isSelf;
-  const canRevokeSessions =
-    roleCan(role, "session", "revoke") && targetIsManageable && !isSelf;
+  const suspended = Boolean(person.banned);
   const canSuspend =
     roleCan(role, "user", "ban") && targetIsManageable && !isSelf;
-  const canDelete = roleCan(role, "user", "delete") && !isSelf;
-  const canImpersonate = roleCan(role, "user", "impersonate") && !isSelf;
+  const allowed: Record<PersonAction, boolean> = {
+    delete: roleCan(role, "user", "delete") && !isSelf,
+    edit: roleCan(role, "user", "update") && targetIsManageable,
+    impersonate: roleCan(role, "user", "impersonate") && !isSelf,
+    password:
+      roleCan(role, "user", "set-password") && targetIsManageable && !isSelf,
+    restore: canSuspend && suspended,
+    sessions:
+      roleCan(role, "session", "revoke") && targetIsManageable && !isSelf,
+    suspend: canSuspend && !suspended,
+  };
 
   const refresh = useCallback(() => refreshPeople(queryClient), [queryClient]);
 
@@ -144,7 +179,7 @@ export function usePersonAdmin(person: Person) {
       ? {
           title: "Revoke all sessions?",
           description: `${person.email} will be signed out on every device.`,
-          label: "Revoke sessions",
+          label: ACTION_LABELS.sessions,
           run: () => revoke.mutate(),
           destructive: true,
         }
@@ -152,7 +187,7 @@ export function usePersonAdmin(person: Person) {
         ? {
             title: "Restore access?",
             description: `${person.email} will be able to sign in again.`,
-            label: "Restore access",
+            label: ACTION_LABELS.restore,
             run: () => restore.mutate(),
             destructive: false,
           }
@@ -168,7 +203,7 @@ export function usePersonAdmin(person: Person) {
             ? {
                 title: "Delete this account?",
                 description: `${person.email}, their sessions, linked accounts, and memberships will be permanently deleted.`,
-                label: "Delete account",
+                label: ACTION_LABELS.delete,
                 run: () => remove.mutate(),
                 destructive: true,
               }
@@ -225,16 +260,47 @@ export function usePersonAdmin(person: Person) {
   );
 
   return {
-    canAdminister,
-    canDelete,
-    canImpersonate,
-    canResetPassword,
-    canRevokeSessions,
-    canSuspend,
     dialogs,
+    /** Every act this operator may take on this person, in menu order. */
+    offered: ACTION_GROUPS.flat().filter((action) => allowed[action]),
+    offers: (action: PersonAction) => allowed[action],
     request: setPending,
-    suspended: Boolean(person.banned),
   };
+}
+
+/** These acts as menu groups, in menu order; `children` leads the first. */
+export function PersonActionItems({
+  actions,
+  admin,
+  children,
+}: {
+  actions: readonly PersonAction[];
+  admin: PersonAdmin;
+  children?: ReactNode;
+}) {
+  const groups = ACTION_GROUPS.map((group, index) => [
+    ...(index === 0 && children
+      ? [<Fragment key="leading">{children}</Fragment>]
+      : []),
+    ...group
+      .filter((action) => actions.includes(action))
+      .map((action) => (
+        <DropdownMenuItem
+          key={action}
+          onClick={() => admin.request(action)}
+          variant={DESTRUCTIVE.has(action) ? "destructive" : undefined}
+        >
+          {ACTION_LABELS[action]}
+        </DropdownMenuItem>
+      )),
+  ]).filter((items) => items.length > 0);
+
+  return groups.map((items, index) => (
+    <Fragment key={index}>
+      {index > 0 ? <DropdownMenuSeparator /> : null}
+      <DropdownMenuGroup>{items}</DropdownMenuGroup>
+    </Fragment>
+  ));
 }
 
 export function PositionSummary({

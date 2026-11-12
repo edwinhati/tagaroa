@@ -11,12 +11,11 @@ import {
   useEffect,
   useRef,
   useState,
-  useSyncExternalStore,
   type DragEvent,
 } from "react";
 import { ThinkingOrb, type OrbState } from "thinking-orbs";
 
-import type { DevtoolsTool } from "./internal-devtools";
+import { type DevtoolsTool, useReducedMotion } from "./internal-devtools";
 
 type BridgeState = {
   app: string | null;
@@ -63,18 +62,6 @@ const appGroups = [
   { prefix: "apps/", label: "Apps" },
   { prefix: "domains/", label: "Domains" },
 ];
-
-function useReducedMotion() {
-  return useSyncExternalStore(
-    (notify) => {
-      const query = window.matchMedia("(prefers-reduced-motion: reduce)");
-      query.addEventListener("change", notify);
-      return () => query.removeEventListener("change", notify);
-    },
-    () => window.matchMedia("(prefers-reduced-motion: reduce)").matches,
-    () => false,
-  );
-}
 
 /**
  * The orb's nine states, matched to the bridge.

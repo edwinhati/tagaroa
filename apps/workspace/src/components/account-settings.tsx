@@ -1,4 +1,10 @@
-import { AccountSecurityPanel } from "@repo/shell/account-security";
+import {
+  AccountSecurityPanel,
+  SettingsGroup,
+  SettingsLoading,
+  SettingsRetry,
+} from "@repo/shell/account-security";
+import { authCall } from "@repo/shell/attempt-auth";
 import { authClient } from "@repo/shell/auth-client";
 import { sessionQueryOptions } from "@repo/shell/session";
 import { parseUserAgent } from "@repo/shell/session-device";
@@ -30,16 +36,6 @@ import { useRef, useState, type ReactNode } from "react";
 
 type Section = "profile" | "security" | "sessions";
 
-type ListedSession = {
-  id: string;
-  token: string;
-  createdAt: string | Date;
-  updatedAt: string | Date;
-  expiresAt: string | Date;
-  ipAddress?: string | null;
-  userAgent?: string | null;
-};
-
 type MyPosition = {
   id: string;
   managerName: string | null;
@@ -69,25 +65,6 @@ function initialsFromName(name: string): string {
   if (parts.length === 0) return "?";
   if (parts.length === 1) return parts[0]!.slice(0, 2).toUpperCase();
   return `${parts[0]![0] ?? ""}${parts.at(-1)![0] ?? ""}`.toUpperCase();
-}
-
-function SettingsGroup({
-  children,
-  className,
-}: {
-  children: ReactNode;
-  className?: string;
-}) {
-  return (
-    <div
-      className={cn(
-        "overflow-hidden rounded-lg bg-muted/45 ring-1 ring-foreground/6",
-        className,
-      )}
-    >
-      {children}
-    </div>
-  );
 }
 
 function SettingsRow({
@@ -143,12 +120,10 @@ function DisplayNameRow({ name }: { name: string }) {
   const save = useMutation({
     mutationKey,
     mutationFn: async (value: string) => {
-      const result = await authClient
-        .updateUser({ name: value.trim() })
-        .catch(() => null);
-      if (!result || result.error) {
-        throw new Error(result?.error?.message || NAME_NOT_SAVED);
-      }
+      await authCall(
+        () => authClient.updateUser({ name: value.trim() }),
+        NAME_NOT_SAVED,
+      );
       await queryClient.refetchQueries({
         queryKey: sessionQueryOptions.queryKey,
       });
@@ -169,7 +144,7 @@ function DisplayNameRow({ name }: { name: string }) {
     requestAnimationFrame(() => editButton.current?.focus());
   };
 
-  const error = save.error instanceof Error ? save.error.message : "";
+  const error = save.error?.message ?? "";
 
   return (
     <>
@@ -258,30 +233,17 @@ function DisplayNameRow({ name }: { name: string }) {
   );
 }
 
-async function readSessions(): Promise<{
-  currentToken: string | null;
-  sessions: ListedSession[];
-}> {
+async function readSessions() {
   const [listed, current] = await Promise.all([
-    authClient.listSessions(),
+    authCall(
+      () => authClient.listSessions(),
+      "Could not read your active sessions.",
+    ),
     authClient.getSession(),
   ]);
-
-  if (listed.error) {
-    throw new Error(
-      listed.error.message || "Could not read your active sessions.",
-    );
-  }
-
-  const currentToken =
-    typeof (current.data as { session?: { token?: unknown } } | null)?.session
-      ?.token === "string"
-      ? ((current.data as { session: { token: string } }).session.token ?? null)
-      : null;
-
   return {
-    currentToken,
-    sessions: (listed.data ?? []) as ListedSession[],
+    currentToken: current.data?.session.token ?? null,
+    sessions: listed ?? [],
   };
 }
 
@@ -320,9 +282,7 @@ export function AccountSettingsDialog({
   onOpenChange: (open: boolean) => void;
   twoFactorEnabled: boolean;
 }) {
-  const queryClient = useQueryClient();
   const [section, setSection] = useState<Section>("profile");
-  const [sessionsMessage, setSessionsMessage] = useState("");
   const [mfaEnabled, setMfaEnabled] = useState(twoFactorEnabled);
 
   const [previousMfaEnabled, setPreviousMfaEnabled] =
@@ -334,68 +294,8 @@ export function AccountSettingsDialog({
   }
   if (previousOpen !== open) {
     setPreviousOpen(open);
-    if (open) {
-      setSection("profile");
-      setSessionsMessage("");
-    }
+    if (open) setSection("profile");
   }
-
-  const profileExtras = useQuery({
-    queryKey: ["account", "profile"],
-    queryFn: () => readMyDirectory(),
-    enabled: open && section === "profile",
-  });
-
-  const sessions = useQuery({
-    queryKey: ["account", "sessions"],
-    queryFn: readSessions,
-    enabled: open && section === "sessions",
-  });
-
-  const revokeOne = useMutation({
-    mutationFn: async (token: string) => {
-      const result = await authClient.revokeSession({ token });
-      if (result.error) {
-        throw new Error(result.error.message || "That session was not ended.");
-      }
-    },
-    onMutate: () => setSessionsMessage(""),
-    onError: (error) =>
-      setSessionsMessage(
-        error instanceof Error ? error.message : "That session was not ended.",
-      ),
-    onSuccess: () => {
-      setSessionsMessage("Session ended.");
-      void queryClient.invalidateQueries({ queryKey: ["account", "sessions"] });
-    },
-  });
-
-  const revokeOthers = useMutation({
-    mutationFn: async () => {
-      const result = await authClient.revokeOtherSessions();
-      if (result.error) {
-        throw new Error(
-          result.error.message || "Other sessions were not ended.",
-        );
-      }
-    },
-    onMutate: () => setSessionsMessage(""),
-    onError: (error) =>
-      setSessionsMessage(
-        error instanceof Error
-          ? error.message
-          : "Other sessions were not ended.",
-      ),
-    onSuccess: () => {
-      setSessionsMessage("Other sessions ended.");
-      void queryClient.invalidateQueries({ queryKey: ["account", "sessions"] });
-    },
-  });
-
-  const otherSessions =
-    sessions.data?.sessions.filter(
-      (session) => session.token !== sessions.data?.currentToken,
-    ).length ?? 0;
 
   return (
     <Dialog onOpenChange={onOpenChange} open={open}>
@@ -443,99 +343,12 @@ export function AccountSettingsDialog({
 
           <div className="px-5 pt-4 pb-5 max-h-[min(28rem,70dvh)] overflow-y-auto overscroll-contain">
             {section === "profile" ? (
-              <div className="gap-3 flex flex-col outline-none" role="tabpanel">
-                <SettingsGroup>
-                  <DisplayNameRow name={name} />
-                </SettingsGroup>
-                {profileExtras.isPending ? (
-                  <SettingsGroup>
-                    <div className="gap-3 p-3.5 flex flex-col" role="status">
-                      <span className="sr-only">Loading profile details…</span>
-                      <Skeleton className="h-4 w-2/3" />
-                      <Skeleton className="h-4 w-1/2" />
-                      <Skeleton className="h-4 w-3/5" />
-                    </div>
-                  </SettingsGroup>
-                ) : profileExtras.isError ? (
-                  <SettingsGroup>
-                    <div className="gap-3 p-3.5 flex flex-col">
-                      <p
-                        className="text-[0.8125rem] text-destructive"
-                        role="alert"
-                      >
-                        {profileExtras.error instanceof Error
-                          ? profileExtras.error.message
-                          : "Could not load the rest of your profile."}
-                      </p>
-                      <Button
-                        className="self-start"
-                        onClick={() => void profileExtras.refetch()}
-                        size="sm"
-                        type="button"
-                        variant="outline"
-                      >
-                        Try again
-                      </Button>
-                    </div>
-                  </SettingsGroup>
-                ) : (
-                  <dl>
-                    <SettingsGroup>
-                      <SettingsRow
-                        action={
-                          <button
-                            className={cn(
-                              "font-medium text-[0.8125rem] text-foreground",
-                              "min-h-10 px-1.5 -mx-1.5 rounded-md",
-                              "inline-flex items-center",
-                              "hover:bg-foreground/5",
-                              "focus-visible:ring-2 focus-visible:ring-ring/50 focus-visible:outline-none",
-                            )}
-                            onClick={() => setSection("security")}
-                            type="button"
-                          >
-                            Manage
-                          </button>
-                        }
-                        label="Sign-in"
-                      >
-                        {mfaEnabled
-                          ? "Authenticator ready"
-                          : "Authenticator needed"}
-                      </SettingsRow>
-                      {profileExtras.data.positions.map((position) => (
-                        <SettingsRow key={position.id} label="Title">
-                          <span className="gap-0.5 flex flex-col">
-                            <span>{position.title}</span>
-                            <span className="text-[0.8125rem] text-muted-foreground">
-                              {position.subsidiaryName ?? "Group"}
-                              {position.managerName
-                                ? ` · reports to ${position.managerName}`
-                                : ""}
-                            </span>
-                          </span>
-                        </SettingsRow>
-                      ))}
-                      {profileExtras.data.subsidiaries.map((subsidiary) => (
-                        <SettingsRow key={subsidiary.id} label="Subsidiary">
-                          {subsidiary.name}
-                        </SettingsRow>
-                      ))}
-                      {profileExtras.data.teams.map((team) => (
-                        <SettingsRow key={team.id} label="Team">
-                          {team.name}
-                          <span className="text-muted-foreground">
-                            {" "}
-                            · {team.subsidiaryName}
-                          </span>
-                        </SettingsRow>
-                      ))}
-                    </SettingsGroup>
-                  </dl>
-                )}
-              </div>
+              <ProfileSection
+                mfaEnabled={mfaEnabled}
+                name={name}
+                onManageSignIn={() => setSection("security")}
+              />
             ) : null}
-
             {section === "security" ? (
               <div className="outline-none" role="tabpanel">
                 <AccountSecurityPanel
@@ -544,146 +357,259 @@ export function AccountSettingsDialog({
                 />
               </div>
             ) : null}
-
-            {section === "sessions" ? (
-              <div className="gap-3 flex flex-col outline-none" role="tabpanel">
-                {sessions.isPending ? (
-                  <SettingsGroup>
-                    <div className="gap-3 p-3.5 flex flex-col" role="status">
-                      <span className="sr-only">Loading sessions…</span>
-                      <Skeleton className="h-12 w-full" />
-                      <Skeleton className="h-12 w-full" />
-                    </div>
-                  </SettingsGroup>
-                ) : sessions.isError ? (
-                  <SettingsGroup>
-                    <div className="gap-3 p-3.5 flex flex-col">
-                      <p
-                        className="text-[0.8125rem] text-destructive"
-                        role="alert"
-                      >
-                        {sessions.error instanceof Error
-                          ? sessions.error.message
-                          : "Could not read your sessions."}
-                      </p>
-                      <Button
-                        className="self-start"
-                        onClick={() => void sessions.refetch()}
-                        size="sm"
-                        type="button"
-                        variant="outline"
-                      >
-                        Try again
-                      </Button>
-                    </div>
-                  </SettingsGroup>
-                ) : sessions.data.sessions.length === 0 ? (
-                  <SettingsGroup>
-                    <div className="gap-3 p-3.5 flex flex-col">
-                      <p
-                        className="text-[0.8125rem] text-muted-foreground"
-                        role="status"
-                      >
-                        No sessions to show.
-                      </p>
-                      <Button
-                        className="self-start"
-                        onClick={() => void sessions.refetch()}
-                        size="sm"
-                        type="button"
-                        variant="outline"
-                      >
-                        Reload
-                      </Button>
-                    </div>
-                  </SettingsGroup>
-                ) : (
-                  <>
-                    <SettingsGroup>
-                      <ul>
-                        {sessions.data.sessions.map((session) => {
-                          const parsed = parseUserAgent(session.userAgent);
-                          const current =
-                            session.token === sessions.data.currentToken;
-                          const ip = session.ipAddress?.trim();
-
-                          return (
-                            <li
-                              className="gap-3 px-3.5 py-3 flex items-center justify-between border-b border-border/70 last:border-b-0"
-                              key={session.id}
-                            >
-                              <div className="min-w-0 gap-2.5 flex items-start">
-                                <SessionDeviceMarks
-                                  browser={parsed.browser}
-                                  platform={parsed.platform}
-                                />
-                                <div className="min-w-0">
-                                  <p className="text-sm font-medium leading-snug">
-                                    {parsed.label}
-                                    {current ? (
-                                      <span className="font-normal text-muted-foreground">
-                                        {" "}
-                                        · this device
-                                      </span>
-                                    ) : null}
-                                  </p>
-                                  <p className="mt-0.5 text-[0.8125rem] text-muted-foreground tabular-nums">
-                                    {ip ? `${ip} · ` : ""}
-                                    {relativeTime(session.updatedAt)}
-                                  </p>
-                                </div>
-                              </div>
-                              {current ? null : (
-                                <Button
-                                  className="shrink-0"
-                                  disabled={revokeOne.isPending}
-                                  onClick={() =>
-                                    revokeOne.mutate(session.token)
-                                  }
-                                  size="sm"
-                                  type="button"
-                                  variant="ghost"
-                                >
-                                  End
-                                </Button>
-                              )}
-                            </li>
-                          );
-                        })}
-                      </ul>
-                    </SettingsGroup>
-
-                    {sessionsMessage ? (
-                      <p
-                        aria-live="polite"
-                        className="px-0.5 text-[0.8125rem] text-muted-foreground"
-                        role="status"
-                      >
-                        {sessionsMessage}
-                      </p>
-                    ) : null}
-
-                    {otherSessions > 0 ? (
-                      <Button
-                        className="self-start"
-                        disabled={revokeOthers.isPending}
-                        onClick={() => revokeOthers.mutate()}
-                        size="sm"
-                        type="button"
-                        variant="outline"
-                      >
-                        {revokeOthers.isPending
-                          ? "Ending…"
-                          : "End other sessions"}
-                      </Button>
-                    ) : null}
-                  </>
-                )}
-              </div>
-            ) : null}
+            {section === "sessions" ? <SessionsSection /> : null}
           </div>
         </Tabs>
       </DialogContent>
     </Dialog>
+  );
+}
+
+function ProfileSection({
+  mfaEnabled,
+  name,
+  onManageSignIn,
+}: {
+  mfaEnabled: boolean;
+  name: string;
+  onManageSignIn: () => void;
+}) {
+  const profile = useQuery({
+    queryKey: ["account", "profile"],
+    queryFn: readMyDirectory,
+  });
+
+  return (
+    <div className="gap-3 flex flex-col outline-none" role="tabpanel">
+      <SettingsGroup>
+        <DisplayNameRow name={name} />
+      </SettingsGroup>
+      {profile.isPending ? (
+        <SettingsLoading label="Loading profile details…">
+          <Skeleton className="h-4 w-2/3" />
+          <Skeleton className="h-4 w-1/2" />
+          <Skeleton className="h-4 w-3/5" />
+        </SettingsLoading>
+      ) : profile.isError ? (
+        <SettingsRetry
+          error={profile.error}
+          onRetry={() => void profile.refetch()}
+        />
+      ) : (
+        <dl>
+          <SettingsGroup>
+            <SettingsRow
+              action={
+                <button
+                  className={cn(
+                    "font-medium text-[0.8125rem] text-foreground",
+                    "min-h-10 px-1.5 -mx-1.5 rounded-md",
+                    "inline-flex items-center",
+                    "hover:bg-foreground/5",
+                    "focus-visible:ring-2 focus-visible:ring-ring/50 focus-visible:outline-none",
+                  )}
+                  onClick={onManageSignIn}
+                  type="button"
+                >
+                  Manage
+                </button>
+              }
+              label="Sign-in"
+            >
+              {mfaEnabled ? "Authenticator ready" : "Authenticator needed"}
+            </SettingsRow>
+            {profile.data.positions.map((position) => (
+              <SettingsRow key={position.id} label="Title">
+                <span className="gap-0.5 flex flex-col">
+                  <span>{position.title}</span>
+                  <span className="text-[0.8125rem] text-muted-foreground">
+                    {position.subsidiaryName ?? "Group"}
+                    {position.managerName
+                      ? ` · reports to ${position.managerName}`
+                      : ""}
+                  </span>
+                </span>
+              </SettingsRow>
+            ))}
+            {profile.data.subsidiaries.map((subsidiary) => (
+              <SettingsRow key={subsidiary.id} label="Subsidiary">
+                {subsidiary.name}
+              </SettingsRow>
+            ))}
+            {profile.data.teams.map((team) => (
+              <SettingsRow key={team.id} label="Team">
+                {team.name}
+                <span className="text-muted-foreground">
+                  {" "}
+                  · {team.subsidiaryName}
+                </span>
+              </SettingsRow>
+            ))}
+          </SettingsGroup>
+        </dl>
+      )}
+    </div>
+  );
+}
+
+const SESSIONS_QUERY_KEY = ["account", "sessions"];
+
+function SessionsSection() {
+  const queryClient = useQueryClient();
+  const [message, setMessage] = useState("");
+  const sessions = useQuery({
+    queryKey: SESSIONS_QUERY_KEY,
+    queryFn: readSessions,
+  });
+
+  /** Ending sessions reports in one line under the list, either way. */
+  const report = (done: string) => ({
+    onMutate: () => setMessage(""),
+    onError: (error: Error) => setMessage(error.message),
+    onSuccess: () => {
+      setMessage(done);
+      void queryClient.invalidateQueries({ queryKey: SESSIONS_QUERY_KEY });
+    },
+  });
+  const revokeOne = useMutation({
+    mutationFn: (token: string) =>
+      authCall(
+        () => authClient.revokeSession({ token }),
+        "That session was not ended.",
+      ),
+    ...report("Session ended."),
+  });
+  const revokeOthers = useMutation({
+    mutationFn: () =>
+      authCall(
+        () => authClient.revokeOtherSessions(),
+        "Other sessions were not ended.",
+      ),
+    ...report("Other sessions ended."),
+  });
+
+  if (sessions.isPending) {
+    return (
+      <div className="gap-3 flex flex-col outline-none" role="tabpanel">
+        <SettingsLoading label="Loading sessions…">
+          <Skeleton className="h-12 w-full" />
+          <Skeleton className="h-12 w-full" />
+        </SettingsLoading>
+      </div>
+    );
+  }
+  if (sessions.isError) {
+    return (
+      <div className="gap-3 flex flex-col outline-none" role="tabpanel">
+        <SettingsRetry
+          error={sessions.error}
+          onRetry={() => void sessions.refetch()}
+        />
+      </div>
+    );
+  }
+
+  const { currentToken } = sessions.data;
+  const otherSessions = sessions.data.sessions.filter(
+    (session) => session.token !== currentToken,
+  ).length;
+
+  return (
+    <div className="gap-3 flex flex-col outline-none" role="tabpanel">
+      {sessions.data.sessions.length === 0 ? (
+        <SettingsGroup>
+          <div className="gap-3 p-3.5 flex flex-col">
+            <p className="text-[0.8125rem] text-muted-foreground" role="status">
+              No sessions to show.
+            </p>
+            <Button
+              className="self-start"
+              onClick={() => void sessions.refetch()}
+              size="sm"
+              type="button"
+              variant="outline"
+            >
+              Reload
+            </Button>
+          </div>
+        </SettingsGroup>
+      ) : (
+        <>
+          <SettingsGroup>
+            <ul>
+              {sessions.data.sessions.map((session) => {
+                const parsed = parseUserAgent(session.userAgent);
+                const current = session.token === currentToken;
+                const ip = session.ipAddress?.trim();
+
+                return (
+                  <li
+                    className="gap-3 px-3.5 py-3 flex items-center justify-between border-b border-border/70 last:border-b-0"
+                    key={session.id}
+                  >
+                    <div className="min-w-0 gap-2.5 flex items-start">
+                      <SessionDeviceMarks
+                        browser={parsed.browser}
+                        platform={parsed.platform}
+                      />
+                      <div className="min-w-0">
+                        <p className="text-sm font-medium leading-snug">
+                          {parsed.label}
+                          {current ? (
+                            <span className="font-normal text-muted-foreground">
+                              {" "}
+                              · this device
+                            </span>
+                          ) : null}
+                        </p>
+                        <p className="mt-0.5 text-[0.8125rem] text-muted-foreground tabular-nums">
+                          {ip ? `${ip} · ` : ""}
+                          {relativeTime(session.updatedAt)}
+                        </p>
+                      </div>
+                    </div>
+                    {current ? null : (
+                      <Button
+                        className="shrink-0"
+                        disabled={revokeOne.isPending}
+                        onClick={() => revokeOne.mutate(session.token)}
+                        size="sm"
+                        type="button"
+                        variant="ghost"
+                      >
+                        End
+                      </Button>
+                    )}
+                  </li>
+                );
+              })}
+            </ul>
+          </SettingsGroup>
+
+          {message ? (
+            <p
+              aria-live="polite"
+              className="px-0.5 text-[0.8125rem] text-muted-foreground"
+              role="status"
+            >
+              {message}
+            </p>
+          ) : null}
+
+          {otherSessions > 0 ? (
+            <Button
+              className="self-start"
+              disabled={revokeOthers.isPending}
+              onClick={() => revokeOthers.mutate()}
+              size="sm"
+              type="button"
+              variant="outline"
+            >
+              {revokeOthers.isPending ? "Ending…" : "End other sessions"}
+            </Button>
+          ) : null}
+        </>
+      )}
+    </div>
   );
 }

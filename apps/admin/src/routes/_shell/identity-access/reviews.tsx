@@ -20,12 +20,13 @@ import {
   SurfaceSection,
 } from "../../../components/admin-surface";
 import { FactorRecoveryQueue } from "../../../components/identity-security-operations";
-import type { IdentityIssue, VisibleAttentionKind } from "../../../lib/admin";
+import type { IdentityIssue } from "../../../lib/admin";
 import {
   announce,
   dashboardQueryOptions,
   reviewPrivilegedAccess,
 } from "../../../lib/admin";
+import type { VisibleAttentionKind } from "../../../lib/identity-operations";
 
 const isOrganizationGap = (
   issue: IdentityIssue,

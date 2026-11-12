@@ -30,19 +30,24 @@ endpoints answer only for teams the caller is in.
 `domains/engineering` is the worked example — copy it. To add another domain front end:
 
 1. Copy `domains/engineering` to `domains/<slug>` as `@domains/<slug>`, replacing
-   `engineering` in `vite.config.ts` (`base`), `src/router.tsx` (`basepath`),
-   `src/routes/_shell.tsx` (`current` and the `admit(…, "<slug>")` call),
-   `src/routes/__root.tsx` (the `documentHead` title and `AppDocument app="domains/<slug>"`),
-   and the dev script's fallback port.
+   `engineering` in `vite.config.ts` (`base`, and `port` with the slug's port in
+   `microfrontends.json`), `src/routes/_shell.tsx` (`current` and the `admit(…, "<slug>")`
+   call), and `src/routes/__root.tsx` (the `documentHead` title and
+   `AppDocument app="domains/<slug>"`). The router (`@repo/shell/router`) takes its base path
+   from `base`, and under `turbo dev` turbo hands the Vite setup (`@repo/shell/vite`) the port
+   from `microfrontends.json`.
 2. Mark the domain live in `packages/shell/src/domains.ts` (the `live` rule names the built
    domains).
+3. Serve it in production: add `domains/<slug>` to both app loops and the `COPY` lines in
+   `infra/web/Dockerfile`, and a `handle /<slug>*` block in `infra/web/Caddyfile`.
 
 The port and the path already exist in `microfrontends.json`; `domains.ts` is the same list
 in TypeScript and the two are kept in step by hand.
 
 The chrome is not copied: `@repo/shell` owns the header, the domain rule, admission
-(`admit()`) and the session query. A domain wears `WorkspaceShell`; the workspace and the
-back office wear `AppShell`. A domain app owns its routes and nothing else.
+(`admit()`), the session query, the router and the Vite setup. A domain wears
+`WorkspaceShell`; the workspace and the back office wear `AppShell`. A domain app owns its
+routes and nothing else.
 
 The rule is per person, not per repo: `admit()` reads the signed-in person's domain
 memberships from `GET /api/access-control/domains`. Server-owned team-id/domain-slug

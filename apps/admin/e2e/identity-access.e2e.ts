@@ -632,7 +632,7 @@ test("remaining identity role affordances match the operator permissions", async
       const available = {
         "Edit account": role === "admin" || role === "super-admin",
         "Issue new password": role !== "access-reviewer",
-        "Revoke sessions": role !== "access-reviewer",
+        "Revoke all sessions": role !== "access-reviewer",
         "Suspend access": role === "admin" || role === "super-admin",
         Impersonate: role === "super-admin",
         "Delete account": role === "super-admin",

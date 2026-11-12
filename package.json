@@ -1,12 +1,40 @@
 {
   "name": "tagaroa",
   "private": true,
-  "workspaces": [
-    "apps/*",
-    "domains/*",
-    "packages/*",
-    "servers/*"
-  ],
+  "workspaces": {
+    "packages": [
+      "apps/*",
+      "domains/*",
+      "packages/*",
+      "servers/*"
+    ],
+    "catalog": {
+      "@axe-core/playwright": "^4.14.0",
+      "@better-auth/passkey": "1.7.12",
+      "@fontsource-variable/geist": "^5.3.0",
+      "@fontsource-variable/geist-mono": "^5.3.0",
+      "@playwright/test": "1.64.1",
+      "@ridemountainpig/svgl-react": "^1.0.18",
+      "@tanstack/react-form": "1.33.5",
+      "@tanstack/react-query": "5.105.0",
+      "@tanstack/react-router": "1.170.46",
+      "@tanstack/react-start": "1.169.4",
+      "@tanstack/react-table": "^9.3.1",
+      "@types/bun": "1.4.4",
+      "@types/node": "26.6.6",
+      "@types/react": "19.3.0",
+      "@types/react-dom": "19.3.0",
+      "better-auth": "1.7.12",
+      "lucide-react": "^1.64.0",
+      "react": "19.3.1",
+      "react-dom": "19.3.1",
+      "recharts": "3.10.1",
+      "tailwindcss": "^4",
+      "typescript": "7.0.2",
+      "vite": "8.3.5",
+      "zod": "4.6.7"
+    }
+  },
   "scripts": {
     "boundaries": "turbo boundaries",
     "build": "turbo run build",
@@ -37,13 +65,13 @@
     "@e2e-dev/web": "0.15.3",
     "@repo/test-support": "*",
     "@shadcn/lint": "^0.2.3",
-    "@types/node": "26.6.6",
+    "@types/node": "catalog:",
     "ai": "7.0.157",
     "e2e": "0.21.3",
     "oxfmt": "^0.75.0",
     "oxlint": "^1.90.0",
     "turbo": "^2.11.10",
-    "typescript": "7.0.2"
+    "typescript": "catalog:"
   },
   "overrides": {
     "@react-email/render": "2.2.0",
@@ -58,7 +86,7 @@
     }
   },
   "engines": {
-    "bun": "1.4.2",
+    "bun": "1.4.4",
     "node": ">=24.15"
   },
   "knip": {

@@ -1,6 +1,6 @@
 import { describe, expect, it } from "bun:test";
 
-import { attemptAuth } from "./attempt-auth";
+import { attemptAuth, authCall } from "./attempt-auth";
 
 describe("attemptAuth", () => {
   it("returns successful data, including null and absent data", async () => {
@@ -61,5 +61,20 @@ describe("attemptAuth", () => {
       code: "MFA_REQUIRED",
       failure: "Use MFA.",
     });
+  });
+});
+
+describe("authCall", () => {
+  it("throws the server's sentence, or the caller's when there is none or no answer", async () => {
+    expect(await authCall(async () => ({ data: 1 }), "Not saved.")).toBe(1);
+    await expect(
+      authCall(async () => ({ error: { message: "Too long." } }), "Not saved."),
+    ).rejects.toThrow("Too long.");
+    for (const call of [
+      async () => ({ error: {} }),
+      () => Promise.reject(new TypeError("NetworkError")),
+    ]) {
+      await expect(authCall(call, "Not saved.")).rejects.toThrow("Not saved.");
+    }
   });
 });

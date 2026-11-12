@@ -1,9 +1,7 @@
 import { describe, expect, test } from "bun:test";
 
-import {
-  channelStatus,
-  type CarrierCredentials as NotificationProviders,
-} from "./channel-status.service";
+import type { CarrierCredentials as NotificationProviders } from "../value-objects/carrier.vo";
+import { channelStatus } from "./channel-status.service";
 
 const providers = (
   overrides: Partial<NotificationProviders> = {},

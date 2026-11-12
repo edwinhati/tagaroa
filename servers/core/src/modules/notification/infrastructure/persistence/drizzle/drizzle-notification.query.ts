@@ -1,9 +1,12 @@
 import { Inject, Injectable } from "@nestjs/common";
 import type { Collection } from "@repo/contracts";
 import {
+  MESSAGE_SORT_FIELDS,
   MESSAGE_STATUSES,
+  NEWEST_FIRST,
   NOTIFICATION_CHANNELS,
   SUPPRESSION_REASONS,
+  SUPPRESSION_SORT_FIELDS,
 } from "@repo/contracts/notifications";
 import { sql } from "drizzle-orm";
 
@@ -27,7 +30,7 @@ import { notificationMessage, notificationSuppression } from "./schema";
  * that cannot show that sends someone to the database.
  */
 const MESSAGES = collectionOver<MessageRow>(notificationMessage, {
-  defaultSort: "-createdAt",
+  defaultSort: NEWEST_FIRST,
   filters: {
     channel: {
       column: notificationMessage.channel,
@@ -58,11 +61,11 @@ const MESSAGES = collectionOver<MessageRow>(notificationMessage, {
     destination: notificationMessage.destination,
     key: notificationMessage.key,
     status: notificationMessage.status,
-  },
+  } satisfies Record<(typeof MESSAGE_SORT_FIELDS)[number], unknown>,
 });
 
 const SUPPRESSIONS = collectionOver<SuppressionRow>(notificationSuppression, {
-  defaultSort: "-createdAt",
+  defaultSort: NEWEST_FIRST,
   filters: {
     channel: {
       column: notificationSuppression.channel,
@@ -86,7 +89,7 @@ const SUPPRESSIONS = collectionOver<SuppressionRow>(notificationSuppression, {
     createdAt: notificationSuppression.createdAt,
     destination: notificationSuppression.destination,
     reason: notificationSuppression.reason,
-  },
+  } satisfies Record<(typeof SUPPRESSION_SORT_FIELDS)[number], unknown>,
 });
 
 /** Postgres counts are bigint, which arrives as a string unless it is cast. */

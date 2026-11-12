@@ -1,5 +1,9 @@
-import { IDENTITY_ROLES, primaryRoleLabel } from "@repo/contracts/identity";
-import { roleCan } from "@repo/contracts/identity";
+import {
+  type AttentionKind,
+  IDENTITY_ROLES,
+  primaryRoleLabel,
+  roleCan,
+} from "@repo/contracts/identity";
 import { AppTrail, Page } from "@repo/shell/app-shell";
 import {
   DataTableColumnVisibility,
@@ -10,16 +14,13 @@ import {
   DataTableView,
   createDataTableColumnHelper,
   useDataTable,
-  useDebouncedValue,
 } from "@repo/ui/blocks/data-table";
 import { Avatar, AvatarFallback } from "@repo/ui/components/avatar";
 import { Button } from "@repo/ui/components/button";
 import {
   DropdownMenu,
   DropdownMenuContent,
-  DropdownMenuGroup,
   DropdownMenuItem,
-  DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@repo/ui/components/dropdown-menu";
 import { Skeleton } from "@repo/ui/components/skeleton";
@@ -33,22 +34,9 @@ import {
 } from "@repo/ui/components/table";
 import { relativeTime } from "@repo/ui/lib/relative-time";
 import { useQuery } from "@tanstack/react-query";
-import {
-  createFileRoute,
-  getRouteApi,
-  Link,
-  useNavigate,
-  useRouterState,
-} from "@tanstack/react-router";
-import { functionalUpdate, type SortingState } from "@tanstack/react-table";
+import { createFileRoute, getRouteApi, Link } from "@tanstack/react-router";
 import { EllipsisIcon } from "lucide-react";
-import {
-  type ReactNode,
-  useCallback,
-  useEffect,
-  useMemo,
-  useState,
-} from "react";
+import { type ReactNode, useMemo, useState } from "react";
 
 import {
   COLLECTION,
@@ -59,24 +47,31 @@ import {
   PANEL,
 } from "../../../../components/admin-surface";
 import { IssueAccount } from "../../../../components/issue-account";
-import { usePersonAdmin } from "../../../../components/person-admin";
+import {
+  PersonActionItems,
+  usePersonAdmin,
+} from "../../../../components/person-admin";
 import type {
-  AttentionKind,
   PeopleQuery,
   PeopleSearch,
   PeopleSlice,
+  PeopleSortField,
   Person,
-  VisibleAttentionKind,
 } from "../../../../lib/admin";
 import {
   dashboardQueryOptions,
-  DEFAULT_PAGE_SIZE,
+  PEOPLE_SORT_FIELDS,
   directoryQueryOptions,
-  PAGE_SIZES,
   peopleQueryOptions,
   standingOf,
   teamNamesByUser,
 } from "../../../../lib/admin";
+import { useCollectionSearch } from "../../../../lib/collection-search";
+import {
+  attentionCopy,
+  isVisibleAttention,
+  type VisibleAttentionKind,
+} from "../../../../lib/identity-operations";
 
 type PersonTableRow = {
   account: string;
@@ -89,22 +84,10 @@ type PersonTableRow = {
   teams: string[];
 };
 
-const visibleAttention = (attention: AttentionKind[]): VisibleAttentionKind[] =>
-  attention.filter(
-    (kind): kind is VisibleAttentionKind => kind !== "temporary-password",
-  );
+const visibleAttention = (attention: AttentionKind[]) =>
+  attention.filter(isVisibleAttention);
 
 const columnHelper = createDataTableColumnHelper<PersonTableRow>();
-
-/**
- * Sorting is the database's now, so only the columns `auth.user` actually holds
- * can carry a sort header. Access sorts by role and nothing else — the team
- * names beside it are merged in here, and the database cannot order by them.
- */
-const SORT_FIELDS: Record<string, string> = {
-  access: "role",
-  account: "name",
-};
 
 const columns = columnHelper.columns([
   columnHelper.accessor("account", {
@@ -176,11 +159,6 @@ const columns = columnHelper.columns([
   }),
 ]);
 
-const attentionLabels: Record<VisibleAttentionKind, string> = {
-  "no-subsidiary": "No subsidiary",
-  "unverified-email": "Unverified email",
-};
-
 function AttentionState({ row }: { row: PersonTableRow }) {
   if (row.standing === "suspended") {
     return <Mark label="Suspended" tone="bad" />;
@@ -195,7 +173,7 @@ function AttentionState({ row }: { row: PersonTableRow }) {
   return (
     <div className="gap-x-3 gap-y-1 flex flex-wrap">
       {visible.map((kind) => (
-        <Mark key={kind} label={attentionLabels[kind]} tone="warn" />
+        <Mark key={kind} label={attentionCopy[kind].label} tone="warn" />
       ))}
       {overflow > 0 ? (
         <span className={`${FIGURE} text-muted-foreground`}>+{overflow}</span>
@@ -236,19 +214,24 @@ function People() {
   const canIssueAccount = roleCan(session?.user?.role, "user", "create");
   const canAssignPrivileged = roleCan(session?.user?.role, "user", "set-role");
   const search = Route.useSearch();
+  const collection = useCollectionSearch({
+    defaultSort: "account",
+    search,
+    to: Route.fullPath,
+  });
   const slice = search.slice ?? "all";
-  const sort = search.sort ?? "account";
-  const sortField = sort.replace(/^-/, "");
+  const { sort } = collection;
 
   const query: PeopleQuery = {
-    page: search.page ?? 1,
-    pageSize: search.size ?? DEFAULT_PAGE_SIZE,
+    page: collection.page,
+    pageSize: collection.size,
     role: slice === "all" ? (search.role ?? null) : null,
-    search: search.q ?? "",
+    search: collection.q,
     slice,
     sort: {
       direction: sort.startsWith("-") ? "desc" : "asc",
-      field: SORT_FIELDS[sortField] ?? "name",
+      field:
+        PEOPLE_SORT_FIELDS[sort.replace(/^-/, "") as PeopleSortField] ?? "name",
     },
   };
 
@@ -323,16 +306,13 @@ function People() {
             privileged={dashboard.data?.accessReview.total ?? 0}
           />
           <PeopleDataTable
+            collection={collection}
             data={rows}
             groupSize={groupSize}
             matched={matched}
             narrowed={narrowed}
-            page={query.page}
-            pageSize={query.pageSize}
-            query={search.q ?? ""}
             role={query.role}
             slice={slice}
-            sort={sort}
           />
         </div>
       )}
@@ -386,85 +366,30 @@ function PeopleSummary({
 }
 
 function PeopleDataTable({
+  collection,
   data,
   groupSize,
   matched,
   narrowed,
-  page,
-  pageSize,
-  query: initialQuery,
   role,
   slice,
-  sort,
 }: {
+  collection: ReturnType<typeof useCollectionSearch<PeopleSearch>>;
   data: PersonTableRow[];
   groupSize: number;
   matched: number;
   narrowed: boolean;
-  page: number;
-  pageSize: number;
-  query: string;
   role: string | null;
   slice: PeopleSlice;
-  sort: string;
 }) {
-  const navigate = useNavigate();
-  const onPeople = useRouterState({
-    select: (state) => state.location.pathname === "/identity-access/people",
-  });
-  const [text, setText] = useState(initialQuery);
-  const debouncedText = useDebouncedValue(text);
-
-  /**
-   * Every control writes to the URL and the URL is the only state, so a filtered
-   * page is a link someone can send. Anything that changes what matches returns
-   * to page one — staying on page 7 of a result set that now has two pages shows
-   * an empty table and no reason for it.
-   */
-  const go = useCallback(
-    (change: Partial<PeopleSearch>) => {
-      const next: PeopleSearch = {
-        ...(initialQuery ? { q: initialQuery } : {}),
-        ...(slice === "all" ? {} : { slice }),
-        ...(role ? { role } : {}),
-        ...(sort === "account" ? {} : { sort }),
-        ...(page > 1 ? { page } : {}),
-        ...(pageSize === DEFAULT_PAGE_SIZE ? {} : { size: pageSize }),
-        ...change,
-      };
-      if (!("page" in change)) delete next.page;
-      // A slice already holds the one filter slot, so it and Role cannot both
-      // be set. Whichever was just chosen wins.
-      if (change.slice !== undefined) delete next.role;
-      if (change.role !== undefined) delete next.slice;
-      void navigate({
-        replace: true,
-        search: next,
-        to: "/identity-access/people",
-      });
-    },
-    [initialQuery, navigate, page, pageSize, role, slice, sort],
-  );
-
-  /**
-   * The search box is the one control whose value does not live in the URL, so
-   * a debounce carries it there. It must stop at the page boundary: while a
-   * navigation away is settling this component is still mounted, but the search
-   * it reads is already the new route's — empty. Without the guard the box and
-   * the URL disagree, the debounce "corrects" the URL, and `go` sends everyone
-   * back to the People route. Leaving the page becomes impossible with a
-   * search active.
-   */
-  useEffect(() => {
-    if (!onPeople) return;
-    if (debouncedText.trim() === initialQuery) return;
-    go({ q: debouncedText.trim() || undefined });
-  }, [debouncedText, go, initialQuery, onPeople]);
-
-  const sorting = useMemo<SortingState>(
-    () => [{ desc: sort.startsWith("-"), id: sort.replace(/^-/, "") }],
-    [sort],
-  );
+  // A slice already holds the one filter slot, so it and Role cannot both be
+  // set. Whichever was just chosen wins.
+  const narrow = (change: Partial<PeopleSearch>) =>
+    collection.update({
+      ...change,
+      ...(change.slice !== undefined ? { role: undefined } : {}),
+      ...(change.role !== undefined ? { slice: undefined } : {}),
+    });
 
   const table = useDataTable({
     columns,
@@ -472,43 +397,18 @@ function PeopleDataTable({
     // Rows keyed by index remount when the debounced search reorders them,
     // closing an open row menu or leaving it on someone else's account.
     getRowId: (row) => row.person.id,
+    // `listUsers` orders by one field.
+    enableMultiSort: false,
     manualFiltering: true,
-    manualPagination: true,
-    manualSorting: true,
-    onPaginationChange: (updater) => {
-      const next = functionalUpdate(updater, {
-        pageIndex: page - 1,
-        pageSize,
-      });
-      go({
-        page: next.pageIndex + 1,
-        size: next.pageSize === DEFAULT_PAGE_SIZE ? undefined : next.pageSize,
-        // A larger page cannot keep the offset a smaller one was on.
-        ...(next.pageSize === pageSize ? {} : { page: 1 }),
-      });
-    },
-    onSortingChange: (updater) => {
-      const next = functionalUpdate(updater, sorting)[0];
-      go({
-        sort: next
-          ? `${next.desc ? "-" : ""}${next.id}` === "account"
-            ? undefined
-            : `${next.desc ? "-" : ""}${next.id}`
-          : undefined,
-      });
-    },
     rowCount: matched,
-    state: {
-      pagination: { pageIndex: page - 1, pageSize },
-      sorting,
-    },
+    ...collection.table,
   });
 
   return (
     <div className={`min-w-0 flex flex-col ${PANEL}`}>
       <DataTableToolbar
-        onSearchChange={setText}
-        search={text}
+        onSearchChange={collection.setSearchText}
+        search={collection.searchText}
         searchLabel="Filter accounts"
         searchPlaceholder="Find a name, or an address with @"
       >
@@ -522,7 +422,7 @@ function PeopleDataTable({
               aria-pressed={slice === option.value}
               key={option.value}
               onClick={() =>
-                go({
+                narrow({
                   slice: option.value === "all" ? undefined : option.value,
                 })
               }
@@ -535,7 +435,7 @@ function PeopleDataTable({
         </div>
         <DataTableFacet
           label="Role"
-          onChange={(values) => go({ role: values.at(-1) })}
+          onChange={(values) => narrow({ role: values.at(-1) })}
           options={IDENTITY_ROLES.map(({ id: value, label }) => ({
             label,
             value,
@@ -544,13 +444,9 @@ function PeopleDataTable({
         />
         {narrowed ? (
           <Button
-            onClick={() => {
-              // The box as well as the URL. The debounce watches this state and
-              // would put the query straight back otherwise, so clearing one
-              // without the other reads as a button that does nothing.
-              setText("");
-              go({ q: undefined, role: undefined, slice: undefined });
-            }}
+            onClick={() =>
+              narrow({ q: undefined, role: undefined, slice: undefined })
+            }
             size="sm"
             variant="ghost"
           >
@@ -601,7 +497,6 @@ function PeopleDataTable({
             ? `${matched} of ${groupSize} accounts`
             : `${matched} accounts`
         }
-        pageSizes={PAGE_SIZES}
         table={table}
       />
     </div>
@@ -629,10 +524,6 @@ function PersonDetailsButton({
   );
 }
 
-/**
- * Every action here changes what another person can do, so each one is a verb
- * naming its effect on them, not on the record ("Revoke sessions", not "Clear").
- */
 function PersonActions({ person }: { person: Person }) {
   const admin = usePersonAdmin(person);
   const search = Route.useSearch();
@@ -653,7 +544,7 @@ function PersonActions({ person }: { person: Person }) {
           }
         />
         <DropdownMenuContent align="end" className="min-w-44">
-          <DropdownMenuGroup>
+          <PersonActionItems actions={admin.offered} admin={admin}>
             <DropdownMenuItem
               render={
                 <Link
@@ -665,63 +556,7 @@ function PersonActions({ person }: { person: Person }) {
             >
               View details
             </DropdownMenuItem>
-            {admin.canAdminister ? (
-              <DropdownMenuItem onClick={() => admin.request("edit")}>
-                Edit account
-              </DropdownMenuItem>
-            ) : null}
-          </DropdownMenuGroup>
-          {admin.canResetPassword ||
-          admin.canRevokeSessions ||
-          admin.canImpersonate ? (
-            <>
-              <DropdownMenuSeparator />
-              <DropdownMenuGroup>
-                {admin.canResetPassword ? (
-                  <DropdownMenuItem onClick={() => admin.request("password")}>
-                    Issue new password
-                  </DropdownMenuItem>
-                ) : null}
-                {admin.canRevokeSessions ? (
-                  <DropdownMenuItem onClick={() => admin.request("sessions")}>
-                    Revoke sessions
-                  </DropdownMenuItem>
-                ) : null}
-                {admin.canImpersonate ? (
-                  <DropdownMenuItem
-                    onClick={() => admin.request("impersonate")}
-                  >
-                    Impersonate
-                  </DropdownMenuItem>
-                ) : null}
-              </DropdownMenuGroup>
-            </>
-          ) : null}
-          {admin.canSuspend || admin.canDelete ? (
-            <>
-              <DropdownMenuSeparator />
-              <DropdownMenuGroup>
-                {admin.canSuspend ? (
-                  <DropdownMenuItem
-                    onClick={() =>
-                      admin.request(admin.suspended ? "restore" : "suspend")
-                    }
-                    variant={admin.suspended ? undefined : "destructive"}
-                  >
-                    {admin.suspended ? "Restore access" : "Suspend access"}
-                  </DropdownMenuItem>
-                ) : null}
-                {admin.canDelete ? (
-                  <DropdownMenuItem
-                    onClick={() => admin.request("delete")}
-                    variant="destructive"
-                  >
-                    Delete account
-                  </DropdownMenuItem>
-                ) : null}
-              </DropdownMenuGroup>
-            </>
-          ) : null}
+          </PersonActionItems>
         </DropdownMenuContent>
       </DropdownMenu>
 

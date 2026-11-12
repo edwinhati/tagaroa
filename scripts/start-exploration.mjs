@@ -52,7 +52,7 @@ for (const [cwd, args] of [
   ["servers/core", ["test/start-exploration.ts"]],
   ...["auth", "workspace", "admin"].map((app, index) => [
     `apps/${app}`,
-    ["run", "dev:plain", "--port", String(ports[index + 1]), "--strictPort"],
+    ["run", "dev:plain", "--port", String(ports[index + 1])],
   ]),
 ]) {
   const child = spawn("bun", args, {

@@ -201,6 +201,12 @@ export const canManageTarget = (
   targetRole: string | null | undefined,
 ): boolean => isSuperAdmin(actorRole) || !isPrivilegedRole(targetRole);
 
+/** What about an account needs acting on, as the directory reports it. */
+export type AttentionKind =
+  | "temporary-password"
+  | "unverified-email"
+  | "no-subsidiary";
+
 /** Bounds for the case reference an operator records with a sensitive act. */
 export const EVIDENCE_LENGTH = { max: 500, min: 10 } as const;
 

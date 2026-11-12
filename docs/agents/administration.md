@@ -12,8 +12,8 @@ Two kinds of administration, two homes, no overlap:
 a separate package. Two facts make that architecture unavailable rather than merely
 unattractive: `turbo dev` starts exactly one proxy per invocation (two `microfrontends.json`
 files leave one of them silently dead), and a `domains/<slug>` package cannot mount twice
-because Vite's `base` and the router's `basepath` are build-time constants against one dev
-port. Do not propose it again without re-testing both.
+because Vite's `base` (which the router's base path follows) is a build-time constant against
+one dev port. Do not propose it again without re-testing both.
 
 **Built:**
 

@@ -11,7 +11,11 @@ import {
   isDomainAdmin,
   signInUrl,
 } from "./session";
-import { fetchSession, isAdmitted, isImpersonating } from "./session-state";
+import {
+  createSessionQueryOptions,
+  isAdmitted,
+  isImpersonating,
+} from "./session-state";
 import { WORKSPACE_URL } from "./urls";
 
 describe("signInUrl", () => {
@@ -53,11 +57,23 @@ describe("isAdmitted", () => {
   });
 });
 
-describe("fetchSession", () => {
-  it("reads no session out of an unreachable service", async () => {
-    expect(
-      await fetchSession(() => Promise.reject(new Error("ECONNREFUSED"))),
-    ).toBe(null);
+describe("the session query", () => {
+  const read = (
+    getSession: () => Promise<{ data: unknown; error?: unknown }>,
+  ) => new QueryClient().fetchQuery(createSessionQueryOptions(getSession));
+
+  it("answers no session only when the core service says so", async () => {
+    expect(await read(async () => ({ data: null, error: null }))).toBe(null);
+  });
+
+  it("fails when the read got no answer, rather than reading signed out", async () => {
+    // A page being left has its reads cancelled; that is not a sign-out.
+    await expect(
+      read(() => Promise.reject(new TypeError("NetworkError"))),
+    ).rejects.toThrow("NetworkError");
+    await expect(
+      read(async () => ({ data: null, error: { status: 503 } })),
+    ).rejects.toThrow("The session could not be read.");
   });
 });
 
@@ -118,6 +134,9 @@ test("domain membership reads fail closed and reject malformed responses", async
   ]) {
     expect(await fetchDomainMemberships(async () => response)).toEqual([]);
   }
+  await expect(
+    fetchDomainMemberships(() => Promise.reject(new TypeError("NetworkError"))),
+  ).rejects.toThrow("NetworkError");
   const membership = {
     teamId: "immutable-team-id",
     organizationId: "subsidiary",

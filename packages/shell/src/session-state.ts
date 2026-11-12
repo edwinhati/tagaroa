@@ -20,33 +20,28 @@ export type SessionState =
   | null
   | undefined;
 
-export async function fetchSession(
-  getSession: () => Promise<{ data: unknown }>,
-): Promise<SessionState> {
-  try {
-    const { data } = await getSession();
-    return data as SessionState;
-  } catch {
-    // An unreachable core service is a session we cannot prove, which is the
-    // same answer as no session: send them to the door and let it explain.
-    return null;
-  }
-}
-
 /**
  * Fetched once per page load and shared by every route that guards on it, so a
  * visit to two guarded routes is still one request. The door reads through its
  * own client; every other app through the shell's.
+ *
+ * Only the core service's answer is a session or its absence. A read that got
+ * no answer fails: the browser cancels a page's reads as it is left, and taking
+ * that for "signed out" sent people to the door instead of where they went.
  */
 export const createSessionQueryOptions = (
-  getSession: () => Promise<{ data: unknown }>,
+  getSession: () => Promise<{ data: unknown; error?: unknown }>,
 ) =>
   queryOptions({
     queryKey: ["session"],
     // The guard blocks the render, so it must not wait out three backoff
     // retries against a server that is plainly down.
     retry: false,
-    queryFn: () => fetchSession(getSession),
+    queryFn: async () => {
+      const { data, error } = await getSession();
+      if (error) throw new Error("The session could not be read.");
+      return data as SessionState;
+    },
   });
 
 /**

@@ -28,3 +28,19 @@ export const SUPPRESSION_REASONS = [
   "failed",
 ] as const;
 export type SuppressionReason = (typeof SUPPRESSION_REASONS)[number];
+
+/** The fields each log can be sorted by. Both open newest first. */
+export const MESSAGE_SORT_FIELDS = [
+  "channel",
+  "createdAt",
+  "destination",
+  "key",
+  "status",
+] as const;
+export const SUPPRESSION_SORT_FIELDS = [
+  "channel",
+  "createdAt",
+  "destination",
+  "reason",
+] as const;
+export const NEWEST_FIRST = "-createdAt";

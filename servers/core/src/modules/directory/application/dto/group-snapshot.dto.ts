@@ -1,7 +1,6 @@
-import type {
-  AttentionIssue,
-  AttentionKind,
-} from "../../domain/entities/person.entity";
+import type { AttentionKind } from "@repo/contracts/identity";
+
+import type { AttentionIssue } from "../../domain/entities/person.entity";
 import type { PositionRecord } from "../../domain/repositories/position.repository";
 import type { PrivilegedPerson } from "../../domain/services/privileged-access.service";
 import type { TimelineEntry } from "../../domain/services/timeline.service";

@@ -6,7 +6,7 @@ Bun + Turborepo monorepo. Workspaces: `apps/*`, `packages/*`, `servers/*`.
 
 ### Issue tracker
 
-Issues live in Multica (IDs like `ISSUE-12`), managed with the `multica` CLI; PRs stay on GitHub. See `docs/agents/issue-tracker.md`, and `docs/agents/multica.md` for the workflow and PR linking. Always put the issue ID in the branch name and the PR title (e.g. `agent/mika/issue-12-…`, `ISSUE-12: …`); without it the PR isn't linked and the issue never closes on merge.
+Issues live in Multica (IDs like `ISSUE-12`), managed with the `multica` CLI; PRs stay on GitHub. See `docs/agents/issue-tracker.md`, and `docs/agents/multica.md` for the workflow and PR linking. Always put the issue ID in the branch name and the PR title (e.g. `agent/mika/issue-12-…`, `ISSUE-12: …`); without it the PR isn't linked and the issue never closes on merge. Merge PRs with squash and merge only (`gh pr merge --squash`).
 
 ### Triage labels
 
@@ -20,6 +20,10 @@ Multi-context: a root `CONTEXT-MAP.md` points at one `CONTEXT.md` per workspace.
 
 Include a changeset for user-visible changes. Read `.changeset/README.md` before
 recording changes or preparing a release.
+
+### Dependencies
+
+A dependency more than one workspace uses is pinned once, in the root `package.json` under `workspaces.catalog`, and each workspace names it as `"catalog:"`: bump it there. `engines.bun` is the Bun version for local installs and CI; the Docker images must use the same one, and `bun run check:infra` fails when they drift.
 
 ### CI
 

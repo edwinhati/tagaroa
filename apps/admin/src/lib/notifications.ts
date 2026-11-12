@@ -1,19 +1,29 @@
 import type { Collection } from "@repo/contracts";
-import type {
-  MessageStatus,
-  NotificationChannel,
-  SuppressionReason,
-  TemplateStatus,
+import {
+  MESSAGE_SORT_FIELDS,
+  MESSAGE_STATUSES,
+  type MessageStatus,
+  NOTIFICATION_CHANNELS,
+  type NotificationChannel,
+  SUPPRESSION_REASONS,
+  SUPPRESSION_SORT_FIELDS,
+  type SuppressionReason,
+  type TemplateStatus,
 } from "@repo/contracts/notifications";
 import { queryOptions } from "@tanstack/react-query";
 
 import {
-  DEFAULT_PAGE_SIZE,
   coreMutationDocument,
   coreReadCollection,
   coreReadCollectionPage,
   coreReadDocument,
 } from "./admin";
+import {
+  type CollectionSearch,
+  collectionRequest,
+  facetSearch,
+  parseCollectionSearch,
+} from "./collection-search";
 
 /**
  * The wording the workspace sends, and what became of each message.
@@ -101,14 +111,42 @@ export interface Suppression {
   createdAt: string | Date;
 }
 
-export interface LogFilter {
-  status: string[];
-  channel: string[];
-  search: string;
-  page?: number;
-  limit?: number;
-  sort?: string;
+export interface DeliverySearch extends CollectionSearch {
+  channel?: string[];
+  status?: string[];
 }
+
+export interface SuppressionSearch extends CollectionSearch {
+  channel?: string[];
+  reason?: string[];
+}
+
+export const DELIVERY_FACETS = {
+  channel: NOTIFICATION_CHANNELS,
+  status: MESSAGE_STATUSES,
+};
+
+export const SUPPRESSION_FACETS = {
+  channel: NOTIFICATION_CHANNELS,
+  reason: SUPPRESSION_REASONS,
+};
+
+export const validateDeliverySearch = (
+  search: Record<string, unknown>,
+): DeliverySearch => ({
+  ...parseCollectionSearch(search, MESSAGE_SORT_FIELDS),
+  ...facetSearch(search, DELIVERY_FACETS),
+});
+
+export const validateSuppressionSearch = (
+  search: Record<string, unknown>,
+): SuppressionSearch => ({
+  ...parseCollectionSearch(search, SUPPRESSION_SORT_FIELDS),
+  ...facetSearch(search, SUPPRESSION_FACETS),
+});
+
+/** Every notification read sits under this key, so a write refreshes them all. */
+export const NOTIFICATIONS_QUERY_KEY = ["admin", "notifications"] as const;
 
 export interface TemplateDraft {
   key: string;
@@ -121,7 +159,7 @@ export interface TemplateDraft {
 }
 
 export const templatesQueryOptions = queryOptions({
-  queryKey: ["admin", "notifications", "templates"],
+  queryKey: [...NOTIFICATIONS_QUERY_KEY, "templates"],
   queryFn: () =>
     coreReadCollection<Template>(
       "/api/notifications/templates?limit=100",
@@ -134,7 +172,7 @@ export const templatesQueryOptions = queryOptions({
  * failure is a console someone stops trusting.
  */
 export const overviewQueryOptions = queryOptions({
-  queryKey: ["admin", "notifications", "overview"],
+  queryKey: [...NOTIFICATIONS_QUERY_KEY, "overview"],
   queryFn: () =>
     coreReadDocument<OverviewDocument>(
       "/api/notifications/overview?channelsLimit=100&seriesLimit=100",
@@ -147,42 +185,31 @@ export const overviewQueryOptions = queryOptions({
   refetchInterval: 15_000,
 });
 
-export const messagesQueryOptions = (filter: LogFilter) => {
-  const query = new URLSearchParams({
-    limit: String(filter.limit ?? DEFAULT_PAGE_SIZE),
-    page: String(filter.page ?? 1),
-    sort: filter.sort || "-createdAt",
-  });
-  filter.status.forEach((value) => query.append("status", value));
-  filter.channel.forEach((value) => query.append("channel", value));
-  if (filter.search.trim()) query.set("q", filter.search.trim());
-
+export const messagesQueryOptions = (search: DeliverySearch) => {
+  const url = collectionRequest(
+    "/api/notifications/messages",
+    search,
+    DELIVERY_FACETS,
+  );
   return queryOptions({
-    queryKey: ["admin", "notifications", "messages", filter],
+    queryKey: [...NOTIFICATIONS_QUERY_KEY, "messages", url],
     queryFn: () =>
-      coreReadCollectionPage<Message>(
-        `/api/notifications/messages?${query.toString()}`,
-        "Could not read the message log.",
-      ),
+      coreReadCollectionPage<Message>(url, "Could not read the message log."),
     refetchInterval: 15_000,
   });
 };
 
-export const suppressionsQueryOptions = (filter: LogFilter) => {
-  const query = new URLSearchParams({
-    limit: String(filter.limit ?? DEFAULT_PAGE_SIZE),
-    page: String(filter.page ?? 1),
-    sort: filter.sort || "-createdAt",
-  });
-  filter.channel.forEach((value) => query.append("channel", value));
-  filter.status.forEach((value) => query.append("reason", value));
-  if (filter.search.trim()) query.set("q", filter.search.trim());
-
+export const suppressionsQueryOptions = (search: SuppressionSearch) => {
+  const url = collectionRequest(
+    "/api/notifications/suppressions",
+    search,
+    SUPPRESSION_FACETS,
+  );
   return queryOptions({
-    queryKey: ["admin", "notifications", "suppressions", filter],
+    queryKey: [...NOTIFICATIONS_QUERY_KEY, "suppressions", url],
     queryFn: () =>
       coreReadCollectionPage<Suppression>(
-        `/api/notifications/suppressions?${query.toString()}`,
+        url,
         "Could not read the suppression list.",
       ),
   });

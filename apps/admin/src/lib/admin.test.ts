@@ -185,15 +185,19 @@ describe("validatePeopleSearch", () => {
   });
 
   test("drops invalid pagination, role, slice, and sort values", () => {
-    expect(
-      validatePeopleSearch({
-        page: 0,
-        role: "owner",
-        size: 500,
-        slice: "active",
-        sort: "email",
-      }),
-    ).toEqual({});
+    // The router lays the validated search over the raw query.
+    const raw = {
+      page: 0,
+      role: "owner",
+      size: 500,
+      slice: "active",
+      sort: "account,access",
+    };
+    const search: Record<string, unknown> = {
+      ...raw,
+      ...validatePeopleSearch(raw),
+    };
+    expect(search).toEqual({});
   });
 
   test("degrades a stale multi-role link to its first valid role", () => {
