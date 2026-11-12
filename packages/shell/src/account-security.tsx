@@ -35,7 +35,7 @@ function FormError({ children }: { children: string }) {
   );
 }
 
-function SettingsGroup({
+export function SettingsGroup({
   children,
   className,
 }: {

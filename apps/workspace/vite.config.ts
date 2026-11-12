@@ -1,27 +1,3 @@
-import tailwindcss from "@tailwindcss/vite";
-import { devtools } from "@tanstack/devtools-vite";
-import { tanstackStart } from "@tanstack/react-start/plugin/vite";
-import viteReact from "@vitejs/plugin-react";
-import { defineConfig } from "vite";
+import { appConfig } from "@repo/shell/vite";
 
-export default defineConfig({
-  // The SPA prerender serves the build on `localhost` and fetches it on
-  // 127.0.0.1. Where localhost resolves to ::1 first (Docker), that misses.
-  preview: { host: true },
-  server: {
-    // Turborepo's microfrontends proxy hands the real port through
-    // TURBO_MFE_PORT on the dev script; this is the standalone default.
-    port: 3002,
-    // Vite walks to the next free port when this one is taken, which puts the
-    // app somewhere the proxy and the configured origins do not know about.
-    // Fail loudly instead.
-    strictPort: true,
-  },
-  plugins: [
-    devtools({ consolePiping: { enabled: false } }),
-    tailwindcss(),
-    tanstackStart({ spa: { enabled: true } }),
-    // react plugin must come after start's plugin
-    viteReact(),
-  ],
-});
+export default appConfig({ port: 3002 });

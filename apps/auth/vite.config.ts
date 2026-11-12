@@ -1,18 +1,12 @@
-import tailwindcss from "@tailwindcss/vite";
-import { devtools } from "@tanstack/devtools-vite";
-import { tanstackStart } from "@tanstack/react-start/plugin/vite";
-import viteReact from "@vitejs/plugin-react";
+import { appConfig } from "@repo/shell/vite";
 import { defineConfig, loadEnv } from "vite";
 
 export default defineConfig(({ mode }) => {
   const env = loadEnv(mode, process.cwd(), "");
 
-  return {
+  return appConfig({
+    port: 3001,
     server: {
-      port: 3001,
-      // Vite walks to the next free port when this one is taken, which puts the
-      // app on an origin nothing has been told to trust. Fail loudly instead.
-      strictPort: true,
       // Bind IPv4 too — otherwise the proxy listens on [::1] only and some
       // clients hit 127.0.0.1 and miss the door.
       host: true,
@@ -28,12 +22,5 @@ export default defineConfig(({ mode }) => {
         },
       },
     },
-    plugins: [
-      devtools({ consolePiping: { enabled: false } }),
-      tailwindcss(),
-      tanstackStart({ spa: { enabled: true } }),
-      // react plugin must come after start's plugin
-      viteReact(),
-    ],
-  };
+  });
 });

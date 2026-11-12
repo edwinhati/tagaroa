@@ -20,6 +20,10 @@ How this repo uses [Multica](https://multica.engineering.tagaroa.cc) to run codi
 - Entering **In Review** hands the issue to Rex for review.
 - When every linked PR merges, the issue moves to **Done**.
 
+## Merging PRs
+
+Always **squash and merge** (`gh pr merge <n> --squash`). The repo only allows squash merges and deletes the head branch on merge, so one PR is one commit on `main` and no merged branches pile up. Agents never merge their own PRs; the squash commit title is the PR title, so keep the `ISSUE-N:` prefix.
+
 ## Linking PRs to issues
 
 Put the issue ID (e.g. `ISSUE-12`) in the branch name or PR title, or write `Closes ISSUE-12` in the PR body.

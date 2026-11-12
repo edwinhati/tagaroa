@@ -18,6 +18,12 @@ import {
   queryOptions,
 } from "@tanstack/react-query";
 
+import {
+  type CollectionSearch,
+  facetValues,
+  parseCollectionSearch,
+} from "./collection-search";
+
 /**
  * Account operations use Better Auth's `admin` and `organization` clients.
  * Group-wide policy and operations that Better Auth deliberately scopes to an
@@ -283,45 +289,36 @@ export interface PeopleQuery {
 }
 
 /** Shareable state for the People directory and a person's return link. */
-export interface PeopleSearch {
-  page?: number;
-  q?: string;
+export interface PeopleSearch extends CollectionSearch {
   role?: string;
-  size?: number;
   slice?: PeopleSlice;
-  sort?: string;
 }
 
-/** The page sizes every table offers; the core service's default is 25. */
-export const PAGE_SIZES = [10, 25, 50, 100];
-export const DEFAULT_PAGE_SIZE = 25;
-const PEOPLE_SORTS = new Set(["account", "-account", "access", "-access"]);
+/**
+ * Sorting is the database's, so only the columns `auth.user` actually holds can
+ * carry a sort header. Access sorts by role and nothing else — the team names
+ * beside it are merged in on the page, and the database cannot order by them.
+ */
+export const PEOPLE_SORT_FIELDS = { access: "role", account: "name" } as const;
+export type PeopleSortField = keyof typeof PEOPLE_SORT_FIELDS;
 
 export function validatePeopleSearch(
   search: Record<string, unknown>,
 ): PeopleSearch {
-  const result: PeopleSearch = {};
-  if (search.slice === "admins" || search.slice === "suspended") {
-    result.slice = search.slice;
-  }
-  if (typeof search.q === "string" && search.q.trim()) {
-    result.q = search.q.trim().slice(0, 160);
-  }
-  if (typeof search.sort === "string" && PEOPLE_SORTS.has(search.sort)) {
-    result.sort = search.sort;
-  }
-  const role = Array.isArray(search.role) ? search.role[0] : search.role;
-  if (
-    typeof role === "string" &&
-    IDENTITY_ROLE_IDS.includes(role as (typeof IDENTITY_ROLE_IDS)[number])
-  ) {
-    result.role = role;
-  }
-  const page = Number(search.page);
-  if (Number.isInteger(page) && page > 1) result.page = page;
-  const size = Number(search.size);
-  if (PAGE_SIZES.includes(size)) result.size = size;
-  return result;
+  const collection = parseCollectionSearch(
+    search,
+    Object.keys(PEOPLE_SORT_FIELDS),
+  );
+  return {
+    ...collection,
+    // `listUsers` orders by one field.
+    sort: collection.sort?.includes(",") ? undefined : collection.sort,
+    role: facetValues(search.role, IDENTITY_ROLE_IDS)?.[0],
+    slice:
+      search.slice === "admins" || search.slice === "suspended"
+        ? search.slice
+        : undefined,
+  };
 }
 
 export interface PeoplePage {

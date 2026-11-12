@@ -6,7 +6,7 @@
   "scripts": {
     "build": "vite build",
     "check-types": "tsc --noEmit",
-    "dev": "node ../../scripts/with-live.mjs vite dev --port ${TURBO_MFE_PORT:-3002}",
+    "dev": "node ../../scripts/with-live.mjs vite dev",
     "dev:plain": "IMPECCABLE_LIVE=0 vite dev",
     "live:stop": "node ../../.claude/skills/impeccable/scripts/live-server.mjs stop",
     "start": "vite preview"
@@ -25,13 +25,10 @@
   },
   "devDependencies": {
     "@repo/typescript-config": "*",
-    "@tailwindcss/vite": "^4.3.3",
-    "@tanstack/devtools-vite": "0.8.6",
     "@types/bun": "1.4.4",
     "@types/node": "26.6.6",
     "@types/react": "19.3.0",
     "@types/react-dom": "19.3.0",
-    "@vitejs/plugin-react": "6.1.2",
     "tailwindcss": "^4",
     "typescript": "7.0.2",
     "vite": "8.3.5"

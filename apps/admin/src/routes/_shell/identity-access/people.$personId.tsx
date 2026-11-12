@@ -6,9 +6,6 @@ import { Button } from "@repo/ui/components/button";
 import {
   DropdownMenu,
   DropdownMenuContent,
-  DropdownMenuGroup,
-  DropdownMenuItem,
-  DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@repo/ui/components/dropdown-menu";
 import { Skeleton } from "@repo/ui/components/skeleton";
@@ -36,6 +33,11 @@ import {
 } from "../../../components/admin-surface";
 import { IdentitySecurityOperations } from "../../../components/identity-security-operations";
 import {
+  ACTION_LABELS,
+  DESTRUCTIVE,
+  type PersonAction,
+  PersonActionItems,
+  type PersonAdmin,
   PositionDialog,
   PositionSummary,
   usePersonAdmin,
@@ -123,6 +125,14 @@ function PersonWorkspace({
   return <PersonWorkspaceContent person={person.data} search={search} />;
 }
 
+/** The acts kept one step away at the foot of the page. */
+const QUICK_ACTIONS: readonly PersonAction[] = [
+  "password",
+  "sessions",
+  "suspend",
+  "restore",
+];
+
 function PersonWorkspaceContent({
   person,
   search,
@@ -131,67 +141,15 @@ function PersonWorkspaceContent({
   search: PeopleSearch;
 }) {
   const admin = usePersonAdmin(person);
-  const queryClient = useQueryClient();
-  const directory = useQuery(directoryQueryOptions);
-  const assignments = useQuery(businessAssignmentsQueryOptions);
-  const policy = useQuery(businessAccessPolicyQueryOptions);
-  const sessions = useQuery(personSessionsQueryOptions(person.id));
-  const authenticationPolicy = useQuery(accessPolicyQueryOptions);
-  const accounts = useQuery(linkedAccountsQueryOptions(person.id));
-  const dashboard = useQuery(dashboardQueryOptions);
-  const [editingPosition, setEditingPosition] = useState<
-    false | "group" | string
-  >(false);
-  const people = useQuery({
-    ...everyPersonQueryOptions,
-    enabled: editingPosition !== false,
-  });
-  const revoke = useMutation({
-    mutationFn: revokeSession,
-    onError: announce.failed,
-    onSuccess: () => {
-      announce.done(`Session revoked for ${person.email}`);
-      void queryClient.invalidateQueries({
-        queryKey: personSessionsQueryOptions(person.id).queryKey,
-      });
-    },
-  });
-
-  const personAssignments = useMemo(
-    () =>
-      (assignments.data ?? []).filter(
-        (assignment) => assignment.userId === person.id,
-      ),
-    [assignments.data, person.id],
-  );
-  const subsidiaries = (directory.data?.subsidiaries ?? []).filter(
-    (subsidiary) => subsidiary.memberIds.includes(person.id),
-  );
-  const teams = (directory.data?.teams ?? []).filter((team) =>
-    team.memberIds.includes(person.id),
-  );
-  const health = dashboard.data?.people.find(
-    (entry) => entry.userId === person.id,
-  );
-  const recentEvents = (dashboard.data?.events ?? [])
-    .filter(
-      (event) =>
-        event.target === person.email ||
-        event.target === person.name ||
-        event.actor === person.email,
-    )
-    .slice(0, 6);
-
-  const showSticky =
-    admin.canResetPassword || admin.canRevokeSessions || admin.canSuspend;
+  const quickActions = QUICK_ACTIONS.filter(admin.offers);
 
   return (
     <Page
       actions={
         <div className="gap-2 flex items-center">
-          {admin.canAdminister ? (
+          {admin.offers("edit") ? (
             <Button onClick={() => admin.request("edit")} size="sm">
-              Edit account
+              {ACTION_LABELS.edit}
             </Button>
           ) : null}
           <PersonActionMenu admin={admin} person={person} />
@@ -221,7 +179,7 @@ function PersonWorkspaceContent({
       }
       title={person.name || person.email}
     >
-      <div className={`${COLLECTION} ${showSticky ? "pb-16" : ""}`}>
+      <div className={`${COLLECTION} ${quickActions.length ? "pb-16" : ""}`}>
         {standingOf(person) === "suspended" ||
         !person.emailVerified ||
         person.mustChangePassword ? (
@@ -244,330 +202,165 @@ function PersonWorkspaceContent({
               <TabsTrigger value="sign-in">Sign-in</TabsTrigger>
               <TabsTrigger value="activity">Activity</TabsTrigger>
             </TabsList>
-
             <TabsContent value="access">
-              <div className={PANEL}>
-                <Row
-                  action={
-                    <Button
-                      nativeButton={false}
-                      render={<Link to="/subsidiaries" />}
-                      size="sm"
-                      variant={
-                        subsidiaries.length === 0 ? "default" : "outline"
-                      }
-                    >
-                      {subsidiaries.length === 0
-                        ? "Add to a team"
-                        : "Manage membership"}
-                    </Button>
-                  }
-                  title="Membership"
-                >
-                  {subsidiaries.length === 0 ? (
-                    <MutedLine>
-                      No subsidiary or team. Teams decide which domains this
-                      person can open.
-                    </MutedLine>
-                  ) : (
-                    <ul className="mt-1.5 gap-2 grid">
-                      {subsidiaries.map((subsidiary) => {
-                        const subsidiaryTeams = teams.filter(
-                          (team) => team.organizationId === subsidiary.id,
-                        );
-                        return (
-                          <li className="text-[13px]" key={subsidiary.id}>
-                            <p className="font-medium">{subsidiary.name}</p>
-                            <p className="mt-0.5 text-[12.5px] text-muted-foreground">
-                              {subsidiaryTeams.length
-                                ? subsidiaryTeams
-                                    .map((team) => team.name)
-                                    .join(", ")
-                                : "No team membership"}
-                            </p>
-                          </li>
-                        );
-                      })}
-                    </ul>
-                  )}
-                </Row>
-                <Row
-                  action={
-                    <Button
-                      nativeButton={false}
-                      render={
-                        <Link to="/identity-access/business-access/assignments" />
-                      }
-                      size="sm"
-                      variant="outline"
-                    >
-                      Review business access
-                    </Button>
-                  }
-                  title="Business access"
-                >
-                  {personAssignments.length === 0 ? (
-                    <MutedLine>
-                      No business roles. Access needs both a membership and an
-                      assignment.
-                    </MutedLine>
-                  ) : (
-                    <AssignmentSummary
-                      assignments={personAssignments}
-                      directory={directory.data}
-                      roles={policy.data?.roles ?? []}
-                    />
-                  )}
-                </Row>
-                <Row
-                  action={
-                    admin.canAdminister ? (
-                      <Button
-                        onClick={() => setEditingPosition("group")}
-                        size="sm"
-                        variant="outline"
-                      >
-                        Add or edit position
-                      </Button>
-                    ) : null
-                  }
-                  title="Position and reporting"
-                >
-                  <MutedLine>
-                    Titles describe the hierarchy and never grant permissions.
-                  </MutedLine>
-                  <div className="mt-2">
-                    <PositionSummary
-                      canEdit={admin.canAdminister}
-                      onEdit={setEditingPosition}
-                      personId={person.id}
-                      positions={directory.data?.positions ?? []}
-                      subsidiaries={directory.data?.subsidiaries ?? []}
-                    />
-                  </div>
-                </Row>
-              </div>
+              <AccessTab canEdit={admin.offers("edit")} person={person} />
             </TabsContent>
-
             <TabsContent value="sign-in">
-              <div className={PANEL}>
-                <Row
-                  title="Active sessions"
-                  trailing={
-                    sessions.data ? (
-                      <span className={`${FIGURE} text-muted-foreground`}>
-                        {sessions.data.length}
-                        {authenticationPolicy.data
-                          ? ` of ${authenticationPolicy.data.session.concurrentLimit}`
-                          : ""}
-                      </span>
-                    ) : null
-                  }
-                >
-                  {sessions.isPending ? (
-                    <div className="mt-2 gap-1.5 sm:grid-cols-2 xl:grid-cols-3 grid">
-                      <Skeleton className="h-12 rounded-md" />
-                      <Skeleton className="h-12 rounded-md" />
-                    </div>
-                  ) : sessions.isError ? (
-                    <p className="mt-1.5 text-xs text-destructive">
-                      {sessions.error.message}
-                    </p>
-                  ) : sessions.data.length === 0 ? (
-                    <MutedLine>No active sessions.</MutedLine>
-                  ) : (
-                    <ul className="mt-2 gap-1.5 sm:grid-cols-2 xl:grid-cols-3 grid">
-                      {sessions.data.map((session) => (
-                        <SessionCard
-                          canRevoke={admin.canRevokeSessions}
-                          key={session.id}
-                          pending={revoke.isPending}
-                          session={session}
-                          onRevoke={() => revoke.mutate(session.id)}
-                        />
-                      ))}
-                    </ul>
-                  )}
-                </Row>
-                <Row title="Linked accounts">
-                  {accounts.isPending ? (
-                    <Skeleton className="mt-2 h-8" />
-                  ) : accounts.isError ? (
-                    <p className="mt-1.5 text-xs text-destructive">
-                      {accounts.error.message}
-                    </p>
-                  ) : accounts.data.length === 0 ? (
-                    <MutedLine>No linked accounts.</MutedLine>
-                  ) : (
-                    <ul className="mt-1.5 flex flex-col">
-                      {accounts.data.map((account) => (
-                        <li
-                          className="gap-3 py-1.5 sm:grid-cols-[minmax(8rem,auto)_minmax(0,1fr)_auto] sm:items-baseline grid"
-                          key={account.id}
-                        >
-                          <p className="font-medium text-[13px] capitalize">
-                            {account.providerId}
-                          </p>
-                          <p
-                            className={`${MONO} truncate text-muted-foreground`}
-                          >
-                            {account.accountId}
-                          </p>
-                          <time className={`${FIGURE} text-muted-foreground`}>
-                            Linked{" "}
-                            {new Date(account.createdAt).toLocaleDateString()}
-                          </time>
-                        </li>
-                      ))}
-                    </ul>
-                  )}
-                </Row>
-              </div>
+              <SignInTab canRevoke={admin.offers("sessions")} person={person} />
             </TabsContent>
-
             <TabsContent value="activity">
-              <div className={PANEL}>
-                <Row title="Account">
-                  <div className="mt-2 gap-4 sm:grid-cols-2 grid">
-                    <Fact
-                      label="Created"
-                      value={new Date(person.createdAt).toLocaleDateString()}
-                    />
-                    <Fact label="User ID" mono value={person.id} />
-                    {person.banned ? (
-                      <Fact
-                        label="Suspension reason"
-                        value={person.banReason || "No reason recorded"}
-                      />
-                    ) : null}
-                  </div>
-                </Row>
-                <Row
-                  action={
-                    <Button
-                      nativeButton={false}
-                      render={<Link to="/identity-access/activity" />}
-                      size="sm"
-                      variant="ghost"
-                    >
-                      View all activity
-                    </Button>
-                  }
-                  title="Recent activity"
-                >
-                  {recentEvents.length === 0 ? (
-                    <MutedLine>No recent activity for this account.</MutedLine>
-                  ) : (
-                    <ul className="mt-1.5 flex flex-col">
-                      {recentEvents.map((event) => (
-                        <li
-                          className="gap-3 py-1.5 flex items-baseline justify-between"
-                          key={event.id}
-                        >
-                          <p className="text-[13px]">{eventAction(event)}</p>
-                          <time
-                            className={`${FIGURE} shrink-0 text-muted-foreground`}
-                            dateTime={new Date(event.at).toISOString()}
-                          >
-                            {relativeTime(event.at)}
-                          </time>
-                        </li>
-                      ))}
-                    </ul>
-                  )}
-                </Row>
-              </div>
+              <ActivityTab person={person} />
             </TabsContent>
           </Tabs>
-
-          <aside
-            aria-label="Sign-in summary"
-            className={`${PANEL} lg:mt-11 px-4`}
-          >
-            <dl className="grid grid-cols-[minmax(0,1fr)_auto] text-[13px]">
-              <SummaryFact label="Two-factor">
-                {person.twoFactorEnabled ? "On" : "Not set up"}
-              </SummaryFact>
-              <SummaryFact label="Password">
-                {person.mustChangePassword ? "Temporary" : "Current"}
-              </SummaryFact>
-              <SummaryFact label="Email">
-                {person.emailVerified ? "Verified" : "Not verified"}
-              </SummaryFact>
-              <SummaryFact label="Sessions">
-                {sessions.data ? (
-                  <span className={FIGURE}>
-                    {sessions.data.length}
-                    {authenticationPolicy.data
-                      ? ` of ${authenticationPolicy.data.session.concurrentLimit}`
-                      : ""}
-                  </span>
-                ) : sessions.isError ? (
-                  <span
-                    className="text-muted-foreground"
-                    title={sessions.error.message}
-                  >
-                    Unavailable
-                  </span>
-                ) : (
-                  <Skeleton className="h-3.5 w-10" />
-                )}
-              </SummaryFact>
-              <SummaryFact label="Last active">
-                <span className={FIGURE}>
-                  {health?.lastActiveAt
-                    ? relativeTime(health.lastActiveAt)
-                    : "Never"}
-                </span>
-              </SummaryFact>
-            </dl>
-          </aside>
+          <SignInSummary person={person} />
         </div>
       </div>
 
-      {showSticky ? (
+      {quickActions.length ? (
         <div className="bottom-0 -mx-4 sm:-mx-6 lg:-mx-8 px-4 py-3 sm:px-6 lg:px-8 sticky z-10 border-t border-border/80 bg-background/95">
           <div className="gap-2 flex flex-wrap items-center justify-between">
             <p className="text-[12px] text-muted-foreground">
               Dangerous actions stay one step away.
             </p>
             <div className="gap-1.5 flex flex-wrap">
-              {admin.canResetPassword ? (
+              {quickActions.map((action) => (
                 <Button
-                  onClick={() => admin.request("password")}
+                  key={action}
+                  onClick={() => admin.request(action)}
                   size="sm"
                   type="button"
-                  variant="outline"
+                  variant={DESTRUCTIVE.has(action) ? "destructive" : "outline"}
                 >
-                  Issue new password
+                  {ACTION_LABELS[action]}
                 </Button>
-              ) : null}
-              {admin.canRevokeSessions ? (
-                <Button
-                  onClick={() => admin.request("sessions")}
-                  size="sm"
-                  type="button"
-                  variant="outline"
-                >
-                  Revoke all sessions
-                </Button>
-              ) : null}
-              {admin.canSuspend ? (
-                <Button
-                  onClick={() =>
-                    admin.request(admin.suspended ? "restore" : "suspend")
-                  }
-                  size="sm"
-                  type="button"
-                  variant={admin.suspended ? "outline" : "destructive"}
-                >
-                  {admin.suspended ? "Restore access" : "Suspend access"}
-                </Button>
-              ) : null}
+              ))}
             </div>
           </div>
         </div>
       ) : null}
+      {admin.dialogs}
+    </Page>
+  );
+}
+
+function AccessTab({ canEdit, person }: { canEdit: boolean; person: Person }) {
+  const directory = useQuery(directoryQueryOptions);
+  const assignments = useQuery(businessAssignmentsQueryOptions);
+  const policy = useQuery(businessAccessPolicyQueryOptions);
+  const [editingPosition, setEditingPosition] = useState<
+    false | "group" | string
+  >(false);
+  const people = useQuery({
+    ...everyPersonQueryOptions,
+    enabled: editingPosition !== false,
+  });
+
+  const personAssignments = useMemo(
+    () =>
+      (assignments.data ?? []).filter(
+        (assignment) => assignment.userId === person.id,
+      ),
+    [assignments.data, person.id],
+  );
+  const subsidiaries = (directory.data?.subsidiaries ?? []).filter(
+    (subsidiary) => subsidiary.memberIds.includes(person.id),
+  );
+  const teams = (directory.data?.teams ?? []).filter((team) =>
+    team.memberIds.includes(person.id),
+  );
+
+  return (
+    <div className={PANEL}>
+      <Row
+        action={
+          <Button
+            nativeButton={false}
+            render={<Link to="/subsidiaries" />}
+            size="sm"
+            variant={subsidiaries.length === 0 ? "default" : "outline"}
+          >
+            {subsidiaries.length === 0 ? "Add to a team" : "Manage membership"}
+          </Button>
+        }
+        title="Membership"
+      >
+        {subsidiaries.length === 0 ? (
+          <MutedLine>
+            No subsidiary or team. Teams decide which domains this person can
+            open.
+          </MutedLine>
+        ) : (
+          <ul className="mt-1.5 gap-2 grid">
+            {subsidiaries.map((subsidiary) => {
+              const subsidiaryTeams = teams.filter(
+                (team) => team.organizationId === subsidiary.id,
+              );
+              return (
+                <li className="text-[13px]" key={subsidiary.id}>
+                  <p className="font-medium">{subsidiary.name}</p>
+                  <p className="mt-0.5 text-[12.5px] text-muted-foreground">
+                    {subsidiaryTeams.length
+                      ? subsidiaryTeams.map((team) => team.name).join(", ")
+                      : "No team membership"}
+                  </p>
+                </li>
+              );
+            })}
+          </ul>
+        )}
+      </Row>
+      <Row
+        action={
+          <Button
+            nativeButton={false}
+            render={<Link to="/identity-access/business-access/assignments" />}
+            size="sm"
+            variant="outline"
+          >
+            Review business access
+          </Button>
+        }
+        title="Business access"
+      >
+        {personAssignments.length === 0 ? (
+          <MutedLine>
+            No business roles. Access needs both a membership and an assignment.
+          </MutedLine>
+        ) : (
+          <AssignmentSummary
+            assignments={personAssignments}
+            directory={directory.data}
+            roles={policy.data?.roles ?? []}
+          />
+        )}
+      </Row>
+      <Row
+        action={
+          canEdit ? (
+            <Button
+              onClick={() => setEditingPosition("group")}
+              size="sm"
+              variant="outline"
+            >
+              Add or edit position
+            </Button>
+          ) : null
+        }
+        title="Position and reporting"
+      >
+        <MutedLine>
+          Titles describe the hierarchy and never grant permissions.
+        </MutedLine>
+        <div className="mt-2">
+          <PositionSummary
+            canEdit={canEdit}
+            onEdit={setEditingPosition}
+            personId={person.id}
+            positions={directory.data?.positions ?? []}
+            subsidiaries={directory.data?.subsidiaries ?? []}
+          />
+        </div>
+      </Row>
 
       {editingPosition !== false && directory.data && people.data ? (
         <PositionDialog
@@ -580,8 +373,220 @@ function PersonWorkspaceContent({
           subsidiaries={directory.data.subsidiaries}
         />
       ) : null}
-      {admin.dialogs}
-    </Page>
+    </div>
+  );
+}
+
+function SignInTab({
+  canRevoke,
+  person,
+}: {
+  canRevoke: boolean;
+  person: Person;
+}) {
+  const queryClient = useQueryClient();
+  const sessions = useQuery(personSessionsQueryOptions(person.id));
+  const accounts = useQuery(linkedAccountsQueryOptions(person.id));
+  const revoke = useMutation({
+    mutationFn: revokeSession,
+    onError: announce.failed,
+    onSuccess: () => {
+      announce.done(`Session revoked for ${person.email}`);
+      void queryClient.invalidateQueries({
+        queryKey: personSessionsQueryOptions(person.id).queryKey,
+      });
+    },
+  });
+
+  return (
+    <div className={PANEL}>
+      <Row
+        title="Active sessions"
+        trailing={
+          sessions.data ? (
+            <span className="text-muted-foreground">
+              <SessionCount count={sessions.data.length} />
+            </span>
+          ) : null
+        }
+      >
+        {sessions.isPending ? (
+          <div className="mt-2 gap-1.5 sm:grid-cols-2 xl:grid-cols-3 grid">
+            <Skeleton className="h-12 rounded-md" />
+            <Skeleton className="h-12 rounded-md" />
+          </div>
+        ) : sessions.isError ? (
+          <p className="mt-1.5 text-xs text-destructive">
+            {sessions.error.message}
+          </p>
+        ) : sessions.data.length === 0 ? (
+          <MutedLine>No active sessions.</MutedLine>
+        ) : (
+          <ul className="mt-2 gap-1.5 sm:grid-cols-2 xl:grid-cols-3 grid">
+            {sessions.data.map((session) => (
+              <SessionCard
+                canRevoke={canRevoke}
+                key={session.id}
+                pending={revoke.isPending}
+                session={session}
+                onRevoke={() => revoke.mutate(session.id)}
+              />
+            ))}
+          </ul>
+        )}
+      </Row>
+      <Row title="Linked accounts">
+        {accounts.isPending ? (
+          <Skeleton className="mt-2 h-8" />
+        ) : accounts.isError ? (
+          <p className="mt-1.5 text-xs text-destructive">
+            {accounts.error.message}
+          </p>
+        ) : accounts.data.length === 0 ? (
+          <MutedLine>No linked accounts.</MutedLine>
+        ) : (
+          <ul className="mt-1.5 flex flex-col">
+            {accounts.data.map((account) => (
+              <li
+                className="gap-3 py-1.5 sm:grid-cols-[minmax(8rem,auto)_minmax(0,1fr)_auto] sm:items-baseline grid"
+                key={account.id}
+              >
+                <p className="font-medium text-[13px] capitalize">
+                  {account.providerId}
+                </p>
+                <p className={`${MONO} truncate text-muted-foreground`}>
+                  {account.accountId}
+                </p>
+                <time className={`${FIGURE} text-muted-foreground`}>
+                  Linked {new Date(account.createdAt).toLocaleDateString()}
+                </time>
+              </li>
+            ))}
+          </ul>
+        )}
+      </Row>
+    </div>
+  );
+}
+
+function ActivityTab({ person }: { person: Person }) {
+  const dashboard = useQuery(dashboardQueryOptions);
+  const recentEvents = (dashboard.data?.events ?? [])
+    .filter(
+      (event) =>
+        event.target === person.email ||
+        event.target === person.name ||
+        event.actor === person.email,
+    )
+    .slice(0, 6);
+
+  return (
+    <div className={PANEL}>
+      <Row title="Account">
+        <div className="mt-2 gap-4 sm:grid-cols-2 grid">
+          <Fact
+            label="Created"
+            value={new Date(person.createdAt).toLocaleDateString()}
+          />
+          <Fact label="User ID" mono value={person.id} />
+          {person.banned ? (
+            <Fact
+              label="Suspension reason"
+              value={person.banReason || "No reason recorded"}
+            />
+          ) : null}
+        </div>
+      </Row>
+      <Row
+        action={
+          <Button
+            nativeButton={false}
+            render={<Link to="/identity-access/activity" />}
+            size="sm"
+            variant="ghost"
+          >
+            View all activity
+          </Button>
+        }
+        title="Recent activity"
+      >
+        {recentEvents.length === 0 ? (
+          <MutedLine>No recent activity for this account.</MutedLine>
+        ) : (
+          <ul className="mt-1.5 flex flex-col">
+            {recentEvents.map((event) => (
+              <li
+                className="gap-3 py-1.5 flex items-baseline justify-between"
+                key={event.id}
+              >
+                <p className="text-[13px]">{eventAction(event)}</p>
+                <time
+                  className={`${FIGURE} shrink-0 text-muted-foreground`}
+                  dateTime={new Date(event.at).toISOString()}
+                >
+                  {relativeTime(event.at)}
+                </time>
+              </li>
+            ))}
+          </ul>
+        )}
+      </Row>
+    </div>
+  );
+}
+
+function SignInSummary({ person }: { person: Person }) {
+  const sessions = useQuery(personSessionsQueryOptions(person.id));
+  const dashboard = useQuery(dashboardQueryOptions);
+  const health = dashboard.data?.people.find(
+    (entry) => entry.userId === person.id,
+  );
+
+  return (
+    <aside aria-label="Sign-in summary" className={`${PANEL} lg:mt-11 px-4`}>
+      <dl className="grid grid-cols-[minmax(0,1fr)_auto] text-[13px]">
+        <SummaryFact label="Two-factor">
+          {person.twoFactorEnabled ? "On" : "Not set up"}
+        </SummaryFact>
+        <SummaryFact label="Password">
+          {person.mustChangePassword ? "Temporary" : "Current"}
+        </SummaryFact>
+        <SummaryFact label="Email">
+          {person.emailVerified ? "Verified" : "Not verified"}
+        </SummaryFact>
+        <SummaryFact label="Sessions">
+          {sessions.data ? (
+            <SessionCount count={sessions.data.length} />
+          ) : sessions.isError ? (
+            <span
+              className="text-muted-foreground"
+              title={sessions.error.message}
+            >
+              Unavailable
+            </span>
+          ) : (
+            <Skeleton className="h-3.5 w-10" />
+          )}
+        </SummaryFact>
+        <SummaryFact label="Last active">
+          <span className={FIGURE}>
+            {health?.lastActiveAt ? relativeTime(health.lastActiveAt) : "Never"}
+          </span>
+        </SummaryFact>
+      </dl>
+    </aside>
+  );
+}
+
+/** How many sessions a person holds, against the limit once it is known. */
+function SessionCount({ count }: { count: number }) {
+  const limit = useQuery(accessPolicyQueryOptions).data?.session
+    .concurrentLimit;
+  return (
+    <span className={FIGURE}>
+      {count}
+      {limit === undefined ? "" : ` of ${limit}`}
+    </span>
   );
 }
 
@@ -688,16 +693,12 @@ function PersonActionMenu({
   admin,
   person,
 }: {
-  admin: ReturnType<typeof usePersonAdmin>;
+  admin: PersonAdmin;
   person: Person;
 }) {
-  const hasActions =
-    admin.canResetPassword ||
-    admin.canRevokeSessions ||
-    admin.canSuspend ||
-    admin.canDelete ||
-    admin.canImpersonate;
-  if (!hasActions) return <Mark label="Read only" tone="waiting" />;
+  // Edit has its own button beside this menu.
+  const actions = admin.offered.filter((action) => action !== "edit");
+  if (actions.length === 0) return <Mark label="Read only" tone="waiting" />;
 
   return (
     <DropdownMenu>
@@ -713,44 +714,7 @@ function PersonActionMenu({
         }
       />
       <DropdownMenuContent align="end" className="min-w-48">
-        <DropdownMenuGroup>
-          {admin.canResetPassword ? (
-            <DropdownMenuItem onClick={() => admin.request("password")}>
-              Issue new password
-            </DropdownMenuItem>
-          ) : null}
-          {admin.canRevokeSessions ? (
-            <DropdownMenuItem onClick={() => admin.request("sessions")}>
-              Revoke all sessions
-            </DropdownMenuItem>
-          ) : null}
-          {admin.canImpersonate ? (
-            <DropdownMenuItem onClick={() => admin.request("impersonate")}>
-              Impersonate person
-            </DropdownMenuItem>
-          ) : null}
-        </DropdownMenuGroup>
-        {admin.canSuspend || admin.canDelete ? <DropdownMenuSeparator /> : null}
-        <DropdownMenuGroup>
-          {admin.canSuspend ? (
-            <DropdownMenuItem
-              onClick={() =>
-                admin.request(admin.suspended ? "restore" : "suspend")
-              }
-              variant={admin.suspended ? undefined : "destructive"}
-            >
-              {admin.suspended ? "Restore access" : "Suspend access"}
-            </DropdownMenuItem>
-          ) : null}
-          {admin.canDelete ? (
-            <DropdownMenuItem
-              onClick={() => admin.request("delete")}
-              variant="destructive"
-            >
-              Delete account
-            </DropdownMenuItem>
-          ) : null}
-        </DropdownMenuGroup>
+        <PersonActionItems actions={actions} admin={admin} />
       </DropdownMenuContent>
     </DropdownMenu>
   );

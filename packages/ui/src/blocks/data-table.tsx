@@ -62,7 +62,7 @@ import {
   DownloadIcon,
   SearchIcon,
 } from "lucide-react";
-import { type ReactNode, useEffect, useId, useState } from "react";
+import { type ReactNode, useId } from "react";
 
 export const dataTableFeatures = tableFeatures({
   columnFilteringFeature,
@@ -89,15 +89,6 @@ export function useDataTable<TData extends RowData>(
   options: Omit<TableOptions<typeof dataTableFeatures, TData>, "features">,
 ): DataTableInstance<TData> {
   return useTable({ ...options, features: dataTableFeatures });
-}
-
-export function useDebouncedValue<T>(value: T, delay = 300): T {
-  const [debounced, setDebounced] = useState(value);
-  useEffect(() => {
-    const timer = window.setTimeout(() => setDebounced(value), delay);
-    return () => window.clearTimeout(timer);
-  }, [delay, value]);
-  return debounced;
 }
 
 export function DataTableSortHeader({
@@ -366,13 +357,15 @@ export function DataTableColumnVisibility<TData extends RowData>({
   );
 }
 
+// The core service caps a page at 100 rows.
+export const DATA_TABLE_PAGE_SIZES = [10, 25, 50, 100];
+export const DATA_TABLE_DEFAULT_PAGE_SIZE = 25;
+
 export function DataTablePagination<TData extends RowData>({
   countLabel,
-  pageSizes = [10, 25, 50, 100],
   table,
 }: {
   countLabel: string;
-  pageSizes?: number[];
   table: DataTableInstance<TData>;
 }) {
   const pageCount = Math.max(1, table.getPageCount());
@@ -398,7 +391,7 @@ export function DataTablePagination<TData extends RowData>({
           size="sm"
           value={String(table.state.pagination.pageSize)}
         >
-          {pageSizes.map((size) => (
+          {DATA_TABLE_PAGE_SIZES.map((size) => (
             <NativeSelectOption key={size} value={size}>
               {size} rows
             </NativeSelectOption>

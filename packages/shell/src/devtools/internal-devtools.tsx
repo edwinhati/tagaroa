@@ -12,7 +12,7 @@ import { type ReactNode, useState, useSyncExternalStore } from "react";
 
 import { stepDevtoolsBot, useDevtoolsBot } from "./devtools-bot";
 
-function useReducedMotion() {
+export function useReducedMotion() {
   return useSyncExternalStore(
     (notify) => {
       const query = window.matchMedia("(prefers-reduced-motion: reduce)");
