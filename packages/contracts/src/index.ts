@@ -50,9 +50,9 @@ export function asObject(value: unknown): ObjectLike | undefined {
 }
 
 /**
- * The message the thrown value carries, when it has a useful one. Anything else
- * A string, a bare object, or a rejection with no message gets the sentence the
- * caller owns.
+ * The message the thrown value carries, when it has a useful one. Anything
+ * else — a string, a bare object, a rejection with no message — gets the
+ * sentence the caller owns.
  */
 export function messageFor(error: unknown, fallback: string): string {
   const message = asObject(error)?.message;

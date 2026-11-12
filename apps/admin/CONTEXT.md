@@ -29,7 +29,7 @@ _Avoid_: Dashboard, control plane
 
 **Identity & access**:
 The operator area for daily identity work. Its work queue, People directory, business access,
-privileged access, reviews, activity, and policy views are organized by task rather than by
+privileged access, reviews and activity are organized by task rather than by
 the underlying authentication module.
 Its canonical routes live under `/identity-access`; notifications and subsidiaries remain
 separate top-level admin areas.

@@ -78,7 +78,8 @@ Three things about the shape are worth knowing before adding to it:
 - **Admin dashboard** (`AssembleAdminDashboardUseCase`) — the read model behind
   `apps/admin`'s front page, and the access review taken from it. Its rules are pure, in
   `directory/domain/`: `attentionFor`, `privilegedAccess` and `timeline` in `services/`, the
-  review week in `ReviewWeek`.
+  review week in `reviewWeekStart` (`auth/access-policy.ts`, shared with business access
+  reviews).
 - **Attention** — a fact about a person an operator should act on: a temporary password
   still unchanged, an address unverified for a week, membership of no subsidiary. A banned
   account raises none; it is already the answer.
@@ -116,7 +117,7 @@ Three things about the shape are worth knowing before adding to it:
 - **Impersonation** — a super-admin's Better Auth session as another person
   (`session.impersonatedBy`). `auth.ts` lets it reach only an allowlist of read routes and
   `stop-impersonating`, refusing everything else with `IMPERSONATED_SESSION`; outside
-  `/api/auth`, `ImpersonationInterceptor` refuses every write it sends.
+  `/api/auth`, `SessionPolicyInterceptor` refuses every write it sends.
 - **Factor recovery** (`identity_operations.factor_recovery`) — a verified request to reset a
   person's second factor, with reason and evidence. A different super-admin from the one who
   requested it must approve it before it takes effect.

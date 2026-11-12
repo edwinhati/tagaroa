@@ -1,36 +1,7 @@
 import { describe, expect, test } from "bun:test";
 
-import { asObject, messageFor, WORKING_DOMAINS } from "./index";
-import type {
-  AggregationBucket,
-  Aggregations,
-  ApiDocument,
-  Collection,
-  ObjectLike,
-  PaginationLinks,
-  PaginationMeta,
-  WorkingDomainSlug,
-} from "./index";
-
-test("collection documents keep list and object responses distinct", () => {
-  const object: ApiDocument<{ name: string }> = { data: { name: "Tagaroa" } };
-  const collection: Collection<string> = {
-    data: ["email"],
-    links: { first: "?page=1", last: "?page=1", self: "?page=1" },
-    meta: {
-      hasNext: false,
-      hasPrevious: false,
-      limit: 25,
-      offset: 0,
-      page: 1,
-      total: 1,
-      totalPages: 1,
-    },
-  };
-
-  expect(object.data.name).toBe("Tagaroa");
-  expect(collection.meta.total).toBe(collection.data.length);
-});
+import { asObject, messageFor } from "./index";
+import type { ObjectLike } from "./index";
 
 describe("asObject", () => {
   test.each(
@@ -123,65 +94,4 @@ describe("messageFor", () => {
     );
     expect(messageFor(null, "Sign-in failed.")).toBe("Sign-in failed.");
   });
-});
-
-test("collection contracts support navigation and aggregations", () => {
-  const bucket: AggregationBucket = { count: 2, value: "engineering" };
-  const aggregations: Aggregations = { domain: [bucket], empty: [] };
-  const meta: PaginationMeta = {
-    hasNext: true,
-    hasPrevious: true,
-    limit: 1,
-    offset: 1,
-    page: 2,
-    total: 3,
-    totalPages: 3,
-  };
-  const links: PaginationLinks = {
-    first: "?page=1",
-    last: "?page=3",
-    next: "?page=3",
-    previous: "?page=1",
-    self: "?page=2",
-  };
-  const collection: Collection<WorkingDomainSlug> = {
-    data: ["engineering"],
-    links,
-    meta: { ...meta, aggregations },
-  };
-  expect(collection.meta.aggregations?.domain).toEqual([bucket]);
-  expect(collection.links.previous).toBe("?page=1");
-  expect(collection.links.next).toBe("?page=3");
-
-  const empty: Collection<never> = {
-    data: [],
-    links: { first: "?page=1", last: "?page=1", self: "?page=1" },
-    meta: {
-      ...meta,
-      hasNext: false,
-      hasPrevious: false,
-      offset: 0,
-      page: 1,
-      total: 0,
-      totalPages: 0,
-    },
-  };
-  expect(empty.data).toEqual([]);
-  expect(empty.meta.aggregations).toBeUndefined();
-  expect(empty.links.next).toBeUndefined();
-  expect(empty.links.previous).toBeUndefined();
-});
-
-test("working domains expose the supported slug and label pairs", () => {
-  expect(WORKING_DOMAINS).toEqual([
-    { label: "Engineering", slug: "engineering" },
-    { label: "Finance", slug: "finance" },
-    { label: "Industry", slug: "industry" },
-    { label: "Logistic", slug: "logistic" },
-    { label: "Marketing", slug: "marketing" },
-    { label: "Operation", slug: "operation" },
-    { label: "Research", slug: "research" },
-    { label: "Sales", slug: "sales" },
-    { label: "Supply chain", slug: "supply-chain" },
-  ]);
 });

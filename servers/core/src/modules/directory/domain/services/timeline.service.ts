@@ -44,17 +44,6 @@ export interface TimelineEntry {
 export const TIMELINE_DEPTH = 200;
 
 /**
- * The audit trail and the sign-in log as one list, newest first.
- *
- * Addresses are resolved here rather than joined in SQL because an event
- * outlives the person it names: a deleted actor has to read as something, and
- * "Deleted operator" is more use than a dangling id.
- *
- * Taking `depth` from each source and keeping `depth` of the merge is the whole
- * answer, not an approximation of one: an entry in the newest `depth` overall
- * is in the newest `depth` of the source it came from.
- */
-/**
  * Who did something nobody signed in to do. A null actor is either a system of
  * record acting — which always names itself in the detail — or an operator
  * whose account was since deleted, which the foreign key also nulls.
@@ -65,6 +54,17 @@ const unattributed = (detail: string | null): string =>
   SYSTEM_ACTORS.find((system) => detail?.includes(system)) ??
   "Deleted operator";
 
+/**
+ * The audit trail and the sign-in log as one list, newest first.
+ *
+ * Addresses are resolved here rather than joined in SQL because an event
+ * outlives the person it names: a deleted actor has to read as something, and
+ * "Deleted operator" is more use than a dangling id.
+ *
+ * Taking `depth` from each source and keeping `depth` of the merge is the whole
+ * answer, not an approximation of one: an entry in the newest `depth` overall
+ * is in the newest `depth` of the source it came from.
+ */
 export const timeline = (
   events: readonly TrailEntry[],
   signIns: readonly SignIn[],

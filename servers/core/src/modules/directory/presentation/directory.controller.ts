@@ -8,7 +8,8 @@ import {
   Put,
   Query,
 } from "@nestjs/common";
-import type { ApiDocument, Collection } from "@repo/contracts";
+import { type ApiDocument, type Collection } from "@repo/contracts";
+import { IDENTITY_OPERATIONS } from "@repo/contracts/identity";
 import { Roles, Session, type UserSession } from "@thallesp/nestjs-better-auth";
 
 import {
@@ -17,6 +18,7 @@ import {
   type QueryRecord,
 } from "../../../platform/http/collection";
 import { SessionOnly } from "../../../platform/http/session-only.decorator";
+import { operatorOf } from "../../auth/session-policy";
 import type {
   DirectorySubsidiary,
   DirectoryTeam,
@@ -33,16 +35,7 @@ import { ReadPersonalEmailUseCase } from "../application/use-cases/read-personal
 import { RecordAccessReviewUseCase } from "../application/use-cases/record-access-review.use-case";
 import { savePositionBody, type SavePositionBody } from "./directory.schemas";
 
-const DIRECTORY_READ_ROLES = [
-  "access-reviewer",
-  "helpdesk",
-  "admin",
-  "super-admin",
-] as const;
-
-export type { DirectorySubsidiary, DirectoryTeam };
-
-export interface Directory {
+interface Directory {
   positions: Collection<Awaited<ReturnType<ManagePositionUseCase["save"]>>>;
   subsidiaries: Collection<DirectorySubsidiary>;
   teams: Collection<DirectoryTeam>;
@@ -82,7 +75,7 @@ export class DirectoryController {
   }
 
   @Get()
-  @Roles([...DIRECTORY_READ_ROLES])
+  @Roles([...IDENTITY_OPERATIONS.operate])
   async directory(
     @Query() rawQuery: QueryRecord,
   ): Promise<ApiDocument<Directory>> {
@@ -105,7 +98,7 @@ export class DirectoryController {
   }
 
   @Put("positions/group/:userId")
-  @Roles(["admin", "super-admin"])
+  @Roles([...IDENTITY_OPERATIONS.administer])
   async saveGroupPosition(
     @Param("userId") userId: string,
     @Body({ schema: savePositionBody }) body: SavePositionBody,
@@ -123,7 +116,7 @@ export class DirectoryController {
   }
 
   @Delete("positions/group/:userId")
-  @Roles(["admin", "super-admin"])
+  @Roles([...IDENTITY_OPERATIONS.administer])
   async removeGroupPosition(
     @Param("userId") userId: string,
     @Session() session: UserSession,
@@ -138,7 +131,7 @@ export class DirectoryController {
   }
 
   @Put("positions/subsidiaries/:organizationId/:userId")
-  @Roles(["admin", "super-admin"])
+  @Roles([...IDENTITY_OPERATIONS.administer])
   async saveSubsidiaryPosition(
     @Param("organizationId") organizationId: string,
     @Param("userId") userId: string,
@@ -157,7 +150,7 @@ export class DirectoryController {
   }
 
   @Delete("positions/subsidiaries/:organizationId/:userId")
-  @Roles(["admin", "super-admin"])
+  @Roles([...IDENTITY_OPERATIONS.administer])
   async removeSubsidiaryPosition(
     @Param("organizationId") organizationId: string,
     @Param("userId") userId: string,
@@ -173,7 +166,7 @@ export class DirectoryController {
   }
 
   @Get("dashboard")
-  @Roles([...DIRECTORY_READ_ROLES])
+  @Roles([...IDENTITY_OPERATIONS.operate])
   async overview(@Query() rawQuery: QueryRecord) {
     const model = await this.assembleDashboard.execute(new Date());
     const page = <T>(rows: T[], prefix: string) =>
@@ -202,7 +195,7 @@ export class DirectoryController {
    * which is the whole reason the column is `returned: false` on the account.
    */
   @Get("users/:userId/personal-email")
-  @Roles(["helpdesk", "admin", "super-admin"])
+  @Roles([...IDENTITY_OPERATIONS.support])
   async personalEmail(
     @Param("userId") userId: string,
   ): Promise<{ data: { personalEmail: string | null } }> {
@@ -212,23 +205,17 @@ export class DirectoryController {
   }
 
   @Post("access-reviews/:userId")
-  @Roles(["access-reviewer", "admin", "super-admin"])
+  @Roles([...IDENTITY_OPERATIONS.review])
   async reviewPrivilegedAccess(
     @Param("userId") userId: string,
     @Session() session: UserSession,
-  ): Promise<{ reviewed: true }> {
-    const { impersonatedBy } = session.session as {
-      impersonatedBy?: string | null;
-    };
-    await this.recordReview.execute(userId, {
-      id: session.user.id,
-      impersonatedBy,
-    });
-    return { reviewed: true };
+  ): Promise<ApiDocument<{ reviewed: true }>> {
+    await this.recordReview.execute(userId, operatorOf(session));
+    return { data: { reviewed: true } };
   }
 
   @Get("users/:userId/accounts")
-  @Roles([...DIRECTORY_READ_ROLES])
+  @Roles([...IDENTITY_OPERATIONS.operate])
   async accounts(
     @Param("userId") userId: string,
     @Query() rawQuery: QueryRecord,

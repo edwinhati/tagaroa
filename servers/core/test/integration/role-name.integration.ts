@@ -22,15 +22,17 @@ const TOKEN = `rolename${crypto.randomUUID().replaceAll("-", "")}`;
 const USER = `${TOKEN}-user`;
 const actor = {
   id: USER,
-  identityRole: "super-admin",
+  impersonatedBy: null,
+  role: "super-admin",
   sessionCreatedAt: new Date(),
   sessionId: `${TOKEN}-session`,
+  twoFactorEnabled: true,
 };
 const input = (key: string, name: string) => ({
   description: "Configure assigned domains",
   key: `${TOKEN}-${key}`,
   name,
-  permissions: ["domain:administer"],
+  permissions: ["domain:administer" as const],
 });
 
 let client: SQL;

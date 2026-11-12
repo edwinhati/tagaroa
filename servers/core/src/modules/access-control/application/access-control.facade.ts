@@ -1,18 +1,16 @@
+import type { Operator } from "../../auth/session-policy";
 import type { PermissionKey } from "../domain/access-policy";
 
 export const ACCESS_CONTROL = Symbol("ACCESS_CONTROL");
 
 export interface AccessDecisionInput {
-  identityRole: string | null | undefined;
+  operator: Pick<Operator, "id" | "role" | "sessionId">;
   organizationId: string;
   permission: PermissionKey;
-  sessionCreatedAt: Date;
-  sessionId: string;
   teamId: string | null;
-  userId: string;
 }
 
-/** The only business-access contract exported to other Nest modules. */
+/** The business-access decision the guard asks for on a permission route. */
 export interface AccessControl {
   can(input: AccessDecisionInput): Promise<boolean>;
 }

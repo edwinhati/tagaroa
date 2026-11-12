@@ -22,7 +22,6 @@ const position = (
 
 test("returns the signed-in person's subsidiaries, teams and titles", async () => {
   const positions: PositionRepository = {
-    find: async () => null,
     list: async () => [],
     listForUser: async (userId) =>
       userId === "person-1"

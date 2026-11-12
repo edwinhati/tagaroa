@@ -1,9 +1,0 @@
-{
-  "$schema": "../../node_modules/turbo/schema.json",
-  "extends": ["//"],
-  "tasks": {
-    "build": {
-      "env": ["VITE_AUTH_URL", "VITE_AUTH_BASE_URL", "VITE_ADMIN_URL"]
-    }
-  }
-}

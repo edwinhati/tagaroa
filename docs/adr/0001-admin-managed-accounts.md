@@ -57,7 +57,7 @@ public invitation preview endpoint.
 An admin sets a new password through `POST /admin/set-user-password`, from the person's `⋯`
 menu in `apps/admin`. The same act revokes every session they hold: a reissue means either a
 lockout or a compromise, and leaving `mustChangePassword` plus
-`TemporaryPasswordInterceptor` as the only thing between a stolen session and the workspace
+`SessionPolicyInterceptor` as the only thing between a stolen session and the workspace
 stakes access control on one interceptor being right. The account-management flow sets
 `mustChangePassword`, so recovery follows the same replacement path as onboarding.
 
@@ -89,7 +89,7 @@ restore access for a locked-out subsidiary admin.
 - Workspace apps must reject flagged sessions. A redirect in `apps/auth` alone does not stop
   a user from opening another app directly, so the core service refuses a flagged session on
   every route outside `/api/auth`
-  (`servers/core/src/modules/auth/temporary-password.interceptor.ts`).
+  (`servers/core/src/modules/auth/session-policy.interceptor.ts`).
 - Identity administrators add existing employees to subsidiaries and teams through the
   back office. Membership and business permission assignments remain separate.
 - Revisit email recovery if staff mail moves outside the workspace.

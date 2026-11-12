@@ -1,3 +1,4 @@
+import { mayRun } from "@repo/contracts/identity";
 import { AppTrail, Page } from "@repo/shell/app-shell";
 import { authClient } from "@repo/shell/auth-client";
 import { domains } from "@repo/shell/domains";
@@ -42,12 +43,12 @@ import type { Directory, Person } from "../../lib/admin";
 import {
   announce,
   bindTeamDomain,
-  teamDomainBindingsQueryOptions,
+  coreMutationDocument,
   directoryQueryOptions,
-  coreWriteDocument,
-  inSubsidiary,
   everyPersonQueryOptions,
-  write,
+  inSubsidiary,
+  refreshPeople,
+  teamDomainBindingsQueryOptions,
 } from "../../lib/admin";
 
 export const Route = createFileRoute("/_shell/subsidiaries")({
@@ -71,11 +72,8 @@ function Subsidiaries() {
   const teams = (directory.data?.teams ?? []).filter(
     (team) => team.organizationId === shown?.id,
   );
-  const roles = (session?.user?.role ?? "")
-    .split(",")
-    .map((role) => role.trim());
-  const canManage = roles.includes("admin") || roles.includes("super-admin");
-  const canCreateSubsidiary = roles.includes("super-admin");
+  const canManage = mayRun(session?.user?.role, "administer");
+  const canCreateSubsidiary = mayRun(session?.user?.role, "superAdmin");
 
   return (
     <Page
@@ -148,8 +146,9 @@ function CreateSubsidiary() {
   const [slug, setSlug] = useState("");
   const create = useMutation({
     mutationFn: () =>
-      coreWriteDocument(
+      coreMutationDocument(
         "/api/auth-management/subsidiaries",
+        "POST",
         { name, slug },
         "Could not create the subsidiary.",
       ),
@@ -159,7 +158,7 @@ function CreateSubsidiary() {
       setOpen(false);
       setName("");
       setSlug("");
-      void queryClient.invalidateQueries({ queryKey: ["admin", "directory"] });
+      void refreshPeople(queryClient);
     },
   });
 
@@ -230,8 +229,9 @@ function CreateTeam({ organizationId }: { organizationId: string }) {
   const [name, setName] = useState("");
   const create = useMutation({
     mutationFn: () =>
-      coreWriteDocument(
+      coreMutationDocument(
         `/api/auth-management/subsidiaries/${organizationId}/teams`,
+        "POST",
         { name },
         "Could not create the team.",
       ),
@@ -240,7 +240,7 @@ function CreateTeam({ organizationId }: { organizationId: string }) {
       announce.done(`${name} created`);
       setOpen(false);
       setName("");
-      void queryClient.invalidateQueries({ queryKey: ["admin", "directory"] });
+      void refreshPeople(queryClient);
     },
   });
 
@@ -364,8 +364,7 @@ function TeamRow({
   const roster = people.filter((person) => memberIds.includes(person.id));
   const outsiders = people.filter((person) => !memberIds.includes(person.id));
 
-  const refresh = () =>
-    queryClient.invalidateQueries({ queryKey: ["admin", "directory"] });
+  const refresh = () => refreshPeople(queryClient);
 
   const add = useMutation({
     mutationFn: (userId: string) =>
@@ -375,18 +374,10 @@ function TeamRow({
             () => authClient.organization.addTeamMember({ teamId, userId }),
             `Could not add them to ${name}.`,
           )
-        : write(
-            () =>
-              coreWriteDocument(
-                `/api/auth-management/subsidiaries/${organizationId}/members`,
-                {
-                  organizationId,
-                  role: "member",
-                  teamId,
-                  userId,
-                },
-                `Could not add them to ${name}.`,
-              ).then((data) => ({ data })),
+        : coreMutationDocument(
+            `/api/auth-management/subsidiaries/${organizationId}/members`,
+            "POST",
+            { organizationId, role: "member", teamId, userId },
             `Could not add them to ${name}.`,
           ),
     onError: announce.failed,

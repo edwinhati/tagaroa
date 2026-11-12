@@ -1,3 +1,4 @@
+import { E2E_ADMIN, e2eOperator } from "@repo/test-support/e2e-stack";
 import { betterAuth } from "better-auth/minimal";
 import { admin } from "better-auth/plugins";
 import { SQL } from "bun";
@@ -10,13 +11,8 @@ import { testEnv } from "./database";
 /**
  * The one account the product has no flow for. Every other e2e account is
  * issued by this one through `/admin/create-user`, the way a real one is.
- * `apps/auth/e2e` repeats these two values; they are fixtures, not secrets.
  */
-const e2eAdmin = {
-  email: "e2e-admin@tagaroa.test",
-  name: "E2E Admin",
-  password: "e2e-admin-password-12",
-};
+const e2eAdmin = { ...E2E_ADMIN, name: "E2E Admin" };
 
 /** A super administrator no test signs in as or changes. */
 const e2eGuardian = {
@@ -26,13 +22,12 @@ const e2eGuardian = {
 };
 
 /**
- * `apps/admin/e2e/operator.ts` repeats this naming. A parallel browser suite
- * seeds one operator per Playwright worker (`E2E_OPERATORS`) so the tests that
+ * A parallel browser suite seeds one operator per Playwright worker (`E2E_OPERATORS`) so the tests that
  * change an operator's MFA, role or sessions never share one.
  */
 const operatorFor = (index: number) => ({
   ...e2eAdmin,
-  email: `e2e-admin-${index}@tagaroa.test`,
+  ...e2eOperator(index),
 });
 
 /**

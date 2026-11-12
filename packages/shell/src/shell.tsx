@@ -7,7 +7,8 @@ import { type ReactNode } from "react";
 import { authClient } from "./auth-client";
 import type { Domain } from "./domains";
 import { ImpersonationNotice } from "./impersonation-notice";
-import { ADMIN_URL, signInUrl } from "./session";
+import { signInUrl } from "./session";
+import { ADMIN_URL } from "./urls";
 
 /**
  * The chrome every workspace surface wears: who you are, where you can go, and
@@ -46,7 +47,7 @@ export function WorkspaceShell({
           {admin ? (
             <a
               className="min-h-11 px-2 py-1 text-xs ease-out inline-flex items-center text-muted-foreground transition-colors duration-150 outline-none hover:text-foreground focus-visible:text-foreground focus-visible:underline"
-              href={`${ADMIN_URL}/overview`}
+              href={ADMIN_URL}
             >
               Admin
             </a>

@@ -1,12 +1,12 @@
-import { admit, isImpersonating, operatorOf } from "@repo/shell/session";
+import { admit } from "@repo/shell/session";
+import { isImpersonating, operatorOf } from "@repo/shell/session-state";
 import { WorkspaceShell } from "@repo/shell/shell";
 import { createFileRoute, Outlet } from "@tanstack/react-router";
 
 /**
- * The same chrome the shell app wears, with this domain marked current — a
- * person moving from the workspace into engineering crosses an app boundary and
- * should not be able to tell. Admission is decided here too: this app answers on
- * its own port as well as through the proxy.
+ * The domain chrome from `@repo/shell`, with this domain marked current.
+ * Admission is decided here too: this app answers on its own port as well as
+ * through the proxy.
  */
 export const Route = createFileRoute("/_shell")({
   ssr: false,

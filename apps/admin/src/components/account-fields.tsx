@@ -1,3 +1,4 @@
+import { IDENTITY_ROLES, type IdentityRoleId } from "@repo/contracts/identity";
 import {
   Field,
   FieldDescription,
@@ -17,15 +18,12 @@ import type { AnyFieldApi } from "@tanstack/react-form";
 import type { ReactNode } from "react";
 
 /** Sign-in roles an operator can give an account, in the order offered. */
-export const accountRoles = [
-  { label: "Employee", value: "user" },
-  { label: "Access reviewer", value: "access-reviewer" },
-  { label: "Helpdesk", value: "helpdesk" },
-  { label: "Identity administrator", value: "admin" },
-  { label: "Super administrator", value: "super-admin" },
-] as const;
+export const accountRoles = IDENTITY_ROLES.map(({ id, label }) => ({
+  label,
+  value: id,
+}));
 
-export type AccountRole = (typeof accountRoles)[number]["value"];
+export type AccountRole = IdentityRoleId;
 
 const isInvalid = (field: AnyFieldApi) =>
   field.state.meta.isTouched && !field.state.meta.isValid;

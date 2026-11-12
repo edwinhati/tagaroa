@@ -1,16 +1,15 @@
 import { describe, expect, mock, setSystemTime, test } from "bun:test";
 
 import type { AuditTrail } from "../../audit/application/audit.facade";
+import type { Operator } from "../../auth/session-policy";
+import type { PermissionKey } from "../domain/access-policy";
 import type {
   AccessAssignmentRecord,
   AccessControlRepository,
   AccessRoleRecord,
   AssignmentView,
 } from "../domain/repositories/access-control.repository";
-import {
-  AccessControlService,
-  type AccessActor,
-} from "./access-control.service";
+import { AccessControlService } from "./access-control.service";
 
 const NOW = new Date("2026-09-01T12:00:00.000Z");
 
@@ -26,9 +25,11 @@ const role: AccessRoleRecord = {
   updatedAt: NOW,
 };
 
-const actor = (overrides: Partial<AccessActor> = {}): AccessActor => ({
+const actor = (overrides: Partial<Operator> = {}): Operator => ({
   id: "operator",
-  identityRole: "super-admin",
+  impersonatedBy: null,
+  role: "super-admin",
+  twoFactorEnabled: true,
   sessionCreatedAt: new Date("2026-09-01T11:55:00.000Z"),
   sessionId: "session-1",
   ...overrides,
@@ -87,7 +88,7 @@ const roleInput = {
   description: "Configure assigned domains",
   key: "custom-admin",
   name: "Custom administrator",
-  permissions: ["domain:administer"],
+  permissions: ["domain:administer"] as PermissionKey[],
 };
 
 const assignment: AssignmentView = {
@@ -368,7 +369,7 @@ describe("assignment expiry and revocation", () => {
       service.updateAssignmentExpiry(
         assignment.id,
         null,
-        actor({ identityRole: "admin" }),
+        actor({ role: "admin" }),
         NOW,
       ),
     ).rejects.toThrow("Only a super administrator");
@@ -464,15 +465,20 @@ test("can delegates the exact permission and scope with the decision time", asyn
   const service = new AccessControlService(store.implementation, trail);
   const before = Date.now();
   const input = {
-    ...actor(),
-    userId: "person-1",
+    operator: actor({ id: "person-1" }),
     organizationId: "subsidiary-1",
     teamId: "team-1",
     permission: "domain:administer" as const,
   };
   expect(await service.can(input)).toBe(false);
   const decision = effective.mock.calls[0]![0];
-  expect(decision).toMatchObject(input);
+  expect(decision).toMatchObject({
+    organizationId: "subsidiary-1",
+    permission: "domain:administer",
+    sessionId: "session-1",
+    teamId: "team-1",
+    userId: "person-1",
+  });
   expect(decision.at.getTime()).toBeGreaterThanOrEqual(before);
   expect(decision.at.getTime()).toBeLessThanOrEqual(Date.now());
   expect(elevation).toHaveBeenCalledWith(decision);
@@ -490,13 +496,12 @@ test("emergency decisions use the current time through the exact expiry boundary
   const store = repository({ hasActiveElevation: elevation });
   const trail = auditSpy();
   const service = new AccessControlService(store.implementation, trail);
-  const input = {
-    ...actor(),
-    userId: "operator",
+  const scope = {
     organizationId: "subsidiary-1",
     teamId: "team-1",
     permission: "domain:administer" as const,
   };
+  const input = { ...scope, operator: actor() };
   try {
     for (const [at, allowed] of [
       [new Date(expiresAt.getTime() - 1), true],
@@ -505,7 +510,12 @@ test("emergency decisions use the current time through the exact expiry boundary
     ] as const) {
       setSystemTime(at);
       expect(await service.can(input)).toBe(allowed);
-      expect(elevation).toHaveBeenLastCalledWith({ ...input, at });
+      expect(elevation).toHaveBeenLastCalledWith({
+        ...scope,
+        at,
+        sessionId: "session-1",
+        userId: "operator",
+      });
     }
     expect(trail.record).toHaveBeenCalledTimes(1);
     expect(trail.record).toHaveBeenCalledWith({
@@ -524,11 +534,7 @@ describe("AccessControlService", () => {
     const service = new AccessControlService(store.implementation, audit);
 
     await expect(
-      service.grantAssignment(
-        assignmentInput,
-        actor({ identityRole: "admin" }),
-        NOW,
-      ),
+      service.grantAssignment(assignmentInput, actor({ role: "admin" }), NOW),
     ).rejects.toThrow("Only a super administrator");
     expect(store.granted).toHaveLength(0);
   });
@@ -585,7 +591,7 @@ describe("AccessControlService", () => {
     };
 
     await expect(
-      service.activateBreakGlass(input, actor({ identityRole: "admin" }), NOW),
+      service.activateBreakGlass(input, actor({ role: "admin" }), NOW),
     ).rejects.toThrow("Only a super administrator");
 
     const elevation = await service.activateBreakGlass(input, actor(), NOW);
@@ -608,13 +614,10 @@ test("a subsidiary grant or elevation cannot authorize a team from another subsi
     const service = new AccessControlService(store.implementation, audit);
     expect(
       await service.can({
-        identityRole: "super-admin",
+        operator: actor(),
         organizationId: "subsidiary-1",
         permission: "domain:administer",
-        sessionCreatedAt: NOW,
-        sessionId: "session-1",
         teamId: "foreign-team",
-        userId: "operator",
       }),
     ).toBe(false);
   }
@@ -641,13 +644,9 @@ test("invalid, future and boundary-old authentication cannot grant privileged ac
 
 test("valid scopes still require a grant or an audited super-admin elevation", async () => {
   const input = {
-    identityRole: "super-admin",
     organizationId: "subsidiary-1",
     permission: "domain:administer" as const,
-    sessionCreatedAt: NOW,
-    sessionId: "session-1",
     teamId: "team-1",
-    userId: "operator",
   };
   const events: string[] = [];
   const trail: AuditTrail = {
@@ -656,7 +655,7 @@ test("valid scopes still require a grant or an audited super-admin elevation", a
       events.push(event.type);
     },
   };
-  for (const [normal, elevated, identityRole, allowed] of [
+  for (const [normal, elevated, role, allowed] of [
     [false, false, "super-admin", false],
     [true, false, "user", true],
     [false, true, "user", false],
@@ -667,7 +666,9 @@ test("valid scopes still require a grant or an audited super-admin elevation", a
       hasActiveElevation: async () => elevated,
     });
     const service = new AccessControlService(store.implementation, trail);
-    expect(await service.can({ ...input, identityRole })).toBe(allowed);
+    expect(await service.can({ ...input, operator: actor({ role }) })).toBe(
+      allowed,
+    );
   }
   expect(events).toEqual(["access.break-glass.used"]);
 });

@@ -1,5 +1,3 @@
-import type { IncomingMessage } from "node:http";
-
 import {
   Controller,
   HttpCode,
@@ -11,6 +9,7 @@ import {
 import { AllowAnonymous } from "@thallesp/nestjs-better-auth";
 
 import { parseWith } from "../../../platform/http/schema-validation";
+import type { SignedRequest } from "../../../platform/http/signed-webhook";
 import { SyncEmployeeUseCase } from "../application/use-cases/sync-employee.use-case";
 import {
   HR_OPTIONS,
@@ -18,11 +17,6 @@ import {
 } from "../infrastructure/config/hr.options";
 import { verifyFrappeSignature } from "../infrastructure/frappe/frappe";
 import { frappeEmployeeWebhook } from "./hr-webhook.schemas";
-
-interface ParsedRequest extends IncomingMessage {
-  body?: unknown;
-  rawBody?: Buffer;
-}
 
 /**
  * Frappe HR's webhook on Employee. Anonymous, so it is verified against the
@@ -39,7 +33,7 @@ export class HrWebhookController {
   @Post("frappe")
   @AllowAnonymous()
   @HttpCode(204)
-  async frappe(@Req() request: ParsedRequest): Promise<void> {
+  async frappe(@Req() request: SignedRequest): Promise<void> {
     const signature = request.headers["x-frappe-webhook-signature"];
     if (
       !this.options ||

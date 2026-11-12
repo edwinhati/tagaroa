@@ -1,6 +1,5 @@
+import { NOTIFICATION_CHANNELS } from "@repo/contracts/notifications";
 import * as z from "zod";
-
-import { NOTIFICATION_CHANNELS } from "../domain/value-objects/notification-channel.vo";
 
 const required = (field: string) =>
   z

@@ -10,7 +10,7 @@ import {
   AUDIT_TRAIL,
   type AuditTrail,
 } from "../../../audit/application/audit.facade";
-import { requireOwnSession } from "../../../auth/access-policy";
+import { type Operator, requireOwnSession } from "../../../auth/session-policy";
 import {
   ACCESS_REVIEW_REPOSITORY,
   type AccessReviewRepository,
@@ -38,7 +38,7 @@ export class RecordAccessReviewUseCase {
 
   async execute(
     userId: string,
-    reviewer: { id: string; impersonatedBy?: string | null },
+    reviewer: Pick<Operator, "id"> & Partial<Pick<Operator, "impersonatedBy">>,
   ): Promise<void> {
     requireOwnSession(reviewer);
     const reviewerId = reviewer.id;

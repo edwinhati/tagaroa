@@ -1,3 +1,7 @@
+import {
+  MESSAGE_STATUSES,
+  NOTIFICATION_CHANNELS,
+} from "@repo/contracts/notifications";
 import { AppTrail, Page } from "@repo/shell/app-shell";
 import {
   DataTableColumnVisibility,
@@ -39,6 +43,7 @@ import {
   DropdownMenuTrigger,
 } from "@repo/ui/components/dropdown-menu";
 import { Skeleton } from "@repo/ui/components/skeleton";
+import { relativeTime } from "@repo/ui/lib/relative-time";
 import { cn } from "@repo/ui/lib/utils";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link } from "@tanstack/react-router";
@@ -51,7 +56,7 @@ import { EllipsisIcon, PanelRightOpenIcon } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { Bar, BarChart, CartesianGrid, XAxis, YAxis } from "recharts";
 
-import { announce } from "../../lib/admin";
+import { announce, DEFAULT_PAGE_SIZE, PAGE_SIZES } from "../../lib/admin";
 import {
   type ChannelHealth,
   type Message,
@@ -83,8 +88,8 @@ import {
   ChannelName,
   channelLabel,
   exactTime,
-  relativeTime,
   Status,
+  reasonLabel,
   statusLabel,
   TemplateStatus,
 } from "../notification-status";
@@ -130,21 +135,21 @@ const positiveInteger = (value: unknown) => {
 
 const collectionSearch = (search: Record<string, unknown>) => {
   const channel = list(search.channel).filter((value) =>
-    ["email", "sms", "whatsapp"].includes(value),
+    (NOTIFICATION_CHANNELS as readonly string[]).includes(value),
   );
   const q = text(search.q).slice(0, 200);
   const sort = text(search.sort).slice(0, 200);
   const page = positiveInteger(search.page);
   const sizeValue = positiveInteger(search.size);
   const size =
-    sizeValue && [10, 25, 50, 100].includes(sizeValue) ? sizeValue : undefined;
+    sizeValue && PAGE_SIZES.includes(sizeValue) ? sizeValue : undefined;
 
   return {
     ...(channel.length ? { channel } : {}),
     ...(q ? { q } : {}),
     ...(sort ? { sort } : {}),
     ...(page && page !== 1 ? { page } : {}),
-    ...(size && size !== 25 ? { size } : {}),
+    ...(size && size !== DEFAULT_PAGE_SIZE ? { size } : {}),
   };
 };
 
@@ -581,16 +586,6 @@ function Channels({ channels }: { channels: ChannelHealth[] }) {
   );
 }
 
-const STATUSES = [
-  "pending",
-  "sending",
-  "sent",
-  "delivered",
-  "failed",
-  "bounced",
-  "suppressed",
-];
-
 const activityColumnHelper = createDataTableColumnHelper<Message>();
 const EMPTY_MESSAGES: Message[] = [];
 
@@ -605,7 +600,7 @@ function DeliveryLogContent({
     channel = [],
     page = 1,
     q = "",
-    size = 25,
+    size = DEFAULT_PAGE_SIZE,
     sort = "-createdAt",
     status = [],
   } = search;
@@ -720,7 +715,7 @@ function DeliveryLogContent({
       const next = functionalUpdate(updater, pagination);
       onSearchChange({
         page: next.pageIndex > 0 ? next.pageIndex + 1 : undefined,
-        size: next.pageSize === 25 ? undefined : next.pageSize,
+        size: next.pageSize === DEFAULT_PAGE_SIZE ? undefined : next.pageSize,
       });
     },
     onSortingChange: (updater) => {
@@ -736,7 +731,10 @@ function DeliveryLogContent({
     state: { pagination, sorting },
   });
   const aggregation = messages.data?.meta.aggregations;
-  const facetOptions = (name: "channel" | "status", values: string[]) => {
+  const facetOptions = (
+    name: "channel" | "status",
+    values: readonly string[],
+  ) => {
     const counts = new Map(
       (aggregation?.[name] ?? []).map((bucket) => [bucket.value, bucket.count]),
     );
@@ -762,7 +760,7 @@ function DeliveryLogContent({
           onChange={(values) =>
             narrow({ channel: values.length ? values : undefined })
           }
-          options={facetOptions("channel", ["email", "sms", "whatsapp"])}
+          options={facetOptions("channel", NOTIFICATION_CHANNELS)}
           selected={channel}
         />
         <DataTableFacet
@@ -770,7 +768,7 @@ function DeliveryLogContent({
           onChange={(values) =>
             narrow({ status: values.length ? values : undefined })
           }
-          options={facetOptions("status", STATUSES)}
+          options={facetOptions("status", MESSAGE_STATUSES)}
           selected={status}
         />
         {channel.length || status.length || q ? (
@@ -1078,7 +1076,7 @@ function SuppressionList({
     page = 1,
     q = "",
     reason = [],
-    size = 25,
+    size = DEFAULT_PAGE_SIZE,
     sort = "-createdAt",
   } = search;
   const [query, setQuery] = useState(q);
@@ -1188,7 +1186,7 @@ function SuppressionList({
       const next = functionalUpdate(updater, pagination);
       onSearchChange({
         page: next.pageIndex > 0 ? next.pageIndex + 1 : undefined,
-        size: next.pageSize === 25 ? undefined : next.pageSize,
+        size: next.pageSize === DEFAULT_PAGE_SIZE ? undefined : next.pageSize,
       });
     },
     onSortingChange: (updater) => {
@@ -1204,7 +1202,7 @@ function SuppressionList({
     state: { pagination, sorting },
   });
   const aggregations = suppressions.data?.meta.aggregations;
-  const channelOptions = ["email", "sms", "whatsapp"].map((value) => ({
+  const channelOptions = NOTIFICATION_CHANNELS.map((value) => ({
     count:
       aggregations?.channel?.find((bucket) => bucket.value === value)?.count ??
       0,
@@ -1213,7 +1211,7 @@ function SuppressionList({
   }));
   const reasonOptions = (aggregations?.reason ?? []).map((bucket) => ({
     count: bucket.count,
-    label: statusLabel(bucket.value),
+    label: reasonLabel(bucket.value),
     value: bucket.value,
   }));
 

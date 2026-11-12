@@ -1,14 +1,16 @@
 import { expect, test } from "@playwright/test";
+import {
+  E2E_ADMIN,
+  E2E_ORIGINS,
+  TEST_DATABASE_URL,
+} from "@repo/test-support/e2e-stack";
 import { authenticatorCode } from "@repo/test-support/totp";
 import { SQL } from "bun";
 
-const coreServiceOrigin = "http://localhost:18080";
+const coreServiceOrigin = E2E_ORIGINS.core;
 
 // Seeded by `servers/core/test/e2e-admin.ts` before the core service starts.
-const admin = {
-  email: "e2e-admin@tagaroa.test",
-  password: "e2e-admin-password-12",
-};
+const admin = E2E_ADMIN;
 
 const browserDiagnostics = new WeakMap<
   object,
@@ -62,13 +64,10 @@ test(
     const email = `e2e-${crypto.randomUUID()}@tagaroa.test`;
     const temporaryPassword = "temporary-password-12";
     const chosenPassword = "chosen-password-12";
-    const headers = { origin: "http://localhost:13001" };
+    const headers = { origin: E2E_ORIGINS.auth };
 
     // This fixture exercises account issuance, not authenticator enrollment.
-    const sql = new SQL(
-      process.env.TEST_DATABASE_URL ??
-        "postgresql://tagaroa:tagaroa@127.0.0.1:5432/tagaroa_test",
-    );
+    const sql = new SQL(TEST_DATABASE_URL);
     await sql`
     UPDATE "auth"."user" SET "two_factor_enabled" = false
     WHERE "email" = ${admin.email}
@@ -225,16 +224,13 @@ test(
   "signing in replaces a revoked session cookie",
   { lock: "e2e-admin" },
   async ({ page, context }) => {
-    const sql = new SQL(
-      process.env.TEST_DATABASE_URL ??
-        "postgresql://tagaroa:tagaroa@127.0.0.1:5432/tagaroa_test",
-    );
+    const sql = new SQL(TEST_DATABASE_URL);
     await sql`
     UPDATE "auth"."user" SET "two_factor_enabled" = false
     WHERE "email" = ${admin.email}
   `;
     await sql.close();
-    const headers = { origin: "http://localhost:13001" };
+    const headers = { origin: E2E_ORIGINS.auth };
     const signedIn = await page.request.post("/api/auth/sign-in/email", {
       data: admin,
       headers,
@@ -269,10 +265,7 @@ test(
     // Enrollment, recovery, trusted devices, passkeys and reauth in one test:
     // ~55s of ~1s steps in WebKit on a CI-sized Linux machine.
     test.setTimeout(120_000);
-    const sql = new SQL(
-      process.env.TEST_DATABASE_URL ??
-        "postgresql://tagaroa:tagaroa@127.0.0.1:5432/tagaroa_test",
-    );
+    const sql = new SQL(TEST_DATABASE_URL);
     // Clear the issuance fixture's synthetic flag; enrollment goes through the UI.
     await sql`
     DELETE FROM "auth"."two_factor"
@@ -443,8 +436,8 @@ test(
     await expect(page).toHaveURL(/\/locked-out$/);
 
     await signOut();
-    await signIn("http://localhost:13002/");
-    await expect(page).toHaveURL("http://localhost:13002/");
+    await signIn(`${E2E_ORIGINS.workspace}/`);
+    await expect(page).toHaveURL(`${E2E_ORIGINS.workspace}/`);
     await openAccountMenu();
     await expect(
       page.getByRole("menuitem", { name: "Account settings" }),
@@ -455,21 +448,18 @@ test(
       (
         await page.request.post(`${coreServiceOrigin}/api/auth/sign-out`, {
           data: {},
-          headers: { origin: "http://localhost:13002" },
+          headers: { origin: E2E_ORIGINS.workspace },
         })
       ).ok(),
     ).toBe(true);
-    const expirySql = new SQL(
-      process.env.TEST_DATABASE_URL ??
-        "postgresql://tagaroa:tagaroa@127.0.0.1:5432/tagaroa_test",
-    );
+    const expirySql = new SQL(TEST_DATABASE_URL);
     try {
       await expirySql`
       update auth.verification set expires_at = now() - interval '1 second'
       where identifier like 'trust-device-%'
       and value = (select id from auth."user" where email = ${admin.email})
     `;
-      await signIn("http://localhost:13002/");
+      await signIn(`${E2E_ORIGINS.workspace}/`);
       await expect(
         page.getByRole("heading", { name: "Verify it’s you" }),
       ).toBeVisible();
@@ -477,7 +467,7 @@ test(
       await expect(
         page.getByRole("heading", { name: "Sign in to Tagaroa" }),
       ).toBeVisible();
-      await signIn("http://localhost:13002/");
+      await signIn(`${E2E_ORIGINS.workspace}/`);
       await expect(
         page.getByRole("heading", { name: "Verify it’s you" }),
       ).toBeVisible();
@@ -500,7 +490,7 @@ test(
         page.getByRole("heading", { name: "Sign in to Tagaroa" }),
       ).toBeVisible();
       expect(new URL(page.url()).searchParams.get("redirect")).toBe(
-        "http://localhost:13002/",
+        `${E2E_ORIGINS.workspace}/`,
       );
       await page.getByLabel("Email", { exact: true }).fill(admin.email);
       await page.getByLabel("Password", { exact: true }).fill(admin.password);
@@ -512,7 +502,7 @@ test(
         .getByLabel("Authenticator code", { exact: true })
         .fill(authenticatorCode(uri!));
       await page.getByRole("button", { name: "Verify", exact: true }).click();
-      await expect(page).toHaveURL("http://localhost:13002/");
+      await expect(page).toHaveURL(`${E2E_ORIGINS.workspace}/`);
     } finally {
       await expirySql.close();
     }
@@ -562,7 +552,7 @@ test(
       .click();
     const challengeContext = await browser.newContext();
     try {
-      const headers = { origin: "http://localhost:13001" };
+      const headers = { origin: E2E_ORIGINS.auth };
       const signed = await challengeContext.request.post(
         `${coreServiceOrigin}/api/auth/sign-in/email`,
         { data: admin, headers },
@@ -633,7 +623,7 @@ test(
     }
 
     await page.goto(
-      "http://localhost:13001/reauth?redirect=http%3A%2F%2Flocalhost%3A13002%2F",
+      `${E2E_ORIGINS.auth}/reauth?redirect=http%3A%2F%2Flocalhost%3A13002%2F`,
     );
     await expect(
       page.getByRole("heading", { name: "Confirm it’s you" }),
@@ -654,7 +644,7 @@ test(
       .getByLabel("Authenticator code", { exact: true })
       .fill(authenticatorCode(uri!));
     await page.getByRole("button", { name: "Verify", exact: true }).click();
-    await expect(page).toHaveURL("http://localhost:13002/");
+    await expect(page).toHaveURL(`${E2E_ORIGINS.workspace}/`);
     await openAccountMenu();
     await page.getByRole("menuitem", { name: "Account settings" }).click();
     await page.getByRole("tab", { name: "Security", exact: true }).click();
@@ -719,7 +709,7 @@ test(
       await page
         .getByRole("button", { name: "Sign in with a passkey" })
         .click();
-      await expect(page).toHaveURL("http://localhost:13002/");
+      await expect(page).toHaveURL(`${E2E_ORIGINS.workspace}/`);
       await openAccountMenu();
       await page.getByRole("menuitem", { name: "Account settings" }).click();
       await page.getByRole("tab", { name: "Security", exact: true }).click();

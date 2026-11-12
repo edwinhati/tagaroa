@@ -49,31 +49,6 @@ export class DrizzlePositionRepository implements PositionRepository {
       .orderBy(asc(personPosition.title));
   }
 
-  async find(
-    userId: string,
-    organizationId: string | null,
-  ): Promise<PositionRecord | null> {
-    const [row] = await this.database
-      .select({
-        id: personPosition.id,
-        managerUserId: personPosition.managerUserId,
-        organizationId: personPosition.organizationId,
-        title: personPosition.title,
-        updatedAt: personPosition.updatedAt,
-        updatedBy: personPosition.updatedBy,
-        userId: personPosition.userId,
-      })
-      .from(personPosition)
-      .where(
-        and(
-          eq(personPosition.userId, userId),
-          eq(personPosition.scopeKey, scopeKey(organizationId)),
-        ),
-      )
-      .limit(1);
-    return row ?? null;
-  }
-
   async save(input: {
     actorId: string;
     id: string;

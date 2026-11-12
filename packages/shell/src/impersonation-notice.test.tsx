@@ -73,7 +73,7 @@ if (process.env.SHELL_NOTICE_TEST !== "1") {
   mock.module("./auth-client", () => ({
     authClient: { admin: { stopImpersonating } },
   }));
-  const { WORKSPACE_URL } = await import("./session");
+  const { WORKSPACE_URL } = await import("./urls");
   const { ImpersonationNotice } = await import("./impersonation-notice");
   const render = () => {
     cursor = 0;

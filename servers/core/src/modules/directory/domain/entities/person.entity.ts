@@ -1,4 +1,4 @@
-import { Roles } from "../value-objects/roles.vo";
+import { isPrivilegedRole } from "@repo/contracts/identity";
 
 const DAY = 24 * 60 * 60 * 1000;
 
@@ -80,12 +80,8 @@ export class Person {
     return this.props.updatedAt;
   }
 
-  get roles(): Roles {
-    return Roles.parse(this.props.role);
-  }
-
   get privileged(): boolean {
-    return this.roles.privileged;
+    return isPrivilegedRole(this.props.role);
   }
 
   /**

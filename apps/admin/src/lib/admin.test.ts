@@ -1,10 +1,10 @@
 import { describe, expect, spyOn, test } from "bun:test";
 
+import { CORE_URL } from "@repo/shell/urls";
 import { isCancelledError, QueryClient } from "@tanstack/react-query";
 
 import {
   AdminApiError,
-  CORE_URL,
   coreMutationDocument,
   listUsersQuery,
   directoryQueryOptions,
@@ -115,7 +115,7 @@ describe("listUsersQuery", () => {
     });
   });
 
-  test("the admins slice covers both privileged roles", () => {
+  test("the admins slice covers every privileged role", () => {
     expect(query({ slice: "admins" })).toMatchObject({
       filterField: "role",
       filterOperator: "in",

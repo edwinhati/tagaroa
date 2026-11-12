@@ -1969,7 +1969,7 @@ test("recovery delivery reports missing, suppressed and failed destinations with
     }
     expect(log).toHaveBeenCalledTimes(2);
 
-    send.mockResolvedValue({ id: "queued", status: "queued" });
+    send.mockResolvedValue({ id: "queued", status: "pending" });
     expect(
       await hook.deliverRecoveryPassword(account, password, "queued"),
     ).toEqual({
@@ -2248,7 +2248,7 @@ test("subsidiary ownership cannot bypass group identity policy and temporary ope
   ]) {
     const response = await request(path, { headers: { cookie } });
     expect(response.status).toBe(403);
-    expect((await response.json()).code).toBe("PASSWORD_CHANGE_REQUIRED");
+    expect((await response.json()).code).toBe("MUST_CHANGE_PASSWORD");
   }
 });
 

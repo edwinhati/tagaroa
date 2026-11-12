@@ -1,4 +1,5 @@
-import type { attemptAuth } from "./auth-client";
+import { REFUSAL_CODES } from "@repo/contracts/identity";
+import type { attemptAuth } from "@repo/shell/attempt-auth";
 
 type Attempt = Awaited<ReturnType<typeof attemptAuth<unknown>>>;
 
@@ -19,7 +20,7 @@ export function signInOutcome({ code, data, failure }: Attempt): SignInOutcome {
   // does not have.
   if (code === "BANNED_USER")
     return { kind: "locked-out", reason: "suspended" };
-  if (code === "TEMPORARY_PASSWORD_EXPIRED")
+  if (code === REFUSAL_CODES.temporaryPasswordExpired)
     return { kind: "locked-out", reason: "expired" };
   if (failure) return { kind: "failure", failure };
 

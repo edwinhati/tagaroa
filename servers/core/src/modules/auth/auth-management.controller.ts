@@ -9,6 +9,7 @@ import {
   Param,
   Post,
 } from "@nestjs/common";
+import { IDENTITY_OPERATIONS } from "@repo/contracts/identity";
 import {
   AuthService,
   Roles,
@@ -17,12 +18,12 @@ import {
 } from "@thallesp/nestjs-better-auth";
 import { APIError } from "better-auth/api";
 
+import { isUniqueViolation } from "../../platform/database/unique-violation";
 import {
   AUDIT_TRAIL,
   type AuditTrail,
 } from "../audit/application/audit.facade";
-import { ADMIN_ROLE_CATALOG, ADMIN_ROLE_IDS } from "./access-policy";
-import { createAuth, TEMPORARY_PASSWORD_LIFETIME_MS } from "./auth";
+import type { Auth } from "./auth";
 import {
   addMemberBody,
   type AddMemberBody,
@@ -37,55 +38,25 @@ import {
   requestRecoveryBody,
   type RequestRecoveryBody,
 } from "./auth-management.schemas";
-import {
-  IdentityOperationsService,
-  type IdentityOperator,
-} from "./identity-operations.service";
-
-type TagaroaAuth = ReturnType<typeof createAuth>;
-
-const operatorOf = (session: UserSession): IdentityOperator => {
-  const value = session as UserSession & {
-    session: { createdAt: string | Date; impersonatedBy?: string | null };
-    user: { role?: string | null; twoFactorEnabled?: boolean };
-  };
-  return {
-    id: value.user.id,
-    role: value.user.role,
-    twoFactorEnabled: value.user.twoFactorEnabled === true,
-    sessionCreatedAt: new Date(value.session.createdAt),
-    impersonatedBy: value.session.impersonatedBy,
-  };
-};
-
-/** Postgres 23505, seen through Drizzle's wrapper (`cause`) or Bun SQL's `errno`. */
-const isUniqueViolation = (error: unknown): boolean => {
-  const e = error as
-    | { cause?: unknown; code?: unknown; errno?: unknown }
-    | undefined;
-  return (
-    e?.code === "23505" ||
-    e?.errno === "23505" ||
-    (e?.cause !== undefined && isUniqueViolation(e.cause))
-  );
-};
+import { IdentityOperationsService } from "./identity-operations.service";
+import { operatorOf, SESSION_POLICY } from "./session-policy";
 
 @Controller("auth-management")
 export class AuthManagementController {
   constructor(
-    private readonly auth: AuthService<TagaroaAuth>,
+    private readonly auth: AuthService<Auth>,
     @Inject(AUDIT_TRAIL) private readonly audit: AuditTrail,
     private readonly operations: IdentityOperationsService,
   ) {}
 
   @Get("recoveries")
-  @Roles(["helpdesk", "admin", "super-admin", "access-reviewer"])
+  @Roles([...IDENTITY_OPERATIONS.operate])
   async recoveries() {
     return { data: await this.operations.listRecoveries() };
   }
 
   @Post("users/:userId/factor-recovery")
-  @Roles(["helpdesk", "admin", "super-admin"])
+  @Roles([...IDENTITY_OPERATIONS.support])
   async requestRecovery(
     @Param("userId") userId: string,
     @Body({ schema: requestRecoveryBody }) body: RequestRecoveryBody,
@@ -102,7 +73,7 @@ export class AuthManagementController {
 
   @Post("recoveries/:id/approve")
   @Header("Cache-Control", "no-store")
-  @Roles(["super-admin"])
+  @Roles([...IDENTITY_OPERATIONS.superAdmin])
   async approveRecovery(
     @Param("id") id: string,
     @Body({ schema: approveRecoveryBody }) body: ApproveRecoveryBody,
@@ -118,7 +89,7 @@ export class AuthManagementController {
   }
 
   @Post("users/:userId/offboard")
-  @Roles(["admin", "super-admin"])
+  @Roles([...IDENTITY_OPERATIONS.administer])
   async offboard(
     @Param("userId") userId: string,
     @Body({ schema: offboardBody }) body: OffboardBody,
@@ -134,7 +105,7 @@ export class AuthManagementController {
   }
 
   @Post("sessions/:sessionId/revoke")
-  @Roles(["helpdesk", "admin", "super-admin"])
+  @Roles([...IDENTITY_OPERATIONS.support])
   async revokeSession(
     @Param("sessionId") sessionId: string,
     @Session() session: UserSession,
@@ -145,25 +116,25 @@ export class AuthManagementController {
   }
 
   @Get("access-policy")
-  @Roles([...ADMIN_ROLE_IDS])
+  @Roles([...IDENTITY_OPERATIONS.operate])
   accessPolicy() {
     return {
       data: {
-        roles: ADMIN_ROLE_CATALOG,
         session: {
-          concurrentLimit: 3,
-          freshAuthenticationMinutes: 15,
+          concurrentLimit: SESSION_POLICY.concurrentSessions,
+          freshAuthenticationMinutes:
+            SESSION_POLICY.freshAuthenticationMs / 60_000,
           temporaryPasswordHours:
-            TEMPORARY_PASSWORD_LIFETIME_MS / (60 * 60 * 1_000),
-          trustedDeviceDays: 30,
-          twoFactorChallengeMinutes: 10,
+            SESSION_POLICY.temporaryPasswordMs / 3_600_000,
+          trustedDeviceDays: SESSION_POLICY.trustedDeviceDays,
+          twoFactorChallengeMinutes: SESSION_POLICY.twoFactorChallengeMinutes,
         },
       },
     };
   }
 
   @Post("subsidiaries")
-  @Roles(["super-admin"])
+  @Roles([...IDENTITY_OPERATIONS.superAdmin])
   async createSubsidiary(
     @Body({ schema: createSubsidiaryBody }) {
       name,
@@ -183,7 +154,7 @@ export class AuthManagementController {
   }
 
   @Post("subsidiaries/:organizationId/teams")
-  @Roles(["admin", "super-admin"])
+  @Roles([...IDENTITY_OPERATIONS.administer])
   async createTeam(
     @Param("organizationId") organizationId: string,
     @Body({ schema: createTeamBody }) { name }: CreateTeamBody,
@@ -201,7 +172,7 @@ export class AuthManagementController {
   }
 
   @Post("subsidiaries/:organizationId/members")
-  @Roles(["admin", "super-admin"])
+  @Roles([...IDENTITY_OPERATIONS.administer])
   async addMember(
     @Param("organizationId") organizationId: string,
     @Body({ schema: addMemberBody }) { userId, teamId }: AddMemberBody,

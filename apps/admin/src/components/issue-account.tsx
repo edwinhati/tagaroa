@@ -1,3 +1,4 @@
+import { IDENTITY_ROLE_IDS } from "@repo/contracts/identity";
 import { authClient } from "@repo/shell/auth-client";
 import { Button } from "@repo/ui/components/button";
 import {
@@ -17,7 +18,7 @@ import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 import * as z from "zod";
 
-import { onboardingOutcome, write } from "../lib/admin";
+import { onboardingOutcome, refreshPeople, write } from "../lib/admin";
 import type { OnboardingOutcome } from "../lib/admin";
 import {
   AccountRoleField,
@@ -68,13 +69,7 @@ const issueAccountSchema = z
       .string()
       .trim()
       .pipe(z.email("Enter a valid personal email.")),
-    role: z.enum([
-      "user",
-      "access-reviewer",
-      "helpdesk",
-      "admin",
-      "super-admin",
-    ]),
+    role: z.enum(IDENTITY_ROLE_IDS),
   })
   // The password must not go to the mailbox it unlocks; the server refuses it too.
   .refine(
@@ -142,8 +137,7 @@ function IssueForm({
     },
     onSuccess: (result) => {
       setIssued(result);
-      void queryClient.invalidateQueries({ queryKey: ["admin", "people"] });
-      void queryClient.invalidateQueries({ queryKey: ["admin", "dashboard"] });
+      void refreshPeople(queryClient);
     },
   });
 

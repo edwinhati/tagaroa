@@ -7,14 +7,12 @@ import {
   admitAdmin,
   sessionQueryOptions,
   domainMembershipQueryOptions,
-  WORKSPACE_URL,
-  fetchSession,
   fetchDomainMemberships,
-  isAdmitted,
   isDomainAdmin,
-  isImpersonating,
   signInUrl,
 } from "./session";
+import { fetchSession, isAdmitted, isImpersonating } from "./session-state";
+import { WORKSPACE_URL } from "./urls";
 
 describe("signInUrl", () => {
   it("carries the way back, encoded", () => {
@@ -78,46 +76,35 @@ describe("isImpersonating", () => {
 
 describe("isDomainAdmin", () => {
   const ana = { user: { email: "ana@tagaroa.com", role: "user" } };
-  const admin = {
-    user: {
-      email: "root@tagaroa.com",
-      role: "admin",
-      twoFactorEnabled: true,
-    },
-  };
+  const team = (domainSlug: string, administered = true) => ({
+    administered,
+    domainSlug,
+    organizationId: "subsidiary",
+    teamId: `team-${domainSlug}`,
+  });
+
+  it("passes only for a domain the server says this person administers", () => {
+    expect(isDomainAdmin(ana, "engineering", [team("engineering")])).toBe(true);
+    expect(isDomainAdmin(ana, "finance", [team("engineering")])).toBe(false);
+    expect(
+      isDomainAdmin(ana, "engineering", [team("engineering", false)]),
+    ).toBe(false);
+  });
 
   it("does not turn an identity role into business access", () => {
-    expect(isDomainAdmin(admin, "engineering")).toBe(false);
-    expect(isDomainAdmin(admin, "finance")).toBe(false);
+    const admin = { user: { role: "admin", twoFactorEnabled: true } };
+    expect(isDomainAdmin(admin, "engineering", [])).toBe(false);
+  });
+
+  it("refuses no session, or one on a temporary password, whatever it is given", () => {
+    expect(isDomainAdmin(null, "engineering", [team("engineering")])).toBe(
+      false,
+    );
     expect(
       isDomainAdmin(
-        { user: { role: "super-admin", twoFactorEnabled: true } },
-        "supply-chain",
-        ["supply-chain"],
-      ),
-    ).toBe(true);
-  });
-
-  it("passes a domain admin only for the domain they administer", () => {
-    expect(isDomainAdmin(ana, "engineering", ["engineering"])).toBe(true);
-    expect(isDomainAdmin(ana, "finance", ["engineering"])).toBe(false);
-  });
-
-  it("accepts stable domain slugs and ignores unmapped names", () => {
-    expect(isDomainAdmin(ana, "supply-chain", ["supply-chain"])).toBe(true);
-    expect(isDomainAdmin(ana, "engineering", ["Night shift"])).toBe(false);
-  });
-
-  it("refuses everyone with no session, whatever adminships are argued in", () => {
-    expect(isDomainAdmin(null, "engineering")).toBe(false);
-    expect(isDomainAdmin(null, "engineering", ["engineering"])).toBe(false);
-  });
-
-  it("refuses a session still on a temporary password", () => {
-    expect(
-      isDomainAdmin(
-        { user: { role: "admin", mustChangePassword: true } },
+        { user: { mustChangePassword: true, role: "user" } },
         "engineering",
+        [team("engineering")],
       ),
     ).toBe(false);
   });
@@ -153,7 +140,7 @@ describe("route admission", () => {
     administered: false,
   });
   const client = (
-    session: import("./session").SessionState,
+    session: import("./session-state").SessionState,
     slugs: string[] = [],
   ) => {
     const queryClient = new QueryClient();

@@ -5,7 +5,6 @@
 @import "tailwindcss";
 @import "@repo/ui/globals.css";
 @import "@repo/ui/tagaroa.css";
+@import "@repo/shell/styles.css";
 
 @source "../";
-@source "../../../../packages/ui/src";
-@source "../../../../packages/shell/src";

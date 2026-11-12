@@ -1,4 +1,8 @@
-import type { NotificationChannel } from "../value-objects/notification-channel.vo";
+import type {
+  NotificationChannel,
+  TemplateStatus,
+} from "@repo/contracts/notifications";
+
 import {
   renderTemplate,
   type RenderedMessage,
@@ -11,7 +15,7 @@ export interface TemplateProps {
   channel: NotificationChannel;
   locale: string;
   version: number;
-  status: string;
+  status: TemplateStatus;
   subject: string | null;
   body: string;
   variables: string[];
@@ -70,7 +74,7 @@ export class Template {
     return this.props.version;
   }
 
-  get status(): string {
+  get status(): TemplateStatus {
     return this.props.status;
   }
 
@@ -98,15 +102,6 @@ export class Template {
 
   get updatedAt(): Date {
     return this.props.updatedAt;
-  }
-
-  get published(): boolean {
-    return this.props.status === "published";
-  }
-
-  /** Only a draft may be edited; a published version is history. */
-  get editable(): boolean {
-    return this.props.status === "draft";
   }
 
   get wording(): TemplateWording {

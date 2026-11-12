@@ -1,11 +1,8 @@
-import { describe, expect, mock, test } from "bun:test";
+import { describe, expect, test } from "bun:test";
 
-import {
-  fetchSession,
-  sessionQueryOptions,
-  signInDestination,
-  type SessionState,
-} from "./session";
+import type { SessionState } from "@repo/shell/session-state";
+
+import { signInDestination } from "./session";
 
 const signedOut: SessionState = null;
 const settled: SessionState = { user: { mustChangePassword: false } };
@@ -46,14 +43,4 @@ describe("signInDestination", () => {
   test("treats a session without the flag as settled", () => {
     expect(signInDestination({ user: {} })).toEqual({ to: "workspace" });
   });
-});
-
-test("loads a session once and treats request failures as signed out", async () => {
-  const getSession = mock<() => Promise<{ data: unknown }>>()
-    .mockResolvedValueOnce({ data: issued })
-    .mockRejectedValueOnce(new Error("offline"));
-
-  expect(await fetchSession(getSession)).toEqual(issued);
-  expect(await fetchSession(getSession)).toBeNull();
-  expect(sessionQueryOptions.retry).toBe(false);
 });

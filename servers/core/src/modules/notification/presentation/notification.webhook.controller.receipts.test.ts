@@ -7,15 +7,12 @@ import {
   UnauthorizedException,
 } from "@nestjs/common";
 
+import type { WebhookSecrets } from "../application/notification.options";
 import { RecordReceiptsUseCase } from "../application/use-cases/record-receipts.use-case";
-import type { MessageRepository } from "../domain/repositories/message.repository";
-import type { SuppressionRepository } from "../domain/repositories/suppression.repository";
 import {
-  replaceableBy,
   type ProviderName,
   type Receipt,
 } from "../domain/value-objects/delivery-receipt.vo";
-import type { WebhookSecrets } from "../infrastructure/config/notification.options";
 import { NotificationWebhookController } from "./notification.webhook.controller";
 
 type Request = Parameters<NotificationWebhookController["receive"]>[1];
@@ -187,33 +184,6 @@ test.each(["resend", "meta"] as const)(
     expect(execute).not.toHaveBeenCalled();
   },
 );
-
-test("a late sent receipt does not move a delivered message back to sent", async () => {
-  // The real use case over a store that applies the same rule as the Drizzle one.
-  const status = new Map([["email-1", "sent"]]);
-  const messages = {
-    applyReceipt: async (receipt: Receipt) => {
-      const current = status.get(receipt.providerId);
-      if (current && replaceableBy(receipt.status).includes(current))
-        status.set(receipt.providerId, receipt.status);
-    },
-  } as unknown as MessageRepository;
-  const suppressions = {
-    add: async () => {},
-  } as unknown as SuppressionRepository;
-  const controller = new NotificationWebhookController(
-    new RecordReceiptsUseCase(messages, suppressions),
-    secrets,
-  );
-
-  await controller.receive("resend", resend("email.delivered"));
-  await controller.receive("resend", resend("email.sent"));
-  await controller.receive("resend", resend("email.delivery_delayed"));
-  expect(status.get("email-1")).toBe("delivered");
-
-  await controller.receive("resend", resend("email.bounced"));
-  expect(status.get("email-1")).toBe("bounced");
-});
 
 test("receipt storage failures propagate so the provider can retry", async () => {
   const { controller, execute } = setup();

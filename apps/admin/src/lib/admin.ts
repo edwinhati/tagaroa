@@ -1,7 +1,22 @@
-import type { ApiDocument, Collection } from "@repo/contracts";
+import {
+  type ApiDocument,
+  asObject,
+  type Collection,
+  messageFor,
+} from "@repo/contracts";
+import {
+  ADMIN_ROLE_IDS,
+  IDENTITY_ROLE_IDS,
+  REFUSAL_CODES,
+} from "@repo/contracts/identity";
 import { authClient } from "@repo/shell/auth-client";
+import { AUTH_URL, CORE_URL } from "@repo/shell/urls";
 import { toast } from "@repo/ui/components/toast";
-import { keepPreviousData, queryOptions } from "@tanstack/react-query";
+import {
+  keepPreviousData,
+  type QueryClient,
+  queryOptions,
+} from "@tanstack/react-query";
 
 /**
  * Account operations use Better Auth's `admin` and `organization` clients.
@@ -123,23 +138,25 @@ export interface Team {
   organizationId: string;
 }
 
-export interface TeamMember {
-  id: string;
-  userId: string;
-  teamId: string;
-}
-
 /**
  * better-auth resolves with `{ data, error }` rather than rejecting, so a failed
  * write looks exactly like a successful one to react-query. Every mutation on
  * this surface goes through here, or it will report success it did not have.
  */
 export async function write<T>(
-  call: () => Promise<{ data?: T; error?: { message?: string } | null }>,
+  call: () => Promise<{
+    data?: T;
+    error?: { code?: string; message?: string; status?: number } | null;
+  }>,
   failure: string,
 ): Promise<T | undefined> {
   const { data, error } = await call();
-  if (error) throw new Error(error.message || failure);
+  if (error)
+    throw new AdminApiError(
+      error.message || failure,
+      error.code,
+      error.status ?? 0,
+    );
   return data;
 }
 
@@ -275,14 +292,9 @@ export interface PeopleSearch {
   sort?: string;
 }
 
-const PEOPLE_ROLES = [
-  "user",
-  "access-reviewer",
-  "helpdesk",
-  "admin",
-  "super-admin",
-] as const;
-const PEOPLE_PAGE_SIZES = [10, 25, 50, 100];
+/** The page sizes every table offers; the core service's default is 25. */
+export const PAGE_SIZES = [10, 25, 50, 100];
+export const DEFAULT_PAGE_SIZE = 25;
 const PEOPLE_SORTS = new Set(["account", "-account", "access", "-access"]);
 
 export function validatePeopleSearch(
@@ -301,14 +313,14 @@ export function validatePeopleSearch(
   const role = Array.isArray(search.role) ? search.role[0] : search.role;
   if (
     typeof role === "string" &&
-    PEOPLE_ROLES.includes(role as (typeof PEOPLE_ROLES)[number])
+    IDENTITY_ROLE_IDS.includes(role as (typeof IDENTITY_ROLE_IDS)[number])
   ) {
     result.role = role;
   }
   const page = Number(search.page);
   if (Number.isInteger(page) && page > 1) result.page = page;
   const size = Number(search.size);
-  if (PEOPLE_PAGE_SIZES.includes(size)) result.size = size;
+  if (PAGE_SIZES.includes(size)) result.size = size;
   return result;
 }
 
@@ -316,17 +328,6 @@ export interface PeoplePage {
   people: Person[];
   total: number;
 }
-
-/** The roles that make someone privileged, and so an "admin" for the slice. */
-export const PRIVILEGED_ROLES = [
-  "access-reviewer",
-  "helpdesk",
-  "admin",
-  "super-admin",
-];
-
-/** What the table can ask the database to order by: columns `auth.user` has. */
-export const SORTABLE_PERSON_FIELDS = ["name", "email", "role", "createdAt"];
 
 /**
  * One page of accounts, as Better Auth's `listUsers` wants it asked for.
@@ -364,7 +365,7 @@ export function listUsersQuery(query: PeopleQuery): Record<string, unknown> {
   } else if (query.slice === "admins") {
     params.filterField = "role";
     params.filterOperator = "in";
-    params.filterValue = PRIVILEGED_ROLES;
+    params.filterValue = ADMIN_ROLE_IDS;
   } else if (query.role) {
     params.filterField = "role";
     params.filterOperator = "eq";
@@ -447,50 +448,6 @@ export interface Position {
   userId: string;
 }
 
-export const CORE_URL =
-  import.meta.env.VITE_AUTH_BASE_URL ?? "http://localhost:8080";
-
-async function coreFetch<T>(
-  path: string,
-  failure: string,
-  signal?: AbortSignal,
-): Promise<T> {
-  const response = await fetch(`${CORE_URL}${path}`, {
-    credentials: "include",
-    signal,
-  });
-  if (!response.ok) throw new Error(failure);
-  return (await response.json()) as T;
-}
-
-export async function coreReadDocument<T>(
-  path: string,
-  failure: string,
-  signal?: AbortSignal,
-): Promise<T> {
-  return (await coreFetch<ApiDocument<T>>(path, failure, signal)).data;
-}
-
-export async function coreWriteDocument<T>(
-  path: string,
-  body: Record<string, unknown>,
-  failure: string,
-): Promise<T> {
-  const response = await fetch(`${CORE_URL}${path}`, {
-    body: JSON.stringify(body),
-    credentials: "include",
-    headers: { "content-type": "application/json" },
-    method: "POST",
-  });
-  if (!response.ok) {
-    const error = (await response.json().catch(() => null)) as {
-      message?: string;
-    } | null;
-    throw new Error(error?.message || failure);
-  }
-  return ((await response.json()) as ApiDocument<T>).data;
-}
-
 export class AdminApiError extends Error {
   constructor(
     message: string,
@@ -502,31 +459,62 @@ export class AdminApiError extends Error {
   }
 }
 
-export async function coreMutationDocument<T>(
+type Method = "GET" | "POST" | "PATCH" | "PUT" | "DELETE";
+
+/**
+ * One request to the core service. A refusal is an `AdminApiError` carrying
+ * the server's code and status: a write says what the server said, a read says
+ * what could not be loaded.
+ */
+async function core<T>(
   path: string,
-  method: "POST" | "PATCH" | "PUT" | "DELETE",
-  body: Record<string, unknown> | undefined,
-  failure: string,
+  {
+    body,
+    failure,
+    method = "GET",
+    signal,
+  }: { body?: unknown; failure: string; method?: Method; signal?: AbortSignal },
 ): Promise<T> {
   const response = await fetch(`${CORE_URL}${path}`, {
-    ...(body ? { body: JSON.stringify(body) } : {}),
+    ...(body === undefined
+      ? {}
+      : {
+          body: JSON.stringify(body),
+          headers: { "content-type": "application/json" },
+        }),
     credentials: "include",
-    headers: body ? { "content-type": "application/json" } : undefined,
     method,
+    signal,
   });
-  const document = (await response.json().catch(() => null)) as
-    | ApiDocument<T>
-    | { code?: string; message?: string }
-    | null;
+  const said: unknown =
+    response.status === 204 ? null : await response.json().catch(() => null);
   if (!response.ok) {
-    const error = document as { code?: string; message?: string } | null;
+    const code = asObject(said)?.code;
     throw new AdminApiError(
-      error?.message || failure,
-      error?.code,
+      method === "GET" ? failure : messageFor(said, failure),
+      typeof code === "string" ? code : undefined,
       response.status,
     );
   }
-  return (document as ApiDocument<T>).data;
+  return said as T;
+}
+
+export async function coreReadDocument<T>(
+  path: string,
+  failure: string,
+  signal?: AbortSignal,
+): Promise<T> {
+  return (await core<ApiDocument<T>>(path, { failure, signal })).data;
+}
+
+export async function coreMutationDocument<T>(
+  path: string,
+  method: Exclude<Method, "GET">,
+  body: object | undefined,
+  failure: string,
+): Promise<T> {
+  return (await core<ApiDocument<T> | null>(path, { body, failure, method }))
+    ?.data as T;
 }
 
 /** One session, by id: core checks whose it is, and no token leaves it. */
@@ -539,46 +527,12 @@ export const revokeSession = (sessionId: string) =>
   );
 
 export function reauthenticateForCurrentPage(): void {
-  const authUrl = import.meta.env.VITE_AUTH_URL ?? "http://localhost:3001";
-  const target = new URL("/reauth", authUrl);
+  const target = new URL("/reauth", AUTH_URL);
   target.searchParams.set("redirect", window.location.href);
   window.location.assign(target);
 }
 
-/**
- * A Better Auth server endpoint that is intentionally absent from the generated
- * organization client. The request still enters Better Auth's trusted-origin,
- * session, MFA, role, schema, and audit hooks; this only supplies its typed
- * browser transport.
- */
-export async function authWriteDocument<T>(
-  path: string,
-  body: Record<string, unknown>,
-  failure: string,
-): Promise<T> {
-  const response = await fetch(`${CORE_URL}/api/auth${path}`, {
-    body: JSON.stringify(body),
-    credentials: "include",
-    headers: { "content-type": "application/json" },
-    method: "POST",
-  });
-  if (!response.ok) {
-    const error = (await response.json().catch(() => null)) as {
-      message?: string;
-    } | null;
-    throw new Error(error?.message || failure);
-  }
-  return (await response.json()) as T;
-}
-
 export interface AccessPolicy {
-  roles: {
-    description: string;
-    id: string;
-    label: string;
-    permissions: { session: string[]; user: string[] };
-    privileged: boolean;
-  }[];
   session: {
     concurrentLimit: number;
     freshAuthenticationMinutes: number;
@@ -802,19 +756,19 @@ export async function coreReadCollection<T>(
   path: string,
   failure: string,
 ): Promise<Collection<T>> {
-  let page = await coreFetch<Collection<T>>(path, failure);
+  let page = await core<Collection<T>>(path, { failure });
   const data = [...page.data];
   const seen = new Set<string>();
   while (page.links.next && !seen.has(page.links.next)) {
     seen.add(page.links.next);
-    page = await coreFetch<Collection<T>>(page.links.next, failure);
+    page = await core<Collection<T>>(page.links.next, { failure });
     data.push(...page.data);
   }
   return { ...page, data, meta: { ...page.meta, total: data.length } };
 }
 
 export const coreReadCollectionPage = <T>(path: string, failure: string) =>
-  coreFetch<Collection<T>>(path, failure);
+  core<Collection<T>>(path, { failure });
 
 async function exhaustNested<TDocument, T>(
   initial: TDocument,
@@ -898,15 +852,13 @@ export const personalEmailQueryOptions = (userId: string) =>
       ).then((document) => document.personalEmail),
   });
 
-export async function reviewPrivilegedAccess(userId: string): Promise<void> {
-  const response = await fetch(
-    `${CORE_URL}/api/directory/access-reviews/${userId}`,
-    { credentials: "include", method: "POST" },
+export const reviewPrivilegedAccess = (userId: string) =>
+  coreMutationDocument<{ reviewed: true }>(
+    `/api/directory/access-reviews/${userId}`,
+    "POST",
+    undefined,
+    "Could not confirm this person's privileged access.",
   );
-  if (!response.ok) {
-    throw new Error("Could not confirm this person's privileged access.");
-  }
-}
 
 export const directoryQueryOptions = queryOptions({
   queryKey: ["admin", "directory"],
@@ -930,7 +882,7 @@ export const directoryQueryOptions = queryOptions({
   },
 });
 
-/** The domains each person's teams put on their workspace rule. */
+/** The names of each person's teams. */
 export const teamNamesByUser = (
   directory: Directory | undefined,
 ): Record<string, string[]> => {
@@ -970,12 +922,19 @@ export const standingOf = (person: Person): Standing => {
  */
 export const announce = {
   done: (title: string) => toast.add({ title, type: "success" }),
-  failed: (error: Error) =>
+  /** A stale sign-in goes to re-authenticate; anything else is announced. */
+  failed: (error: Error) => {
+    if (
+      error instanceof AdminApiError &&
+      error.code === REFUSAL_CODES.sessionNotFresh
+    )
+      return reauthenticateForCurrentPage();
     toast.add({
       description: error.message,
       title: "That did not happen",
       type: "error",
-    }),
+    });
+  },
 };
 
 export interface AccessReviewSubject {
@@ -1059,8 +1018,12 @@ export const factorRecoveryQueryOptions = queryOptions({
       "Could not read recovery requests.",
     ),
 });
-export function securityOperationFailed(error: Error): void {
-  if (error instanceof AdminApiError && error.code === "SESSION_NOT_FRESH")
-    reauthenticateForCurrentPage();
-  else announce.failed(error);
-}
+/** After a change to accounts: every read that lists or counts people. */
+export const refreshPeople = (queryClient: QueryClient) =>
+  Promise.all(
+    [
+      ["admin", "people"],
+      ["admin", "dashboard"],
+      ["admin", "directory"],
+    ].map((queryKey) => queryClient.invalidateQueries({ queryKey })),
+  );

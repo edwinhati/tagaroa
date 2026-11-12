@@ -1,9 +1,9 @@
 import { resolve } from "node:path";
 
+import { isSuperAdmin, mayRun } from "@repo/contracts/identity";
 import { SQL } from "bun";
 import { readMigrationFiles } from "drizzle-orm/migrator";
 
-import { rolesOf } from "../src/modules/auth/access-policy";
 import { validateEnv, type AppEnv } from "../src/platform/config/env";
 
 export interface PreflightCheck {
@@ -88,7 +88,7 @@ export async function securityPreflight(
           and exists (select 1 from auth.two_factor f where f.user_id = u.id and f.verified = true)
           and exists (select 1 from auth.account a where a.user_id = u.id and a.provider_id = 'credential' and a.password is not null)`;
       const superAdmins = operators.filter((operator) =>
-        rolesOf(operator.role).includes("super-admin"),
+        isSuperAdmin(operator.role),
       );
       checks.push({
         name: "independent-recovery-operators",
@@ -96,9 +96,7 @@ export async function securityPreflight(
           superAdmins.length >= 2 &&
           operators.some(
             (operator) =>
-              rolesOf(operator.role).some((role) =>
-                ["helpdesk", "admin", "super-admin"].includes(role),
-              ) &&
+              mayRun(operator.role, "support") &&
               superAdmins.filter((other) => other.id !== operator.id).length >=
                 2,
           ),

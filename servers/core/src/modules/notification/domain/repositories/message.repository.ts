@@ -1,3 +1,5 @@
+import type { MessageStatus } from "@repo/contracts/notifications";
+
 import type { Message } from "../entities/message.entity";
 import type { QueuedMessage } from "../entities/queued-message.entity";
 import type { Receipt } from "../value-objects/delivery-receipt.vo";
@@ -7,7 +9,7 @@ export const MESSAGE_REPOSITORY = Symbol("MESSAGE_REPOSITORY");
 
 export interface EnqueuedMessage {
   id: string;
-  status: string;
+  status: MessageStatus;
 }
 
 /**

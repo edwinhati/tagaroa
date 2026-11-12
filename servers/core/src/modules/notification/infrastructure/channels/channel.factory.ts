@@ -1,4 +1,5 @@
 import { Logger } from "@nestjs/common";
+import { type NotificationChannel } from "@repo/contracts/notifications";
 
 import { ChannelError } from "../../domain/errors/channel.error";
 import type {
@@ -6,7 +7,6 @@ import type {
   MessageCarrier,
   OutgoingMessage,
 } from "../../domain/repositories/message-carrier.port";
-import { type NotificationChannel } from "../../domain/value-objects/notification-channel.vo";
 import { resendSender, type ResendConfig } from "./resend.channel";
 import { twilioSender, type TwilioConfig } from "./twilio.channel";
 import { whatsAppSender, type WhatsAppConfig } from "./whatsapp.channel";
@@ -46,7 +46,7 @@ const unconfigured =
     throw new ChannelError(`The ${channel} channel is not configured`, true);
   };
 
-export const createChannels = (
+const createChannels = (
   providers: NotificationProviders,
   logger: Logger = new Logger("Notification"),
 ): Record<NotificationChannel, ChannelSender> => {
@@ -67,8 +67,8 @@ export const createChannels = (
  *
  * The adapter the dispatcher actually holds. It picks the sender by the
  * message's own channel, so the use case above it sends without knowing that
- * three different companies are involved — or that outside production none of
- * them is.
+ * three different companies are involved — or that a channel without
+ * credentials is the console.
  */
 export class ChannelCarrier implements MessageCarrier {
   private readonly senders: Record<NotificationChannel, ChannelSender>;

@@ -17,7 +17,6 @@ import { AccessControlGuard } from "./presentation/access-control.guard";
 
 @Module({
   controllers: [AccessControlController],
-  exports: [ACCESS_CONTROL],
   imports: [AuditModule],
   providers: [
     AccessControlService,

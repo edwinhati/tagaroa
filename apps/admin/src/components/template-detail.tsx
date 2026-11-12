@@ -6,6 +6,7 @@ import {
   SheetHeader,
   SheetTitle,
 } from "@repo/ui/components/sheet";
+import { relativeTime } from "@repo/ui/lib/relative-time";
 import type { ReactNode } from "react";
 
 import type { Template } from "../lib/notifications";
@@ -14,7 +15,6 @@ import {
   ChannelName,
   exactTime,
   MONO,
-  relativeTime,
   TemplateStatus,
 } from "./notification-status";
 

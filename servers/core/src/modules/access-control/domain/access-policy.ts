@@ -32,11 +32,3 @@ export const permissionsArePrivileged = (
   permissions: readonly PermissionKey[],
 ): boolean =>
   permissions.some((permission) => PERMISSION_CATALOG[permission].privileged);
-
-export const DOMAIN_ADMINISTRATOR_ROLE = {
-  description: "Changes configuration for assigned domains.",
-  id: "system-domain-administrator",
-  key: "domain-administrator",
-  name: "Domain administrator",
-  permissions: ["domain:administer"],
-} as const;

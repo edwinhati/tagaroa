@@ -25,8 +25,7 @@ import { QRCodeSVG } from "qrcode.react";
 import { useState, type FormEvent, type ReactNode } from "react";
 
 import { attemptAuth } from "./attempt-auth";
-import { authClient } from "./auth-client";
-import type { SecurityAuthClient } from "./security-auth-client";
+import type { WorkspaceAuthClient } from "./create-auth-client";
 import { formatSetupKey, setupKeyFromTotpUri } from "./totp";
 
 function FormError({ children }: { children: ReactNode }) {
@@ -91,14 +90,14 @@ function RecoveryCodesView({
 
 export function RecoveryCodesFlow({
   cancelLabel = "Back",
-  client = authClient as SecurityAuthClient,
+  client,
   completionLabel = "Done",
   hideIntro = false,
   onCancel,
   onDone,
 }: {
   cancelLabel?: string;
-  client?: SecurityAuthClient;
+  client: WorkspaceAuthClient;
   completionLabel?: string;
   hideIntro?: boolean;
   onCancel?: () => void;
@@ -184,14 +183,14 @@ export function RecoveryCodesFlow({
 
 export function AuthenticatorSetupFlow({
   cancelLabel = "Back",
-  client = authClient as SecurityAuthClient,
+  client,
   completionLabel = "Done",
   hideIntro = false,
   onCancel,
   onDone,
 }: {
   cancelLabel?: string;
-  client?: SecurityAuthClient;
+  client: WorkspaceAuthClient;
   completionLabel?: string;
   hideIntro?: boolean;
   onCancel?: () => void;

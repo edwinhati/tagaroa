@@ -1,5 +1,6 @@
+import type { NotificationChannel } from "@repo/contracts/notifications";
+
 import type { Suppression } from "../entities/suppression.entity";
-import type { NotificationChannel } from "../value-objects/notification-channel.vo";
 
 export const SUPPRESSION_REPOSITORY = Symbol("SUPPRESSION_REPOSITORY");
 

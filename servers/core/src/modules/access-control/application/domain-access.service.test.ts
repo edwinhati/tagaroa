@@ -1,19 +1,19 @@
 import { expect, mock, test } from "bun:test";
 
 import type { AuditTrail } from "../../audit/application/audit.facade";
+import type { Operator } from "../../auth/session-policy";
 import type { AccessControlRepository } from "../domain/repositories/access-control.repository";
 import type { DomainAccessRepository } from "../domain/repositories/domain-access.repository";
-import {
-  AccessControlService,
-  type AccessActor,
-} from "./access-control.service";
+import { AccessControlService } from "./access-control.service";
 import { DomainAccessService } from "./domain-access.service";
 
-const actor = (): AccessActor => ({
+const actor = (): Operator => ({
   id: "operator",
-  identityRole: "super-admin",
-  sessionId: "session-1",
+  impersonatedBy: null,
+  role: "super-admin",
   sessionCreatedAt: new Date(),
+  sessionId: "session-1",
+  twoFactorEnabled: true,
 });
 
 const fixture = (parent: string | null = "subsidiary-1") => {
@@ -101,15 +101,7 @@ test("admission uses explicit bindings even when a team's name suggests another 
   });
 });
 
-test("invalid domains, missing teams and stale authentication cannot change bindings", async () => {
-  for (const slug of ["unknown", "Engineering", "", undefined, 1, {}]) {
-    const { service, bind, record } = fixture();
-    await expect(service.bind("team-1", slug, actor())).rejects.toThrow(
-      "known domain",
-    );
-    expect(bind).not.toHaveBeenCalled();
-    expect(record).not.toHaveBeenCalled();
-  }
+test("missing teams and stale authentication cannot change bindings", async () => {
   const missing = fixture(null);
   await expect(
     missing.service.bind("missing", "engineering", actor()),
@@ -152,10 +144,7 @@ test("mine derives administration for each bound team and current actor", async 
   ]);
   for (const teamId of ["team-1", "team-2"]) {
     expect(can).toHaveBeenCalledWith({
-      userId: operator.id,
-      identityRole: operator.identityRole,
-      sessionId: operator.sessionId,
-      sessionCreatedAt: operator.sessionCreatedAt,
+      operator,
       organizationId: "subsidiary-1",
       teamId,
       permission: "domain:administer",

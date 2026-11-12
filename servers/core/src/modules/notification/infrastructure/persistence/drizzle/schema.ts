@@ -1,3 +1,9 @@
+import type {
+  MessageStatus,
+  NotificationChannel,
+  SuppressionReason,
+  TemplateStatus,
+} from "@repo/contracts/notifications";
 import { sql } from "drizzle-orm";
 import {
   index,
@@ -10,10 +16,7 @@ import {
 
 import { jsonb } from "../../../../../platform/database/jsonb";
 import { user } from "../../../../auth/infrastructure/persistence/drizzle/schema";
-import type {
-  NotificationChannel,
-  NotificationPayload,
-} from "../../../domain/value-objects/notification-channel.vo";
+import type { NotificationPayload } from "../../../domain/value-objects/notification-channel.vo";
 
 /**
  * Ours, like `directory` and unlike `auth`: hand-written, never regenerated.
@@ -44,8 +47,8 @@ export const notificationTemplate = notificationSchema.table(
     channel: text("channel").notNull().$type<NotificationChannel>(),
     locale: text("locale").notNull(),
     version: integer("version").notNull().default(1),
-    /** `draft` or `published`. One published row per key/channel/locale. */
-    status: text("status").notNull().default("draft"),
+    /** One published row per key/channel/locale. */
+    status: text("status").notNull().default("draft").$type<TemplateStatus>(),
     /** Email only; null everywhere else. */
     subject: text("subject"),
     body: text("body").notNull(),
@@ -124,7 +127,7 @@ export const notificationMessage = notificationSchema.table(
      * `pending` → `sending` → `sent`, then `delivered` or `bounced` when the
      * provider says so. `failed` is out of attempts; `suppressed` never left.
      */
-    status: text("status").notNull().default("pending"),
+    status: text("status").notNull().default("pending").$type<MessageStatus>(),
     attempts: integer("attempts").notNull().default(0),
     nextAttemptAt: timestamp("next_attempt_at").notNull().defaultNow(),
     /** When the dispatcher claimed it; how a crashed send is recovered. */
@@ -168,8 +171,7 @@ export const notificationSuppression = notificationSchema.table(
     id: text("id").primaryKey(),
     channel: text("channel").notNull().$type<NotificationChannel>(),
     destination: text("destination").notNull(),
-    /** `bounced`, `complained`, `opted-out`, or `manual`. */
-    reason: text("reason").notNull(),
+    reason: text("reason").notNull().$type<SuppressionReason>(),
     createdAt: timestamp("created_at").notNull().defaultNow(),
   },
   (table) => [

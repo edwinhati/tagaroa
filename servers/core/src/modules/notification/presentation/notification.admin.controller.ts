@@ -10,6 +10,7 @@ import {
   Query,
 } from "@nestjs/common";
 import type { ApiDocument, Collection } from "@repo/contracts";
+import { IDENTITY_OPERATIONS } from "@repo/contracts/identity";
 import { Roles, Session, type UserSession } from "@thallesp/nestjs-better-auth";
 
 import type { QueryRecord } from "../../../platform/http/collection";
@@ -48,7 +49,7 @@ import {
  * below, where they can be exercised without a request.
  */
 @Controller("notifications")
-@Roles(["admin", "super-admin"])
+@Roles([...IDENTITY_OPERATIONS.administer])
 export class NotificationAdminController {
   constructor(
     private readonly getOverview: GetNotificationOverviewUseCase,

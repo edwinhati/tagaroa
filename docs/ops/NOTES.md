@@ -78,7 +78,7 @@ Raw notes on where Tagaroa runs and the tools around it. Workflow specs live in
   `Domain`. The door (built) and every other app call core on the API host directly,
   cross-origin but same-site, so its `SameSite=Lax` cookie goes along; core refuses a
   production trusted origin outside the API host. One session per person per browser,
-  so `MAX_CONCURRENT_SESSIONS` is unaffected. Local dev keeps the door same-origin
+  so `SESSION_POLICY.concurrentSessions` is unaffected. Local dev keeps the door same-origin
   through Vite (Brave/Safari dropped the cookie from `localhost:8080`).
   - Checked: `infra/dev/images.test.sh` (cookie attributes, session read from the API
     host) and `infra/dev/browsers.test.sh <core-image>`, which builds a web image for

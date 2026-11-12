@@ -1,7 +1,7 @@
 import {
   type NotificationChannel,
   NOTIFICATION_CHANNELS,
-} from "../value-objects/notification-channel.vo";
+} from "@repo/contracts/notifications";
 
 /** What `channelStatus()` computed at wiring time, for the admin surface. */
 export const CHANNEL_STATUS = Symbol("CHANNEL_STATUS");

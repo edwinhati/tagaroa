@@ -2,16 +2,11 @@ import { expect, mock, test } from "bun:test";
 
 import { AuditEvent } from "../domain/entities/audit-event.entity";
 import { AuditTrailFacade } from "./audit.facade";
-import { ListAuditEventsUseCase } from "./use-cases/list-audit-events.use-case";
-import { RecordAuditEventUseCase } from "./use-cases/record-audit-event.use-case";
 
 test("record persists the caller's fact with a generated ID and database-owned timestamp", async () => {
   const append = mock(async (_event: AuditEvent) => {});
   const repository = { append, listNewestFirst: async () => [] };
-  const facade = new AuditTrailFacade(
-    new RecordAuditEventUseCase(repository),
-    new ListAuditEventsUseCase(repository),
-  );
+  const facade = new AuditTrailFacade(repository);
 
   expect(
     await facade.record({
@@ -37,10 +32,7 @@ test("record waits for persistence and propagates its failure", async () => {
     append: () => pending.promise,
     listNewestFirst: async () => [],
   };
-  const facade = new AuditTrailFacade(
-    new RecordAuditEventUseCase(repository),
-    new ListAuditEventsUseCase(repository),
-  );
+  const facade = new AuditTrailFacade(repository);
   let completed = false;
   const result = facade.record({ actorId: null, type: "system.act" });
   void result.then(
@@ -69,10 +61,7 @@ test("recent returns plain event data in repository order", async () => {
     append: async () => {},
     listNewestFirst: async () => [event],
   };
-  const facade = new AuditTrailFacade(
-    new RecordAuditEventUseCase(repository),
-    new ListAuditEventsUseCase(repository),
-  );
+  const facade = new AuditTrailFacade(repository);
   const rows = await facade.recent(10);
   expect(rows).toEqual([
     {
@@ -93,10 +82,7 @@ test("an unstamped event has the epoch fallback and nullable fields", async () =
     append: async () => {},
     listNewestFirst: async () => [event],
   };
-  const facade = new AuditTrailFacade(
-    new RecordAuditEventUseCase(repository),
-    new ListAuditEventsUseCase(repository),
-  );
+  const facade = new AuditTrailFacade(repository);
   expect(await facade.recent(1)).toEqual([
     {
       id: event.id,
@@ -112,10 +98,7 @@ test("an unstamped event has the epoch fallback and nullable fields", async () =
 test("record refuses an empty event type without persisting it", async () => {
   const append = mock(async (_event: AuditEvent) => {});
   const repository = { append, listNewestFirst: async () => [] };
-  const facade = new AuditTrailFacade(
-    new RecordAuditEventUseCase(repository),
-    new ListAuditEventsUseCase(repository),
-  );
+  const facade = new AuditTrailFacade(repository);
   await expect(facade.record({ actorId: null, type: "  " })).rejects.toThrow(
     "An audit event needs a type",
   );

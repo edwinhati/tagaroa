@@ -49,7 +49,7 @@ async grantAssignment(
   @Body({ schema: grantAssignmentBody }) body: GrantAssignmentBody,
   @Session() session: UserSession,
 ) {
-  return { data: await this.access.grantAssignment(body, actorOf(session)) };
+  return { data: await this.access.grantAssignment(body, operatorOf(session)) };
 }
 ```
 

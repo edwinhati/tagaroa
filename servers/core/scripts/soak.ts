@@ -1,6 +1,7 @@
 import { resolve } from "node:path";
 import { parseArgs } from "node:util";
 
+import { E2E_ADMIN } from "@repo/test-support/e2e-stack";
 import { authenticatorCode } from "@repo/test-support/totp";
 
 /**
@@ -33,11 +34,8 @@ if (!(rate > 0) || !(durationMs > 0)) {
 
 const baseURL = `http://127.0.0.1:${port}`;
 const origin = "http://localhost:3001";
-// `test/e2e-admin.ts` seeds this account; the values are fixtures.
-const operator = {
-  email: "e2e-admin@tagaroa.test",
-  password: "e2e-admin-password-12",
-};
+// `test/e2e-admin.ts` seeds this account.
+const operator = E2E_ADMIN;
 
 const server = Bun.spawn(["bun", "test/start-e2e.ts"], {
   cwd: resolve(import.meta.dir, ".."),

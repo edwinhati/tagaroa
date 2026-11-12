@@ -1,18 +1,4 @@
-import { createHmac, timingSafeEqual } from "node:crypto";
-
-/** Constant-time compare that tolerates a length mismatch. */
-const matches = (expected: string, candidate: string): boolean => {
-  const left = Buffer.from(expected);
-  const right = Buffer.from(candidate);
-  return left.length === right.length && timingSafeEqual(left, right);
-};
-
-/**
- * An HMAC under an empty key is one anyone can compute, so a check against an
- * empty secret proves nothing about the sender. Every verifier refuses one
- * rather than trusting each caller to have caught it.
- */
-const usableKey = (key: string | Buffer): boolean => key.length > 0;
+import { hmacMatches } from "../../../../platform/http/signed-webhook";
 
 /** How far a webhook's own timestamp may be from ours before it is a replay. */
 const TIMESTAMP_TOLERANCE_SECONDS = 5 * 60;
@@ -52,15 +38,17 @@ export const verifySvixSignature = ({
 
   // `whsec_` alone, the placeholder in `.env.example`, decodes to no key at all.
   const key = Buffer.from(secret.replace(/^whsec_/, ""), "base64");
-  if (!usableKey(key)) return false;
-  const expected = createHmac("sha256", key)
-    .update(`${id}.${timestamp}.${payload}`)
-    .digest("base64");
 
   // Svix sends every currently-valid key's signature, so any one may match.
-  return signature
-    .split(" ")
-    .some((entry) => matches(expected, entry.split(",")[1] ?? ""));
+  return signature.split(" ").some((entry) =>
+    hmacMatches({
+      algorithm: "sha256",
+      encoding: "base64",
+      key,
+      payload: `${id}.${timestamp}.${payload}`,
+      signature: entry.split(",")[1] ?? "",
+    }),
+  );
 };
 
 export interface TwilioVerification {
@@ -84,15 +72,17 @@ export const verifyTwilioSignature = ({
   signature,
   url,
 }: TwilioVerification): boolean => {
-  if (!usableKey(authToken)) return false;
   const signed = Object.keys(params)
     .sort()
     .reduce((accumulator, name) => accumulator + name + params[name], url);
 
-  return matches(
-    createHmac("sha1", authToken).update(signed, "utf8").digest("base64"),
+  return hmacMatches({
+    algorithm: "sha1",
+    encoding: "base64",
+    key: authToken,
+    payload: signed,
     signature,
-  );
+  });
 };
 
 export interface MetaVerification {
@@ -108,8 +98,11 @@ export const verifyMetaSignature = ({
   payload,
   signature,
 }: MetaVerification): boolean =>
-  usableKey(appSecret) &&
-  matches(
-    `sha256=${createHmac("sha256", appSecret).update(payload, "utf8").digest("hex")}`,
+  hmacMatches({
+    algorithm: "sha256",
+    encoding: "hex",
+    key: appSecret,
+    payload,
+    prefix: "sha256=",
     signature,
-  );
+  });

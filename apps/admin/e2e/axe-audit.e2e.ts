@@ -1,8 +1,8 @@
 import AxeBuilder from "@axe-core/playwright";
 import { expect, test } from "@playwright/test";
 import { auditRoutes, hideDevOverlays } from "@repo/test-support/axe-audit";
-
-import { signInOperator } from "./operator";
+import { E2E_ORIGINS, e2eOperator } from "@repo/test-support/e2e-stack";
+import { signInOperator } from "@repo/test-support/sign-in";
 
 test("administration routes have no serious axe violations", async ({
   page,
@@ -10,9 +10,9 @@ test("administration routes have no serious axe violations", async ({
 }) => {
   test.setTimeout(600_000);
   await hideDevOverlays(context);
-  await signInOperator(page);
+  await signInOperator(page, e2eOperator(), E2E_ORIGINS.admin);
   const { user } = await (
-    await page.request.get("http://localhost:18080/api/auth/get-session")
+    await page.request.get(`${E2E_ORIGINS.core}/api/auth/get-session`)
   ).json();
   await auditRoutes(page, [
     "/identity-access/work-queue",
@@ -36,9 +36,9 @@ test("person session loading has valid list markup", async ({
   context,
 }) => {
   await hideDevOverlays(context);
-  await signInOperator(page);
+  await signInOperator(page, e2eOperator(), E2E_ORIGINS.admin);
   const { user } = await (
-    await page.request.get("http://localhost:18080/api/auth/get-session")
+    await page.request.get(`${E2E_ORIGINS.core}/api/auth/get-session`)
   ).json();
   await page.route("**/api/auth/admin/list-user-sessions", () => {});
   const requested = page.waitForRequest("**/api/auth/admin/list-user-sessions");

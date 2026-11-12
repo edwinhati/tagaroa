@@ -1,4 +1,3 @@
-import type { ReviewWeek } from "../value-objects/review-week.vo";
 import type { Person } from "./person.entity";
 
 export interface AccessReviewProps {
@@ -30,11 +29,11 @@ export class AccessReview {
     return this.props.reviewedAt;
   }
 
-  standsFor(person: Person, week: ReviewWeek): boolean {
+  standsFor(person: Person, weekStart: Date): boolean {
     return (
       this.props.reviewedBy !== null &&
       this.props.reviewedBy !== person.id &&
-      week.includes(this.props.reviewedAt) &&
+      this.props.reviewedAt >= weekStart &&
       this.props.reviewedAt >= person.updatedAt
     );
   }

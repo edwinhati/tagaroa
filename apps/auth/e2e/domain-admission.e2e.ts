@@ -1,9 +1,14 @@
 import { expect, test } from "@playwright/test";
+import {
+  E2E_ADMIN,
+  E2E_ORIGINS,
+  TEST_DATABASE_URL,
+} from "@repo/test-support/e2e-stack";
 import { SQL } from "bun";
 
-const core = "http://localhost:18080";
-const domain = "http://localhost:13010/engineering";
-const origin = "http://localhost:13001";
+const core = E2E_ORIGINS.core;
+const domain = `${E2E_ORIGINS.engineering}/engineering`;
+const origin = E2E_ORIGINS.auth;
 
 test(
   "engineering requires a session and current Engineering membership",
@@ -14,14 +19,8 @@ test(
     await expect(
       page.getByRole("button", { name: "Sign in", exact: true }),
     ).toBeVisible();
-    const sql = new SQL(
-      process.env.TEST_DATABASE_URL ??
-        "postgresql://tagaroa:tagaroa@127.0.0.1:5432/tagaroa_test",
-    );
-    const operator = {
-      email: "e2e-admin@tagaroa.test",
-      password: "e2e-admin-password-12",
-    };
+    const sql = new SQL(TEST_DATABASE_URL);
+    const operator = E2E_ADMIN;
     const headers = { origin };
     const [original] =
       await sql`select role from auth."user" where email = ${operator.email}`;
@@ -96,7 +95,7 @@ test(
           .user.id,
       ).toBe(userId);
       await page.goto(domain, { waitUntil: "domcontentloaded" });
-      await expect(page).toHaveURL("http://localhost:13002/");
+      await expect(page).toHaveURL(`${E2E_ORIGINS.workspace}/`);
       await expect(
         page.getByRole("heading", { name: "Home", exact: true }),
       ).toBeVisible();
@@ -164,7 +163,7 @@ test(
         page.getByRole("heading", { name: "Engineering", exact: true }),
       ).toBeVisible();
       await colleague.goto(domain, { waitUntil: "domcontentloaded" });
-      await expect(colleague).toHaveURL("http://localhost:13002/");
+      await expect(colleague).toHaveURL(`${E2E_ORIGINS.workspace}/`);
       await expect(
         colleague.getByRole("heading", { name: "Home", exact: true }),
       ).toBeVisible();
@@ -194,7 +193,7 @@ test(
         ).ok(),
       ).toBe(true);
       await page.reload();
-      await expect(page).toHaveURL("http://localhost:13002/");
+      await expect(page).toHaveURL(`${E2E_ORIGINS.workspace}/`);
       await request.post(`${core}/api/auth/admin/remove-user`, {
         data: { userId },
         headers,

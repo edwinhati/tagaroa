@@ -1,13 +1,18 @@
 import { expect, test } from "@playwright/test";
+import { hideDevOverlays } from "@repo/test-support/axe-audit";
+import {
+  E2E_ORIGINS,
+  e2eOperator,
+  TEST_DATABASE_URL,
+} from "@repo/test-support/e2e-stack";
+import { signInOperator } from "@repo/test-support/sign-in";
 import { SQL } from "bun";
 
-import { operator } from "./operator";
+const operator = e2eOperator();
 
-const adminOrigin = "http://localhost:13003";
-const coreOrigin = "http://localhost:18080";
-const databaseUrl =
-  process.env.TEST_DATABASE_URL ??
-  "postgresql://tagaroa:tagaroa@127.0.0.1:5432/tagaroa_test";
+const adminOrigin = E2E_ORIGINS.admin;
+const coreOrigin = E2E_ORIGINS.core;
+const databaseUrl = TEST_DATABASE_URL;
 
 const browserErrors = new WeakMap<object, string[]>();
 
@@ -46,37 +51,9 @@ test.beforeEach(async ({ page, context }, info) => {
         }
       ).qaCaptureWindowError?.(event.message);
     });
-    const install = () => {
-      const style = document.createElement("style");
-      style.textContent =
-        "#impeccable-live-global-bar, #internal-devtools, button[aria-label='Open TanStack Devtools'] { display: none !important; }";
-      document.head.append(style);
-    };
-    if (document.head) install();
-    else document.addEventListener("DOMContentLoaded", install, { once: true });
   });
-  const sql = new SQL(databaseUrl);
-  await sql`
-    UPDATE "auth"."user"
-    SET "two_factor_enabled" = false
-    WHERE "email" = ${operator.email}
-  `;
-
-  const signedIn = await page.request.post(
-    `${coreOrigin}/api/auth/sign-in/email`,
-    {
-      data: operator,
-      headers: { origin: adminOrigin },
-    },
-  );
-  expect(signedIn.ok()).toBe(true);
-  expect((await signedIn.json()).token).toBeTruthy();
-  await sql`
-    UPDATE "auth"."user"
-    SET "two_factor_enabled" = true
-    WHERE "email" = ${operator.email}
-  `;
-  await sql.close();
+  await hideDevOverlays(context);
+  await signInOperator(page, operator, adminOrigin);
 });
 
 /**

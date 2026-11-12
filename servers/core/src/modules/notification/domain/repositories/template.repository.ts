@@ -1,5 +1,6 @@
+import type { NotificationChannel } from "@repo/contracts/notifications";
+
 import type { Template } from "../entities/template.entity";
-import type { NotificationChannel } from "../value-objects/notification-channel.vo";
 import type { TemplateDraft } from "../value-objects/template-draft.vo";
 
 export const TEMPLATE_REPOSITORY = Symbol("TEMPLATE_REPOSITORY");

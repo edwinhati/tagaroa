@@ -5,7 +5,7 @@ import { useState } from "react";
 import { createPortal } from "react-dom";
 
 import { authClient } from "./auth-client";
-import { WORKSPACE_URL } from "./session";
+import { WORKSPACE_URL } from "./urls";
 
 /**
  * Persistent bottom-right notice while an admin is signed in as someone else.

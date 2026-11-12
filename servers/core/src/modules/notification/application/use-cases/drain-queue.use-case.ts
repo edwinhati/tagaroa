@@ -16,7 +16,7 @@ import {
 import {
   DISPATCH_OPTIONS,
   type DispatchOptions,
-} from "../../infrastructure/config/notification.options";
+} from "../notification.options";
 
 /**
  * One pass of the queue: claim what is due, send it, record what happened.

@@ -1,19 +1,19 @@
 import { createHash, randomUUID } from "node:crypto";
 
 import {
-  BadRequestException,
   ConflictException,
   ForbiddenException,
   Inject,
   Injectable,
   NotFoundException,
 } from "@nestjs/common";
+import { reviewWeekStart } from "@repo/contracts/identity";
 
 import {
   AUDIT_TRAIL,
   type AuditTrail,
 } from "../../audit/application/audit.facade";
-import { requireOwnSession } from "../../auth/access-policy";
+import { type Operator, requireOwnSession } from "../../auth/session-policy";
 import {
   ACCESS_CONTROL_REPOSITORY,
   type AccessControlRepository,
@@ -22,6 +22,7 @@ import {
   ACCESS_REVIEW_REPOSITORY,
   type AccessReviewRepository,
   type BusinessAccessReview,
+  type ReviewDecision,
   type ReviewKind,
 } from "../domain/repositories/access-review.repository";
 
@@ -41,12 +42,6 @@ export interface AccessReviewSubject {
 
 const fingerprint = (value: unknown): string =>
   createHash("sha256").update(JSON.stringify(value)).digest("hex");
-const weekStart = (now: Date): Date => {
-  const monday = new Date(now);
-  monday.setUTCHours(0, 0, 0, 0);
-  monday.setUTCDate(monday.getUTCDate() - ((monday.getUTCDay() + 6) % 7));
-  return monday;
-};
 
 @Injectable()
 export class AccessReviewService {
@@ -122,7 +117,8 @@ export class AccessReviewService {
         review.reviewedBy !== subject.userId &&
         review.reviewedBy !== subject.grantedBy &&
         review.snapshot === subject.snapshot &&
-        (subject.kind === "emergency" || review.reviewedAt >= weekStart(now))
+        (subject.kind === "emergency" ||
+          review.reviewedAt >= reviewWeekStart(now))
       )
         subject.review = review;
     }
@@ -130,25 +126,13 @@ export class AccessReviewService {
   }
 
   async record(
-    kind: string,
+    kind: ReviewKind,
     id: string,
-    input: { snapshot?: unknown; decision?: unknown; note?: unknown },
-    reviewer: { id: string; impersonatedBy?: string | null },
+    input: { decision: ReviewDecision; note: string; snapshot?: unknown },
+    reviewer: Pick<Operator, "id"> & Partial<Pick<Operator, "impersonatedBy">>,
   ) {
     requireOwnSession(reviewer);
     const reviewerId = reviewer.id;
-    if (kind !== "assignment" && kind !== "emergency")
-      throw new BadRequestException("Unknown review type.");
-    if (input.decision !== "confirmed" && input.decision !== "flagged")
-      throw new BadRequestException("Choose confirmed or flagged.");
-    if (
-      typeof input.note !== "string" ||
-      input.note.trim().length < 10 ||
-      input.note.trim().length > 500
-    )
-      throw new BadRequestException(
-        "Record the review evidence in 10 to 500 characters.",
-      );
     const subject = (await this.list()).find(
       (row) => row.kind === kind && row.id === id,
     );
@@ -171,7 +155,7 @@ export class AccessReviewService {
       subjectId: id,
       snapshot: subject.snapshot,
       decision: input.decision,
-      note: input.note.trim(),
+      note: input.note,
       reviewedAt: new Date(),
       reviewedBy: reviewerId,
     };

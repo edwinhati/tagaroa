@@ -1,12 +1,13 @@
 import { randomUUID } from "node:crypto";
 
-import type { NotificationChannel } from "../value-objects/notification-channel.vo";
+import type { SuppressionReason } from "@repo/contracts/notifications";
+import type { NotificationChannel } from "@repo/contracts/notifications";
 
 export interface SuppressionProps {
   id: string;
   channel: NotificationChannel;
   destination: string;
-  reason: string;
+  reason: SuppressionReason;
 }
 
 /**
@@ -22,7 +23,7 @@ export class Suppression {
   static raise(input: {
     channel: NotificationChannel;
     destination: string;
-    reason: string;
+    reason: SuppressionReason;
   }): Suppression {
     return new Suppression({ ...input, id: randomUUID() });
   }
@@ -39,7 +40,7 @@ export class Suppression {
     return this.props.destination;
   }
 
-  get reason(): string {
+  get reason(): SuppressionReason {
     return this.props.reason;
   }
 }

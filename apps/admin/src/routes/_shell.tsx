@@ -1,5 +1,7 @@
 import { AppShell } from "@repo/shell/app-shell";
-import { admitAdmin, operatorOf, WORKSPACE_URL } from "@repo/shell/session";
+import { admitAdmin } from "@repo/shell/session";
+import { operatorOf } from "@repo/shell/session-state";
+import { WORKSPACE_URL } from "@repo/shell/urls";
 import { Toaster } from "@repo/ui/components/toast";
 import {
   createFileRoute,

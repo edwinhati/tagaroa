@@ -2,9 +2,6 @@
   "$schema": "../../node_modules/turbo/schema.json",
   "extends": ["//"],
   "tasks": {
-    "build": {
-      "env": ["VITE_AUTH_URL", "VITE_AUTH_BASE_URL", "VITE_WORKSPACE_URL"]
-    },
     "test:e2e": {
       "dependsOn": ["@apps/auth#test:e2e"]
     }

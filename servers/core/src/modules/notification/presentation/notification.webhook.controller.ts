@@ -17,16 +17,18 @@ import { asObject } from "@repo/contracts";
 import { AllowAnonymous } from "@thallesp/nestjs-better-auth";
 
 import { parseWith } from "../../../platform/http/schema-validation";
+import type { SignedRequest } from "../../../platform/http/signed-webhook";
+import {
+  WEBHOOK_SECRETS,
+  webhookUrl,
+  type WebhookSecrets,
+} from "../application/notification.options";
 import { RecordReceiptsUseCase } from "../application/use-cases/record-receipts.use-case";
 import {
   isProviderName,
   type ProviderName,
   type Receipt,
 } from "../domain/value-objects/delivery-receipt.vo";
-import {
-  WEBHOOK_SECRETS,
-  type WebhookSecrets,
-} from "../infrastructure/config/notification.options";
 import {
   verifyMetaSignature,
   verifySvixSignature,
@@ -43,17 +45,6 @@ import {
   twilioStatusCallback,
 } from "./notification.webhook.schemas";
 
-/**
- * What Express leaves on the request. `@thallesp/nestjs-better-auth` parses
- * every route outside `/api/auth`, so the body arrives decoded — and, because
- * the module is configured with `bodyParser: { rawBody: true }`, the undecoded
- * JSON bytes arrive beside it.
- */
-interface ParsedRequest extends IncomingMessage {
-  body?: unknown;
-  rawBody?: Buffer;
-}
-
 const header = (request: IncomingMessage, name: string): string => {
   const value = request.headers[name];
   return typeof value === "string" ? value : "";
@@ -65,7 +56,7 @@ const header = (request: IncomingMessage, name: string): string => {
  * genuine — a JSON object's key order and spacing are not preserved by a
  * round trip.
  */
-const rawJson = (request: ParsedRequest): string => {
+const rawJson = (request: SignedRequest): string => {
   if (!request.rawBody) {
     throw new BadRequestException("Body was not read");
   }
@@ -73,7 +64,7 @@ const rawJson = (request: ParsedRequest): string => {
 };
 
 /** Twilio posts a form, and signs the URL plus the fields, not the bytes. */
-const formFields = (request: ParsedRequest): Record<string, string> =>
+const formFields = (request: SignedRequest): Record<string, string> =>
   Object.fromEntries(
     Object.entries(asObject(request.body) ?? {}).map(([name, value]) => [
       name,
@@ -120,7 +111,7 @@ export class NotificationWebhookController {
   @HttpCode(204)
   async receive(
     @Param("provider") provider: string,
-    @Req() request: ParsedRequest,
+    @Req() request: SignedRequest,
   ): Promise<void> {
     if (!isProviderName(provider)) throw new NotFoundException();
 
@@ -137,7 +128,7 @@ export class NotificationWebhookController {
    */
   private async receipts(
     provider: ProviderName,
-    request: ParsedRequest,
+    request: SignedRequest,
   ): Promise<Receipt[]> {
     if (provider === "resend") {
       const raw = rawJson(request);
@@ -162,7 +153,7 @@ export class NotificationWebhookController {
           authToken: this.secrets.twilioAuthToken,
           params,
           signature: header(request, "x-twilio-signature"),
-          url: `${this.secrets.baseUrl}/twilio`,
+          url: webhookUrl(this.secrets.baseUrl, "twilio"),
         });
       if (!verified) throw new UnauthorizedException();
       return twilioReceipts(

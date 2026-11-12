@@ -7,6 +7,15 @@ import {
   NOTIFICATION_SENDER,
   NotificationSenderFacade,
 } from "./application/notification.facade";
+import {
+  DISPATCH_OPTIONS,
+  type DispatchOptions,
+  WEBHOOK_SECRETS,
+  webhookUrl,
+  type WebhookSecrets,
+  WORDING_OPTIONS,
+  type WordingOptions,
+} from "./application/notification.options";
 import { NOTIFICATION_QUERY } from "./application/ports/notification-query.port";
 import {
   GetNotificationOverviewUseCase,
@@ -37,14 +46,6 @@ import {
   ChannelCarrier,
   type NotificationProviders,
 } from "./infrastructure/channels/channel.factory";
-import {
-  DISPATCH_OPTIONS,
-  type DispatchOptions,
-  WEBHOOK_SECRETS,
-  type WebhookSecrets,
-  WORDING_OPTIONS,
-  type WordingOptions,
-} from "./infrastructure/config/notification.options";
 import { DrizzleMessageRepository } from "./infrastructure/persistence/drizzle/drizzle-message.repository";
 import { DrizzleNotificationQuery } from "./infrastructure/persistence/drizzle/drizzle-notification.query";
 import { DrizzleNotificationUnitOfWork } from "./infrastructure/persistence/drizzle/drizzle-notification.unit-of-work";
@@ -92,7 +93,10 @@ const providers = (config: Env): NotificationProviders => {
             accountSid: twilioSid,
             authToken: twilioToken,
             from: twilioFrom,
-            statusCallback: `${get("NOTIFICATION_WEBHOOK_URL")}/twilio`,
+            statusCallback: webhookUrl(
+              get("NOTIFICATION_WEBHOOK_URL"),
+              "twilio",
+            ),
           },
         }
       : {}),
@@ -187,7 +191,6 @@ const providers = (config: Env): NotificationProviders => {
           batchSize: get("NOTIFICATION_BATCH_SIZE"),
           maxAttempts: get("NOTIFICATION_MAX_ATTEMPTS"),
           pollMilliseconds: get("NOTIFICATION_POLL_MS"),
-          providers: providers(config),
           worker: get("NOTIFICATION_WORKER"),
         };
       },

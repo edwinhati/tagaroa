@@ -1,8 +1,9 @@
 import { describe, expect, test } from "bun:test";
 
+import { reviewWeekStart } from "@repo/contracts/identity";
+
 import { AccessReview } from "../entities/access-review.entity";
 import { daysBefore, NOW, person } from "../entities/person.fixture";
-import { ReviewWeek } from "../value-objects/review-week.vo";
 import { privilegedAccess } from "./privileged-access.service";
 
 const reviewedAt = (iso: string, userId = "u1") =>
@@ -13,7 +14,7 @@ const reviewedAt = (iso: string, userId = "u1") =>
   });
 
 describe("privilegedAccess", () => {
-  const week = ReviewWeek.containing(NOW);
+  const week = reviewWeekStart(NOW);
   const admin = person({ role: "admin", updatedAt: daysBefore(30) });
 
   test("lists only unbanned privileged people", () => {
@@ -82,7 +83,7 @@ test("historical self-reviews and reviews without an accountable reviewer do not
           reviewedAt: NOW,
         }),
       ],
-      ReviewWeek.containing(NOW),
+      reviewWeekStart(NOW),
     );
     expect(row!.reviewed).toBe(false);
   }

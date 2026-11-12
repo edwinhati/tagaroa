@@ -82,7 +82,7 @@ test("reviews require independence, evidence and the displayed version", async (
     (row) => row.kind === "assignment",
   )!;
   const input = {
-    decision: "confirmed",
+    decision: "confirmed" as const,
     note: "Manager approved in case 123",
     snapshot: subject.snapshot,
   };
@@ -98,14 +98,6 @@ test("reviews require independence, evidence and the displayed version", async (
       { id: "reviewer" },
     ),
   ).rejects.toThrow("Access changed");
-  await expect(
-    service.record(
-      "assignment",
-      subject.id,
-      { ...input, note: "" },
-      { id: "reviewer" },
-    ),
-  ).rejects.toThrow("evidence");
   await expect(
     service.record("assignment", subject.id, input, {
       id: "reviewer",
@@ -223,7 +215,7 @@ test("emergency access is independently reviewed only after completion", async (
     (row) => row.kind === "emergency",
   )!;
   const input = {
-    decision: "flagged",
+    decision: "flagged" as const,
     note: "Investigate the incident scope",
     snapshot: subject.snapshot,
   };

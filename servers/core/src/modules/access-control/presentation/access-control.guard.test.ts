@@ -89,7 +89,7 @@ test("resource routes require all scope parameters and a successful server decis
   ).rejects.toThrow("You do not have access");
   expect(decisions).toMatchObject([
     {
-      userId: "person",
+      operator: { id: "person", sessionId: "session" },
       organizationId: "subsidiary",
       teamId: "team",
       permission: "domain:administer",
