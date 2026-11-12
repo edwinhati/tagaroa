@@ -1,14 +1,14 @@
 name: QA
 
-# Free-plan minutes: docs-only changes skip CI, a newer push cancels the
-# running one, and the four-project browser matrix runs manually and weekly on Sundays.
+# Every pull request runs, docs-only ones included, so the checks the main ruleset
+# requires always report. A docs-only push to main skips: it would deploy nothing.
+# A newer push cancels the running one.
 # Pull requests run only the slow suites their change can affect (scripts/ci/qa-scope.sh);
 # main, the schedule and manual runs always run all of them.
 # The repository variable QA_RUNS_ON moves both jobs onto the sandboxed self-hosted
 # runner, e.g. ["self-hosted","tagaroa-qa"] (docs/ops/workflows/qa-runner.md).
 on:
   pull_request:
-    paths-ignore: ["**.md", "docs/**"]
   push:
     branches: [main]
     paths-ignore: ["**.md", "docs/**"]
@@ -65,6 +65,8 @@ jobs:
           mkdir -p "$RUNNER_TEMP/bin"
           tar -xzf "$archive" -C "$RUNNER_TEMP/bin" actionlint
           echo "$RUNNER_TEMP/bin" >> "$GITHUB_PATH"
+      # GitHub's and the QA runner's images ship shellcheck; local-ci's actions-runner image does not.
+      - run: command -v shellcheck || { sudo apt-get update -qq && sudo apt-get install -y -qq shellcheck; }
       - run: bun run check:infra
       # Forks and other contributors can read public artifacts, but cannot publish them.
       - uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
@@ -97,8 +99,10 @@ jobs:
     timeout-minutes: 30
     strategy:
       fail-fast: false
+      # Pushes to main repeat a pull request that already ran every browser, so they run
+      # chromium alone: a flaky browser there would open a Rex issue on every merge.
       matrix:
-        project: ${{ fromJSON((github.event_name == 'workflow_dispatch' || github.event_name == 'schedule') && '["chromium","firefox","webkit","mobile-chromium"]' || '["chromium"]') }}
+        project: ${{ fromJSON(github.event_name == 'push' && '["chromium"]' || '["chromium","firefox","webkit","mobile-chromium"]') }}
     steps:
       # Two commits: a pull request's merge commit and its base, for qa-scope.sh.
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
