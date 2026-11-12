@@ -19,17 +19,14 @@ import { Textarea } from "@repo/ui/components/textarea";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { type ReactNode, useState } from "react";
 
+import { AdminApiError, announce } from "../lib/api";
 import {
-  AdminApiError,
   accessReviewQueueQueryOptions,
-  announce,
-  directoryQueryOptions,
-  everyPersonQueryOptions,
   recordBusinessAccessReview,
-  type AccessReviewSubject,
-  type Directory,
-  type Person,
-} from "../lib/admin";
+  type ReviewSubject,
+} from "../lib/business-access";
+import { directoryQueryOptions, type Directory } from "../lib/directory";
+import { everyPersonQueryOptions, type Person } from "../lib/people";
 import {
   Failed,
   Mark,
@@ -48,7 +45,7 @@ export function AccessReviewQueue({
   const queue = useQuery(accessReviewQueueQueryOptions);
   const people = useQuery(everyPersonQueryOptions);
   const directory = useQuery(directoryQueryOptions);
-  const [selected, setSelected] = useState<AccessReviewSubject | null>(null);
+  const [selected, setSelected] = useState<ReviewSubject | null>(null);
   if (queue.isPending || people.isPending || directory.isPending)
     return <PanelSkeleton rows={3} />;
   const error = queue.error || people.error || directory.error;
@@ -92,7 +89,7 @@ export function AccessReviewQueue({
   );
 }
 
-type ReviewKind = AccessReviewSubject["kind"];
+type ReviewKind = ReviewSubject["kind"];
 
 function ReviewSection({
   kind,
@@ -100,8 +97,8 @@ function ReviewSection({
   children,
 }: {
   kind: ReviewKind;
-  subjects: AccessReviewSubject[];
-  children: (subject: AccessReviewSubject) => ReactNode;
+  subjects: ReviewSubject[];
+  children: (subject: ReviewSubject) => ReactNode;
 }) {
   const pending = subjects.filter((row) => row.eligible && !row.review).length;
   return (
@@ -145,7 +142,7 @@ function ReviewSubjectRow({
   onReview: () => void;
   person: Person | undefined;
   reviewerId: string | undefined;
-  subject: AccessReviewSubject;
+  subject: ReviewSubject;
 }) {
   const subsidiary = directory?.subsidiaries.find(
     (row) => row.id === subject.organizationId,
@@ -199,7 +196,7 @@ function ReviewDialog({
   subject,
   onClose,
 }: {
-  subject: AccessReviewSubject;
+  subject: ReviewSubject;
   onClose: () => void;
 }) {
   const client = useQueryClient();

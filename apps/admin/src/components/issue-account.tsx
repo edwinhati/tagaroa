@@ -18,8 +18,12 @@ import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 import * as z from "zod";
 
-import { onboardingOutcome, refreshPeople, write } from "../lib/admin";
-import type { OnboardingOutcome } from "../lib/admin";
+import { write } from "../lib/api";
+import {
+  onboardingOutcome,
+  refreshPeople,
+  type OnboardingOutcome,
+} from "../lib/people";
 import {
   AccountRoleField,
   AccountTextField,

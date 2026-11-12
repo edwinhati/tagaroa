@@ -1,13 +1,12 @@
 import { expect, test } from "bun:test";
 
-import type {
-  AccessControlRepository,
-  AssignmentView,
-} from "../domain/repositories/access-control.repository";
-import type {
-  BusinessAccessReview,
-  EmergencyAccessRecord,
-} from "../domain/repositories/access-review.repository";
+import {
+  type AssignmentView,
+  type BusinessAccessReview,
+} from "@repo/contracts/access-control";
+
+import { type AccessControlRepository } from "../domain/repositories/access-control.repository";
+import { type EmergencyAccessRecord } from "../domain/repositories/access-review.repository";
 import { AccessReviewService } from "./access-review.service";
 
 const now = new Date();

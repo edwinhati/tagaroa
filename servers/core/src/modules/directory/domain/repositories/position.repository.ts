@@ -1,14 +1,6 @@
-export const POSITION_REPOSITORY = Symbol("POSITION_REPOSITORY");
+import { type PositionRecord } from "@repo/contracts/directory";
 
-export interface PositionRecord {
-  id: string;
-  managerUserId: string | null;
-  organizationId: string | null;
-  title: string;
-  updatedAt: Date;
-  updatedBy: string | null;
-  userId: string;
-}
+export const POSITION_REPOSITORY = Symbol("POSITION_REPOSITORY");
 
 export interface PositionRepository {
   list(): Promise<PositionRecord[]>;

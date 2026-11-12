@@ -8,6 +8,14 @@ import {
   Injectable,
   NotFoundException,
 } from "@nestjs/common";
+import {
+  type AccessRoleView,
+  type BusinessAccessPolicy,
+  type AccessScopeType,
+  type AccessAssignmentRecord,
+  type AccessRoleRecord,
+  type AssignmentView,
+} from "@repo/contracts/access-control";
 import { ACCESS_WINDOWS, isSuperAdmin } from "@repo/contracts/identity";
 
 import { conflictOnUniqueViolation } from "../../../platform/database/unique-violation";
@@ -25,19 +33,15 @@ import {
   PERMISSION_CATALOG,
   permissionsArePrivileged,
   scopesForPermissions,
-  type AccessScopeType,
   type PermissionKey,
 } from "../domain/access-policy";
 import {
   ACCESS_CONTROL_REPOSITORY,
-  type AccessAssignmentRecord,
   type AccessControlRepository,
-  type AccessRoleRecord,
-  type AssignmentView,
 } from "../domain/repositories/access-control.repository";
-import type {
-  AccessControl,
-  AccessDecisionInput,
+import {
+  type AccessControl,
+  type AccessDecisionInput,
 } from "./access-control.facade";
 
 const BREAK_GLASS_LIFETIME_MS = ACCESS_WINDOWS.breakGlassMinutes * 60_000;
@@ -47,7 +51,10 @@ export const SENSITIVE = "Sign in again before changing sensitive access.";
 const rolePermissions = (role: AccessRoleRecord): PermissionKey[] =>
   role.permissions.filter(isPermissionKey);
 
-const publicRole = (role: AccessRoleRecord, assignmentCount = 0) => {
+const publicRole = (
+  role: AccessRoleRecord,
+  assignmentCount = 0,
+): AccessRoleView => {
   const permissions = rolePermissions(role);
   return {
     ...role,
@@ -69,7 +76,7 @@ export class AccessControlService implements AccessControl {
     @Inject(AUDIT_TRAIL) private readonly audit: AuditTrail,
   ) {}
 
-  async policy() {
+  async policy(): Promise<BusinessAccessPolicy> {
     const [roles, assignments] = await Promise.all([
       this.repository.listRoles(),
       this.repository.listAssignments(),

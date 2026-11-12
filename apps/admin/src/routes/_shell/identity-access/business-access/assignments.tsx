@@ -1,3 +1,4 @@
+import type { InactiveReason } from "@repo/contracts/access-control";
 import { isSuperAdmin, mayRun } from "@repo/contracts/identity";
 import { Button } from "@repo/ui/components/button";
 import {
@@ -27,17 +28,17 @@ import {
   BusinessAccessPage,
   FieldSelect,
 } from "../../../../components/business-access";
+import { announce } from "../../../../lib/api";
 import {
-  announce,
   businessAccessPolicyQueryOptions,
   businessAssignmentsQueryOptions,
-  directoryQueryOptions,
-  everyPersonQueryOptions,
   grantBusinessAssignment,
   revokeBusinessAssignment,
   type BusinessAssignment,
   type BusinessRole,
-} from "../../../../lib/admin";
+} from "../../../../lib/business-access";
+import { directoryQueryOptions } from "../../../../lib/directory";
+import { everyPersonQueryOptions } from "../../../../lib/people";
 
 const shellRoute = getRouteApi("/_shell");
 
@@ -195,7 +196,9 @@ function AssignmentList({
                 label={
                   assignment.active
                     ? "Active"
-                    : inactiveReasonLabel(assignment.inactiveReason)
+                    : assignment.inactiveReason
+                      ? INACTIVE_REASON_LABELS[assignment.inactiveReason]
+                      : "Inactive"
                 }
                 tone={assignment.active ? "done" : "quiet"}
               />
@@ -231,15 +234,14 @@ function AssignmentList({
   );
 }
 
-const inactiveReasonLabel = (reason: string | null): string =>
-  ({
-    expired: "Expired",
-    "left-subsidiary": "Left subsidiary",
-    "left-team": "Left team",
-    "mfa-required": "Two-factor required",
-    revoked: "Revoked",
-    "role-archived": "Role archived",
-  })[reason ?? ""] ?? "Inactive";
+const INACTIVE_REASON_LABELS: Record<InactiveReason, string> = {
+  expired: "Expired",
+  "left-subsidiary": "Left subsidiary",
+  "left-team": "Left team",
+  "mfa-required": "Two-factor required",
+  revoked: "Revoked",
+  "role-archived": "Role archived",
+};
 
 function AssignmentEditor({
   open,

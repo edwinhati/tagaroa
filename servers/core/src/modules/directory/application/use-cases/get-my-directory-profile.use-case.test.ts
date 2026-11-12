@@ -1,12 +1,11 @@
 import { expect, test } from "bun:test";
 
+import { type PositionRecord } from "@repo/contracts/directory";
+
 import { Subsidiary, Team } from "../../domain/entities/subsidiary.entity";
-import type { PersonRepository } from "../../domain/repositories/person.repository";
-import type {
-  PositionRecord,
-  PositionRepository,
-} from "../../domain/repositories/position.repository";
-import type { SubsidiaryRepository } from "../../domain/repositories/subsidiary.repository";
+import { type PersonRepository } from "../../domain/repositories/person.repository";
+import { type PositionRepository } from "../../domain/repositories/position.repository";
+import { type SubsidiaryRepository } from "../../domain/repositories/subsidiary.repository";
 import { GetMyDirectoryProfileUseCase } from "./get-my-directory-profile.use-case";
 
 const position = (

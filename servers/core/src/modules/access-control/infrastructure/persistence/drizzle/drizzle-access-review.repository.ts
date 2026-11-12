@@ -1,5 +1,10 @@
 import { Inject, Injectable } from "@nestjs/common";
 import {
+  type BusinessAccessReview,
+  type ReviewDecision,
+  type ReviewKind,
+} from "@repo/contracts/access-control";
+import {
   and,
   asc,
   desc,
@@ -19,12 +24,7 @@ import {
   DATABASE,
   type Database,
 } from "../../../../../platform/database/database.module";
-import type {
-  AccessReviewRepository,
-  BusinessAccessReview,
-  ReviewDecision,
-  ReviewKind,
-} from "../../../domain/repositories/access-review.repository";
+import { type AccessReviewRepository } from "../../../domain/repositories/access-review.repository";
 import { accessReview, breakGlassElevation } from "./schema";
 
 const iso = (column: AnyPgColumn) =>

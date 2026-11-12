@@ -1,14 +1,7 @@
-import type { AccessReview } from "../entities/access-review.entity";
-import type { Person } from "../entities/person.entity";
+import { type PrivilegedPerson } from "@repo/contracts/directory";
 
-export interface PrivilegedPerson {
-  userId: string;
-  name: string;
-  email: string;
-  role: string;
-  reviewed: boolean;
-  reviewedAt: Date | null;
-}
+import { type AccessReview } from "../entities/access-review.entity";
+import { type Person } from "../entities/person.entity";
 
 /**
  * Who holds privileged access, and whether this week's confirmation still

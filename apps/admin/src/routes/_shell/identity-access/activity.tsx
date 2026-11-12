@@ -20,7 +20,7 @@ import {
   TOOLBAR,
   COLLECTION,
 } from "../../../components/admin-surface";
-import { dashboardQueryOptions } from "../../../lib/admin";
+import { dashboardQueryOptions } from "../../../lib/directory";
 import { eventAction } from "../../../lib/identity-operations";
 
 export const Route = createFileRoute("/_shell/identity-access/activity")({

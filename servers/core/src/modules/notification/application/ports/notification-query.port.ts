@@ -1,11 +1,11 @@
-import type { Collection } from "@repo/contracts";
+import { type Collection } from "@repo/contracts";
+import {
+  type MessageRow,
+  type SuppressionRow,
+} from "@repo/contracts/notifications";
 
-import type { QueryRecord } from "../../../../platform/http/collection";
-import type {
-  DeliveryTallies,
-  MessageRow,
-  SuppressionRow,
-} from "../dto/notification.read-models";
+import { type QueryRecord } from "../../../../platform/http/collection";
+import { type DeliveryTallies } from "../dto/notification.read-models";
 
 export const NOTIFICATION_QUERY = Symbol("NOTIFICATION_QUERY");
 

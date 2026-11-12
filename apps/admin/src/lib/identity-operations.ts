@@ -1,6 +1,6 @@
-import type { AttentionKind } from "@repo/contracts/identity";
+import { type AttentionKind } from "@repo/contracts/identity";
 
-import type { AuthEvent } from "./admin";
+import { type AuthEvent } from "./directory";
 
 /**
  * The attention the back office raises, most urgent first: recovery risk

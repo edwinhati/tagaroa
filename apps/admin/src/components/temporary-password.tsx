@@ -3,7 +3,7 @@ import { useQuery } from "@tanstack/react-query";
 import { CheckIcon, CopyIcon } from "lucide-react";
 import { useState } from "react";
 
-import { accessPolicyQueryOptions } from "../lib/admin";
+import { accessPolicyQueryOptions } from "../lib/people";
 import { PANEL } from "./admin-surface";
 
 /**

@@ -23,14 +23,13 @@ import { useForm } from "@tanstack/react-form";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import * as z from "zod";
 
-import type { Person } from "../lib/admin";
+import { announce, write } from "../lib/api";
 import {
-  announce,
+  type Person,
   onboardingOutcome,
   personalEmailQueryOptions,
   refreshPeople,
-  write,
-} from "../lib/admin";
+} from "../lib/people";
 import {
   AccountRoleField,
   AccountTextField,

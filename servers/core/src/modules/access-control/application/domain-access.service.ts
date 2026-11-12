@@ -1,4 +1,5 @@
 import { Inject, Injectable, NotFoundException } from "@nestjs/common";
+import { type DomainMembership } from "@repo/contracts/access-control";
 
 import {
   AUDIT_TRAIL,
@@ -32,7 +33,7 @@ export class DomainAccessService {
   list() {
     return this.domains.list();
   }
-  async mine(operator: Operator) {
+  async mine(operator: Operator): Promise<DomainMembership[]> {
     const teams = await this.domains.mine(operator.id);
     return Promise.all(
       teams.map(async (team) => ({

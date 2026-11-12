@@ -39,17 +39,17 @@ import { PlusIcon, XIcon } from "lucide-react";
 import { useState } from "react";
 
 import { Failed, Mark, Nothing, PANEL } from "../../components/admin-surface";
-import type { Directory, Person } from "../../lib/admin";
+import { announce, coreMutationDocument, inSubsidiary } from "../../lib/api";
 import {
-  announce,
   bindTeamDomain,
-  coreMutationDocument,
-  directoryQueryOptions,
-  everyPersonQueryOptions,
-  inSubsidiary,
-  refreshPeople,
   teamDomainBindingsQueryOptions,
-} from "../../lib/admin";
+} from "../../lib/business-access";
+import { type Directory, directoryQueryOptions } from "../../lib/directory";
+import {
+  type Person,
+  everyPersonQueryOptions,
+  refreshPeople,
+} from "../../lib/people";
 
 export const Route = createFileRoute("/_shell/subsidiaries")({
   validateSearch: (search: Record<string, unknown>): { id?: string } =>

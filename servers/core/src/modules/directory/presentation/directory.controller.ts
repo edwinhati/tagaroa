@@ -9,6 +9,11 @@ import {
   Query,
 } from "@nestjs/common";
 import { type ApiDocument, type Collection } from "@repo/contracts";
+import {
+  type DirectorySubsidiary,
+  type DirectoryTeam,
+  type PositionRecord,
+} from "@repo/contracts/directory";
 import { IDENTITY_OPERATIONS } from "@repo/contracts/identity";
 import { Roles, Session, type UserSession } from "@thallesp/nestjs-better-auth";
 
@@ -19,10 +24,6 @@ import {
 } from "../../../platform/http/collection";
 import { SessionOnly } from "../../../platform/http/session-only.decorator";
 import { operatorOf } from "../../auth/session-policy";
-import type {
-  DirectorySubsidiary,
-  DirectoryTeam,
-} from "../application/dto/group-snapshot.dto";
 import { AssembleAdminDashboardUseCase } from "../application/use-cases/assemble-admin-dashboard.use-case";
 import { GetGroupDirectoryUseCase } from "../application/use-cases/get-group-directory.use-case";
 import {
@@ -36,7 +37,7 @@ import { RecordAccessReviewUseCase } from "../application/use-cases/record-acces
 import { savePositionBody, type SavePositionBody } from "./directory.schemas";
 
 interface Directory {
-  positions: Collection<Awaited<ReturnType<ManagePositionUseCase["save"]>>>;
+  positions: Collection<PositionRecord>;
   subsidiaries: Collection<DirectorySubsidiary>;
   teams: Collection<DirectoryTeam>;
 }

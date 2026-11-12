@@ -1,4 +1,5 @@
 import { Inject, Injectable } from "@nestjs/common";
+import { type LinkedAccount } from "@repo/contracts/directory";
 import { asc, count, eq, inArray } from "drizzle-orm";
 
 import {
@@ -9,11 +10,8 @@ import {
   account,
   user,
 } from "../../../../auth/infrastructure/persistence/drizzle/schema";
-import type { Person } from "../../../domain/entities/person.entity";
-import type {
-  LinkedAccount,
-  PersonRepository,
-} from "../../../domain/repositories/person.repository";
+import { type Person } from "../../../domain/entities/person.entity";
+import { type PersonRepository } from "../../../domain/repositories/person.repository";
 import { personMapper } from "./directory.mappers";
 
 /**

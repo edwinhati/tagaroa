@@ -6,6 +6,7 @@ import {
   Injectable,
   NotFoundException,
 } from "@nestjs/common";
+import { type PositionRecord } from "@repo/contracts/directory";
 
 import {
   AUDIT_TRAIL,
@@ -17,7 +18,6 @@ import {
 } from "../../domain/repositories/person.repository";
 import {
   POSITION_REPOSITORY,
-  type PositionRecord,
   type PositionRepository,
 } from "../../domain/repositories/position.repository";
 import {

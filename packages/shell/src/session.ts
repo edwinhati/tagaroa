@@ -1,6 +1,6 @@
-import type { ApiDocument } from "@repo/contracts";
-import type { QueryClient } from "@tanstack/react-query";
-import { queryOptions } from "@tanstack/react-query";
+import { type ApiDocument } from "@repo/contracts";
+import { type DomainMembership } from "@repo/contracts/access-control";
+import { type QueryClient, queryOptions } from "@tanstack/react-query";
 import { redirect } from "@tanstack/react-router";
 
 import { authClient } from "./auth-client";
@@ -16,13 +16,6 @@ import { AUTH_URL, CORE_URL, WORKSPACE_URL } from "./urls";
 export const sessionQueryOptions = createSessionQueryOptions(() =>
   authClient.getSession(),
 );
-
-export interface DomainMembership {
-  teamId: string;
-  organizationId: string;
-  domainSlug: string;
-  administered: boolean;
-}
 
 /**
  * Fail closed: memberships the server did not confirm are none, so an error

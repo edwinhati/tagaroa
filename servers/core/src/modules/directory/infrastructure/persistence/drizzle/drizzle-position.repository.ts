@@ -1,14 +1,12 @@
 import { Inject, Injectable } from "@nestjs/common";
+import { type PositionRecord } from "@repo/contracts/directory";
 import { and, asc, eq } from "drizzle-orm";
 
 import {
   DATABASE,
   type Database,
 } from "../../../../../platform/database/database.module";
-import type {
-  PositionRecord,
-  PositionRepository,
-} from "../../../domain/repositories/position.repository";
+import { type PositionRepository } from "../../../domain/repositories/position.repository";
 import { personPosition } from "./schema";
 
 const scopeKey = (organizationId: string | null): string =>

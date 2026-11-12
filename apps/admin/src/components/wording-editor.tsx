@@ -31,7 +31,7 @@ import { Textarea } from "@repo/ui/components/textarea";
 import { useMutation } from "@tanstack/react-query";
 import { useEffect, useState } from "react";
 
-import { announce } from "../lib/admin";
+import { announce } from "../lib/api";
 import {
   type Channel,
   type Template,

@@ -7,6 +7,12 @@ import {
   Injectable,
   NotFoundException,
 } from "@nestjs/common";
+import {
+  type AccessReviewSubject,
+  type BusinessAccessReview,
+  type ReviewDecision,
+  type ReviewKind,
+} from "@repo/contracts/access-control";
 import { reviewWeekStart } from "@repo/contracts/identity";
 
 import {
@@ -21,24 +27,7 @@ import {
 import {
   ACCESS_REVIEW_REPOSITORY,
   type AccessReviewRepository,
-  type BusinessAccessReview,
-  type ReviewDecision,
-  type ReviewKind,
 } from "../domain/repositories/access-review.repository";
-
-export interface AccessReviewSubject {
-  kind: ReviewKind;
-  id: string;
-  userId: string;
-  grantedBy: string | null;
-  organizationId: string;
-  teamId: string | null;
-  label: string;
-  detail: string;
-  snapshot: string;
-  eligible: boolean;
-  review: BusinessAccessReview | null;
-}
 
 const fingerprint = (value: unknown): string =>
   createHash("sha256").update(JSON.stringify(value)).digest("hex");

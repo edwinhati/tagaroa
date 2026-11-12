@@ -1,14 +1,8 @@
-import type { Person } from "../entities/person.entity";
+import { type LinkedAccount } from "@repo/contracts/directory";
+
+import { type Person } from "../entities/person.entity";
 
 export const PERSON_REPOSITORY = Symbol("PERSON_REPOSITORY");
-
-/** One identity provider a person can sign in with. */
-export interface LinkedAccount {
-  id: string;
-  accountId: string;
-  providerId: string;
-  createdAt: Date;
-}
 
 /**
  * The people in the group, read-only.

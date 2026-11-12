@@ -36,15 +36,14 @@ import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { getRouteApi } from "@tanstack/react-router";
 import { Fragment, type ReactNode, useCallback, useState } from "react";
 
-import type { Person } from "../lib/admin";
+import { announce, write } from "../lib/api";
 import {
-  announce,
+  type Directory,
   directoryQueryOptions,
-  refreshPeople,
   removePosition,
   savePosition,
-  write,
-} from "../lib/admin";
+} from "../lib/directory";
+import { type Person, refreshPeople } from "../lib/people";
 import {
   EditPersonDialog,
   ResetPasswordDialog,
@@ -313,7 +312,7 @@ export function PositionSummary({
   canEdit?: boolean;
   onEdit: (scope: "group" | string) => void;
   personId: string;
-  positions: import("../lib/admin").Position[];
+  positions: Directory["positions"];
   subsidiaries: { id: string; name: string }[];
 }) {
   const rows = positions.filter((position) => position.userId === personId);
@@ -367,7 +366,7 @@ export function PositionDialog({
   organizationId: string | null;
   people: Person[];
   person: Person;
-  positions: import("../lib/admin").Position[];
+  positions: Directory["positions"];
   subsidiaries: { id: string; memberIds: string[]; name: string }[];
   onOpenChange: (open: boolean) => void;
 }) {

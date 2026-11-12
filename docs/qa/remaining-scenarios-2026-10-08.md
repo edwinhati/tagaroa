@@ -373,7 +373,7 @@ checks, two intentional skips, 39 passing integration tests and remaining gaps.
 
 The MFA and session scenarios above were browser-only, grouped into one long
 auth workflow, or only implied by the UI. These cases now also have integration
-tests in `servers/core/test/integration/auth.integration.ts`. They call the real
+tests in `servers/core/test/integration/` (`auth-sessions` and `auth-factors`). They call the real
 Better Auth endpoints and age database records to simulate expiry, so they don't
 wait on wall-clock time or `waitForTimeout`.
 

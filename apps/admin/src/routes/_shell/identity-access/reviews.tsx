@@ -6,7 +6,7 @@ import { Progress, ProgressLabel } from "@repo/ui/components/progress";
 import { Skeleton } from "@repo/ui/components/skeleton";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { createFileRoute, getRouteApi, Link } from "@tanstack/react-router";
-import type { ReactNode } from "react";
+import { type ReactNode } from "react";
 
 import { AccessReviewQueue } from "../../../components/access-review-queue";
 import {
@@ -20,13 +20,13 @@ import {
   SurfaceSection,
 } from "../../../components/admin-surface";
 import { FactorRecoveryQueue } from "../../../components/identity-security-operations";
-import type { IdentityIssue } from "../../../lib/admin";
+import { announce } from "../../../lib/api";
 import {
-  announce,
+  type IdentityIssue,
   dashboardQueryOptions,
   reviewPrivilegedAccess,
-} from "../../../lib/admin";
-import type { VisibleAttentionKind } from "../../../lib/identity-operations";
+} from "../../../lib/directory";
+import { type VisibleAttentionKind } from "../../../lib/identity-operations";
 
 const isOrganizationGap = (
   issue: IdentityIssue,

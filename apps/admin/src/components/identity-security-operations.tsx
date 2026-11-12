@@ -20,15 +20,14 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { getRouteApi } from "@tanstack/react-router";
 import { type ReactNode, useState } from "react";
 
+import { announce, coreMutationDocument } from "../lib/api";
 import {
-  announce,
-  coreMutationDocument,
   everyPersonQueryOptions,
   factorRecoveryQueryOptions,
   type Person,
-  type FactorRecoveryRequest,
+  type RecoveryRequest,
   type OnboardingOutcome,
-} from "../lib/admin";
+} from "../lib/people";
 import {
   Failed,
   Mark,
@@ -319,7 +318,7 @@ export function FactorRecoveryQueue() {
   const { session } = shellRoute.useRouteContext();
   const requests = useQuery(factorRecoveryQueryOptions);
   const people = useQuery(everyPersonQueryOptions);
-  const [selected, setSelected] = useState<FactorRecoveryRequest | null>(null);
+  const [selected, setSelected] = useState<RecoveryRequest | null>(null);
   const superAdmin = isSuperAdmin(session?.user?.role);
   if (requests.isPending || people.isPending) return <PanelSkeleton rows={2} />;
   const error = requests.error || people.error;
@@ -399,7 +398,7 @@ function RecoveryApproval({
   request,
   onClose,
 }: {
-  request: FactorRecoveryRequest;
+  request: RecoveryRequest;
   onClose: () => void;
 }) {
   const client = useQueryClient();

@@ -1,4 +1,6 @@
-import type { Person } from "../entities/person.entity";
+import { type TimelineEntry } from "@repo/contracts/directory";
+
+import { type Person } from "../entities/person.entity";
 
 /**
  * An audit entry as the timeline needs it.
@@ -20,15 +22,6 @@ export interface SignIn {
   id: string;
   userId: string;
   ipAddress: string | null;
-  at: Date;
-}
-
-export interface TimelineEntry {
-  id: string;
-  type: string;
-  actor: string;
-  target: string | null;
-  detail: string | null;
   at: Date;
 }
 

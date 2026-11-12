@@ -1,6 +1,8 @@
 import { Inject, Injectable } from "@nestjs/common";
-import type { Collection } from "@repo/contracts";
+import { type Collection } from "@repo/contracts";
 import {
+  type MessageRow,
+  type SuppressionRow,
   MESSAGE_SORT_FIELDS,
   MESSAGE_STATUSES,
   NEWEST_FIRST,
@@ -15,13 +17,9 @@ import {
   DATABASE,
   type Database,
 } from "../../../../../platform/database/database.module";
-import type { QueryRecord } from "../../../../../platform/http/collection";
-import type {
-  DeliveryTallies,
-  MessageRow,
-  SuppressionRow,
-} from "../../../application/dto/notification.read-models";
-import type { NotificationQuery } from "../../../application/ports/notification-query.port";
+import { type QueryRecord } from "../../../../../platform/http/collection";
+import { type DeliveryTallies } from "../../../application/dto/notification.read-models";
+import { type NotificationQuery } from "../../../application/ports/notification-query.port";
 import { notificationMessage, notificationSuppression } from "./schema";
 
 /**

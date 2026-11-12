@@ -1,8 +1,8 @@
 import { Inject, Injectable } from "@nestjs/common";
+import { type LinkedAccount } from "@repo/contracts/directory";
 
 import {
   PERSON_REPOSITORY,
-  type LinkedAccount,
   type PersonRepository,
 } from "../../domain/repositories/person.repository";
 
