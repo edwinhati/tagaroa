@@ -27,8 +27,8 @@ import { RecordReceiptsUseCase } from "../application/use-cases/record-receipts.
 import {
   isProviderName,
   type ProviderName,
-  type Receipt,
-} from "../domain/value-objects/delivery-receipt.vo";
+} from "../domain/value-objects/carrier.vo";
+import type { Receipt } from "../domain/value-objects/delivery-receipt.vo";
 import {
   verifyMetaSignature,
   verifySvixSignature,

@@ -9,10 +9,8 @@ import {
 
 import type { WebhookSecrets } from "../application/notification.options";
 import { RecordReceiptsUseCase } from "../application/use-cases/record-receipts.use-case";
-import {
-  type ProviderName,
-  type Receipt,
-} from "../domain/value-objects/delivery-receipt.vo";
+import type { ProviderName } from "../domain/value-objects/carrier.vo";
+import type { Receipt } from "../domain/value-objects/delivery-receipt.vo";
 import { NotificationWebhookController } from "./notification.webhook.controller";
 
 type Request = Parameters<NotificationWebhookController["receive"]>[1];

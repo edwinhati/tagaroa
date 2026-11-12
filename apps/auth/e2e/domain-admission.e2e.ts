@@ -209,3 +209,44 @@ test(
     }
   },
 );
+
+const sessionRead = "**/api/auth/get-session**";
+
+test("leaving a page while it checks the session goes where you went", async ({
+  page,
+}) => {
+  let release!: () => void;
+  const held = new Promise<void>((resolve) => {
+    release = resolve;
+  });
+  await page.route(sessionRead, async (route) => {
+    await held;
+    await route.continue().catch(() => {});
+  });
+  try {
+    const reading = page.waitForRequest(sessionRead);
+    await page.goto(`${E2E_ORIGINS.workspace}/`);
+    await reading;
+    // Firefox cancels the page's reads as it is left; that is not a sign-out.
+    const target = `${core}/api/health/live`;
+    await page.goto(target);
+    await expect(page).toHaveURL(target);
+  } finally {
+    release();
+  }
+});
+
+test("an unanswered session read offers a retry instead of the door", async ({
+  page,
+}) => {
+  await page.route(sessionRead, (route) => route.abort());
+  await page.goto(`${E2E_ORIGINS.workspace}/`);
+  await expect(
+    page.getByRole("heading", { name: "This page didn't load" }),
+  ).toBeVisible();
+  expect(page.url().startsWith(E2E_ORIGINS.workspace)).toBe(true);
+
+  await page.unroute(sessionRead);
+  await page.getByRole("button", { name: "Try again", exact: true }).click();
+  await expect(page).toHaveURL(/localhost:13001\/\?redirect=/);
+});

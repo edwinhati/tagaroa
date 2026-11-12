@@ -3,6 +3,8 @@ import {
   NOTIFICATION_CHANNELS,
 } from "@repo/contracts/notifications";
 
+import { CARRIERS, type CarrierCredentials } from "../value-objects/carrier.vo";
+
 /** What `channelStatus()` computed at wiring time, for the admin surface. */
 export const CHANNEL_STATUS = Symbol("CHANNEL_STATUS");
 
@@ -25,22 +27,6 @@ export interface DeliveryStatus {
   channels: ChannelStatus[];
 }
 
-/** Which credential proves a channel is configured, and who carries it. */
-export interface CarrierCredentials {
-  resend?: unknown;
-  twilio?: unknown;
-  whatsapp?: unknown;
-}
-
-const CARRIER: Record<
-  NotificationChannel,
-  { name: string; credential: keyof CarrierCredentials }
-> = {
-  email: { credential: "resend", name: "Resend" },
-  sms: { credential: "twilio", name: "Twilio" },
-  whatsapp: { credential: "whatsapp", name: "Meta" },
-};
-
 /**
  * What this deployment can actually send on.
  *
@@ -54,8 +40,8 @@ export const channelStatus = (
 ): DeliveryStatus => {
   const channels = NOTIFICATION_CHANNELS.map((channel) => ({
     channel,
-    configured: providers[CARRIER[channel].credential] !== undefined,
-    provider: CARRIER[channel].name,
+    configured: providers[CARRIERS[channel].credential] !== undefined,
+    provider: CARRIERS[channel].name,
   }));
 
   // Credentials, not the environment. A developer who sets a Resend test key

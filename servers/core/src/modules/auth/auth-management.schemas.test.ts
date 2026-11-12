@@ -74,7 +74,7 @@ describe("approveRecoveryBody", () => {
 });
 
 describe("offboardBody", () => {
-  test("takes the reason and ignores the rest of the dialog's fields", () => {
+  test("keeps only the reason", () => {
     expect(
       offboardBody.parse({
         reason: caseNote,

@@ -17,13 +17,15 @@ import {
   PANEL,
   PanelSkeleton,
 } from "../../../components/admin-surface";
-import type {
-  AuthEvent,
-  IdentityIssue,
-  VisibleAttentionKind,
-} from "../../../lib/admin";
+import type { AuthEvent, IdentityIssue } from "../../../lib/admin";
 import { dashboardQueryOptions } from "../../../lib/admin";
-import { attentionCopy, eventAction } from "../../../lib/identity-operations";
+import {
+  ATTENTION_ORDER,
+  attentionCopy,
+  eventAction,
+  isVisibleAttention,
+  type VisibleAttentionKind,
+} from "../../../lib/identity-operations";
 
 export const Route = createFileRoute("/_shell/identity-access/work-queue")({
   component: WorkQueue,
@@ -34,12 +36,6 @@ export const Route = createFileRoute("/_shell/identity-access/work-queue")({
  * That label is not an actor on the trail.
  */
 const SERVICE_ACTOR = "Authentication service";
-
-/** Kind priority for “next up”: clear recovery risk before domain access gaps. */
-const issueOrder: VisibleAttentionKind[] = [
-  "unverified-email",
-  "no-subsidiary",
-];
 
 function WorkQueue() {
   const dashboard = useQuery(dashboardQueryOptions);
@@ -52,12 +48,12 @@ function WorkQueue() {
       [...(dashboard.data?.attention ?? [])]
         .filter(
           (issue): issue is IdentityIssue & { kind: VisibleAttentionKind } =>
-            issueOrder.includes(issue.kind as VisibleAttentionKind),
+            isVisibleAttention(issue.kind),
         )
         .sort(
           (a, b) =>
             b.ageDays - a.ageDays ||
-            issueOrder.indexOf(a.kind) - issueOrder.indexOf(b.kind),
+            ATTENTION_ORDER.indexOf(a.kind) - ATTENTION_ORDER.indexOf(b.kind),
         ),
     [dashboard.data],
   );

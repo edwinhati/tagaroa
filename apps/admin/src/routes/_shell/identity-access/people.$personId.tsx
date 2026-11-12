@@ -1,5 +1,6 @@
 import { primaryRoleLabel } from "@repo/contracts/identity";
 import { AppTrail, Page } from "@repo/shell/app-shell";
+import type { AuthSession } from "@repo/shell/create-auth-client";
 import { parseUserAgent } from "@repo/shell/session-device";
 import { SessionDeviceMarks } from "@repo/shell/session-device-mark";
 import { Button } from "@repo/ui/components/button";
@@ -47,7 +48,6 @@ import type {
   Directory,
   PeopleSearch,
   Person,
-  PersonSession,
 } from "../../../lib/admin";
 import {
   accessPolicyQueryOptions,
@@ -63,7 +63,7 @@ import {
   revokeSession,
   standingOf,
 } from "../../../lib/admin";
-import { eventAction } from "../../../lib/identity-operations";
+import { attentionCopy, eventAction } from "../../../lib/identity-operations";
 
 export const Route = createFileRoute(
   "/_shell/identity-access/people/$personId",
@@ -644,7 +644,7 @@ function SessionCard({
   canRevoke: boolean;
   onRevoke: () => void;
   pending: boolean;
-  session: PersonSession;
+  session: AuthSession;
 }) {
   const parsed = parseUserAgent(session.userAgent);
   const ip = session.ipAddress?.trim() || "Unknown IP";
@@ -804,7 +804,7 @@ function accountAttention(person: Person): string {
       ? "They cannot sign in until access is restored."
       : null,
     !person.emailVerified
-      ? "Recovery and security messages may not reach them."
+      ? attentionCopy["unverified-email"].consequence
       : null,
     person.mustChangePassword
       ? "They must replace it before reaching the workspace."
