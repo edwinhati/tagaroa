@@ -335,7 +335,9 @@ test("account settings edit the display name, refuse admin-managed fields and re
     await expect(dialog.getByRole("alert")).toHaveCount(0);
 
     await page.keyboard.press("Escape");
-    await page.reload();
+    // openProfile's goto is the fresh load. A reload first would leave that page's
+    // session check in flight; Firefox cancels it, admit reads that as signed out,
+    // and its redirect to the door aborts the goto.
     const reopened = await openProfile();
     await expect(
       reopened.getByRole("heading", { name: renamed }),
