@@ -243,11 +243,8 @@ test("account settings edit the display name, refuse admin-managed fields and re
   const [original] =
     await sql`select id, name, personal_email from auth."user" where email = ${operator.email}`;
   const renamed = `QA Renamed ${test.info().project.name}`;
-  const openProfile = async () => {
-    await page.goto(`${E2E_ORIGINS.workspace}/`);
-    await expect(
-      page.getByRole("heading", { name: "Home", exact: true }),
-    ).toBeVisible();
+  // On a phone the account menu lives in the sidebar sheet, which closes with the dialog.
+  const openAccountSettings = async () => {
     if (isMobile) await page.locator('[data-slot="sidebar-trigger"]').click();
     await page
       .getByRole("button", {
@@ -256,6 +253,13 @@ test("account settings edit the display name, refuse admin-managed fields and re
       .click();
     await page.getByRole("menuitem", { name: "Account settings" }).click();
     return page.getByRole("dialog");
+  };
+  const openProfile = async () => {
+    await page.goto(`${E2E_ORIGINS.workspace}/`);
+    await expect(
+      page.getByRole("heading", { name: "Home", exact: true }),
+    ).toBeVisible();
+    return openAccountSettings();
   };
   try {
     // The self-service route takes the display name and nothing an admin owns.
@@ -311,12 +315,7 @@ test("account settings edit the display name, refuse admin-managed fields and re
         dialog.getByRole("button", { name: "Cancel", exact: true }),
       ).toBeDisabled();
       await page.keyboard.press("Escape");
-      await page
-        .getByRole("button", {
-          name: `Account menu for ${operator.email.charAt(0).toUpperCase()} ${operator.email}`,
-        })
-        .click();
-      await page.getByRole("menuitem", { name: "Account settings" }).click();
+      await openAccountSettings();
       await expect(
         dialog.getByRole("button", { name: "Edit name" }),
       ).toBeDisabled();
