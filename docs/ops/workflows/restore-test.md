@@ -47,15 +47,15 @@ None.
 6. On pass, write `pgbackrest_restore_test_last_success_timestamp_seconds <unix time>`
    to VictoriaMetrics (`/api/v1/import/prometheus` on the monitoring network) and log the
    duration to the journal.
-7. On any failure, POST `kind: restore-test-failed` to the Ops alert webhook
-   (`ops-alerts.md`) with the failing step and the last 50 log lines.
+7. On any failure, write the failing step and the logs to
+   `/home/docker/postgres/pgbackrest/restore-test-last.log` and to the journal.
 
 ## Watching the watcher
 
 vmalert rule `TagaroaRestoreTestStale`:
 `time() - pgbackrest_restore_test_last_success_timestamp_seconds > 40 * 86400` (or the
-metric absent for 40 days), labels `team: tagaroa`. It reaches Rex through the same
-Alertmanager route as `ops-alerts.md`, so a timer that silently stopped is caught too.
+metric absent for 40 days), so a timer that silently stopped shows as firing in
+vmalert. vmalert notifies nobody (`-notifier.blackhole`).
 
 ## Limits
 
@@ -68,5 +68,5 @@ Alertmanager route as `ops-alerts.md`, so a timer that silently stopped is caugh
 
 Running the service by hand restores, passes all checks, cleans up and records the
 metric; deleting the restored `tagaroa` database inside a manual run (or pointing it at
-a wrong stanza) produces one Ops alert issue for Rex; and stopping the timer for 40 days
+a wrong stanza) fails with the step in `restore-test-last.log`; and stopping the timer for 40 days
 (simulate by deleting the metric) fires `TagaroaRestoreTestStale`.

@@ -1,5 +1,5 @@
 # Keeps the commit-pinned actions and digest-pinned base images current. npm
-# dependencies stay with Rex's weekly dependency check (docs/agents/multica.md).
+# dependencies are not covered: bump them by hand (`bun outdated`, `bun audit`).
 # Monthly and grouped, one PR per ecosystem: every PR here runs the full QA suite.
 version: 2
 updates:

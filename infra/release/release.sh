@@ -24,7 +24,7 @@ report_failure() {
   elif [[ "$deployed" == 1 && "$result" != 1 ]]; then
     rollback_failed=1
   fi
-  tail_json=$(sh infra/ops/ops-alert.sh --dry-run --kind prod-down --id "$GITHUB_RUN_ID" --log "$log")
+  log_tail=$(sh infra/release/log-tail.sh "$log")
   body="$RUNNER_TEMP/release-failure.md"
   {
     if [[ "$rollback_failed" == 1 ]]; then echo '**ROLLBACK FAILED.**'; fi
@@ -34,16 +34,12 @@ report_failure() {
     elif [[ "$rollback_failed" == 0 ]]; then echo 'Previous production release retained or restored.'; fi
     echo
     echo '```text'
-    jq -r '.log_tail // "No diagnostic output."' <<< "$tail_json"
+    echo "${log_tail:-No diagnostic output.}"
     echo '```'
     echo "$RUN_URL"
   } > "$body"
   multica issue comment add "$issue" --content-file "$body" --allow-external-file >/dev/null
   multica issue status "$issue" blocked >/dev/null
-  if [[ "$rollback_failed" == 1 ]]; then
-    sh infra/ops/ops-alert.sh --kind prod-down --id "$GITHUB_RUN_ID-$GITHUB_RUN_ATTEMPT" \
-      --env prod --sha "$sha" --step "$step" --run-url "$RUN_URL" --log "$log"
-  fi
   exit "$result"
 }
 trap report_failure EXIT
@@ -106,17 +102,6 @@ for domain in auth.tagaroa.cc admin.tagaroa.cc app.tagaroa.cc tagaroa.cc; do
   [[ "$result" == "200 $expected"* ]] || { echo "$domain smoke check failed: $result" >> "$log"; exit 1; }
 done
 curl --retry 5 --retry-all-errors --fail --silent --show-error -o /dev/null https://app.tagaroa.cc/engineering
-if [[ "$had_prod" == 0 ]]; then
-  step=enable-prod-alerts
-  ssh "$host" 'docker exec alertmanager amtool --alertmanager.url=http://localhost:9093 silence query --output=json alertname=TagaroaProdDown' \
-    > "$RUNNER_TEMP/prod-silences.json"
-  while read -r silence; do
-    [[ "$silence" =~ ^[a-f0-9-]{36}$ ]]
-    # Validated Alertmanager UUID; intentional expansion on the runner.
-    # shellcheck disable=SC2029
-    ssh "$host" "docker exec alertmanager amtool --alertmanager.url=http://localhost:9093 silence expire '$silence'" >> "$log" 2>&1
-  done < <(jq -r '.[] | select(.comment | contains("ISSUE-10")) | .id' "$RUNNER_TEMP/prod-silences.json")
-fi
 step=report
 multica issue comment add "$issue" --content "Released ${sha:0:7}. $commit_count commits, $migration_count migrations applied. $RUN_URL" >/dev/null
 multica issue status "$issue" 'done' >/dev/null

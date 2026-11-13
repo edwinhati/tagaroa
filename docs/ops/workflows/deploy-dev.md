@@ -149,23 +149,20 @@ One-time setup, done by whoever implements this (needs root on CT 105):
    (`release-prod.md`, "Brief"). This is a separate `brief` job that needs `deploy`,
    so a brief failure is not reported as a broken dev. The run is done when the
    brief is current. Multica reporting is optional: `infra/release/brief-step.sh`
-   turns a failed login or brief update into a `::warning::` and a `failed=true`
-   output, and the run stays green. Production still fails closed: with no current
+   turns a failed login or brief update into a `::warning::`, and the run stays
+   green. Production still fails closed: with no current
    approved brief `release-prod.yml` releases nothing, and `release.sh` stops on any
    Multica error.
 
 ## On failure
 
-Dev stays on the previous images (deploy.sh rolls back). The workflow then POSTs to the
-"Ops alert" Multica webhook (`ops-alerts.md`) with `kind: dev-deploy-failed`, the sha,
-the failing step and the run URL, using `Idempotency-Key: dev-deploy-<run_id>-<attempt>`.
-Rex investigates as with "QA failed on main". No release brief is created or updated
+Dev stays on the previous images (deploy.sh rolls back) and the run fails; the failed
+run in GitHub Actions is the only record. No release brief is created or updated
 for a failed sha.
 
 If the deploy succeeded and only the brief update failed, dev stays on the new images
-and the `brief` job sends `kind: dev-brief-failed` instead, with the brief log tail.
-Neither the brief nor that alert can fail the run: a failed alert delivery is a
-warning too. A failed build, deploy or smoke check still fails the run.
+and the `brief` job ends with a warning; the brief cannot fail the run. A failed
+build, deploy or smoke check still fails the run.
 
 ## Secrets (GitHub repo secrets, read only by the self-hosted runner)
 
@@ -175,17 +172,10 @@ warning too. A failed build, deploy or smoke check still fails the run.
   the public proxy path drops authentication from that runner (ISSUE-20).
   `release-prod.yml` uses the same runner endpoint for its Multica CLI calls.
   The public Multica UI and user-facing links remain `https://multica.engineering.tagaroa.cc`.
-- `MULTICA_OPS_WEBHOOK`: the "Ops alert" autopilot's webhook URL.
-
-`infra/ops/ops-alert.sh` posts directly to `MULTICA_OPS_WEBHOOK`; it does not use
-`MULTICA_SERVER_URL` or the CLI PAT. Changing the CLI endpoint therefore does not
-resolve the separately observed webhook 401. Verify the webhook's routing and
-authentication separately before changing its secret; do not rewrite its URL based
-on the CLI result. The OCI monitoring sender cannot reach the home LAN directly.
 
 ## Done when
 
 A merge to `main` that passes QA shows up on `https://app.dev.tagaroa.cc` without anyone
 touching it; a deliberately broken migration on a test branch merged to `main` leaves dev
-on the previous version and opens an Ops alert issue for Rex; and a pull request cannot
-run a job on the self-hosted runner.
+on the previous version with a failed run; and a pull request cannot run a job on the
+self-hosted runner.

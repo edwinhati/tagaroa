@@ -22,7 +22,6 @@ groups:
         for: 1m
         labels:
           severity: critical
-          team: tagaroa
         annotations:
           summary: PostgreSQL unavailable
           description: postgres-exporter cannot collect PostgreSQL metrics.
@@ -278,13 +277,10 @@ groups:
           summary: DigitalOcean Pangolin container is stopped
   - name: tagaroa
     rules:
-      # team: tagaroa routes to the "Ops alert" Multica autopilot (alertmanager.yml).
       - alert: TagaroaProdDown
-        # Silenced in Alertmanager until the first prod release (see README.md).
         expr: probe_success{job="tagaroa-prod"} == 0
         for: 3m
         labels:
-          team: tagaroa
           severity: critical
         annotations:
           summary: Tagaroa prod is down
@@ -294,7 +290,6 @@ groups:
           time() - max_over_time(pgbackrest_restore_test_last_success_timestamp_seconds[41d]) > 40 * 86400
           or absent_over_time(pgbackrest_restore_test_last_success_timestamp_seconds[40d])
         labels:
-          team: tagaroa
           severity: warning
         annotations:
           summary: PostgreSQL restore verification is overdue

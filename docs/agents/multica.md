@@ -32,11 +32,7 @@ The GitHub App `tagaroa-multica` is read-only: it observes PRs but never pushes 
 
 ## Autopilots
 
-All three run as Rex.
-
-- **Weekly dependency check:** Mondays 09:00 Asia/Jakarta.
-- **QA failed on main:** the `notify-multica` job in `.github/workflows/qa.yml` calls the autopilot's webhook through the repo secret `MULTICA_QA_WEBHOOK`. It runs on the self-hosted deploy runner. Besides pushes to main, which run Chromium alone, QA runs every browser project (Chromium, Firefox, WebKit, mobile Chromium) every Sunday at 01:00 UTC (08:00 Asia/Jakarta), so a failing weekly run opens an issue too. PRs run every browser project and never open an issue.
-- **Ops alert:** opens an issue when prod is down, a dev deploy fails, the release brief cannot be updated after a good dev deploy, or the monthly restore test fails; Rex diagnoses read-only and hands it to edwinhati in Todo. Its webhook URL is in the repo secret `MULTICA_OPS_WEBHOOK` and, on the OCI VM, in Alertmanager (`infra/oci/monitoring/`). Send to it with `infra/ops/ops-alert.sh`. See `docs/ops/workflows/ops-alerts.md`.
+None. The QA, ops-alert and dependency-check autopilots were removed on 2026-11-13 (ISSUE-108): Multica is reachable only through NetBird, so their senders could not get in. A failing workflow shows in GitHub only.
 
 ## Labels
 

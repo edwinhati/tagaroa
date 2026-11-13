@@ -3,8 +3,8 @@ set -euo pipefail
 root=$(cd "$(dirname "$0")/../.." && pwd)
 tmp=$(mktemp -d)
 trap 'rm -rf "$tmp"' EXIT
-mkdir -p "$tmp/bin" "$tmp/infra/ops"
-cp "$root/infra/ops/ops-alert.sh" "$tmp/infra/ops/ops-alert.sh"
+mkdir -p "$tmp/bin" "$tmp/infra/release"
+cp "$root/infra/release/log-tail.sh" "$tmp/infra/release/log-tail.sh"
 cat > "$tmp/bin/multica" <<'SH'
 #!/bin/sh
 case "$*" in
@@ -47,7 +47,7 @@ for sha in bad aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa; do
 done
 echo 'PASS: no approval, agent assignment, invalid SHA and missing QA never deploy'
 export HOME="$tmp/home" OCIR_NAMESPACE=fixture OCIR_USERNAME=fixture OCIR_TOKEN=fixture
-export PROD_SSH_KEY=fixture PROD_SSH_KNOWN_HOSTS=fixture MULTICA_OPS_WEBHOOK=https://webhook.invalid
+export PROD_SSH_KEY=fixture PROD_SSH_KNOWN_HOSTS=fixture
 mkdir -p "$HOME"
 cat > "$tmp/bin/git" <<'SH'
 #!/bin/sh
@@ -92,7 +92,6 @@ case "$*" in
   *tagaroa.cc/api/*) echo '200 application/json' ;;
   *auth.tagaroa.cc*) echo "200 ${VERIFY_TYPE:-text/html}" ;;
   *engineering*) ;;
-  *webhook.invalid*) ;;
   *) echo '200 text/html' ;;
 esac
 SH

@@ -17,8 +17,7 @@ jobs carry `PROD_SSH_KEY`. This runner is the opposite:
   (`postgres:18-alpine`, data on tmpfs) that shares the runner's network, so
   `127.0.0.1:5432` works exactly as on a laptop. `TAGAROA_TEST_POSTGRES=external`
   tells `servers/core/test/database.ts` not to call `docker compose`.
-- **No secrets.** QA's `checks` and `workflows` jobs use none. `notify-multica`,
-  which does, runs on the deploy runner, and only for `main`.
+- **No secrets.** QA's `checks` and `workflows` jobs use none.
 - **No sudo**, `no-new-privileges`, CPU, memory and process limits.
 - **Its own label**, `tagaroa-qa`. It must never carry `tagaroa`, or deploy jobs
   could be scheduled onto it.

@@ -1,5 +1,5 @@
 #!/bin/sh
-# Self-check for restore-test.sh failure alerts, with Docker stubbed out:
+# Self-check for restore-test.sh failure reports, with Docker stubbed out:
 #   sh infra/oci/postgres/restore-test.test.sh
 set -eu
 dir=$(cd "$(dirname "$0")" && pwd)
@@ -7,13 +7,10 @@ tmp=$(mktemp -d)
 trap 'rm -rf "$tmp"' EXIT
 
 fixture_root=$tmp/home/docker
-mkdir -p "$fixture_root/postgres/pgbackrest" "$fixture_root/monitoring/alertmanager" "$tmp/bin"
-echo https://example.invalid/hook > "$fixture_root/monitoring/alertmanager/ops-webhook-url"
+mkdir -p "$fixture_root/postgres/pgbackrest" "$tmp/bin"
 sed -e "s#/home/docker#$fixture_root#g" -e "s#/run/lock#$tmp#g" "$dir/restore-test.sh" \
   > "$fixture_root/postgres/pgbackrest/restore-test.sh"
-cat > "$fixture_root/postgres/pgbackrest/ops-alert.sh" <<SH
-exec sh "$dir/../../ops/ops-alert.sh" --dry-run "\$@" > "$tmp/alert.json"
-SH
+report=$fixture_root/postgres/pgbackrest/restore-test-last.log
 
 cat > "$tmp/bin/flock" <<'SH'
 #!/bin/sh
@@ -52,21 +49,21 @@ chmod +x "$tmp/bin/"*
 
 # run EXPECTED_STATUS [ENV=VALUE...]: runs the copied script, returns nothing.
 run() {
-  rm -f "$tmp/alert.json"
+  rm -f "$report"
   expected=$1; shift
   status=0
   env PATH="$tmp/bin:$PATH" FIXTURE_OVERRIDE="$tmp/override.yml" AGE_HOURS=1 "$@" bash "$fixture_root/postgres/pgbackrest/restore-test.sh" \
     > "$tmp/journal" 2>&1 || status=$?
   [ "$status" = "$expected" ] || { echo "FAIL: $* exited $status"; cat "$tmp/journal"; exit 1; }
 }
-expect_alert() {
+expect_report() {
   for text in "$@"; do
-    grep -qF "$text" "$tmp/alert.json" || { echo "FAIL: alert lacks $text"; cat "$tmp/alert.json"; exit 1; }
+    grep -qF "$text" "$report" || { echo "FAIL: report lacks $text"; cat "$report"; exit 1; }
   done
 }
 
 run 0
-[ ! -e "$tmp/alert.json" ] || { echo 'FAIL: alert on pass'; exit 1; }
+[ ! -e "$report" ] || { echo 'FAIL: report on pass'; exit 1; }
 grep -qF 'REQUIRE_TAGAROA: "0"' "$tmp/override.yml"
 grep -qF 'REQUIRE_TAGAROA_CONTENTS: "0"' "$tmp/override.yml"
 
@@ -80,16 +77,16 @@ for schemas in 1 2; do
 done
 
 run 1 AGE_HOURS=49
-expect_alert '"step":"backup-age"' 'Newest backup is older than 48 hours' 'failed at backup-age (exit 1)'
+expect_report 'Newest backup is older than 48 hours' 'failed at backup-age (exit 1)'
 
 run 1 FAIL_PREPARE=1
-expect_alert '"step":"prepare"' 'No such container: postgres'
+expect_report 'No such container: postgres' 'failed at prepare (exit 1)'
 
 run 1 LIVE_DATABASE=1 FAIL_SCHEMAS=1
-expect_alert '"step":"prepare"' 'Live schema inspection failed'
+expect_report 'Live schema inspection failed' 'failed at prepare (exit 1)'
 
 run 1 FAIL_CLEANUP=1
-expect_alert '"step":"cleanup"' 'volume is in use'
+expect_report 'volume is in use' 'failed at cleanup (exit 1)'
 
 grep -qF 'Restore test failed at cleanup' "$tmp/journal" || { echo 'FAIL: journal summary'; exit 1; }
 echo "restore-test ok"

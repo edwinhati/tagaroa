@@ -9,7 +9,7 @@ started=$(date +%s)
 id="pgrestore-$started-$$"
 scratch=$(mktemp -d)
 chmod 755 "$scratch"
-# Every phase logs to the alert log; fds 3 and 4 keep the journal for the summary.
+# Every phase logs to restore.log; fds 3 and 4 keep the journal for the summary.
 exec 3>&1 4>&2 >"$scratch/restore.log" 2>&1
 step=prepare
 finish() {
@@ -26,17 +26,12 @@ finish() {
   exec >&3 2>&4
   if [ "$result" -ne 0 ]; then
     echo "Restore test failed at $step (exit $result)"
-    # pgBackRest logs first, so the alert's last 50 lines end with the failing phase.
+    # pgBackRest logs first, so the file ends with the failing phase.
     {
       find "$scratch/pgbackrest-log" -type f -name '*.log' -exec tail -n 30 {} \; 2>/dev/null || true
       cat "$scratch/restore.log"
       echo "Restore test failed at $step (exit $result)"
-    } > "$scratch/alert.log"
-    cp "$scratch/alert.log" "$root/restore-test-last.log"
-    MULTICA_OPS_WEBHOOK=$(cat /home/docker/monitoring/alertmanager/ops-webhook-url)
-    export MULTICA_OPS_WEBHOOK
-    bash "$root/ops-alert.sh" --kind restore-test-failed --env prod --id "$id" \
-      --step "$step" --log "$scratch/alert.log" || echo 'Failed to deliver restore alert' >&2
+    } > "$root/restore-test-last.log"
   else
     echo "Restore test passed in $(($(date +%s) - started)) seconds"
   fi

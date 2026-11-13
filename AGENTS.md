@@ -73,7 +73,7 @@ Read the matching file before working in that area; they are not loaded automati
 - `docs/agents/workspace-domains.md`: the workspace shell, microfrontends proxy, ports, and how to add a domain front end. Read before adding or changing a front end under `apps/` or `domains/`, `microfrontends.json`, or `packages/shell`.
 - `docs/agents/administration.md`: identity vs domain administration, `AccessControlModule`, and what is built. Read before touching `apps/admin`, `servers/core` access-control or directory code, or admission/role logic in `packages/shell`.
 - `docs/agents/api.md`: `servers/core` HTTP conventions: envelope, collections, status codes, request validation with Zod. Read before adding or changing an endpoint.
-- `docs/agents/multica.md`: how coding agents run against this repo through Multica: agents, workflow, PR linking, autopilots. Read before changing `.github/workflows/qa.yml`'s `notify-multica` job or an agent skill.
+- `docs/agents/multica.md`: how coding agents run against this repo through Multica: agents, workflow, PR linking. Read before changing an agent skill.
 
 <!-- BEGIN:turborepo-agent-rules -->
 
