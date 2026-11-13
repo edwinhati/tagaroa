@@ -54,6 +54,17 @@ jobs:
           fetch-depth: 0
           persist-credentials: false
 
+      # CT 105's disk is shared with other projects. On 2026-11-12 a build filled
+      # it, and the runner container died and could not restart (ISSUE-113).
+      - name: Check free disk
+        run: |
+          free_gb=$(df -Pk "$GITHUB_WORKSPACE" | awk 'NR == 2 { print int($4 / 1048576) }')
+          echo "CT 105 has ${free_gb} GB free."
+          if [ "$free_gb" -lt 8 ]; then
+            echo "::error::Only ${free_gb} GB free on CT 105; a dev build needs about 8 GB. Free space there, then rerun."
+            exit 1
+          fi
+
       - name: Resolve sha
         id: sha
         env:
