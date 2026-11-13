@@ -136,7 +136,9 @@ One-time setup, done by whoever implements this (needs root on CT 105):
 
 ## Steps (each run)
 
-1. Check out the sha.
+1. Check out the sha, then stop with an error if CT 105 has less than 8 GB free. Its
+   disk is shared with other projects, and a build that fills it kills the runner too
+   (ISSUE-113).
 2. Build and push the images: core for amd64 and arm64, dev's web image for amd64, and
    prod's web image `web-prod:<sha>` for arm64 with prod's URLs (the dev args with
    `dev.` removed). Use the runner's local Docker layer cache; no registry cache needed.
