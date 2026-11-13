@@ -110,7 +110,9 @@ groups:
           severity: critical
         annotations:
           summary: A public TMS endpoint is failing
-          description: A user-facing TMS endpoint stopped answering through the edge. Check the DigitalOcean site agent, the stack, and this probe's path.
+          description:
+            A user-facing TMS endpoint stopped answering through the edge.
+            Check the DigitalOcean site agent, the stack, and this probe's path.
       - alert: AppContainerStopped
         expr: app_container_running == 0
         for: 2m
@@ -118,9 +120,13 @@ groups:
           severity: critical
         annotations:
           summary: A DigitalOcean application container is not running
-          description: The container named by the container label has been stopped for two minutes. Check the TMS stack on tagaroa-server-do-sgp1.
+          description:
+            The container named by the container label has been stopped for
+            two minutes. Check the TMS stack on tagaroa-server-do-sgp1.
       - alert: PublicAppProbeTlsExpiring
-        expr: probe_ssl_earliest_cert_expiry{job="blackbox_http", service=~"tms-.*"} - time() < 14 * 24 * 3600
+        expr:
+          probe_ssl_earliest_cert_expiry{job="blackbox_http", service=~"tms-.*"} -
+          time() < 14 * 24 * 3600
         for: 1h
         labels:
           severity: warning
@@ -286,11 +292,65 @@ groups:
           summary: Tagaroa prod is down
           description: The public probe of the instance label has failed for 3 minutes.
       - alert: TagaroaRestoreTestStale
-        expr: >-
-          time() - max_over_time(pgbackrest_restore_test_last_success_timestamp_seconds[41d]) > 40 * 86400
-          or absent_over_time(pgbackrest_restore_test_last_success_timestamp_seconds[40d])
+        expr:
+          time() - max_over_time(pgbackrest_restore_test_last_success_timestamp_seconds[9d])
+          > 8 * 86400 or absent_over_time(pgbackrest_restore_test_last_success_timestamp_seconds[8d])
         labels:
           severity: warning
         annotations:
           summary: PostgreSQL restore verification is overdue
-          description: No successful isolated restore test has been recorded in 40 days.
+          description:
+            No successful isolated point-in-time restore has been recorded
+            in eight days.
+  - name: recovery-objectives
+    rules:
+      - alert: RecoveryCollectorMissing
+        expr:
+          time() - tagaroa_recovery_probe_last_success_timestamp_seconds > 180 or
+          absent(tagaroa_recovery_probe_last_success_timestamp_seconds)
+        for: 2m
+        annotations:
+          summary: PostgreSQL recovery monitoring is stale
+        labels:
+          severity: warning
+      - alert: PostgreSQLWalShippingDelayed
+        expr: time() - tagaroa_wal_last_archived_timestamp_seconds > 600
+        for: 1m
+        annotations:
+          summary: WAL shipping is approaching the 15 minute data-loss limit
+        labels:
+          severity: warning
+      - alert: PostgreSQLWalRecoveryObjectiveBreached
+        expr: time() - tagaroa_wal_last_archived_timestamp_seconds > 900
+        for: 1m
+        annotations:
+          summary: 15 minute PostgreSQL recovery objective is breached
+        labels:
+          severity: critical
+      - alert: InfrastructureConfigBackupStale
+        expr:
+          time() - tagaroa_config_backup_collector_last_success_timestamp_seconds
+          > 1200 or absent(tagaroa_config_backup_collector_last_success_timestamp_seconds)
+        for: 2m
+        annotations:
+          summary: Infrastructure configuration backup has not been verified recently
+        labels:
+          severity: warning
+      - alert: CheckmateBackupStale
+        expr:
+          time() - tagaroa_checkmate_backup_last_success_timestamp_seconds > 30*3600
+          or absent(tagaroa_checkmate_backup_last_success_timestamp_seconds)
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: Checkmate daily backup has not completed successfully
+      - alert: PrivateIngressConfigStale
+        expr:
+          time() - tagaroa_private_ingress_config_last_success_timestamp_seconds >
+          180 or absent(tagaroa_private_ingress_config_last_success_timestamp_seconds)
+        for: 1m
+        labels:
+          severity: warning
+        annotations:
+          summary: Private ingress upstream/certificate refresh is stale

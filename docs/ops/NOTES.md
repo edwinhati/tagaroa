@@ -107,7 +107,8 @@ Raw notes on where Tagaroa runs and the tools around it. Workflow specs live in
   the newest dev sha. A failed release rolls back and sets the issue to Blocked.
 - Alerts: vmalert uses `-notifier.blackhole` (nobody is notified). The Alertmanager
   route to an "Ops alert" Multica autopilot was removed in ISSUE-108.
-- Monthly restore test of the pgBackRest backups, silent on pass.
+- Weekly point-in-time restore test of the pgBackRest backups; the result is in the
+  journal and a metric only.
 - Each new hostname needs a Cloudflare DNS record → 168.107.65.35 unless a wildcard
   already covers it (`tms.dev.tagaroa.cc` resolves, so check for `*.dev` first).
 - Out of scope for now: encrypting backups, keeping more than one full, copying

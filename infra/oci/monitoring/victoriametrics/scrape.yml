@@ -59,10 +59,6 @@ scrape_configs:
           - https://transport.service.tagaroa.cc/api/health
         labels:
           service: tms-api
-      - targets:
-          - https://gps.service.tagaroa.cc/api/server
-        labels:
-          service: tms-traccar
     relabel_configs:
       - source_labels:
           - __address__
@@ -80,7 +76,7 @@ scrape_configs:
         - http_2xx
     static_configs:
       - targets:
-          - https://tagaroa.cc/api/health/live
+          - https://api.tagaroa.cc/api/health/live
           - https://app.tagaroa.cc/
     relabel_configs:
       - source_labels:

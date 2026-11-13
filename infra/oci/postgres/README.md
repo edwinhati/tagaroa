@@ -16,9 +16,11 @@ systemctl enable --now pgbackrest-restore-test.timer
 systemctl list-timers pgbackrest-restore-test.timer
 ```
 
-The script reuses the PostgreSQL service's repository credentials. A failed run
-writes its step and logs to `restore-test-last.log` beside the script. The service has a 30-minute timeout; readiness has a 10-minute
-timeout. Both paths clean up scratch containers, volumes and networks.
+The script reuses the PostgreSQL service's repository credentials. Each run writes
+its log to `restore-test-last.log` beside the script, pass or fail. The service has a
+30-minute timeout; readiness and promotion have a 10-minute timeout. Both paths clean
+up scratch containers, volumes and networks. What a run does, step by step, is in
+`docs/ops/workflows/restore-test.md`.
 
 To verify the failure path without touching a backup or live database:
 
@@ -27,26 +29,12 @@ RESTORE_TEST_STANZA=verification-missing-stanza bash /home/docker/postgres/pgbac
 ```
 
 This intentionally fails; read `restore-test-last.log` for the failing step.
-`sh infra/oci/postgres/restore-test.test.sh` checks locally, with Docker stubbed,
-that the failure report carries each phase's error. A successful run records a timestamp in VictoriaMetrics;
-`last_over_time(pgbackrest_restore_test_last_success_timestamp_seconds[41d])`
-reads it between monthly runs. The alert uses a range query so a single imported
-sample remains visible for the full monitoring window. Apply the updated
-`infra/oci/monitoring/alerts.yml` and restart vmalert after installation.
 
-Tagaroa database presence is required once the live database exists. Migration
-and user rows are required once either the live `auth` or `drizzle` schema exists;
-an empty provisioned database has no application data to verify yet. Partial
-initialization still requires both tables and nonempty migration/user data.
-Before provisioning, the test checks Pangolin, NetBird and Arcane.
-
-The restore stops at the selected backup's earliest consistent point
-(`--type=immediate`), not the current live state. A database created after that
-backup must still fail the presence check. After provisioning or initializing
-Tagaroa, take a fresh backup and verify it before relying on that backup for
-recovery. A successful backup alone does not prove the restore check will pass.
-Install both scripts together; an older host script defaults to strict contents
-checks. Run the local regression checks without Docker or repository access:
+A successful run records a timestamp in VictoriaMetrics, and `TagaroaRestoreTestStale`
+reads it with a range query (`max_over_time(...[9d])`), so a single weekly sample stays
+visible between runs. Install both scripts together, and apply
+`infra/oci/monitoring/alerts.yml` with them. Run the local regression checks without
+Docker or repository access:
 
 ```sh
 sh infra/oci/postgres/restore-test.test.sh
