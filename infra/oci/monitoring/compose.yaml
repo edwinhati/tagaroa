@@ -226,7 +226,7 @@ services:
       - -datasource.url=http://victoriametrics:8428
       - -remoteWrite.url=http://victoriametrics:8428
       - -remoteRead.url=http://victoriametrics:8428
-      - -notifier.url=http://alertmanager:9093
+      - -notifier.blackhole
       - -evaluationInterval=30s
     networks:
       - monitoring_backend
@@ -237,22 +237,6 @@ services:
     volumes:
       - ./alerts.yml:/etc/vmalert/alerts.yml:ro
     container_name: vmalert
-  alertmanager:
-    image: prom/alertmanager:latest
-    container_name: alertmanager
-    restart: unless-stopped
-    command:
-      - --config.file=/etc/alertmanager/alertmanager.yml
-      - --storage.path=/alertmanager
-      - --cluster.listen-address=
-    volumes:
-      - ./alertmanager/alertmanager.yml:/etc/alertmanager/alertmanager.yml:ro
-      - ./alertmanager/ops-webhook-url:/etc/alertmanager/ops-webhook-url:ro
-      - alertmanager_data:/alertmanager
-    networks:
-      - monitoring_backend
-      - oci_egress
-    logging: *id001
   victorialogs:
     image: victoriametrics/victoria-logs:latest
     restart: unless-stopped
@@ -296,7 +280,6 @@ volumes:
   victoriametrics_data: {}
   victorialogs_data: {}
   vector_data: {}
-  alertmanager_data: {}
 networks:
   postgres_backend:
     external: true

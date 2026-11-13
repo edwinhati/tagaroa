@@ -95,9 +95,8 @@ takes the oldest. For it:
   `deploy.sh --rollback` (restores `.release.env.previous`).
 - Comment on the release issue: which step failed, the last 50 lines of its log, whether
   rollback succeeded, and the run link. Set the issue to **Blocked**, keep it assigned
-  to edwinhati. It is the only notification; no Ops alert.
-- If the rollback itself fails, the comment says so in its first line, and the
-  workflow also POSTs `kind: prod-down` to the Ops alert webhook.
+  to edwinhati. It is the only notification.
+- If the rollback itself fails, the comment says so in its first line.
 
 ## One-time setup
 
@@ -126,13 +125,11 @@ takes the oldest. For it:
   named operators and a second super-admin.
 - **First release:** there is no prod yet, so the first brief covers all of `main`.
   Approve it like any other.
-  Once it is Done, expire the `TagaroaProdDown` Alertmanager silence on the VM
-  (`infra/oci/monitoring/README.md`) so prod outages reach Rex.
 
 ## Secrets (GitHub repo secrets, self-hosted runner only)
 
 `PROD_SSH_KEY`, `PROD_SSH_KNOWN_HOSTS`, `OCIR_USERNAME`, `OCIR_TOKEN`, plus
-`MULTICA_TOKEN` and `MULTICA_OPS_WEBHOOK` from `deploy-dev.md`.
+`MULTICA_TOKEN` from `deploy-dev.md`.
 
 ## Done when
 

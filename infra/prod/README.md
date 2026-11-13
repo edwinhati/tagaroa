@@ -4,12 +4,12 @@ The release workflow processes only Multica issues labelled `release` that Edwin
 has moved to In Progress. It validates the SHA against `main` and successful QA,
 rebuilds ARM64 images, migrates, runs the existing security preflight, starts the
 application, and checks the public URLs. Failed releases become Blocked with a
-scrubbed log and rollback result. A failed rollback also opens an Ops alert.
+scrubbed log and rollback result.
 
 Complete ISSUE-7 before merging/enabling the deployment workflows:
 
-- Set GitHub secrets `MULTICA_TOKEN`, `MULTICA_OPS_WEBHOOK`, `PROD_SSH_KEY`,
-  `PROD_SSH_KNOWN_HOSTS`, `OCIR_USERNAME`, and `OCIR_TOKEN`.
+- Set GitHub secrets `MULTICA_TOKEN`, `PROD_SSH_KEY`, `PROD_SSH_KNOWN_HOSTS`,
+  `OCIR_USERNAME`, and `OCIR_TOKEN`.
 - Set repository variable `OCIR_NAMESPACE` to the tenancy namespace. Keep OCIR's
   `tagaroa/core` and `tagaroa/web` repositories private.
 - Put the registry credentials in `/home/tagaroa/apps/.ocir`, mode 0600, owner

@@ -105,9 +105,8 @@ Raw notes on where Tagaroa runs and the tools around it. Workflow specs live in
 - Approving a release = setting its Multica issue to In Progress; a 5-minute schedule on
   the self-hosted runner picks it up. One open release issue at a time, rewritten for
   the newest dev sha. A failed release rolls back and sets the issue to Blocked.
-- Alerts: vmalert currently uses `-notifier.blackhole` (nobody is notified). Tagaroa's
-  alerts go through a new Alertmanager to an "Ops alert" Multica autopilot for Rex,
-  who diagnoses read-only and hands to edwinhati. Other alerts stay silent.
+- Alerts: vmalert uses `-notifier.blackhole` (nobody is notified). The Alertmanager
+  route to an "Ops alert" Multica autopilot was removed in ISSUE-108.
 - Monthly restore test of the pgBackRest backups, silent on pass.
 - Each new hostname needs a Cloudflare DNS record → 168.107.65.35 unless a wildcard
   already covers it (`tms.dev.tagaroa.cc` resolves, so check for `*.dev` first).

@@ -142,23 +142,3 @@ jobs:
             apps/auth/test-results
             apps/admin/test-results
           retention-days: 7
-
-  # Opens a "QA failed on main" issue for Rex in Multica. Skipped for PRs, which their author fixes.
-  # The key is the run id alone: a rerun of the same run must not open another issue (a rerun
-  # chain opened nine, and each woke an agent that reran it again).
-  # It runs on the deploy runner, which costs no hosted minutes: when they ran out on
-  # 2026-11-04 this job could not start either, and nobody heard that main was red.
-  # That runner takes only main (infra/runner/hooks/job-started.sh), hence the ref check.
-  notify-multica:
-    needs: [checks, workflows]
-    if: failure() && github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
-    runs-on: [self-hosted, tagaroa]
-    steps:
-      - env:
-          WEBHOOK: ${{ secrets.MULTICA_QA_WEBHOOK }}
-          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
-        run: |
-          curl -fsS -X POST "$WEBHOOK" \
-            -H 'Content-Type: application/json' \
-            -H "Idempotency-Key: qa-${{ github.run_id }}" \
-            -d "{\"event\":\"${{ github.event_name }}\",\"sha\":\"${{ github.sha }}\",\"run_url\":\"$RUN_URL\"}"

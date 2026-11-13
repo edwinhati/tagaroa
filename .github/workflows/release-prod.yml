@@ -32,7 +32,6 @@ jobs:
           PROD_SSH_KEY: ${{ secrets.PROD_SSH_KEY }}
           PROD_SSH_KNOWN_HOSTS: ${{ secrets.PROD_SSH_KNOWN_HOSTS }}
           GITHUB_TOKEN: ${{ github.token }}
-          MULTICA_OPS_WEBHOOK: ${{ secrets.MULTICA_OPS_WEBHOOK }}
           RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
         run: |
           cp infra/release/release.sh "$RUNNER_TEMP/tagaroa-release.sh"

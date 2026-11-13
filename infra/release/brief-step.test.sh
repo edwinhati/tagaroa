@@ -25,29 +25,27 @@ echo "brief ran for $1"
 [ "${BRIEF:-ok}" = ok ]
 SH
 export PATH="$tmp/bin:$PATH" TRACE="$tmp/trace" BRIEF_SH="$tmp/brief.sh" SHA=abc123
-export MULTICA_TOKEN=mul_s3cret LOG="$tmp/log" GITHUB_OUTPUT="$tmp/out"
-step() { : > "$LOG"; : > "$GITHUB_OUTPUT"; env "$@" bash "$root/infra/release/brief-step.sh" > "$tmp/stdout" 2>&1; }
+export MULTICA_TOKEN=mul_s3cret
+step() { env "$@" bash "$root/infra/release/brief-step.sh" > "$tmp/stdout" 2>&1; }
 
-# Good brief: quiet success, nothing to alert.
+# Good brief: quiet success.
 step LOGIN=ok BRIEF=ok
 grep -q 'brief ran for abc123' "$tmp/stdout"
-if grep -q warning "$tmp/stdout" || [ -s "$GITHUB_OUTPUT" ]; then echo "FAIL: good brief warned"; exit 1; fi
+if grep -q warning "$tmp/stdout"; then echo "FAIL: good brief warned"; exit 1; fi
 
-# Rejected token: exit 0, warning, alert flag, diagnostics kept, brief.sh not run.
+# Rejected token: exit 0, warning, diagnostics kept, brief.sh not run.
 step LOGIN=fail BRIEF=ok
 grep -q '::warning::Release brief not updated (exit 3)' "$tmp/stdout"
-grep -q 'Could not sign in' "$LOG"
+grep -q 'Could not sign in' "$tmp/stdout"
 if grep -q 'brief ran' "$tmp/stdout"; then echo "FAIL: brief.sh ran after login failed"; exit 1; fi
-grep -qx 'failed=true' "$GITHUB_OUTPUT"
 
-# brief.sh failure: same, with its output in the log.
+# brief.sh failure: same, with its output kept.
 step LOGIN=ok BRIEF=fail
 grep -q '::warning::Release brief not updated (exit 1)' "$tmp/stdout"
-grep -q 'brief ran for abc123' "$LOG"
-grep -qx 'failed=true' "$GITHUB_OUTPUT"
+grep -q 'brief ran for abc123' "$tmp/stdout"
 
-# The token never reaches the output or the log.
-if grep -rq 'mul_s3cret' "$tmp/stdout" "$LOG"; then echo "FAIL: token leaked"; exit 1; fi
+# The token never reaches the output.
+if grep -q 'mul_s3cret' "$tmp/stdout"; then echo "FAIL: token leaked"; exit 1; fi
 
 # Internal misuse is still fatal.
 if env -u SHA bash "$root/infra/release/brief-step.sh" >/dev/null 2>&1; then echo "FAIL: missing SHA accepted"; exit 1; fi
