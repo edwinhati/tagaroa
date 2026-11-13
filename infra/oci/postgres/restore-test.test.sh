@@ -76,8 +76,9 @@ grep -qE 'RESTORE_TEST_MARKER: "pgrestore-[0-9]+-[0-9]+-before"' "$tmp/override.
 grep -qE 'RESTORE_TEST_AFTER_MARKER: "pgrestore-[0-9]+-[0-9]+-after"' "$tmp/override.yml"
 # The target sits between the two markers, and both are in WAL that gets archived.
 before=$(line "-before')") target=$(line to_char) after=$(line "-after')") switch=$(line 'pg_switch_wal()')
-[ "$before" -lt "$target" ] && [ "$target" -lt "$after" ] && [ "$after" -lt "$switch" ] ||
-  { echo 'FAIL: the markers must bracket the target before the WAL switch'; cat "$tmp/calls"; exit 1; }
+if [ "$before" -ge "$target" ] || [ "$target" -ge "$after" ] || [ "$after" -ge "$switch" ]; then
+  echo 'FAIL: the markers must bracket the target before the WAL switch'; cat "$tmp/calls"; exit 1
+fi
 expect "$tmp/metric" pgbackrest_restore_test_last_success_timestamp_seconds
 expect "$tmp/journal" 'Restore test passed'
 expect "$report" 'Selected backup 20261113-020000F' 'PITR passed'
