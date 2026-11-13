@@ -15,6 +15,8 @@
 # {args[0]} names the app; the web image writes its inline-script hashes to
 # /etc/caddy/csp/<app> at build time (infra/web/inline-script-hashes.ts).
 (spa) {
+	# Brotli is precompressed at build time (infra/web/precompress.ts) and served
+	# as is; encode covers clients without Brotli and files with no copy.
 	encode zstd gzip
 	# Nothing frames these apps, and admin must never be framed.
 	# HSTS leaves out includeSubDomains until ops confirm every host is HTTPS.
@@ -29,13 +31,17 @@
 	# Hashed build output: a missing one is a 404, never the app shell.
 	handle /assets/* {
 		header Cache-Control "public, max-age=31536000, immutable"
-		file_server
+		file_server {
+			precompressed br
+		}
 	}
 	# TanStack Start's SPA mode emits _shell.html, not index.html.
 	handle {
 		header Cache-Control "no-store"
 		try_files {path} /_shell.html
-		file_server
+		file_server {
+			precompressed br
+		}
 	}
 }
 
