@@ -30,6 +30,10 @@ RUN mkdir /csp \
  && for app in apps/auth apps/admin apps/workspace domains/engineering; do \
       bun infra/web/inline-script-hashes.ts "$app/dist/client/_shell.html" > "/csp/${app#*/}" || exit 1; \
     done
+# Brotli copies beside each file, which the Caddyfile serves as they are.
+RUN for app in apps/auth apps/admin apps/workspace domains/engineering; do \
+      bun infra/web/precompress.ts "$app/dist/client" || exit 1; \
+    done
 
 FROM caddy:2.11.9-alpine@sha256:0bbb055bda6793c999bde78b1b5ce3e89f829fb031af2cf50056ea1246559fee
 COPY infra/web/Caddyfile /etc/caddy/Caddyfile
