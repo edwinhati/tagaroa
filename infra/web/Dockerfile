@@ -31,7 +31,7 @@ RUN mkdir /csp \
       bun infra/web/inline-script-hashes.ts "$app/dist/client/_shell.html" > "/csp/${app#*/}" || exit 1; \
     done
 
-FROM caddy:2.11.8-alpine@sha256:3db3a09e418f86a8fce8de4bc0026fccd2b4cd925aef00cc7d843d9fdc75e442
+FROM caddy:2.11.9-alpine@sha256:0bbb055bda6793c999bde78b1b5ce3e89f829fb031af2cf50056ea1246559fee
 COPY infra/web/Caddyfile /etc/caddy/Caddyfile
 COPY --from=build /csp /etc/caddy/csp
 COPY --from=build /repo/apps/auth/dist/client /srv/auth
