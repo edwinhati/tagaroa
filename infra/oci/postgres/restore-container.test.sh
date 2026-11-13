@@ -1,4 +1,6 @@
 #!/bin/sh
+# Self-check for restore-container.sh, with gosu, pgBackRest and Postgres stubbed out:
+#   sh infra/oci/postgres/restore-container.test.sh
 set -eu
 dir=$(cd "$(dirname "$0")" && pwd)
 tmp=$(mktemp -d)
@@ -15,21 +17,23 @@ cat > "$tmp/bin/gosu" <<'SH'
 shift
 command=$1; shift
 case "$command" in
-  pgbackrest|pg_isready) exit 0 ;;
+  pgbackrest) echo "pgbackrest $*" >> "$CALLS" ;;
+  pg_isready) ;;
   postgres) exec sleep 60 ;;
   psql)
-    echo "$*" >> "$PSQL_CALLS"
+    echo "psql $*" >> "$CALLS"
     case "$*" in
       *pg_is_in_recovery*) echo f ;;
       *pg_database*)
+        case "$*" in *"datname='$MISSING_DATABASE'"*) echo 0 ;; *) echo 1 ;; esac ;;
+      *pg_class*)
         case "$*" in
-          *"datname='$MISSING_DATABASE'"*) echo 0 ;;
-          *) echo 1 ;;
+          *"-d $BROKEN_DATABASE -v"*) echo 'database is not accepting connections' >&2; exit 1 ;;
+          *) echo 42 ;;
         esac ;;
-      *__drizzle_migrations*)
-        [ "$RESTORED_CONTENTS" != missing-table ] || { echo 'relation does not exist' >&2; exit 1; }
-        echo "$RESTORED_CONTENTS" ;;
-      *) echo 'Unexpected SQL' >&2; exit 1 ;;
+      *"id='before-marker'"*) echo "$BEFORE" ;;
+      *"id='after-marker'"*) echo "$AFTER" ;;
+      *) echo "Unexpected SQL: $*" >&2; exit 1 ;;
     esac ;;
   *) echo "Unexpected command: $command" >&2; exit 1 ;;
 esac
@@ -37,41 +41,34 @@ SH
 chmod +x "$tmp/bin/"*
 run() {
   expected=$1; shift
-  : > "$tmp/psql-calls"
+  : > "$tmp/calls"
   status=0
-  env PATH="$tmp/bin:$PATH" PGDATA="$tmp/data/18/docker" PSQL_CALLS="$tmp/psql-calls" \
-    REQUIRE_TAGAROA=1 RESTORED_CONTENTS=1 MISSING_DATABASE=none "$@" \
+  env PATH="$tmp/bin:$PATH" PGDATA="$tmp/data/18/docker" CALLS="$tmp/calls" \
+    RESTORE_TEST_STANZA=main RESTORE_TEST_BACKUP=20261113-020000F \
+    RESTORE_TEST_TARGET='2026-11-13 02:05:00.000000+00' RESTORE_TEST_DATABASES='postgres tagaroa' \
+    RESTORE_TEST_MARKER=before-marker RESTORE_TEST_AFTER_MARKER=after-marker \
+    MISSING_DATABASE=none BROKEN_DATABASE=none BEFORE=1 AFTER=0 "$@" \
     sh "$tmp/restore-container.sh" > "$tmp/output" 2>&1 || status=$?
   [ "$status" = "$expected" ] || { cat "$tmp/output"; echo "FAIL: expected $expected, got $status ($*)"; exit 1; }
 }
 
-# Provisioning still requires the database, without inventing application rows.
-run 0 REQUIRE_TAGAROA_CONTENTS=0 RESTORED_CONTENTS=missing-table
-grep -qF "datname='tagaroa'" "$tmp/psql-calls"
-if grep -qF __drizzle_migrations "$tmp/psql-calls"; then
-  echo 'FAIL: application query before initialization'; exit 1
-fi
-run 1 REQUIRE_TAGAROA_CONTENTS=0 MISSING_DATABASE=tagaroa
-grep -qF 'Missing restored database: tagaroa' "$tmp/output"
-
-# Initialized databases retain the migration/user checks and SQL failures.
-run 0 REQUIRE_TAGAROA_CONTENTS=1
-grep -qF 'drizzle.__drizzle_migrations' "$tmp/psql-calls"
-grep -qF 'auth."user"' "$tmp/psql-calls"
-run 1 REQUIRE_TAGAROA_CONTENTS=1 RESTORED_CONTENTS=0
-grep -qF 'Tagaroa migration/user rows missing' "$tmp/output"
-run 1 REQUIRE_TAGAROA_CONTENTS=1 RESTORED_CONTENTS=missing-table
-grep -qF 'relation does not exist' "$tmp/output"
-run 1 REQUIRE_TAGAROA_CONTENTS=1 MISSING_DATABASE=tagaroa
-
-# An older host script defaults to strict contents checks.
-run 1 RESTORED_CONTENTS=0
-run 0 REQUIRE_TAGAROA=0
-if grep -qF "datname='tagaroa'" "$tmp/psql-calls"; then
-  echo 'FAIL: unexpected Tagaroa requirement'; exit 1
-fi
-for database in pangolin netbird arcane; do
-  run 1 REQUIRE_TAGAROA=0 MISSING_DATABASE=$database
-  grep -qF "Missing restored database: $database" "$tmp/output"
+# The chosen backup is recovered to the target time, then every database is opened.
+run 0
+grep -qF -- '--stanza=main --set=20261113-020000F restore --type=time --target=2026-11-13 02:05:00.000000+00 --target-action=promote' "$tmp/calls"
+for database in postgres tagaroa; do
+  grep -qF -- "-d $database -v ON_ERROR_STOP=1 -Atc SELECT count(*) FROM pg_catalog.pg_class" "$tmp/calls"
 done
+grep -qF 'PITR passed' "$tmp/output"
+
+run 1 MISSING_DATABASE=tagaroa
+grep -qF 'Missing restored database: tagaroa' "$tmp/output"
+run 1 BROKEN_DATABASE=tagaroa
+grep -qF 'database is not accepting connections' "$tmp/output"
+
+# The markers prove the restore stopped at the target: the one before it is there,
+# the one after it is not.
+run 1 BEFORE=0
+grep -qF 'Pre-target recovery marker missing' "$tmp/output"
+run 1 AFTER=1
+grep -qF 'Recovery passed the requested target' "$tmp/output"
 echo 'restore-container ok'
