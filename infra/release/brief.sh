@@ -94,6 +94,7 @@ title="Release $short to prod"
 
 if [[ ${DRY_RUN:-} == 1 ]]; then printf '%s\n\n%s\n' "$title" "$body"; exit 0; fi
 
+# mktemp is outside the checkout, which the CLI only reads with --allow-external-file.
 file=$(mktemp); trap 'rm -f "$file"' EXIT
 printf '%s\n' "$body" > "$file"
 
@@ -107,10 +108,10 @@ if [[ "$running" != 0 ]]; then echo "A release is running; leaving its approved 
 existing=$(multica issue list --status todo --limit 100 --output json \
   | jq -r --arg l release '[.issues[] | select(any(.labels[]?; .name==$l))][0].id // empty')
 if [[ -n $existing ]]; then
-  multica issue update "$existing" --title "$title" --description-file "$file" >/dev/null
+  multica issue update "$existing" --title "$title" --description-file "$file" --allow-external-file >/dev/null
   issue=$existing
 else
-  issue=$(multica issue create --title "$title" --description-file "$file" --assignee edwinhati \
+  issue=$(multica issue create --title "$title" --description-file "$file" --allow-external-file --assignee edwinhati \
     --status todo --project "$project" --output json | jq -r .id)
   multica issue label add "$issue" "$label_id" >/dev/null
 fi

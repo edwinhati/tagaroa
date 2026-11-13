@@ -10,8 +10,10 @@ case "$*" in
   'label list'*) echo '[{"id":"release-label","name":"release"}]' ;;
   'issue list --status in_progress'*) echo '{"issues":[]}' ;;
   'issue list --status todo'*) cat "$ENVELOPE" ;;
-  'issue create'*) echo create >> "$TRACE"; echo '{"id":"created"}' ;;
-  'issue update'*) echo "update $3" >> "$TRACE" ;;
+  # Like the real CLI: a --description-file outside the working directory needs --allow-external-file.
+  'issue create'*--description-file*|'issue update'*--description-file*)
+    case "$*" in *--allow-external-file*) ;; *) echo 'path resolves outside the current working directory' >&2; exit 1 ;; esac
+    case "$*" in 'issue create'*) echo create >> "$TRACE"; echo '{"id":"created"}' ;; *) echo "update $3" >> "$TRACE" ;; esac ;;
   'issue label add'*) echo "label $4" >> "$TRACE" ;;
   'issue metadata set'*) echo "metadata $4" >> "$TRACE" ;;
   *) echo "Unexpected Multica call: $*" >&2; exit 99 ;;
