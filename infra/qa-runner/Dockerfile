@@ -4,7 +4,7 @@
 #   docker compose --env-file .env up -d --build
 FROM oven/bun:1.4.4@sha256:1d22548f177f4ff38e0c15baa3c2c46c6c2060ba2d1bc573bb4720b407548f1d AS bun
 
-FROM ghcr.io/actions/actions-runner:2.338.2@sha256:759a1d94a15b05941aba5196974ff43fe15b4cbba29b694b35cbc32a1166b232
+FROM ghcr.io/actions/actions-runner:2.338.2@sha256:6d0b2d80d80f143f77dcb676e50920100bbb547e39e883454d57f45ab8c31300
 # Match apps/*/package.json's @playwright/test, so install-deps installs the
 # system libraries that version's browsers need.
 ARG PLAYWRIGHT_VERSION=1.64.1
