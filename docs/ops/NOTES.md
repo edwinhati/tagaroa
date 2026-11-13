@@ -34,7 +34,7 @@ Raw notes on where Tagaroa runs and the tools around it. Workflow specs live in
 - Container `postgres`, image `tagaroa-postgres-pgbackrest:18-alpine`, compose in
   `/home/docker/postgres` (root-owned). Networks `postgres_backend`, `oci_egress`.
   PgBouncer in front; postgres/pgbouncer exporters feed Grafana.
-- Databases today: pangolin, netbird(+activity, idp), arcane, tms, traccar.
+- Databases today: arcane, gitlab, netbird(+activity, idp), pangolin, plane, tagaroa, tms.
 - Backups already work: pgBackRest stanza `main`, rendered config `/run/pgbackrest.conf`
   (from `pgbackrest.conf.template`), WAL archiving on, repo in OCI Object Storage bucket
   `tagaroa-postgres-backups` (ap-singapore-1). `pgbackrest-housekeeping.timer` (host
