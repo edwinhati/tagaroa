@@ -23,15 +23,16 @@ None. A failure notifies Rex (see "On failure").
 
 ## What it builds
 
-All files below are new and live in the repo; the workflow is `.github/workflows/deploy-dev.yml`,
-`runs-on: [self-hosted, tagaroa]`.
+The workflow is `.github/workflows/deploy-dev.yml`, on GitHub-hosted runners. A
+`build` matrix builds each platform natively, amd64 on `ubuntu-24.04` and arm64 on
+`ubuntu-24.04-arm`, and pushes to Artifact Keeper (`registry.engineering.tagaroa.cc`,
+private, see "Registry access").
 
-1. **Core image** `10.10.10.14:8080/tagaroa/core:<sha>`, from `servers/core/Dockerfile`,
-   one multi-arch image: `linux/amd64` for dev and `linux/arm64`, which a release later
-   copies to prod unchanged (`release-prod.md`, "Deploy"). Each platform is pushed as
-   `core:<sha>-<arch>` without attestations and joined with `docker manifest create
-   --insecure`, which works with the default buildx driver and Zot's plain HTTP.
-   QEMU binfmt (`infra/runner/tagaroa-binfmt.openrc`) must be installed on CT 105.
+1. **Core image** `registry.engineering.tagaroa.cc/tagaroa/core:<sha>`, from
+   `servers/core/Dockerfile`, one multi-arch image: `linux/amd64` for dev and
+   `linux/arm64`, which a release later copies to prod unchanged (`release-prod.md`,
+   "Deploy"). Each platform is pushed as `core:<sha>-<arch>` without attestations and
+   joined with `docker manifest create`.
    - Build stages on `oven/bun` (the version in `engines.bun`; `check:infra` fails on
      drift): `turbo prune @servers/core --docker`, with turbo at the version `bun.lock` pins,
      then `bun install --frozen-lockfile` on the pruned manifests and lockfile and `bun run
@@ -47,7 +48,7 @@ All files below are new and live in the repo; the workflow is `.github/workflows
    - If any dependency ships a native binary, the build must still produce a working
      image for `linux/arm64` (release builds it for prod), so check with
      `docker buildx build --platform linux/arm64` once.
-2. **Web image** `10.10.10.14:8080/tagaroa/web-dev:<sha>`, from `infra/web/Dockerfile`.
+2. **Web image** `registry.engineering.tagaroa.cc/tagaroa/web-dev:<sha>`, from `infra/web/Dockerfile`.
    The four SPAs bake their URLs in at build time, so the web image is per-environment.
    - Build args (all `https://`), for dev:
      - `VITE_AUTH_BASE_URL` = `https://dev.tagaroa.cc` (all four apps)
@@ -72,34 +73,43 @@ All files below are new and live in the repo; the workflow is `.github/workflows
        `no-store`.
    - This replaces Turborepo's microfrontends proxy, which is dev-server only.
 
-## Where it runs (CT 105)
+## Registry access
 
-One-time setup, done by whoever implements this (needs root on CT 105):
+Artifact Keeper runs on the OCI VM (`infra/oci/artifact-keeper/`) and is reachable only
+over NetBird: Pangolin's private ingress serves `registry.engineering.tagaroa.cc` at
+`172.25.251.19` and drops public traffic. Each job that needs it runs
+`infra/ci/netbird-up.sh`, which installs a pinned NetBird client, joins with the
+reusable, ephemeral setup key in `NETBIRD_SETUP_KEY` (group CI) and pins the private
+addresses in `/etc/hosts`. NetBird policies let the CI group reach the registry and
+Multica on tcp 443, nothing else. The peer disappears when the runner does.
 
-- Linux user `tagaroa` in group `docker`, files in `/home/tagaroa/apps`, like `tms`.
-- **Runner:** compose stack in `/home/tagaroa/runner` running an image built from
-  `infra/runner/Dockerfile`: `ghcr.io/actions/actions-runner` (pin the version), plus the
-  docker compose plugin, buildx, `openssh-client`, `skopeo` and the `multica` CLI.
-  - Registered to `edwinhati/tagaroa` with labels `self-hosted,tagaroa`, restart
-    `unless-stopped`, mounts `/var/run/docker.sock` and `/home/tagaroa/apps` (same path
-    inside). CT 105's Docker daemon already trusts the plain-HTTP registry
-    `10.10.10.14:8080`; confirm, or add it to `insecure-registries`.
-  - A job-started hook (`ACTIONS_RUNNER_HOOK_JOB_STARTED`) that fails the job unless
-    `GITHUB_REF` is `refs/heads/main` and `GITHUB_EVENT_NAME` is one of `push`,
-    `workflow_run`, `workflow_dispatch`, `schedule`. A pull request, even one that
-    edits a workflow to `runs-on: self-hosted`, must never run here: the docker socket
-    is root on CT 105.
-- **Stack files** live in the repo at `infra/dev/` (`compose.yml`, `deploy.sh`) and are
-  copied into `/home/tagaroa/apps` by every deploy, so config changes ship through git.
-  `.env` (mode 0600, owner `tagaroa`) stays on the box and is never in git.
+Tokens are Artifact Keeper service-account tokens, used as the password with any
+username: `REGISTRY_TOKEN` (CI, read and write on `tagaroa`) and a read-only one the
+droplet is logged in with.
+
+## Where it runs (DigitalOcean droplet)
+
+One-time setup (needs root on `168.144.104.237`):
+
+- Linux user `tagaroa` in group `docker`, files in `/home/tagaroa/apps`. The deploy key
+  (`DEV_SSH_KEY`) is in its `authorized_keys` with `restrict`; the host key is pinned in
+  `DEV_SSH_KNOWN_HOSTS`.
+- NetBird peer `tagaroa-dev-droplet` in group "Dev servers" (`--disable-dns
+  --block-inbound --disable-server-routes`), `/etc/hosts` entry
+  `172.25.251.19 registry.engineering.tagaroa.cc`, and `docker login` as `tagaroa` with
+  the read-only registry token.
+- **Stack files** live in the repo at `infra/dev/` (`compose.yml`, `deploy.sh`,
+  `onboard.sh`, `smoke.sh`) and are copied into `/home/tagaroa/apps` by every deploy,
+  so config changes ship through git. `.env` (mode 0600, owner `tagaroa`) stays on the
+  box and is never in git.
 - `compose.yml`, project name `tagaroa-dev`:
   - `postgres`: `postgres:18-alpine` (same major as prod), named volume, healthcheck.
   - `migrate`: core image, `bun dist/migrate.js`, after postgres is healthy.
   - `preflight`: core image, `bun scripts/security-preflight.ts`, after migrate.
   - `core`: core image, healthcheck as above, `restart: unless-stopped`.
-  - `web`: web image, env `BASE_DOMAIN=dev.tagaroa.cc`, host port `22830:80`
-    (check it is free on CT 105 first; if not, take the next free port ≥ 22830 and
-    record it in `../NOTES.md`).
+  - `web`: web image, env `BASE_DOMAIN=dev.tagaroa.cc`, no host port; it joins the
+    droplet's `pangolin_default` network, where the Newt tunnel reaches it as
+    `tagaroa-dev-web-1:80`.
 - `.env` keys (values set by hand once; see `servers/core/.env.example`):
   `NODE_ENV=production`, `PORT=8080`, `POSTGRES_PASSWORD`, `DATABASE_URL`
   (→ `postgres:5432/tagaroa`), `BETTER_AUTH_SECRET` (new, random),
@@ -119,7 +129,8 @@ One-time setup, done by whoever implements this (needs root on CT 105):
      `up -d --wait core web` on the old images, exit non-zero. A failed migrate also
      restores the old images; schema changes are additive by policy
      (`docs/security/access-control-rollout.md`, "Rollback"), so old code keeps working.
-- **Pangolin:** four resources on site "PVE Home", all → `10.10.10.5:22830`:
+- **Pangolin:** four resources on site "DigitalOcean Droplet SG", all →
+  `tagaroa-dev-web-1:80`:
   `auth.dev.tagaroa.cc`, `admin.dev.tagaroa.cc`, `app.dev.tagaroa.cc`,
   `dev.tagaroa.cc` (the API, under `/api`). VPN-only, the same rule shape as Multica's web pages: bypass the
   NetBird gateway IP `172.25.250.3`, block everything else. On `dev.tagaroa.cc` only, also
@@ -136,17 +147,17 @@ One-time setup, done by whoever implements this (needs root on CT 105):
 
 ## Steps (each run)
 
-1. Check out the sha, then stop with an error if CT 105 has less than 8 GB free. Its
-   disk is shared with other projects, and a build that fills it kills the runner too
-   (ISSUE-113).
-2. Build and push the images: core for amd64 and arm64, dev's web image for amd64, and
-   prod's web image `web-prod:<sha>` for arm64 with prod's URLs (the dev args with
-   `dev.` removed). Use the runner's local Docker layer cache; no registry cache needed.
-3. Copy `infra/dev/compose.yml` and `infra/dev/deploy.sh` into `/home/tagaroa/apps`
-   and run `deploy.sh` with the two image references.
-4. Smoke check against `http://10.10.10.5:22830` with `Host:` headers:
-   `dev.tagaroa.cc` `/api/health/live` → 200; `app.`, `auth.`, `admin.` `/` → 200
-   HTML; `app.` `/engineering` → 200 HTML. Fail the run on any miss.
+1. `sha`: resolve the sha and refuse one that is not on `main` or has no green QA run.
+2. `build` (one job per platform, each joined to NetBird): core for its platform,
+   dev's web image on amd64 and prod's web image `web-prod:<sha>` on arm64 with prod's
+   URLs (the dev args with `dev.` removed). No layer cache: hosted runners start clean.
+3. `deploy`: join core's two platforms into `core:<sha>`, copy the stack files into
+   `/home/tagaroa/apps` over SSH and run `deploy.sh` with the two image references. The
+   droplet pulls over its own NetBird link.
+4. Smoke check: `smoke.sh` on the droplet asks the web container on `pangolin_default`
+   with `Host:` headers: `dev.tagaroa.cc` `/api/health/live` → 200 JSON; `app.`,
+   `auth.`, `admin.` `/` → 200 HTML; `app.` `/engineering` → 200 HTML. Fail the run on
+   any miss.
 5. Hand off to the release loop: create or update the release brief
    (`release-prod.md`, "Brief"). This is a separate `brief` job that needs `deploy`,
    so a brief failure is not reported as a broken dev. The run is done when the
@@ -166,18 +177,22 @@ If the deploy succeeded and only the brief update failed, dev stays on the new i
 and the `brief` job ends with a warning; the brief cannot fail the run. A failed
 build, deploy or smoke check still fails the run.
 
-## Secrets (GitHub repo secrets, read only by the self-hosted runner)
+## Secrets (GitHub repo secrets)
 
+- `NETBIRD_SETUP_KEY`: the reusable, ephemeral NetBird setup key "GitHub Actions (CI)",
+  group CI. It expires 2027-11-14; make a new one in the NetBird dashboard before then.
+- `REGISTRY_TOKEN`: Artifact Keeper service-account token, read and write on `tagaroa`.
+- `DEV_SSH_KEY`, `DEV_SSH_KNOWN_HOSTS`: deploy key for `tagaroa@168.144.104.237` and
+  its pinned host key.
 - `MULTICA_TOKEN`: a Multica personal access token (`mul_…`) for edwinhati@tagaroa.com,
-  used with `multica login --token` and `MULTICA_SERVER_URL=http://10.10.10.7:8080`
-  on the self-hosted CT 105 runner. The same PAT authenticates over this LAN path;
-  the public proxy path drops authentication from that runner (ISSUE-20).
-  `release-prod.yml` uses the same runner endpoint for its Multica CLI calls.
-  The public Multica UI and user-facing links remain `https://multica.engineering.tagaroa.cc`.
+  used with `multica login --token` against `https://multica.engineering.tagaroa.cc`,
+  reached over NetBird at its private ingress address `172.25.251.12`.
+
+GitHub does not pass secrets to workflows run from forks, and only `main` runs these
+workflows, so pull request code never sees them.
 
 ## Done when
 
 A merge to `main` that passes QA shows up on `https://app.dev.tagaroa.cc` without anyone
 touching it; a deliberately broken migration on a test branch merged to `main` leaves dev
-on the previous version with a failed run; and a pull request cannot run a job on the
-self-hosted runner.
+on the previous version with a failed run.

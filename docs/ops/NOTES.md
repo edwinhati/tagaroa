@@ -16,18 +16,22 @@ Raw notes on where Tagaroa runs and the tools around it. Workflow specs live in
   - 103 `network` (10.10.10.3): Pangolin site agent (`pangolin-site`), the tunnel to the edge.
   - 105 `dev-server` (10.10.10.5): dev stacks of other projects (TMS, PCS, IFRS16,
     ERP gateway, TSI-AM), GitLab runners, Arcane edge agent. 4 cores, 8 GB, 48 GB disk,
-    load already 4-7. Tagaroa dev and its GitHub runner go here.
+    load already 4-7. Tagaroa dev and its GitHub runner ran here until ISSUE-117.
   - 107 `multica` (10.10.10.7): Multica.
   - 114 `zot-registry` (10.10.10.14): Zot registry on `:8080` (plain HTTP, LAN only).
-    Images are named `10.10.10.14:8080/<group>/<name>:<tag>`.
+    Images are named `10.10.10.14:8080/<group>/<name>:<tag>`. Tagaroa no longer uses it.
   - 115 `gitlab` (10.10.10.15): GitLab at git.engineering.tagaroa.cc. Not used by Tagaroa.
   - 116 `postgres-node-1`, 106 `nextcloud`, 120 `service`.
 - **OCI edge VM** `ubuntu@168.107.65.35`, Singapore, Ampere A1 **arm64**, 2 cores,
   12 GB RAM (~8 GB available), 48 GB disk (37 GB free), Ubuntu 26.04. Runs Pangolin
   (+ Gerbil, Traefik), NetBird server/dashboard/gateway, Arcane manager, monitoring
   (VictoriaMetrics, vmalert, VictoriaLogs, VictoriaTraces, Grafana, Vector, exporters,
-  blackbox exporter), Valkey, and the shared Postgres. Prod goes here.
+  blackbox exporter), Valkey, the shared Postgres and Artifact Keeper (the dev
+  registry). Prod goes here.
   Cannot reach the home LAN (10.10.10.0/24) directly.
+- **DigitalOcean droplet** `168.144.104.237`, Singapore, amd64. Runs TMS as `root`, and
+  Tagaroa dev as user `tagaroa` in `/home/tagaroa/apps`. Pangolin site "DigitalOcean
+  Droplet SG"; NetBird peer `tagaroa-dev-droplet` for pulling from Artifact Keeper.
 
 ## Shared Postgres on the OCI VM
 
@@ -93,7 +97,8 @@ Raw notes on where Tagaroa runs and the tools around it. Workflow specs live in
 
 ## Decisions so far (2026-10-31)
 
-- Dev: deployed, tracks `main`, CT 105, same pattern as TMS.
+- Dev: deployed, tracks `main`. Since 2026-11-14 (ISSUE-117) it runs on the
+  DigitalOcean droplet `168.144.104.237` as user `tagaroa`, no longer on CT 105.
 - Prod: OCI edge VM, shared Postgres (new `tagaroa` db + role, connected directly on
   `postgres_backend`, not through PgBouncer, which runs in transaction mode), real from
   day one (real email, admin MFA, backups, approval before each release).
@@ -102,8 +107,9 @@ Raw notes on where Tagaroa runs and the tools around it. Workflow specs live in
   Only a message sent on an unconfigured channel fails, so SMS/WhatsApp can stay unset.
 - Release rebuilds arm64 images from the released sha (prod does not reuse dev's image).
   Required anyway: SPAs bake environment URLs in at build time.
-- Approving a release = setting its Multica issue to In Progress; a 5-minute schedule on
-  the self-hosted runner picks it up. One open release issue at a time, rewritten for
+- Approving a release = `bash infra/release/approve.sh`, which sets its Multica issue to
+  In Progress and dispatches `release-prod.yml` (no schedule since ISSUE-117). One open
+  release issue at a time, rewritten for
   the newest dev sha. A failed release rolls back and sets the issue to Blocked.
 - Alerts: vmalert uses `-notifier.blackhole` (nobody is notified). The Alertmanager
   route to an "Ops alert" Multica autopilot was removed in ISSUE-108.
@@ -117,14 +123,15 @@ Raw notes on where Tagaroa runs and the tools around it. Workflow specs live in
   passkey RP ID `tagaroa.cc`; dev `auth.` `admin.` `app.dev.tagaroa.cc` plus the API at
   `dev.tagaroa.cc/api`, RP ID `dev.tagaroa.cc`.
   DNS is on Cloudflare; everything public resolves to the edge (168.107.65.35).
-- Builds: a self-hosted GitHub Actions runner, in Docker on CT 105
-  (`ghcr.io/actions/actions-runner`, host docker socket mounted), runs only pushes to
-  `main` and manual dispatch, never PR code.
+- Builds: GitHub-hosted runners, amd64 and arm64 natively, joined to NetBird for the
+  job (`infra/ci/netbird-up.sh`). The CT 105 self-hosted runner was retired in
+  ISSUE-117.
 - Prod images must be multi-arch (amd64 for dev, arm64 for prod).
-- Registries: dev images in Zot (home, LAN only). Prod images in OCI Container Registry
-  (Singapore), pulled by the VM locally. Zot is not published through Pangolin.
+- Registries: dev images in Artifact Keeper on the OCI VM
+  (`registry.engineering.tagaroa.cc`, NetBird only, `infra/oci/artifact-keeper/`). Prod
+  images in OCI Container Registry (Singapore), pulled by the VM locally.
 - Ingress: every hostname is a Pangolin resource. Prod: on the OCI VM's local site,
-  public. Dev: site "PVE Home" → 10.10.10.5:<tagaroa caddy port>, VPN-only (NetBird),
+  public. Dev: site "DigitalOcean Droplet SG" → `tagaroa-dev-web-1:80`, VPN-only (NetBird),
   same rule shape as Multica's web pages.
 - Dev deploys only after the QA workflow succeeds on that `main` commit. Docs-only
   pushes skip QA, so they never deploy (nothing deployable changed).

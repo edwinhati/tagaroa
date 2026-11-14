@@ -1,9 +1,9 @@
 name: Deploy dev
 
 # Every main commit that passes QA is running on dev a few minutes later. Docs-only
-# pushes skip QA, so they never deploy. Runs only on the self-hosted runner, which
-# refuses anything but trusted events on main (infra/runner/hooks/job-started.sh).
-# Spec: docs/ops/workflows/deploy-dev.md
+# pushes skip QA, so they never deploy. Images are built on GitHub-hosted runners,
+# which join NetBird for the job to push to Artifact Keeper; dev is the DigitalOcean
+# droplet. Spec: docs/ops/workflows/deploy-dev.md
 on:
   workflow_run:
     workflows: [QA]
@@ -28,22 +28,24 @@ defaults:
     shell: bash
 
 env:
-  REGISTRY: 10.10.10.14:8080
+  REGISTRY: registry.engineering.tagaroa.cc
+  # Private ingress addresses, reachable only over NetBird; netbird-up.sh pins them.
+  REGISTRY_ADDRESS: 172.25.251.19=registry.engineering.tagaroa.cc
+  MULTICA_ADDRESS: 172.25.251.12=multica.engineering.tagaroa.cc
+  DEV_HOST: tagaroa@168.144.104.237
   APPS_DIR: /home/tagaroa/apps
-  DEV_URL: http://10.10.10.5:22830
-  # CT 105 reaches Multica over the LAN; the public proxy drops runner auth.
-  MULTICA_SERVER_URL: http://10.10.10.7:8080
+  MULTICA_SERVER_URL: https://multica.engineering.tagaroa.cc
   MULTICA_WORKSPACE_ID: 146a9d46-1689-41e0-a8f4-20c8468b372f
 
 jobs:
-  deploy:
+  sha:
     if: >-
       github.event_name == 'workflow_dispatch' ||
       (github.event.workflow_run.conclusion == 'success' &&
        github.event.workflow_run.event == 'push' &&
        github.event.workflow_run.head_branch == 'main')
-    runs-on: [self-hosted, tagaroa]
-    timeout-minutes: 45
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
     outputs:
       sha: ${{ steps.sha.outputs.sha }}
     steps:
@@ -53,17 +55,6 @@ jobs:
           ref: ${{ github.event.workflow_run.head_sha || 'main' }}
           fetch-depth: 0
           persist-credentials: false
-
-      # CT 105's disk is shared with other projects. On 2026-11-12 a build filled
-      # it, and the runner container died and could not restart (ISSUE-113).
-      - name: Check free disk
-        run: |
-          free_gb=$(df -Pk "$GITHUB_WORKSPACE" | awk 'NR == 2 { print int($4 / 1048576) }')
-          echo "CT 105 has ${free_gb} GB free."
-          if [ "$free_gb" -lt 8 ]; then
-            echo "::error::Only ${free_gb} GB free on CT 105; a dev build needs about 8 GB. Free space there, then rerun."
-            exit 1
-          fi
 
       - name: Resolve sha
         id: sha
@@ -78,89 +69,136 @@ jobs:
             echo "::error::$sha is not on main; refusing to deploy it."
             exit 1
           fi
-          git checkout --quiet --detach "$sha"
           curl -fsS --retry 3 -H "Authorization: Bearer $GITHUB_TOKEN" \
             "$GITHUB_API_URL/repos/$GITHUB_REPOSITORY/actions/workflows/qa.yml/runs?head_sha=$sha&branch=main&event=push&status=success&per_page=1" \
             | jq -e '.workflow_runs | length > 0' >/dev/null
           echo "sha=$sha" >> "$GITHUB_OUTPUT"
 
-      # Everything prod will run is built here, once, and release.sh copies it by
-      # digest instead of rebuilding: core for both platforms (dev runs amd64, prod
-      # arm64) and prod's web image, which bakes in prod's URLs, for arm64. The build
-      # stages run natively and the runtime stages only copy, so arm64 costs little.
-      # Single-platform pushes without attestations, joined by `docker manifest`,
-      # work with the default buildx driver and Zot's plain HTTP.
+  # Everything prod will run is built here, once, and release.sh copies it by digest
+  # instead of rebuilding: core for both platforms (dev runs amd64, prod arm64) and
+  # prod's web image, which bakes in prod's URLs. Each runner builds its own platform
+  # natively. Single-platform pushes without attestations are joined by `docker manifest`.
+  build:
+    needs: sha
+    strategy:
+      matrix:
+        include:
+          - arch: amd64
+            runner: ubuntu-24.04
+            web: web-dev
+            domain: dev.tagaroa.cc
+          - arch: arm64
+            runner: ubuntu-24.04-arm
+            web: web-prod
+            domain: tagaroa.cc
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ needs.sha.outputs.sha }}
+          persist-credentials: false
+
+      - name: Join NetBird
+        env:
+          NETBIRD_SETUP_KEY: ${{ secrets.NETBIRD_SETUP_KEY }}
+        run: bash infra/ci/netbird-up.sh "$REGISTRY_ADDRESS"
+
+      - name: Log in to the registry
+        env:
+          REGISTRY_TOKEN: ${{ secrets.REGISTRY_TOKEN }}
+        run: printf '%s' "$REGISTRY_TOKEN" | docker login "$REGISTRY" --username ci --password-stdin
+
       - name: Build and push images
         env:
-          SHA: ${{ steps.sha.outputs.sha }}
+          SHA: ${{ needs.sha.outputs.sha }}
+          ARCH: ${{ matrix.arch }}
+          WEB: ${{ matrix.web }}
+          DOMAIN: ${{ matrix.domain }}
         run: |
-          core="$REGISTRY/tagaroa/core:$SHA"
-          for arch in amd64 arm64; do
-            docker buildx build --platform "linux/$arch" --provenance=false --sbom=false --push \
-              -f servers/core/Dockerfile -t "$core-$arch" .
-          done
-          docker manifest rm "$core" 2>/dev/null || true
-          docker manifest create --insecure "$core" "$core-amd64" "$core-arm64"
-          docker manifest push --insecure --purge "$core"
-          docker buildx build --platform linux/amd64 --push \
-            -f infra/web/Dockerfile -t "$REGISTRY/tagaroa/web-dev:$SHA" \
-            --build-arg VITE_AUTH_BASE_URL=https://dev.tagaroa.cc \
-            --build-arg VITE_AUTH_URL=https://auth.dev.tagaroa.cc \
-            --build-arg VITE_WORKSPACE_URL=https://app.dev.tagaroa.cc \
-            --build-arg VITE_ADMIN_URL=https://admin.dev.tagaroa.cc \
-            --build-arg VITE_POST_SIGNIN_URL=https://app.dev.tagaroa.cc \
-            --build-arg VITE_TRUSTED_REDIRECT_ORIGINS=https://app.dev.tagaroa.cc,https://admin.dev.tagaroa.cc .
-          docker buildx build --platform linux/arm64 --push \
-            -f infra/web/Dockerfile -t "$REGISTRY/tagaroa/web-prod:$SHA" \
-            --build-arg VITE_AUTH_BASE_URL=https://tagaroa.cc \
-            --build-arg VITE_AUTH_URL=https://auth.tagaroa.cc \
-            --build-arg VITE_WORKSPACE_URL=https://app.tagaroa.cc \
-            --build-arg VITE_ADMIN_URL=https://admin.tagaroa.cc \
-            --build-arg VITE_POST_SIGNIN_URL=https://app.tagaroa.cc \
-            --build-arg VITE_TRUSTED_REDIRECT_ORIGINS=https://app.tagaroa.cc,https://admin.tagaroa.cc .
+          docker buildx build --platform "linux/$ARCH" --provenance=false --sbom=false --push \
+            -f servers/core/Dockerfile -t "$REGISTRY/tagaroa/core:$SHA-$ARCH" .
+          docker buildx build --platform "linux/$ARCH" --push \
+            -f infra/web/Dockerfile -t "$REGISTRY/tagaroa/$WEB:$SHA" \
+            --build-arg "VITE_AUTH_BASE_URL=https://$DOMAIN" \
+            --build-arg "VITE_AUTH_URL=https://auth.$DOMAIN" \
+            --build-arg "VITE_WORKSPACE_URL=https://app.$DOMAIN" \
+            --build-arg "VITE_ADMIN_URL=https://admin.$DOMAIN" \
+            --build-arg "VITE_POST_SIGNIN_URL=https://app.$DOMAIN" \
+            --build-arg "VITE_TRUSTED_REDIRECT_ORIGINS=https://app.$DOMAIN,https://admin.$DOMAIN" .
 
-      # The runner mounts $APPS_DIR at the same path, so this is CT 105's own directory.
+  deploy:
+    needs: [sha, build]
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ needs.sha.outputs.sha }}
+          persist-credentials: false
+
+      - name: Join NetBird
+        env:
+          NETBIRD_SETUP_KEY: ${{ secrets.NETBIRD_SETUP_KEY }}
+        run: bash infra/ci/netbird-up.sh "$REGISTRY_ADDRESS"
+
+      - name: Join core's platforms
+        env:
+          SHA: ${{ needs.sha.outputs.sha }}
+          REGISTRY_TOKEN: ${{ secrets.REGISTRY_TOKEN }}
+        run: |
+          printf '%s' "$REGISTRY_TOKEN" | docker login "$REGISTRY" --username ci --password-stdin
+          core="$REGISTRY/tagaroa/core:$SHA"
+          docker manifest create "$core" "$core-amd64" "$core-arm64"
+          docker manifest push --purge "$core"
+
+      # The droplet pulls from the registry over its own NetBird link.
       - name: Deploy
         env:
-          SHA: ${{ steps.sha.outputs.sha }}
+          SHA: ${{ needs.sha.outputs.sha }}
+          DEV_SSH_KEY: ${{ secrets.DEV_SSH_KEY }}
+          DEV_SSH_KNOWN_HOSTS: ${{ secrets.DEV_SSH_KNOWN_HOSTS }}
         run: |
-          cp infra/dev/compose.yml infra/dev/deploy.sh infra/dev/onboard.sh "$APPS_DIR/"
-          sh "$APPS_DIR/deploy.sh" "$REGISTRY/tagaroa/core:$SHA" "$REGISTRY/tagaroa/web-dev:$SHA"
+          install -d -m 700 ~/.ssh
+          printf '%s\n' "$DEV_SSH_KEY" > ~/.ssh/id_ed25519
+          printf '%s\n' "$DEV_SSH_KNOWN_HOSTS" > ~/.ssh/known_hosts
+          chmod 600 ~/.ssh/id_ed25519 ~/.ssh/known_hosts
+          scp infra/dev/compose.yml infra/dev/deploy.sh infra/dev/onboard.sh infra/dev/smoke.sh "$DEV_HOST:$APPS_DIR/"
+          # The refs hold only the fixed registry and a hex sha.
+          # shellcheck disable=SC2029
+          ssh "$DEV_HOST" "sh $APPS_DIR/deploy.sh '$REGISTRY/tagaroa/core:$SHA' '$REGISTRY/tagaroa/web-dev:$SHA'"
 
       - name: Smoke check
         run: |
-          check() { # host path expected-content-type-prefix
-            for _ in $(seq 1 15); do
-              out=$(curl -s -o /dev/null -w '%{http_code} %{content_type}' -H "Host: $1" "$DEV_URL$2" || true)
-              case "$out" in "200 $3"*) echo "ok   $1$2 -> $out"; return 0 ;; esac
-              sleep 2
-            done
-            echo "FAIL $1$2 -> $out"; return 1
-          }
-          check dev.tagaroa.cc /api/health/live application/json
-          check app.dev.tagaroa.cc / text/html
-          check auth.dev.tagaroa.cc / text/html
-          check admin.dev.tagaroa.cc / text/html
-          check app.dev.tagaroa.cc /engineering text/html
+          # shellcheck disable=SC2029
+          ssh "$DEV_HOST" "sh $APPS_DIR/smoke.sh"
 
   # Its own job, so a stale brief is reported as that and not as a broken dev, which
   # by now is deployed and passed its smoke check. A failed sha never gets here.
   # The run is done when the brief is current.
   brief:
-    needs: deploy
-    runs-on: [self-hosted, tagaroa]
+    needs: [sha, deploy]
+    runs-on: ubuntu-24.04
     timeout-minutes: 15
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
-          ref: ${{ needs.deploy.outputs.sha }}
+          ref: ${{ needs.sha.outputs.sha }}
           fetch-depth: 0
           persist-credentials: false
+
+      - name: Join NetBird
+        env:
+          NETBIRD_SETUP_KEY: ${{ secrets.NETBIRD_SETUP_KEY }}
+        run: bash infra/ci/netbird-up.sh "$MULTICA_ADDRESS"
+
+      - name: Install the Multica CLI
+        run: bash infra/ci/install-multica.sh
 
       - name: Update release brief
         env:
           MULTICA_TOKEN: ${{ secrets.MULTICA_TOKEN }}
-          SHA: ${{ needs.deploy.outputs.sha }}
+          SHA: ${{ needs.sha.outputs.sha }}
           RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
           QA_URL: ${{ github.event.workflow_run.html_url }}
           PROD_SSH_KEY: ${{ secrets.PROD_SSH_KEY }}
@@ -173,9 +211,3 @@ jobs:
           chmod 600 ~/.ssh/id_ed25519 ~/.ssh/known_hosts
           # Multica reporting is optional: a failure warns, it does not fail the run.
           bash infra/release/brief-step.sh
-
-      - name: Forget Multica login
-        if: always()
-        run: |
-          multica auth logout || true
-          rm -f ~/.ssh/id_ed25519 ~/.ssh/known_hosts

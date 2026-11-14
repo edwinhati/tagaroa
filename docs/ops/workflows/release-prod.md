@@ -1,6 +1,7 @@
 # Release to prod
 
-Prod changes only when you say so, and saying so takes one status change in Multica.
+Prod changes only when you say so, and saying so takes one command:
+`bash infra/release/approve.sh`.
 Everything before that (collecting what changed, checking migrations, confirming dev
 is healthy) is done for you; everything after it (building, deploying, verifying,
 rolling back) also runs without you. You are asked once, late, with a brief.
@@ -10,19 +11,19 @@ Context and machine details: `../NOTES.md`. Builds on `deploy-dev.md`.
 ## Trigger
 
 1. **Brief update (event):** the last step of every successful dev deploy.
-2. **Approval check (schedule):** `.github/workflows/release-prod.yml` on
-   `schedule: "*/5 * * * *"`, `runs-on: [self-hosted, tagaroa]` (self-hosted runs cost
-   no Actions minutes). Also `workflow_dispatch` to check immediately. Concurrency group
-   `release-prod`, `cancel-in-progress: false`.
+2. **Release (dispatch):** `.github/workflows/release-prod.yml`, `workflow_dispatch`
+   only, on `ubuntu-24.04`. There is no schedule. Concurrency group `release-prod`,
+   `cancel-in-progress: false`. The job joins NetBird (`deploy-dev.md`, "Registry
+   access") to reach Artifact Keeper and Multica.
 
 ## Checkpoint
 
-One: you approve the release issue by setting its status to **In Progress**.
+One: `bash infra/release/approve.sh` sets the open brief to **In Progress** and
+dispatches `release-prod.yml` on `main` (needs `multica` and `gh` logged in). The
+release still runs every check in `release.sh`.
 
-GitHub runs the five-minute schedule late, sometimes by hours. To release right away,
-approve from a terminal instead: `bash infra/release/approve.sh` sets the open brief to
-In Progress and dispatches `release-prod.yml` on `main` (needs `multica` and `gh`
-logged in). The release still runs every check in `release.sh`.
+Setting the brief to In Progress in Multica by hand approves it but starts nothing;
+dispatch `release-prod.yml` afterwards (Actions → Release prod → Run workflow).
 
 ## Brief
 
@@ -50,23 +51,24 @@ After each successful dev deploy of sha `S`:
   4. **Changes:** the merged PRs in `P..S` as `#<n> <title> (ISSUE-<k>)`, linked.
      Commits without a PR listed by subject.
   5. Links: the dev deploy run, the QA run for `S`, `https://app.dev.tagaroa.cc`.
-  6. Last line: `Approve: set this issue to In Progress.`
+  6. Last line: ``Approve: run `bash infra/release/approve.sh`.``
 - The full sha `S` is stored in the issue's metadata (`multica issue metadata`, key
   `sha`) so the deploy never parses prose.
 
 ## Deploy (after approval)
 
-The scheduled check lists issues with label `release` in status `in_progress` and
-takes the oldest. For it:
+The run lists issues with label `release` in status `in_progress` and takes the
+oldest. For it:
 
 1. Comment `Releasing <short S>…` (so a second check run won't start it again; the
    concurrency group also prevents overlap).
 2. **Promote** the images dev deploy built for `S` (`deploy-dev.md`, "What it
    builds"); nothing is rebuilt at release time. With `skopeo copy --all
-   --preserve-digests` from Zot to OCI Container Registry, Singapore:
-   - `10.10.10.14:8080/tagaroa/core:<S>` → `sin.ocir.io/<tenancy-namespace>/tagaroa/core:<S>`.
-     The same multi-arch image dev runs; prod pulls its arm64 half.
-   - `10.10.10.14:8080/tagaroa/web-prod:<S>` → `…/tagaroa/web:<S>`, built for arm64
+   --preserve-digests` from Artifact Keeper to OCI Container Registry, Singapore:
+   - `registry.engineering.tagaroa.cc/tagaroa/core:<S>` →
+     `sin.ocir.io/<tenancy-namespace>/tagaroa/core:<S>`. The same multi-arch image dev
+     runs; prod pulls its arm64 half.
+   - `registry.engineering.tagaroa.cc/tagaroa/web-prod:<S>` → `…/tagaroa/web:<S>`, built for arm64
      beside dev's web image with prod's URLs.
    - Refuse, before anything reaches prod, when a source has no `linux/arm64` image
      (a sha deployed to dev before dev built for prod: redeploy it to dev with
@@ -126,14 +128,14 @@ takes the oldest. For it:
 - **First release:** there is no prod yet, so the first brief covers all of `main`.
   Approve it like any other.
 
-## Secrets (GitHub repo secrets, self-hosted runner only)
+## Secrets (GitHub repo secrets)
 
 `PROD_SSH_KEY`, `PROD_SSH_KNOWN_HOSTS`, `OCIR_USERNAME`, `OCIR_TOKEN`, plus
-`MULTICA_TOKEN` from `deploy-dev.md`.
+`NETBIRD_SETUP_KEY`, `REGISTRY_TOKEN` and `MULTICA_TOKEN` from `deploy-dev.md`.
 
 ## Done when
 
 After a merge to `main`, your Multica inbox has one release issue whose brief you can
-judge in under a minute; setting it to In Progress has prod on that sha within about
+judge in under a minute; running `approve.sh` has prod on that sha within about
 fifteen minutes with the issue Done; and a release whose preflight fails leaves prod on
 the previous version with the issue Blocked and the reason in its comment.

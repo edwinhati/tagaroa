@@ -48,7 +48,7 @@ git merge-base --is-ancestor "$sha" origin/main
 curl -fsS --retry 3 -H "Authorization: Bearer $GITHUB_TOKEN" \
   "$GITHUB_API_URL/repos/$GITHUB_REPOSITORY/actions/workflows/qa.yml/runs?head_sha=$sha&branch=main&event=push&status=success&per_page=1" \
   | jq -e '.workflow_runs | length > 0' >/dev/null
-for key in OCIR_NAMESPACE OCIR_USERNAME OCIR_TOKEN PROD_SSH_KEY PROD_SSH_KNOWN_HOSTS; do
+for key in OCIR_NAMESPACE OCIR_USERNAME OCIR_TOKEN REGISTRY_TOKEN PROD_SSH_KEY PROD_SSH_KNOWN_HOSTS; do
   [[ -n ${!key:-} ]] || { echo "$key is not configured" >> "$log"; exit 1; }
 done
 [[ "$OCIR_NAMESPACE" =~ ^[a-zA-Z0-9_-]+$ ]]
@@ -70,18 +70,19 @@ web="sin.ocir.io/$OCIR_NAMESPACE/tagaroa/web:$sha"
 # Prod runs what dev deploy built for this sha (deploy-dev.yml), copied by digest:
 # core is the very image dev runs; web-prod was built beside dev's web image from
 # the same commit, with prod's URLs. Nothing is rebuilt at release time.
-dev_registry=${DEV_REGISTRY:-10.10.10.14:8080}
+dev_registry=${DEV_REGISTRY:-registry.engineering.tagaroa.cc}
 step=promote
 {
+printf '%s' "$REGISTRY_TOKEN" | skopeo login "$dev_registry" --username ci --password-stdin
 printf '%s' "$OCIR_TOKEN" | skopeo login sin.ocir.io --username "$OCIR_USERNAME" --password-stdin
 for pair in "core:$sha $core" "web-prod:$sha $web"; do
   read -r name dest <<< "$pair"
   src="docker://$dev_registry/tagaroa/$name"
   # A sha deployed to dev before images were built for prod has no arm64 image.
-  arch=$(skopeo inspect --tls-verify=false --override-os linux --override-arch arm64 --format '{{.Architecture}}' "$src")
+  arch=$(skopeo inspect --override-os linux --override-arch arm64 --format '{{.Architecture}}' "$src")
   [[ "$arch" == arm64 ]] || { echo "$name has no linux/arm64 image; redeploy $sha to dev first"; exit 1; }
-  skopeo copy --all --preserve-digests --retry-times 3 --src-tls-verify=false "$src" "docker://$dest"
-  want=$(skopeo inspect --raw --tls-verify=false "$src" | sha256sum)
+  skopeo copy --all --preserve-digests --retry-times 3 "$src" "docker://$dest"
+  want=$(skopeo inspect --raw "$src" | sha256sum)
   got=$(skopeo inspect --raw "docker://$dest" | sha256sum)
   [[ "$want" == "$got" ]] || { echo "$dest does not match $src after the copy"; exit 1; }
   echo "Promoted $name -> $dest"
