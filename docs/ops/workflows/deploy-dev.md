@@ -70,8 +70,11 @@ environment.
      loaded from (`packages/shell/src/urls.ts`): `auth.`, `app.` and `admin.<base>`, and
      the API at `<base>`. The same image runs in dev and prod. `VITE_` values still win
      locally and in e2e builds.
-   - Runtime: `caddy:2-alpine` serving the app's `vite build` output on `:80` for any
-     host (`infra/web/Caddyfile`). `auto_https off`; Pangolin terminates TLS.
+   - Runtime: Caddy serving the app's `vite build` output on `:80` for any host
+     (`infra/web/Caddyfile`). `auto_https off`; Pangolin terminates TLS. The image is
+     `scratch` plus Caddy, rebuilt from its release with `xcaddy` to replace
+     dependencies that have known CVEs, and Alpine's MIME table: no shell or OS
+     packages to patch.
      - SPA fallback to `_shell.html`; engineering's build sits under `/engineering`, its
        Vite `base`.
      - Hashed assets `Cache-Control: public, max-age=31536000, immutable`; the shell
