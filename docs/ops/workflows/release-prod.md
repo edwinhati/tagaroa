@@ -118,10 +118,9 @@ oldest. For it:
   need nothing: pgBackRest covers the whole cluster.
 - **OCIR:** an OCI user (or the existing one) with an auth token allowed to push and
   pull `tagaroa/*` in the tenancy. Runner: `OCIR_USERNAME`, `OCIR_TOKEN` secrets. VM:
-  the same pair in `/home/tagaroa/apps/.ocir` (0600). The repositories `tagaroa/core`,
+  the same pair in `/home/tagaroa/apps/.ocir` (0600). The repositories `tagaroa/core-service`,
   `tagaroa/auth`, `tagaroa/admin`, `tagaroa/workspace` and `tagaroa/engineering` must
-  be private: create the four app ones as private before the first release, or check
-  them after it. `tagaroa/web` is no longer used.
+  be private: create them as private before the first release, or check them after it.
 - **Prod `.env`** (0600, owner `tagaroa`): as dev's (see `deploy-dev.md`) with
   `DATABASE_URL` → `postgres:5432/tagaroa`, new `BETTER_AUTH_SECRET`,
   `BETTER_AUTH_URL=https://tagaroa.cc`,

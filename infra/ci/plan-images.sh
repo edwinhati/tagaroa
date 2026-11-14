@@ -18,9 +18,9 @@ bunx changeset version --snapshot alpha >&2
 
 release="RELEASE_SHA=$SHA"
 core="" apps="[]"
-while read -r name dir path; do
+while read -r name repo dir path; do
   version=$(jq -r .version "$dir/package.json")
-  image="$REGISTRY/tagaroa/$name:$version"
+  image="$REGISTRY/tagaroa/$repo:$version"
   release+=$'\n'"$(tr '[:lower:]' '[:upper:]' <<< "$name")_IMAGE=$image"
   # Only a registry that says the tag is unknown means "build it": any other
   # failure must not rebuild, and so replace, a released image.
@@ -38,11 +38,11 @@ while read -r name dir path; do
       '. + [{name: $name, dir: $dir, path: $path, version: $version}]' <<< "$apps")
   fi
 done <<'DEPLOYABLES'
-core servers/core -
-auth apps/auth -
-admin apps/admin -
-workspace apps/workspace -
-engineering domains/engineering /engineering
+core core-service servers/core -
+auth auth apps/auth -
+admin admin apps/admin -
+workspace workspace apps/workspace -
+engineering engineering domains/engineering /engineering
 DEPLOYABLES
 
 {

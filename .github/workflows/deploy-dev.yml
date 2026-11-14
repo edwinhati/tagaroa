@@ -145,7 +145,7 @@ jobs:
         run: |
           printf '%s' "$REGISTRY_TOKEN" | docker login "$REGISTRY" --username ci --password-stdin
           docker buildx build --platform "linux/$ARCH" --provenance=false --sbom=false --push \
-            -f servers/core/Dockerfile -t "$REGISTRY/tagaroa/core:$VERSION-$ARCH" .
+            -f servers/core/Dockerfile -t "$REGISTRY/tagaroa/core-service:$VERSION-$ARCH" .
 
   # One image per front end, for both platforms. Only the build stage runs code, on
   # this runner's platform, so the arm64 image needs no emulation; the second build
@@ -214,7 +214,7 @@ jobs:
           REGISTRY_TOKEN: ${{ secrets.REGISTRY_TOKEN }}
         run: |
           printf '%s' "$REGISTRY_TOKEN" | docker login "$REGISTRY" --username ci --password-stdin
-          core="$REGISTRY/tagaroa/core:$VERSION"
+          core="$REGISTRY/tagaroa/core-service:$VERSION"
           docker manifest create "$core" "$core-amd64" "$core-arm64"
           docker manifest push --purge "$core"
 

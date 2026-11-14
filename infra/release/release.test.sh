@@ -117,7 +117,7 @@ bash "$root/infra/release/release.sh"
 grep -q 'issue status fixture-id done' "$TRACE"
 if grep -q -- --rollback "$TRACE"; then echo 'Successful deploy rolled back'; exit 1; fi
 sha=aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
-grep -qF "skopeo copy --all --preserve-digests --retry-times 3 docker://registry.engineering.tagaroa.cc/tagaroa/core:0.2.0 docker://sin.ocir.io/fixture/tagaroa/core:0.2.0" "$TRACE"
+grep -qF "skopeo copy --all --preserve-digests --retry-times 3 docker://registry.engineering.tagaroa.cc/tagaroa/core-service:0.2.0 docker://sin.ocir.io/fixture/tagaroa/core-service:0.2.0" "$TRACE"
 grep -qF "skopeo copy --all --preserve-digests --retry-times 3 docker://registry.engineering.tagaroa.cc/tagaroa/engineering:0.1.0 docker://sin.ocir.io/fixture/tagaroa/engineering:0.1.0" "$TRACE"
 if grep -q '^docker ' "$TRACE"; then echo 'Release rebuilt images'; exit 1; fi
 # The VM gets the sha and one image per deployable, on stdin.

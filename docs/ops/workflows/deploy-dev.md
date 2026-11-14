@@ -26,7 +26,7 @@ None. A failure notifies Rex (see "On failure").
 The workflow is `.github/workflows/deploy-dev.yml`, on GitHub-hosted runners. It builds
 one image per deployable and pushes it to Artifact Keeper
 (`registry.engineering.tagaroa.cc`, private, see "Registry access"):
-`tagaroa/core`, `tagaroa/auth`, `tagaroa/admin`, `tagaroa/workspace` and
+`tagaroa/core-service`, `tagaroa/auth`, `tagaroa/admin`, `tagaroa/workspace` and
 `tagaroa/engineering`.
 
 **Versions come from changesets** (`.changeset/README.md`), and an image's tag is its
@@ -42,7 +42,7 @@ once, from the commit that set it, and never replaced. A registry that cannot an
 stops the run rather than rebuild. `-beta-<sha7>` is kept free for a staging
 environment.
 
-1. **Core image** `tagaroa/core:<version>`, from `servers/core/Dockerfile`, one
+1. **Core image** `tagaroa/core-service:<version>`, from `servers/core/Dockerfile`, one
    multi-arch image: `linux/amd64` for dev and `linux/arm64`, which a release later
    copies to prod unchanged (`release-prod.md`, "Deploy"). Core has native
    dependencies, so each platform builds on its own runner (`ubuntu-24.04`,
