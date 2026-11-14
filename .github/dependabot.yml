@@ -20,7 +20,6 @@ updates:
     directories:
       - /servers/core
       - /infra/web
-      - /infra/runner
       - /infra/qa-runner
     schedule:
       interval: monthly

@@ -1,6 +1,6 @@
 #!/bin/sh
 # Usage: deploy.sh <core-image> <web-image>
-# Runs on CT 105 in /home/tagaroa/apps. On a failed migrate, preflight or start
+# Runs on the dev droplet in /home/tagaroa/apps. On a failed migrate, preflight or start
 # the previous images are brought back (schema changes are additive by policy,
 # docs/security/access-control-rollout.md "Rollback") and the exit is non-zero.
 set -eu

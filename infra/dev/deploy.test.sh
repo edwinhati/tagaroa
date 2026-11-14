@@ -52,15 +52,4 @@ if sh "$tmp/onboard.sh" first-core first-web > "$tmp/log" 2>&1; then
   echo 'Onboarding ran after a release was recorded' >&2; exit 1
 fi
 rm -f "$tmp/.release.env"
-for event in pull_request pull_request_target issue_comment; do
-  if GITHUB_EVENT_NAME=$event GITHUB_REF=refs/heads/main sh "$root/../runner/hooks/job-started.sh" > "$tmp/log" 2>&1; then
-    echo "Runner accepted untrusted event: $event" >&2; exit 1
-  fi
-done
-for event in push workflow_run workflow_dispatch schedule; do
-  GITHUB_EVENT_NAME=$event GITHUB_REF=refs/heads/main sh "$root/../runner/hooks/job-started.sh"
-done
-if GITHUB_EVENT_NAME=workflow_dispatch GITHUB_REF=refs/heads/untrusted sh "$root/../runner/hooks/job-started.sh" > "$tmp/log" 2>&1; then
-  echo 'Runner accepted a non-main ref' >&2; exit 1
-fi
-echo 'PASS: successful deploy, first-release onboarding, rollback at each stage, runner trust boundary'
+echo 'PASS: successful deploy, first-release onboarding, rollback at each stage'

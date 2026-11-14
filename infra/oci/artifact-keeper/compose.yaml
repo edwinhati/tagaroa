@@ -1,0 +1,67 @@
+name: artifact-keeper
+services:
+  backend:
+    # Upgrade deliberately: read the release notes, stop, pull, start. Never run mixed versions.
+    image: ghcr.io/artifact-keeper/artifact-keeper-backend:1.11.13@sha256:ee7152297af73fb54446a8eb7ebdd57e20e6f4e01ec77d19ae2313ca47137846
+    restart: unless-stopped
+    container_name: artifact-keeper
+    logging:
+      driver: json-file
+      options:
+        max-size: 10m
+        max-file: "3"
+    security_opt:
+      - no-new-privileges:true
+    env_file: .env
+    environment:
+      ENVIRONMENT: production
+      AK_EXTERNAL_URL: https://registry.engineering.tagaroa.cc
+      AK_GUEST_ACCESS_ENABLED: "false"
+      PLUGINS_ENABLED: "false"
+      GRPC_BIND_IP: 127.0.0.1
+      STORAGE_BACKEND: s3
+      S3_REGION: auto
+      STORAGE_PATH: /data/storage
+      DATABASE_MAX_CONNECTIONS: "10"
+      DATABASE_MIN_CONNECTIONS: "1"
+      # Deleting blobs would break point-in-time restores of the database.
+      BLOB_GC_ENABLED: "false"
+      # pangolin_default: Traefik is the only proxy in front.
+      RATE_LIMIT_TRUSTED_PROXY_CIDRS: 172.26.0.0/16
+      XFF_TRUSTED_FOR_AUTHZ: "false"
+    volumes:
+      - storage:/data/storage
+    mem_limit: 2g
+    cpus: 1
+    networks:
+      - postgres_backend
+      - oci_egress
+      - pangolin_default
+  web:
+    # Released separately from the backend; pin the newest web release of the same minor.
+    image: ghcr.io/artifact-keeper/artifact-keeper-web:1.11.2@sha256:c17f1bff9a8bc1646efded313c107a003c383f7c03b213b389cdf789302267a5
+    restart: unless-stopped
+    container_name: artifact-keeper-web
+    logging:
+      driver: json-file
+      options:
+        max-size: 10m
+        max-file: "3"
+    security_opt:
+      - no-new-privileges:true
+    environment:
+      BACKEND_URL: http://artifact-keeper:8080
+      AK_ENFORCE_HTTPS: "true"
+    mem_limit: 512m
+    cpus: 0.5
+    networks:
+      - pangolin_default
+volumes:
+  storage: {}
+networks:
+  postgres_backend:
+    external: true
+  oci_egress:
+    external: true
+  pangolin_default:
+    external: true

@@ -87,7 +87,7 @@ ${changes}
 **Links**
 ${links}
 
-Approve: set this issue to In Progress.
+Approve: run \`bash infra/release/approve.sh\`.
 DESC
 )
 title="Release $short to prod"

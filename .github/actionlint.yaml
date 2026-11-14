@@ -1,2 +1,2 @@
 self-hosted-runner:
-  labels: [tagaroa, tagaroa-qa]
+  labels: [tagaroa-qa]

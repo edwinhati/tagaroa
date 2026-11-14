@@ -1,6 +1,6 @@
 #!/bin/sh
 # Usage: onboard.sh <core-image> <web-image> [first-super-admin-email]
-# Run by a human on CT 105 in /home/tagaroa/apps, only before the first release:
+# Run by a human on the dev droplet in /home/tagaroa/apps, only before the first release:
 # deploy.sh refuses to start images until two MFA-enrolled super-admins and a
 # separate requester exist, and nobody can enrol while the app is stopped. This
 # migrates and starts the stack so they can sign in and enrol. It skips preflight

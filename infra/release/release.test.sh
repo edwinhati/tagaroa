@@ -46,7 +46,7 @@ for sha in bad aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa; do
   if grep -q unsafe "$TRACE"; then echo 'Release gate reached deployment'; exit 1; fi
 done
 echo 'PASS: no approval, agent assignment, invalid SHA and missing QA never deploy'
-export HOME="$tmp/home" OCIR_NAMESPACE=fixture OCIR_USERNAME=fixture OCIR_TOKEN=fixture
+export HOME="$tmp/home" OCIR_NAMESPACE=fixture OCIR_USERNAME=fixture OCIR_TOKEN=fixture REGISTRY_TOKEN=fixture
 export PROD_SSH_KEY=fixture PROD_SSH_KNOWN_HOSTS=fixture
 mkdir -p "$HOME"
 cat > "$tmp/bin/git" <<'SH'
@@ -100,8 +100,8 @@ bash "$root/infra/release/release.sh"
 grep -q 'issue status fixture-id done' "$TRACE"
 if grep -q -- --rollback "$TRACE"; then echo 'Successful deploy rolled back'; exit 1; fi
 sha=aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
-grep -qF "skopeo copy --all --preserve-digests --retry-times 3 --src-tls-verify=false docker://10.10.10.14:8080/tagaroa/core:$sha docker://sin.ocir.io/fixture/tagaroa/core:$sha" "$TRACE"
-grep -qF "skopeo copy --all --preserve-digests --retry-times 3 --src-tls-verify=false docker://10.10.10.14:8080/tagaroa/web-prod:$sha docker://sin.ocir.io/fixture/tagaroa/web:$sha" "$TRACE"
+grep -qF "skopeo copy --all --preserve-digests --retry-times 3 docker://registry.engineering.tagaroa.cc/tagaroa/core:$sha docker://sin.ocir.io/fixture/tagaroa/core:$sha" "$TRACE"
+grep -qF "skopeo copy --all --preserve-digests --retry-times 3 docker://registry.engineering.tagaroa.cc/tagaroa/web-prod:$sha docker://sin.ocir.io/fixture/tagaroa/web:$sha" "$TRACE"
 if grep -q '^docker ' "$TRACE"; then echo 'Release rebuilt images'; exit 1; fi
 # No arm64 image (a sha deployed before dev built for prod), or a copy that does
 # not match its source: refuse before anything reaches prod.
