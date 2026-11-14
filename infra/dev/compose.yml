@@ -1,4 +1,4 @@
-# Dev stack on CT 105, copied to /home/tagaroa/apps by every deploy.
+# Dev stack on the DigitalOcean droplet, copied to /home/tagaroa/apps by every deploy.
 # `.env` (secrets) stays on the box; `.release.env` (image refs) is written by deploy.sh.
 name: tagaroa-dev
 x-core: &core
@@ -38,8 +38,14 @@ services:
     restart: unless-stopped
     environment:
       BASE_DOMAIN: dev.tagaroa.cc
-    ports: ["22830:80"]
+    # No published port: the droplet's public, and Docker bypasses ufw. Pangolin's
+    # site container reaches web on pangolin_default, as it does TMS.
+    networks: [default, pangolin]
     depends_on:
       core: { condition: service_healthy }
 volumes:
   postgres: {}
+networks:
+  pangolin:
+    external: true
+    name: pangolin_default

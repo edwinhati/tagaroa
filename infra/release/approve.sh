@@ -1,8 +1,8 @@
 #!/bin/bash
-# Approves the open release brief and starts the release now. Setting the brief to
-# In Progress in Multica approves it too, but then the release waits for the next
-# scheduled check, and GitHub runs release-prod.yml's */5 schedule late, at times
-# by hours. This does the same status change, then dispatches the workflow.
+# Approves the open release brief and starts the release. This is the only way a
+# release starts: release-prod.yml has no schedule, so setting the brief to In
+# Progress in Multica by hand approves it but releases nothing until this runs
+# (or someone dispatches the workflow).
 #
 #   bash infra/release/approve.sh [--yes]
 #

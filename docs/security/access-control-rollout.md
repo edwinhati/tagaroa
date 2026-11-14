@@ -60,7 +60,7 @@ Exit status 0 means the automated technical checks passed. Status 1 means config
 
 ### Dev first release: operator onboarding
 
-The dev deploy (`infra/dev/deploy.sh`) runs this preflight before starting core, so a fresh environment cannot pass it: the operators have to sign in and enrol MFA, which needs the app running. The gate stays as is. Break the loop by hand on CT 105, in `/home/tagaroa/apps`, using the `core` and `web` image refs from the failed deploy log:
+The dev deploy (`infra/dev/deploy.sh`) runs this preflight before starting core, so a fresh environment cannot pass it: the operators have to sign in and enrol MFA, which needs the app running. The gate stays as is. Break the loop by hand on the dev droplet (`tagaroa@168.144.104.237`), in `/home/tagaroa/apps`, using the `core` and `web` image refs from the failed deploy log:
 
 1. `sh onboard.sh <core-image> <web-image> <first-super-admin-email>` migrates and starts the stack without preflight and prints that account's one-time temporary password. It refuses to run once `.release.env` exists, and records no release.
 2. The first super-admin signs in, replaces the password and enrols an authenticator (verified).
