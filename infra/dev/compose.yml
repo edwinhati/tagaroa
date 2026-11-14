@@ -1,9 +1,16 @@
 # Dev stack on the DigitalOcean droplet, copied to /home/tagaroa/apps by every deploy.
 # `.env` (secrets) stays on the box; `.release.env` (image refs) is written by deploy.sh.
+# No published ports: the droplet's public, and Docker bypasses ufw. Pangolin's site
+# container reaches core and each app on pangolin_default, as it does TMS.
 name: tagaroa-dev
 x-core: &core
   image: ${CORE_IMAGE:?required}
   env_file: .env
+x-app: &app
+  restart: unless-stopped
+  environment:
+    BASE_DOMAIN: dev.tagaroa.cc
+  networks: [pangolin]
 services:
   postgres:
     image: postgres:18.6-alpine@sha256:10a5c69a83035ab5239f5620d708520e8b28f5aa1f2b20143e6024532edadfb5
@@ -31,18 +38,21 @@ services:
   core:
     <<: *core
     restart: unless-stopped
-    depends_on:
-      postgres: { condition: service_healthy }
-  web:
-    image: ${WEB_IMAGE:?required}
-    restart: unless-stopped
-    environment:
-      BASE_DOMAIN: dev.tagaroa.cc
-    # No published port: the droplet's public, and Docker bypasses ufw. Pangolin's
-    # site container reaches web on pangolin_default, as it does TMS.
     networks: [default, pangolin]
     depends_on:
-      core: { condition: service_healthy }
+      postgres: { condition: service_healthy }
+  auth:
+    <<: *app
+    image: ${AUTH_IMAGE:?required}
+  admin:
+    <<: *app
+    image: ${ADMIN_IMAGE:?required}
+  workspace:
+    <<: *app
+    image: ${WORKSPACE_IMAGE:?required}
+  engineering:
+    <<: *app
+    image: ${ENGINEERING_IMAGE:?required}
 volumes:
   postgres: {}
 networks:

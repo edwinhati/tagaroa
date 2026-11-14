@@ -27,7 +27,10 @@ jobs:
   checks:
     runs-on: ${{ fromJSON(vars.QA_RUNS_ON || '"ubuntu-24.04"') }}
     steps:
+      # Two commits: a pull request's merge commit and its base, for check:changesets.
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 2
       - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         id: node
         with:
@@ -38,6 +41,10 @@ jobs:
         with:
           bun-version-file: package.json
       - run: bun install --frozen-lockfile
+      # A change to what core or an app is built from needs a changeset naming it, or it
+      # never gets a new version or image. Dependabot's bumps ride with the next one.
+      - run: bun run check:changesets HEAD^1
+        if: github.event_name == 'pull_request' && github.event.pull_request.user.login != 'dependabot[bot]'
       # This archive transports Turbo entries; Turbo still validates each task hash.
       - uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         id: turbo-cache

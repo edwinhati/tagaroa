@@ -1,33 +1,32 @@
 #!/bin/bash
 # Signs in through the deployed topology in Chromium, Firefox and WebKit: the
-# core image, a web image built for *.dev.localtest.me, and HTTPS in front the
-# way Pangolin does it. Needs Docker and the auth app's Playwright browsers.
-# Extra arguments go to Playwright, e.g. `--project webkit`.
+# core image, the four app images exactly as deployed (no URLs baked in: each
+# works them out from *.dev.localtest.me), and HTTPS in front routing each host
+# to its container the way Pangolin does. Needs Docker and the auth app's
+# Playwright browsers. Extra arguments go to Playwright, e.g. `--project webkit`.
 set -euo pipefail
 core_image=${1:?core image required}
 shift
 port=${DEPLOYED_PORT:-8443}
 root=$(cd "$(dirname "$0")/../.." && pwd)
 id="tagaroa-browser-test-$$"
-web_image="$id-web"
+apps=(auth admin workspace engineering)
 api="https://dev.localtest.me:$port"
 tmp=$(mktemp -d)
 chmod 700 "$tmp"
 cleanup() {
-  docker rm -f "$id-tls" "$id-web" "$id-core" "$id-db" >/dev/null 2>&1 || true
+  docker rm -f "$id-tls" "${apps[@]/#/$id-}" "$id-core" "$id-db" >/dev/null 2>&1 || true
   docker network rm "$id" >/dev/null 2>&1 || true
-  docker rmi "$web_image" >/dev/null 2>&1 || true
+  docker rmi "${apps[@]/#/$id-}" >/dev/null 2>&1 || true
   rm -rf "$tmp"
 }
 trap cleanup EXIT
-docker build -q -f "$root/infra/web/Dockerfile" -t "$web_image" \
-  --build-arg VITE_AUTH_BASE_URL="$api" \
-  --build-arg VITE_AUTH_URL="https://auth.dev.localtest.me:$port" \
-  --build-arg VITE_WORKSPACE_URL="https://app.dev.localtest.me:$port" \
-  --build-arg VITE_ADMIN_URL="https://admin.dev.localtest.me:$port" \
-  --build-arg VITE_POST_SIGNIN_URL="https://app.dev.localtest.me:$port" \
-  --build-arg VITE_TRUSTED_REDIRECT_ORIGINS="https://app.dev.localtest.me:$port,https://admin.dev.localtest.me:$port" \
-  "$root" >/dev/null
+for app in "${apps[@]}"; do
+  dir=apps/$app path=""
+  [[ $app != engineering ]] || { dir=domains/engineering path=/engineering; }
+  docker build -q -f "$root/infra/web/Dockerfile" -t "$id-$app" \
+    --build-arg "APP=$dir" --build-arg "APP_PATH=$path" "$root" >/dev/null
+done
 docker network create "$id" >/dev/null
 docker run -d --rm --name "$id-db" --network "$id" --network-alias postgres \
   --tmpfs /var/lib/postgresql -e POSTGRES_PASSWORD=fixture-password \
@@ -53,16 +52,41 @@ docker run --rm --network "$id" --env-file "$tmp/env" "$core_image" \
   bun scripts/bootstrap-admin.ts first-admin@fixture.invalid > "$tmp/bootstrap" 2>&1
 docker run -d --rm --name "$id-core" --network "$id" --network-alias core \
   --env-file "$tmp/env" "$core_image" >/dev/null
-docker run -d --rm --name "$id-web" --network "$id" --network-alias web \
-  -e BASE_DOMAIN=dev.localtest.me "$web_image" >/dev/null
+for app in "${apps[@]}"; do
+  docker run -d --rm --name "$id-$app" --network "$id" --network-alias "$app" \
+    -e BASE_DOMAIN=dev.localtest.me "$id-$app" >/dev/null
+done
+# Pangolin's routes: a resource per host, app.'s /engineering* and the API's /api* by path.
 cat > "$tmp/Caddyfile" <<CADDY
 {
 	admin off
 	skip_install_trust
 }
-https://dev.localtest.me:$port, https://*.dev.localtest.me:$port {
+https://auth.dev.localtest.me:$port {
 	tls internal
-	reverse_proxy web:80
+	reverse_proxy auth:80
+}
+https://admin.dev.localtest.me:$port {
+	tls internal
+	reverse_proxy admin:80
+}
+https://app.dev.localtest.me:$port {
+	tls internal
+	handle /engineering* {
+		reverse_proxy engineering:80
+	}
+	handle {
+		reverse_proxy workspace:80
+	}
+}
+https://dev.localtest.me:$port {
+	tls internal
+	handle /api/* {
+		reverse_proxy core:8080
+	}
+	handle {
+		respond 404
+	}
 }
 CADDY
 docker run -d --rm --name "$id-tls" --network "$id" -p "127.0.0.1:$port:$port" \

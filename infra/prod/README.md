@@ -2,8 +2,9 @@
 
 The release workflow runs only when `infra/release/approve.sh` dispatches it, and
 processes only Multica issues labelled `release` that Edwin has moved to In Progress.
-It validates the SHA against `main` and successful QA, copies dev's images from
-Artifact Keeper to OCIR by digest, migrates, runs the existing security preflight,
+It validates the SHA against `main` and successful QA, copies each deployable's
+released version (core and the four apps) from Artifact Keeper to OCIR by digest,
+migrates, runs the existing security preflight,
 starts the application, and checks the public URLs. Failed releases become Blocked with a
 scrubbed log and rollback result.
 

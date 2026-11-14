@@ -34,7 +34,8 @@ the issue to Rex.
 
 After each successful dev deploy of sha `S`:
 
-- Read the prod sha `P` from the VM (`/home/tagaroa/apps/.release.env`, see "Deploy").
+- Read the prod sha `P` from the VM (`RELEASE_SHA` in `/home/tagaroa/apps/.release.env`,
+  see "Deploy").
   Before the first release there is no `P`; the brief then covers all of `main`.
 - If an open release issue exists (label `release`, status `todo`), rewrite its title and
   description for `S`. Otherwise create one. Never touch an issue that is already
@@ -42,16 +43,20 @@ After each successful dev deploy of sha `S`:
 - Title: `Release <short S> to prod`.
 - Description, in this order, each part short:
   1. One line: `<n> commits, <m> migrations, dev healthy since <time>`.
-  2. **Migrations:** new files under `servers/core/drizzle/` in `P..S`, by name, and for
+  2. **Versions:** each deployable's version at `S` beside prod's (`core 0.1.0 → 0.2.0`,
+     `auth 0.1.0 (unchanged)`). A release ships these versions, not dev's alpha
+     builds, so pending changesets at `S` are named as not in this release: to ship
+     them, merge a release PR first (`.changeset/README.md`).
+  3. **Migrations:** new files under `servers/core/drizzle/` in `P..S`, by name, and for
      each whether it only adds (tables, columns, indexes) or changes/drops. Anything not
      purely additive is flagged in bold at the top as **Needs a look**.
-  3. **Config:** keys added or removed in `servers/core/.env.example` or any app's
+  4. **Config:** keys added or removed in `servers/core/.env.example` or any app's
      `.env.example` in `P..S`. Each new required key is flagged **Needs a look**, because
      prod's `.env` must have it before approval.
-  4. **Changes:** the merged PRs in `P..S` as `#<n> <title> (ISSUE-<k>)`, linked.
+  5. **Changes:** the merged PRs in `P..S` as `#<n> <title> (ISSUE-<k>)`, linked.
      Commits without a PR listed by subject.
-  5. Links: the dev deploy run, the QA run for `S`, `https://app.dev.tagaroa.cc`.
-  6. Last line: ``Approve: run `bash infra/release/approve.sh`.``
+  6. Links: the dev deploy run, the QA run for `S`, `https://app.dev.tagaroa.cc`.
+  7. Last line: ``Approve: run `bash infra/release/approve.sh`.``
 - The full sha `S` is stored in the issue's metadata (`multica issue metadata`, key
   `sha`) so the deploy never parses prose.
 
@@ -62,33 +67,38 @@ oldest. For it:
 
 1. Comment `Releasing <short S>…` (so a second check run won't start it again; the
    concurrency group also prevents overlap).
-2. **Promote** the images dev deploy built for `S` (`deploy-dev.md`, "What it
-   builds"); nothing is rebuilt at release time. With `skopeo copy --all
-   --preserve-digests` from Artifact Keeper to OCI Container Registry, Singapore:
-   - `registry.engineering.tagaroa.cc/tagaroa/core:<S>` →
-     `sin.ocir.io/<tenancy-namespace>/tagaroa/core:<S>`. The same multi-arch image dev
-     runs; prod pulls its arm64 half.
-   - `registry.engineering.tagaroa.cc/tagaroa/web-prod:<S>` → `…/tagaroa/web:<S>`, built for arm64
-     beside dev's web image with prod's URLs.
-   - Refuse, before anything reaches prod, when a source has no `linux/arm64` image
-     (a sha deployed to dev before dev built for prod: redeploy it to dev with
-     `workflow_dispatch`) or when a copy's manifest digest differs from its source.
+2. **Promote** each deployable's released version at `S`, the version in its
+   `package.json` there (core, auth, admin, workspace, engineering). Its image was
+   built when that version first reached `main` (`deploy-dev.md`, "What it builds");
+   nothing is rebuilt at release time. With `skopeo copy --all --preserve-digests`
+   from Artifact Keeper to OCI Container Registry, Singapore:
+   `registry.engineering.tagaroa.cc/tagaroa/<name>:<version>` →
+   `sin.ocir.io/<tenancy-namespace>/tagaroa/<name>:<version>`. The same multi-arch
+   images dev ran; prod pulls their arm64 half.
+   - Refuse, before anything reaches prod, when a version is not a release (`X.Y.Z`),
+     when an image has no `linux/arm64` part, or when a copy's manifest digest
+     differs from its source.
    - Look up the tenancy namespace once and record it in `../NOTES.md`.
 3. **Deploy** over SSH as `tagaroa@168.107.65.35` (key in secret `PROD_SSH_KEY`, host key
    pinned in `PROD_SSH_KNOWN_HOSTS`): copy `infra/prod/compose.yml` and
-   `infra/prod/deploy.sh` to `/home/tagaroa/apps`, then run `deploy.sh <core> <web>`.
+   `infra/prod/deploy.sh` to `/home/tagaroa/apps`, then feed `deploy.sh` the release
+   on stdin: `RELEASE_SHA=<S>` and one OCIR image per deployable.
    Same steps and rollback as dev's `deploy.sh`, with these differences:
    - `docker login sin.ocir.io` with the token in `/home/tagaroa/apps/.ocir` before pull.
    - No `postgres` service. Core, migrate and preflight join the external network
      `postgres_backend` and connect straight to `postgres:5432` (not PgBouncer: it runs
      in transaction mode, and direct is simpler for one service).
-   - `web` joins the external network `pangolin_default` and publishes no host port;
-     env `BASE_DOMAIN=tagaroa.cc`. Compose project name `tagaroa-prod`.
+   - Core and the four apps join the external network `pangolin_default` and publish
+     no host port; the apps get env `BASE_DOMAIN=tagaroa.cc`. Compose project name
+     `tagaroa-prod`.
 4. **Verify** from the runner through the public URLs:
    `https://tagaroa.cc/api/health/live` → 200, and `/` on `auth.`, `admin.`, `app.`
    → 200 HTML, `app.tagaroa.cc/engineering` → 200 HTML.
-5. **Report:** comment `Released <short S>. <n> commits, <m> migrations applied.` with
-   the run link, and set the issue to **Done**.
+5. **Tag** each released version on `S` with Changesets' tag name (`@apps/auth@0.1.0`)
+   and push the new ones. A version already tagged keeps its first release's tag. Prod
+   is out by now, so a failed push only warns.
+6. **Report:** comment `Released <short S>: core 0.2.0, auth 0.1.0, …. <n> commits, <m>
+   migrations applied.` with the run link, and set the issue to **Done**.
 
 ## On failure
 
@@ -108,8 +118,10 @@ oldest. For it:
   need nothing: pgBackRest covers the whole cluster.
 - **OCIR:** an OCI user (or the existing one) with an auth token allowed to push and
   pull `tagaroa/*` in the tenancy. Runner: `OCIR_USERNAME`, `OCIR_TOKEN` secrets. VM:
-  the same pair in `/home/tagaroa/apps/.ocir` (0600). Set the two repositories to
-  private.
+  the same pair in `/home/tagaroa/apps/.ocir` (0600). The repositories `tagaroa/core`,
+  `tagaroa/auth`, `tagaroa/admin`, `tagaroa/workspace` and `tagaroa/engineering` must
+  be private: create the four app ones as private before the first release, or check
+  them after it. `tagaroa/web` is no longer used.
 - **Prod `.env`** (0600, owner `tagaroa`): as dev's (see `deploy-dev.md`) with
   `DATABASE_URL` → `postgres:5432/tagaroa`, new `BETTER_AUTH_SECRET`,
   `BETTER_AUTH_URL=https://tagaroa.cc`,
@@ -117,9 +129,12 @@ oldest. For it:
   `PASSKEY_ORIGINS=https://auth.tagaroa.cc,https://app.tagaroa.cc`, `PASSKEY_RP_ID=tagaroa.cc`,
   prod Resend key, `RESEND_FROM=Tagaroa <no-reply@tagaroa.cc>`, its own
   `RESEND_WEBHOOK_SECRET`, `NOTIFICATION_WEBHOOK_URL` on `tagaroa.cc`.
-- **Pangolin:** four public resources on the OCI VM's local site
-  (`auth.`, `admin.`, `app.tagaroa.cc`, and `tagaroa.cc` for the API under `/api`) → container `tagaroa-prod-web-1:80`;
-  follow how Grafana or Arcane are published there. SSO off; the app does its own
+- **Pangolin:** four public resources on the OCI VM's local site, each to its
+  container, as dev's (`deploy-dev.md`): `auth.` → `tagaroa-prod-auth-1:80`, `admin.` →
+  `tagaroa-prod-admin-1:80`, `app.tagaroa.cc` → `/engineering` prefix to
+  `tagaroa-prod-engineering-1:80` and the rest to `tagaroa-prod-workspace-1:80`, and
+  `tagaroa.cc` → `/api` prefix to `tagaroa-prod-core-1:8080`. Follow how Grafana or
+  Arcane are published there. SSO off; the app does its own
   sign-in.
 - **Resend:** prod webhook → `https://tagaroa.cc/api/notifications/webhooks/resend`.
 - **First admin:** after the first release, run `bootstrap-admin.ts` once on the VM
