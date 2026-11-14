@@ -18,11 +18,29 @@ RUN bun infra/web/inline-script-hashes.ts "$APP/dist/client/_shell.html" > /csp
 # Brotli copies beside each file, which the Caddyfile serves as they are.
 RUN bun infra/web/precompress.ts "$APP/dist/client"
 
-FROM caddy:2.11.9-alpine@sha256:0bbb055bda6793c999bde78b1b5ce3e89f829fb031af2cf50056ea1246559fee
+# Caddy's release binary is built with dependency versions that have known CVEs
+# (golang.org/x/net, klauspost/compress), so it is rebuilt from the same release
+# with the fixed versions, cross-compiled like the app build.
+# ponytail: drop each --replace once a Caddy release ships that version or newer.
+FROM --platform=$BUILDPLATFORM caddy:2.11.9-builder-alpine@sha256:646fee578e680989ca5c7fd1ce6f1de574d19fd71ef2221810cc0510a9f40c86 AS caddy
+ARG TARGETOS
+ARG TARGETARCH
+# The runtime image has no OS, so it takes Alpine's MIME table (fonts, icons).
+RUN apk add --no-cache mailcap
+RUN CGO_ENABLED=0 GOOS=$TARGETOS GOARCH=$TARGETARCH XCADDY_SETCAP=0 xcaddy build v2.11.9 \
+      --replace golang.org/x/net=golang.org/x/net@v0.62.0 \
+      --replace github.com/klauspost/compress=github.com/klauspost/compress@v1.20.2 \
+      --output /caddy
+
+# Only Caddy and the files it serves: no shell or OS packages to patch.
+FROM scratch
 ARG APP
 ARG APP_PATH=""
-ENV APP_PATH=$APP_PATH
+ENV APP_PATH=$APP_PATH XDG_CONFIG_HOME=/config XDG_DATA_HOME=/data
+COPY --from=caddy /caddy /usr/bin/caddy
+COPY --from=caddy /etc/mime.types /etc/mime.types
 COPY infra/web/Caddyfile /etc/caddy/Caddyfile
 COPY --from=build /csp /etc/caddy/csp
 COPY --from=build /repo/$APP/dist/client /srv$APP_PATH
 EXPOSE 80
+CMD ["/usr/bin/caddy", "run", "--config", "/etc/caddy/Caddyfile", "--adapter", "caddyfile"]
