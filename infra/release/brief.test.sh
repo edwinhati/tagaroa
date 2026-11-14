@@ -32,4 +32,7 @@ printf '%s' '{"issues":[{"id":"unrelated","labels":[]},{"id":"existing","labels"
 bash infra/release/brief.sh HEAD
 printf 'update existing\nmetadata existing\n' > "$tmp/expected"
 diff -u "$tmp/expected" "$TRACE"
-echo 'PASS: empty envelope creates a brief; populated envelope updates the first release'
+# The brief lists every deployable's version.
+DRY_RUN=1 bash infra/release/brief.sh HEAD > "$tmp/dry"
+for name in core auth admin workspace engineering; do grep -qE "^- $name [0-9]+\.[0-9]+\.[0-9]+ \(first release\)$" "$tmp/dry"; done
+echo 'PASS: empty envelope creates a brief; populated envelope updates the first release; versions listed'

@@ -1,20 +1,20 @@
 #!/bin/sh
-# Runs on the droplet after deploy.sh, from /home/tagaroa/apps: asks dev's web
-# container for each app by host name, as Pangolin does, and fails on the first
-# that does not answer.
+# Runs on the droplet after deploy.sh, from /home/tagaroa/apps: asks core and each
+# app on pangolin_default, where Pangolin reaches them, and fails on the first that
+# does not answer.
 set -eu
-ip=$(docker inspect -f '{{(index .NetworkSettings.Networks "pangolin_default").IPAddress}}' tagaroa-dev-web-1)
-check() { # host path expected-content-type-prefix
+check() { # service port path expected-content-type-prefix
+  ip=$(docker inspect -f '{{(index .NetworkSettings.Networks "pangolin_default").IPAddress}}' "tagaroa-dev-$1-1")
   for _ in $(seq 1 15); do
-    out=$(curl -s -o /dev/null -w '%{http_code} %{content_type}' -H "Host: $1" "http://$ip$2" || true)
-    case "$out" in "200 $3"*) echo "ok   $1$2 -> $out"; return 0 ;; esac
+    out=$(curl -s -o /dev/null -w '%{http_code} %{content_type}' "http://$ip:$2$3" || true)
+    case "$out" in "200 $4"*) echo "ok   $1$3 -> $out"; return 0 ;; esac
     sleep 2
   done
-  echo "FAIL $1$2 -> $out"
+  echo "FAIL $1$3 -> $out"
   return 1
 }
-check dev.tagaroa.cc /api/health/live application/json
-check app.dev.tagaroa.cc / text/html
-check auth.dev.tagaroa.cc / text/html
-check admin.dev.tagaroa.cc / text/html
-check app.dev.tagaroa.cc /engineering text/html
+check core 8080 /api/health/live application/json
+check auth 80 / text/html
+check admin 80 / text/html
+check workspace 80 / text/html
+check engineering 80 /engineering text/html

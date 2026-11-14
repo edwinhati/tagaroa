@@ -57,7 +57,7 @@ printf '%s\n' "$PROD_SSH_KEY" > ~/.ssh/id_ed25519
 printf '%s\n' "$PROD_SSH_KNOWN_HOSTS" > ~/.ssh/known_hosts
 chmod 600 ~/.ssh/id_ed25519 ~/.ssh/known_hosts
 had_prod=$(ssh "$host" 'if [ -f /home/tagaroa/apps/.release.env ]; then echo 1; else echo 0; fi')
-previous=$(ssh "$host" 'if [ -f /home/tagaroa/apps/.release.env ]; then sed -n "s/^CORE_IMAGE=.*://p" /home/tagaroa/apps/.release.env; fi')
+previous=$(ssh "$host" 'if [ -f /home/tagaroa/apps/.release.env ]; then sed -n "s/^RELEASE_SHA=//p" /home/tagaroa/apps/.release.env; fi')
 if [[ "$had_prod" == 1 ]]; then [[ "$previous" =~ ^[a-f0-9]{40}$ ]]; fi
 range=${previous:+$previous..}$sha
 commit_count=$(git rev-list --count "$range")
@@ -65,35 +65,46 @@ from=${previous:-4b825dc642cb6eb9a060e54bf8d69288fbee4904}
 migration_count=$(git diff --diff-filter=A --name-only "$from" "$sha" -- 'servers/core/drizzle/*.sql' | wc -l | tr -d ' ')
 multica issue comment add "$issue" --content "Releasing ${sha:0:7}. $RUN_URL" >/dev/null
 git checkout --quiet --detach "$sha"
-core="sin.ocir.io/$OCIR_NAMESPACE/tagaroa/core:$sha"
-web="sin.ocir.io/$OCIR_NAMESPACE/tagaroa/web:$sha"
-# Prod runs what dev deploy built for this sha (deploy-dev.yml), copied by digest:
-# core is the very image dev runs; web-prod was built beside dev's web image from
-# the same commit, with prod's URLs. Nothing is rebuilt at release time.
+# Prod runs each deployable's released version at this sha (its package.json: a
+# pending changeset's alpha build never reaches prod), as the image dev deploy built
+# when that version first appeared (deploy-dev.yml), copied by digest. Nothing is
+# rebuilt at release time.
 dev_registry=${DEV_REGISTRY:-registry.engineering.tagaroa.cc}
+release="RELEASE_SHA=$sha"
+released="" tags=()
 step=promote
 {
 printf '%s' "$REGISTRY_TOKEN" | skopeo login "$dev_registry" --username ci --password-stdin
 printf '%s' "$OCIR_TOKEN" | skopeo login sin.ocir.io --username "$OCIR_USERNAME" --password-stdin
-for pair in "core:$sha $core" "web-prod:$sha $web"; do
-  read -r name dest <<< "$pair"
-  src="docker://$dev_registry/tagaroa/$name"
-  # A sha deployed to dev before images were built for prod has no arm64 image.
+while read -r name dir; do
+  package=$(jq -r .name "$dir/package.json")
+  version=$(jq -r .version "$dir/package.json")
+  [[ "$version" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]] || { echo "$name has no released version at ${sha:0:7}: $version"; exit 1; }
+  src="docker://$dev_registry/tagaroa/$name:$version"
+  dest="sin.ocir.io/$OCIR_NAMESPACE/tagaroa/$name:$version"
+  # An image without arm64 cannot run on the VM.
   arch=$(skopeo inspect --override-os linux --override-arch arm64 --format '{{.Architecture}}' "$src")
-  [[ "$arch" == arm64 ]] || { echo "$name has no linux/arm64 image; redeploy $sha to dev first"; exit 1; }
+  [[ "$arch" == arm64 ]] || { echo "$name $version has no linux/arm64 image"; exit 1; }
   skopeo copy --all --preserve-digests --retry-times 3 "$src" "docker://$dest"
   want=$(skopeo inspect --raw "$src" | sha256sum)
   got=$(skopeo inspect --raw "docker://$dest" | sha256sum)
   [[ "$want" == "$got" ]] || { echo "$dest does not match $src after the copy"; exit 1; }
-  echo "Promoted $name -> $dest"
-done
+  echo "Promoted $name $version -> $dest"
+  release+=$'\n'"$(tr '[:lower:]' '[:upper:]' <<< "$name")_IMAGE=$dest"
+  released+="${released:+, }$name $version"
+  tags+=("$package@$version")
+done <<'DEPLOYABLES'
+core servers/core
+auth apps/auth
+admin apps/admin
+workspace apps/workspace
+engineering domains/engineering
+DEPLOYABLES
 } >> "$log" 2>&1
 step=deploy
 scp infra/prod/compose.yml infra/prod/deploy.sh "$host:/home/tagaroa/apps/" >> "$log" 2>&1
 deployed=1
-# The image refs contain only a fixed registry, validated namespace and hex SHA.
-# shellcheck disable=SC2029
-ssh "$host" "sh /home/tagaroa/apps/deploy.sh '$core' '$web'" >> "$log" 2>&1
+ssh "$host" 'sh /home/tagaroa/apps/deploy.sh' <<< "$release" >> "$log" 2>&1
 step=verify
 for domain in auth.tagaroa.cc admin.tagaroa.cc app.tagaroa.cc tagaroa.cc; do
   path=/; expected=text/html
@@ -103,8 +114,20 @@ for domain in auth.tagaroa.cc admin.tagaroa.cc app.tagaroa.cc tagaroa.cc; do
   [[ "$result" == "200 $expected"* ]] || { echo "$domain smoke check failed: $result" >> "$log"; exit 1; }
 done
 curl --retry 5 --retry-all-errors --fail --silent --show-error -o /dev/null https://app.tagaroa.cc/engineering
+# Changesets' tag names (`changeset tag`), on the sha that shipped them; a version
+# already tagged keeps its first release's tag. Prod is out by now, so this only warns.
+push_tags() {
+  local new_tags=() tag
+  for tag in "${tags[@]}"; do
+    git rev-parse -q --verify "refs/tags/$tag" >/dev/null || { git tag "$tag" "$sha" && new_tags+=("refs/tags/$tag"); }
+  done
+  ((${#new_tags[@]})) || return 0
+  git -c "http.extraheader=AUTHORIZATION: basic $(printf 'x-access-token:%s' "$GITHUB_TOKEN" | base64 | tr -d '\n')" \
+    push --quiet "${GITHUB_SERVER_URL:-https://github.com}/$GITHUB_REPOSITORY.git" "${new_tags[@]}"
+}
+push_tags >> "$log" 2>&1 || echo "::warning::Released, but the version tags were not pushed: ${tags[*]}"
 step=report
-multica issue comment add "$issue" --content "Released ${sha:0:7}. $commit_count commits, $migration_count migrations applied. $RUN_URL" >/dev/null
+multica issue comment add "$issue" --content "Released ${sha:0:7}: $released. $commit_count commits, $migration_count migrations applied. $RUN_URL" >/dev/null
 multica issue status "$issue" 'done' >/dev/null
 trap - EXIT
 echo "Released ${sha:0:7}"

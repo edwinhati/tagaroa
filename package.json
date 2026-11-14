@@ -42,6 +42,7 @@
     "changeset:status": "changeset status",
     "check-types": "turbo run check-types && bun run check-types:exploration",
     "check-types:exploration": "tsc --noEmit --strict --skipLibCheck --target es2023 --module esnext --moduleResolution bundler --types node --lib es2023,dom e2e.config.ts tests/exploration/*.e2e.ts",
+    "check:changesets": "bash scripts/ci/check-changesets.sh",
     "check:infra": "bash scripts/ci/check-infra.sh",
     "dev": "turbo run dev",
     "explore": "E2E_TELEMETRY_DISABLED=1 e2e explore",

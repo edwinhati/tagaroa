@@ -3,11 +3,18 @@
   "baseBranch": "main",
   "access": "restricted",
   "format": "oxfmt",
-  "privatePackages": { "version": true, "tag": true },
+  "privatePackages": {
+    "version": true,
+    "tag": true
+  },
   "changelog": "@changesets/cli/changelog",
   "commit": false,
   "ignore": [],
   "fixed": [],
   "linked": [],
-  "updateInternalDependencies": "patch"
+  "updateInternalDependencies": "patch",
+  "snapshot": {
+    "useCalculatedVersion": true,
+    "prereleaseTemplate": "{tag}-{commit-short}"
+  }
 }

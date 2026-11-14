@@ -10,14 +10,14 @@ short=${S:0:7}
 repo=edwinhati/tagaroa
 project=${MULTICA_PROJECT_ID:-2e3066f3-2cc4-4521-8444-729703e51986}
 
-# The prod sha is the image tag in the VM's .release.env. No prod yet, or no way
+# The prod sha is RELEASE_SHA in the VM's .release.env. No prod yet, or no way
 # to ask (no key on this runner), means the brief covers all of main; the second
 # case is said out loud so it is not mistaken for a first release.
 note=""
 P=""
 if [[ -n ${PROD_HOST:-} ]]; then
   if out=$(ssh -o BatchMode=yes -o ConnectTimeout=10 "$PROD_HOST" 'if [ -f /home/tagaroa/apps/.release.env ]; then cat /home/tagaroa/apps/.release.env; fi'); then
-    P=$(sed -n 's/^CORE_IMAGE=.*://p' <<<"$out")
+    P=$(sed -n 's/^RELEASE_SHA=//p' <<<"$out")
   else
     echo "Cannot read prod release state; refusing to create a misleading brief." >&2
     exit 1
@@ -26,6 +26,27 @@ fi
 if [[ -n $P ]]; then range="$P..$S"; tree=("$P" "$S"); else range=$S; tree=(4b825dc642cb6eb9a060e54bf8d69288fbee4904 "$S"); fi
 
 commits=$(git rev-list --count "$range")
+
+# Versions: a release ships each deployable's version at S (release.sh); pending
+# changesets are not in it until a release PR (`bun run release:version`) cuts them.
+version_at() { git show "$1:$2/package.json" 2>/dev/null | jq -r .version; }
+versions=""
+while read -r name dir; do
+  now=$(version_at "$S" "$dir") was=""
+  [[ -z $P ]] || was=$(version_at "$P" "$dir")
+  if [[ -z $was ]]; then versions+="- $name $now (first release)"
+  elif [[ $was == "$now" ]]; then versions+="- $name $now (unchanged)"
+  else versions+="- $name $was → $now"; fi
+  versions+=$'\n'
+done <<'DEPLOYABLES'
+core servers/core
+auth apps/auth
+admin apps/admin
+workspace apps/workspace
+engineering domains/engineering
+DEPLOYABLES
+pending=$(git ls-tree --name-only "$S" .changeset/ | grep -E '\.md$' | grep -vc '^\.changeset/README\.md$' || true)
+[[ $pending == 0 ]] || versions+=$'\n'"$pending pending changeset(s) are not in this release. To ship them, merge a release PR (\`bun run release:version\`) first."$'\n'
 
 # Migrations: only new files can be additive; an edited or removed one never is.
 migrations="" attention=""
@@ -78,6 +99,8 @@ ${note:+$note
 
 }${attention}${commits} commit(s), ${migration_count} migration(s), dev healthy since $(date -u +'%Y-%m-%d %H:%M UTC')
 
+**Versions**
+${versions}
 **Migrations**
 ${migrations}
 **Config**
