@@ -13,7 +13,7 @@ Complete ISSUE-7 before merging/enabling the deployment workflows:
 - Set GitHub secrets `MULTICA_TOKEN`, `PROD_SSH_KEY`, `PROD_SSH_KNOWN_HOSTS`,
   `OCIR_USERNAME`, `OCIR_TOKEN`, `REGISTRY_TOKEN` and `NETBIRD_SETUP_KEY`.
 - Set repository variable `OCIR_NAMESPACE` to the tenancy namespace. Keep OCIR's
-  `tagaroa/core` and `tagaroa/web` repositories private.
+  `tagaroa/*` repositories private.
 - Put the registry credentials in `/home/tagaroa/apps/.ocir`, mode 0600, owner
   `tagaroa`. Use shell-quoted assignments for `OCIR_USERNAME` and `OCIR_TOKEN`.
 - Configure the production `.env`, dedicated `tagaroa` database/role, Resend

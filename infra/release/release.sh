@@ -76,12 +76,12 @@ step=promote
 {
 printf '%s' "$REGISTRY_TOKEN" | skopeo login "$dev_registry" --username ci --password-stdin
 printf '%s' "$OCIR_TOKEN" | skopeo login sin.ocir.io --username "$OCIR_USERNAME" --password-stdin
-while read -r name dir; do
+while read -r name repo dir; do
   package=$(jq -r .name "$dir/package.json")
   version=$(jq -r .version "$dir/package.json")
   [[ "$version" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]] || { echo "$name has no released version at ${sha:0:7}: $version"; exit 1; }
-  src="docker://$dev_registry/tagaroa/$name:$version"
-  dest="sin.ocir.io/$OCIR_NAMESPACE/tagaroa/$name:$version"
+  src="docker://$dev_registry/tagaroa/$repo:$version"
+  dest="sin.ocir.io/$OCIR_NAMESPACE/tagaroa/$repo:$version"
   # An image without arm64 cannot run on the VM.
   arch=$(skopeo inspect --override-os linux --override-arch arm64 --format '{{.Architecture}}' "$src")
   [[ "$arch" == arm64 ]] || { echo "$name $version has no linux/arm64 image"; exit 1; }
@@ -94,11 +94,11 @@ while read -r name dir; do
   released+="${released:+, }$name $version"
   tags+=("$package@$version")
 done <<'DEPLOYABLES'
-core servers/core
-auth apps/auth
-admin apps/admin
-workspace apps/workspace
-engineering domains/engineering
+core core-service servers/core
+auth auth apps/auth
+admin admin apps/admin
+workspace workspace apps/workspace
+engineering engineering domains/engineering
 DEPLOYABLES
 } >> "$log" 2>&1
 step=deploy

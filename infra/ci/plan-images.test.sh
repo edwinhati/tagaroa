@@ -27,7 +27,7 @@ cd "$tmp"
 value() { sed -n "s/^$1=//p" "$GITHUB_OUTPUT"; }
 
 # Released core, admin and workspace exist; engineering's 0.1.0 was never built.
-printf 'registry.test/tagaroa/%s:0.1.0\n' core admin workspace > "$KNOWN"
+printf 'registry.test/tagaroa/%s:0.1.0\n' core-service admin workspace > "$KNOWN"
 export GITHUB_OUTPUT="$tmp/out1"
 bash "$root/infra/ci/plan-images.sh" 2>/dev/null
 [[ $(value core) == "" ]]
