@@ -4,6 +4,7 @@ import { NestFactory } from "@nestjs/core";
 
 import { AppModule } from "./app.module";
 import type { AppEnv } from "./platform/config/env";
+import { bodyLimit } from "./platform/http/body-limit";
 
 export async function createApplication() {
   const logger =
@@ -20,6 +21,8 @@ export async function createApplication() {
     routeResolutionStrategy: "specificity",
   });
 
+  // Registered before init, so it runs ahead of every route, Better Auth's too.
+  app.use(bodyLimit);
   app.enableShutdownHooks();
   app.setGlobalPrefix("api");
 

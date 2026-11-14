@@ -12,7 +12,8 @@ concurrency:
   cancel-in-progress: false
 
 permissions:
-  contents: read
+  # release.sh pushes each released version's git tag (`@apps/auth@0.1.0`).
+  contents: write
   actions: read
 
 jobs:

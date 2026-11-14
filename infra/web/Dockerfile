@@ -1,45 +1,28 @@
-# Build context is the repo root: docker build -f infra/web/Dockerfile --build-arg VITE_...=... .
-# The SPAs bake their URLs in at build time, so this image is per-environment.
+# One image per front end; the build context is the repo root:
+#   docker build -f infra/web/Dockerfile --build-arg APP=apps/auth .
+#   docker build -f infra/web/Dockerfile --build-arg APP=domains/engineering --build-arg APP_PATH=/engineering .
+# No URLs are baked in: deployed, an app works them out from its own host
+# (packages/shell/src/urls.ts), so the same image runs in every environment.
+# The build stage runs on the build machine's platform and the runtime stage only
+# copies files, so a multi-platform build needs no emulation.
 FROM --platform=$BUILDPLATFORM oven/bun:1.4.4@sha256:1d22548f177f4ff38e0c15baa3c2c46c6c2060ba2d1bc573bb4720b407548f1d AS build
+ARG APP
 WORKDIR /repo
 # The root `prepare` script installs git hooks unless CI is set.
 ENV CI=1
 COPY . .
 RUN bun install --frozen-lockfile
-
-# Every variable is passed to all four builds; an app ignores the ones it does
-# not read. Values come from each app's .env.example.
-ARG VITE_AUTH_BASE_URL
-ARG VITE_AUTH_URL
-ARG VITE_WORKSPACE_URL
-ARG VITE_ADMIN_URL
-ARG VITE_POST_SIGNIN_URL
-ARG VITE_TRUSTED_REDIRECT_ORIGINS
-ENV VITE_AUTH_BASE_URL=$VITE_AUTH_BASE_URL \
-    VITE_AUTH_URL=$VITE_AUTH_URL \
-    VITE_WORKSPACE_URL=$VITE_WORKSPACE_URL \
-    VITE_ADMIN_URL=$VITE_ADMIN_URL \
-    VITE_POST_SIGNIN_URL=$VITE_POST_SIGNIN_URL \
-    VITE_TRUSTED_REDIRECT_ORIGINS=$VITE_TRUSTED_REDIRECT_ORIGINS
-RUN test -n "$VITE_AUTH_BASE_URL" && test -n "$VITE_AUTH_URL" \
- && for app in apps/auth apps/admin apps/workspace domains/engineering; do \
-      (cd "$app" && bun run build) || exit 1; \
-    done
-# The Caddyfile reads these into each app's script-src.
-RUN mkdir /csp \
- && for app in apps/auth apps/admin apps/workspace domains/engineering; do \
-      bun infra/web/inline-script-hashes.ts "$app/dist/client/_shell.html" > "/csp/${app#*/}" || exit 1; \
-    done
+RUN test -n "$APP" && cd "$APP" && bun run build
+# The Caddyfile reads these into the app's script-src.
+RUN bun infra/web/inline-script-hashes.ts "$APP/dist/client/_shell.html" > /csp
 # Brotli copies beside each file, which the Caddyfile serves as they are.
-RUN for app in apps/auth apps/admin apps/workspace domains/engineering; do \
-      bun infra/web/precompress.ts "$app/dist/client" || exit 1; \
-    done
+RUN bun infra/web/precompress.ts "$APP/dist/client"
 
 FROM caddy:2.11.9-alpine@sha256:0bbb055bda6793c999bde78b1b5ce3e89f829fb031af2cf50056ea1246559fee
+ARG APP
+ARG APP_PATH=""
+ENV APP_PATH=$APP_PATH
 COPY infra/web/Caddyfile /etc/caddy/Caddyfile
 COPY --from=build /csp /etc/caddy/csp
-COPY --from=build /repo/apps/auth/dist/client /srv/auth
-COPY --from=build /repo/apps/admin/dist/client /srv/admin
-COPY --from=build /repo/apps/workspace/dist/client /srv/workspace
-COPY --from=build /repo/domains/engineering/dist/client /srv/engineering
+COPY --from=build /repo/$APP/dist/client /srv$APP_PATH
 EXPOSE 80
