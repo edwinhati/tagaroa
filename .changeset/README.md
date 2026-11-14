@@ -39,8 +39,9 @@ promotion still uses the deployment workflow commit SHA and image digest.
 ## Changesets and the prod release brief
 
 They are independent. A prod release is a Multica issue labelled `release` whose
-brief names one full commit SHA that is already green on dev; setting it to In
-Progress approves it (`release-prod.yml`, `docs/ops/NOTES.md`). A changeset
+brief names one full commit SHA that is already green on dev;
+`bash infra/release/approve.sh` approves it and starts `release-prod.yml`
+(`docs/ops/workflows/release-prod.md`). A changeset
 never triggers, gates or replaces that approval, and `release:version` /
 `release:tag` never deploy anything. Use the changesets to write the changelog and
 version tags for what a release contains; mention the new tags in the brief if
