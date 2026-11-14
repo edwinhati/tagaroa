@@ -1,9 +1,10 @@
 name: Deploy dev
 
 # Every main commit that passes QA is running on dev a few minutes later. Docs-only
-# pushes skip QA, so they never deploy. Images are built on GitHub-hosted runners,
-# which join NetBird for the job to push to Artifact Keeper; dev is the DigitalOcean
-# droplet. Spec: docs/ops/workflows/deploy-dev.md
+# pushes skip QA, so they never deploy. One image per deployable, versioned by
+# changesets, is built on GitHub-hosted runners, which join NetBird for the job to
+# push to Artifact Keeper; dev is the DigitalOcean droplet.
+# Spec: docs/ops/workflows/deploy-dev.md
 on:
   workflow_run:
     workflows: [QA]
@@ -74,23 +75,55 @@ jobs:
             | jq -e '.workflow_runs | length > 0' >/dev/null
           echo "sha=$sha" >> "$GITHUB_OUTPUT"
 
-  # Everything prod will run is built here, once, and release.sh copies it by digest
-  # instead of rebuilding: core for both platforms (dev runs amd64, prod arm64) and
-  # prod's web image, which bakes in prod's URLs. Each runner builds its own platform
-  # natively. Single-platform pushes without attestations are joined by `docker manifest`.
-  build:
+  # Each deployable's version comes from changesets, and its image tag from its
+  # version (infra/ci/plan-images.sh): a pending changeset makes it X.Y.Z-alpha-<sha7>,
+  # none leaves it at its released X.Y.Z. Only tags the registry lacks are built, so a
+  # released version is built once, from the commit that set it, and release.sh copies
+  # that image to prod by digest.
+  plan:
     needs: sha
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    outputs:
+      core: ${{ steps.plan.outputs.core }}
+      apps: ${{ steps.plan.outputs.apps }}
+      release: ${{ steps.plan.outputs.release }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ needs.sha.outputs.sha }}
+          persist-credentials: false
+      - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2.2.0
+        with:
+          bun-version-file: package.json
+      - run: bun install --frozen-lockfile
+
+      - name: Join NetBird
+        env:
+          NETBIRD_SETUP_KEY: ${{ secrets.NETBIRD_SETUP_KEY }}
+        run: bash infra/ci/netbird-up.sh "$REGISTRY_ADDRESS"
+
+      - name: Plan images
+        id: plan
+        env:
+          SHA: ${{ needs.sha.outputs.sha }}
+          REGISTRY_TOKEN: ${{ secrets.REGISTRY_TOKEN }}
+        run: |
+          printf '%s' "$REGISTRY_TOKEN" | docker login "$REGISTRY" --username ci --password-stdin
+          bash infra/ci/plan-images.sh
+
+  # Core has native dependencies, so each platform is built on its own runner (dev runs
+  # amd64, prod arm64); deploy joins the two single-platform pushes with `docker manifest`.
+  build-core:
+    needs: [sha, plan]
+    if: needs.plan.outputs.core != ''
     strategy:
       matrix:
         include:
           - arch: amd64
             runner: ubuntu-24.04
-            web: web-dev
-            domain: dev.tagaroa.cc
           - arch: arm64
             runner: ubuntu-24.04-arm
-            web: web-prod
-            domain: tagaroa.cc
     runs-on: ${{ matrix.runner }}
     timeout-minutes: 45
     steps:
@@ -104,31 +137,63 @@ jobs:
           NETBIRD_SETUP_KEY: ${{ secrets.NETBIRD_SETUP_KEY }}
         run: bash infra/ci/netbird-up.sh "$REGISTRY_ADDRESS"
 
-      - name: Log in to the registry
+      - name: Build and push core
         env:
-          REGISTRY_TOKEN: ${{ secrets.REGISTRY_TOKEN }}
-        run: printf '%s' "$REGISTRY_TOKEN" | docker login "$REGISTRY" --username ci --password-stdin
-
-      - name: Build and push images
-        env:
-          SHA: ${{ needs.sha.outputs.sha }}
           ARCH: ${{ matrix.arch }}
-          WEB: ${{ matrix.web }}
-          DOMAIN: ${{ matrix.domain }}
+          VERSION: ${{ needs.plan.outputs.core }}
+          REGISTRY_TOKEN: ${{ secrets.REGISTRY_TOKEN }}
         run: |
+          printf '%s' "$REGISTRY_TOKEN" | docker login "$REGISTRY" --username ci --password-stdin
           docker buildx build --platform "linux/$ARCH" --provenance=false --sbom=false --push \
-            -f servers/core/Dockerfile -t "$REGISTRY/tagaroa/core:$SHA-$ARCH" .
-          docker buildx build --platform "linux/$ARCH" --push \
-            -f infra/web/Dockerfile -t "$REGISTRY/tagaroa/$WEB:$SHA" \
-            --build-arg "VITE_AUTH_BASE_URL=https://$DOMAIN" \
-            --build-arg "VITE_AUTH_URL=https://auth.$DOMAIN" \
-            --build-arg "VITE_WORKSPACE_URL=https://app.$DOMAIN" \
-            --build-arg "VITE_ADMIN_URL=https://admin.$DOMAIN" \
-            --build-arg "VITE_POST_SIGNIN_URL=https://app.$DOMAIN" \
-            --build-arg "VITE_TRUSTED_REDIRECT_ORIGINS=https://app.$DOMAIN,https://admin.$DOMAIN" .
+            -f servers/core/Dockerfile -t "$REGISTRY/tagaroa/core:$VERSION-$ARCH" .
+
+  # One image per front end, for both platforms. Only the build stage runs code, on
+  # this runner's platform, so the arm64 image needs no emulation; the second build
+  # reuses the first one's stages.
+  build-apps:
+    needs: [sha, plan]
+    if: needs.plan.outputs.apps != '[]'
+    strategy:
+      matrix:
+        include: ${{ fromJSON(needs.plan.outputs.apps) }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ needs.sha.outputs.sha }}
+          persist-credentials: false
+
+      - name: Join NetBird
+        env:
+          NETBIRD_SETUP_KEY: ${{ secrets.NETBIRD_SETUP_KEY }}
+        run: bash infra/ci/netbird-up.sh "$REGISTRY_ADDRESS"
+
+      - name: Build and push ${{ matrix.name }}
+        env:
+          NAME: ${{ matrix.name }}
+          DIR: ${{ matrix.dir }}
+          APP_PATH: ${{ matrix.path }}
+          VERSION: ${{ matrix.version }}
+          REGISTRY_TOKEN: ${{ secrets.REGISTRY_TOKEN }}
+        run: |
+          printf '%s' "$REGISTRY_TOKEN" | docker login "$REGISTRY" --username ci --password-stdin
+          image="$REGISTRY/tagaroa/$NAME:$VERSION"
+          for arch in amd64 arm64; do
+            docker buildx build --platform "linux/$arch" --provenance=false --sbom=false --push \
+              -f infra/web/Dockerfile --build-arg "APP=$DIR" --build-arg "APP_PATH=$APP_PATH" \
+              -t "$image-$arch" .
+          done
+          docker manifest create "$image" "$image-amd64" "$image-arm64"
+          docker manifest push --purge "$image"
 
   deploy:
-    needs: [sha, build]
+    needs: [sha, plan, build-core, build-apps]
+    # A build with nothing to build is skipped, which must not skip the deploy.
+    if: >-
+      !cancelled() && needs.plan.result == 'success' &&
+      contains(fromJSON('["success","skipped"]'), needs.build-core.result) &&
+      contains(fromJSON('["success","skipped"]'), needs.build-apps.result)
     runs-on: ubuntu-24.04
     timeout-minutes: 20
     steps:
@@ -143,19 +208,20 @@ jobs:
         run: bash infra/ci/netbird-up.sh "$REGISTRY_ADDRESS"
 
       - name: Join core's platforms
+        if: needs.plan.outputs.core != ''
         env:
-          SHA: ${{ needs.sha.outputs.sha }}
+          VERSION: ${{ needs.plan.outputs.core }}
           REGISTRY_TOKEN: ${{ secrets.REGISTRY_TOKEN }}
         run: |
           printf '%s' "$REGISTRY_TOKEN" | docker login "$REGISTRY" --username ci --password-stdin
-          core="$REGISTRY/tagaroa/core:$SHA"
+          core="$REGISTRY/tagaroa/core:$VERSION"
           docker manifest create "$core" "$core-amd64" "$core-arm64"
           docker manifest push --purge "$core"
 
       # The droplet pulls from the registry over its own NetBird link.
       - name: Deploy
         env:
-          SHA: ${{ needs.sha.outputs.sha }}
+          RELEASE: ${{ needs.plan.outputs.release }}
           DEV_SSH_KEY: ${{ secrets.DEV_SSH_KEY }}
           DEV_SSH_KNOWN_HOSTS: ${{ secrets.DEV_SSH_KNOWN_HOSTS }}
         run: |
@@ -163,10 +229,11 @@ jobs:
           printf '%s\n' "$DEV_SSH_KEY" > ~/.ssh/id_ed25519
           printf '%s\n' "$DEV_SSH_KNOWN_HOSTS" > ~/.ssh/known_hosts
           chmod 600 ~/.ssh/id_ed25519 ~/.ssh/known_hosts
+          printf '%s\n' "$RELEASE"
           scp infra/dev/compose.yml infra/dev/deploy.sh infra/dev/onboard.sh infra/dev/smoke.sh "$DEV_HOST:$APPS_DIR/"
-          # The refs hold only the fixed registry and a hex sha.
+          # APPS_DIR is a fixed path; the release travels on stdin.
           # shellcheck disable=SC2029
-          ssh "$DEV_HOST" "sh $APPS_DIR/deploy.sh '$REGISTRY/tagaroa/core:$SHA' '$REGISTRY/tagaroa/web-dev:$SHA'"
+          ssh "$DEV_HOST" "sh $APPS_DIR/deploy.sh" <<< "$RELEASE"
 
       - name: Smoke check
         run: |

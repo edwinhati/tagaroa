@@ -85,8 +85,8 @@ Raw notes on where Tagaroa runs and the tools around it. Workflow specs live in
   so `SESSION_POLICY.concurrentSessions` is unaffected. Local dev keeps the door same-origin
   through Vite (Brave/Safari dropped the cookie from `localhost:8080`).
   - Checked: `infra/dev/images.test.sh` (cookie attributes, session read from the API
-    host) and `infra/dev/browsers.test.sh <core-image>`, which builds a web image for
-    `*.dev.localtest.me`, puts HTTPS in front and signs in through the door in
+    host) and `infra/dev/browsers.test.sh <core-image>`, which builds the four app
+    images, serves them as `*.dev.localtest.me` behind HTTPS and signs in through the door in
     Chromium, Firefox and WebKit.
   - Rejected: `Domain=tagaroa.cc` (sends prod tokens to every host under the zone; a
     stolen one is account takeover for up to 7 days, `bearer()` accepts it with no
@@ -127,11 +127,16 @@ Raw notes on where Tagaroa runs and the tools around it. Workflow specs live in
   job (`infra/ci/netbird-up.sh`). The CT 105 self-hosted runner was retired in
   ISSUE-117.
 - Prod images must be multi-arch (amd64 for dev, arm64 for prod).
+- One image per deployable since ISSUE-118: core, auth, admin, workspace and
+  engineering, each versioned independently by Changesets (`.changeset/README.md`).
+  Dev runs `X.Y.Z-alpha-<sha7>` for pending changesets, prod the released `X.Y.Z`.
+  The apps work out their URLs from the host, so one image runs everywhere.
 - Registries: dev images in Artifact Keeper on the OCI VM
   (`registry.engineering.tagaroa.cc`, NetBird only, `infra/oci/artifact-keeper/`). Prod
   images in OCI Container Registry (Singapore), pulled by the VM locally.
 - Ingress: every hostname is a Pangolin resource. Prod: on the OCI VM's local site,
-  public. Dev: site "DigitalOcean Droplet SG" → `tagaroa-dev-web-1:80`, VPN-only (NetBird),
+  public. Dev: site "DigitalOcean Droplet SG" → `tagaroa-dev-<app>-1:80` per host, with
+  `app.`'s `/engineering` and the API's `/api` routed by path, VPN-only (NetBird),
   same rule shape as Multica's web pages.
 - Dev deploys only after the QA workflow succeeds on that `main` commit. Docs-only
   pushes skip QA, so they never deploy (nothing deployable changed).

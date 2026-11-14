@@ -1,4 +1,10 @@
 import { createWorkspaceAuthClient } from "@repo/shell/create-auth-client";
+import {
+  ADMIN_URL,
+  CORE_URL,
+  IS_DEPLOYED,
+  WORKSPACE_URL,
+} from "@repo/shell/urls";
 
 /**
  * Deployed, the door calls core on the API host like every other app, so the
@@ -12,8 +18,11 @@ import { createWorkspaceAuthClient } from "@repo/shell/create-auth-client";
  * pointing at 8080 was enough to recreate that loop, hence DEV ignores it.
  */
 function authBaseURL(): string {
-  if (!import.meta.env.DEV && import.meta.env.VITE_AUTH_BASE_URL) {
-    return import.meta.env.VITE_AUTH_BASE_URL;
+  if (
+    !import.meta.env.DEV &&
+    (import.meta.env.VITE_AUTH_BASE_URL || IS_DEPLOYED)
+  ) {
+    return CORE_URL;
   }
   if (typeof window !== "undefined") return window.location.origin;
   return "http://localhost:3001";
@@ -31,23 +40,30 @@ const originOf = (value: string | undefined): string | undefined => {
   }
 };
 
+/** Deployed, the workspace; locally, whatever .env names. */
+const postSignInURL = (): string | undefined =>
+  import.meta.env.VITE_POST_SIGNIN_URL ??
+  (IS_DEPLOYED ? WORKSPACE_URL : undefined);
+
 /**
  * The workspace apps this door may hand someone to. They are separate origins
  * from this one, so a same-origin test would reject every real hand-off; an
  * allowlist is what keeps an open redirect out.
  */
 function trustedRedirectOrigins(): string[] {
-  const configured = import.meta.env.VITE_TRUSTED_REDIRECT_ORIGINS ?? "";
+  const configured =
+    import.meta.env.VITE_TRUSTED_REDIRECT_ORIGINS ??
+    (IS_DEPLOYED ? `${WORKSPACE_URL},${ADMIN_URL}` : "");
   return [
     window.location.origin,
-    originOf(import.meta.env.VITE_POST_SIGNIN_URL),
+    originOf(postSignInURL()),
     ...configured.split(",").map((origin) => originOf(origin.trim())),
   ].filter((origin): origin is string => origin !== undefined);
 }
 
 /** Where a signed-in operator is sent. `?redirect=` wins when its origin is trusted. */
 export function postSignInTarget(redirect?: string): string {
-  const fallback = import.meta.env.VITE_POST_SIGNIN_URL ?? "/";
+  const fallback = postSignInURL() ?? "/";
   if (!redirect) return fallback;
   try {
     const target = new URL(redirect, window.location.origin);

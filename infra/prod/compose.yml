@@ -1,8 +1,16 @@
+# Prod stack on the OCI VM, copied to /home/tagaroa/apps by every release.
+# `.env` stays on the box; `.release.env` (the sha and image refs) is written by deploy.sh.
+# Pangolin reaches core and each app on pangolin_default.
 name: tagaroa-prod
 x-core: &core
   image: ${CORE_IMAGE:?required}
   env_file: .env
-  networks: [postgres, egress, app]
+  networks: [postgres, egress, pangolin]
+x-app: &app
+  restart: unless-stopped
+  environment:
+    BASE_DOMAIN: tagaroa.cc
+  networks: [pangolin]
 services:
   migrate:
     <<: *core
@@ -13,17 +21,19 @@ services:
   core:
     <<: *core
     restart: unless-stopped
-  web:
-    image: ${WEB_IMAGE:?required}
-    restart: unless-stopped
-    environment:
-      BASE_DOMAIN: tagaroa.cc
-    networks: [app, pangolin]
-    depends_on:
-      core: { condition: service_healthy }
+  auth:
+    <<: *app
+    image: ${AUTH_IMAGE:?required}
+  admin:
+    <<: *app
+    image: ${ADMIN_IMAGE:?required}
+  workspace:
+    <<: *app
+    image: ${WORKSPACE_IMAGE:?required}
+  engineering:
+    <<: *app
+    image: ${ENGINEERING_IMAGE:?required}
 networks:
-  app:
-    internal: true
   postgres:
     external: true
     name: postgres_backend

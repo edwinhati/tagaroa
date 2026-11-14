@@ -1,27 +1,22 @@
-# Replaces Turborepo's microfrontends proxy, which is dev-server only.
-# Pangolin terminates TLS and forwards the original Host, so plain HTTP here.
+# Serves one app per image (infra/web/Dockerfile). Pangolin terminates TLS and
+# routes each host to its own container, so plain HTTP on :80 and any Host.
+# APP_PATH is the app's base path: empty for apps at a host's root,
+# /engineering for that domain, which Pangolin sends app.<base>/engineering* to.
 {
 	auto_https off
 	admin off
-	# Only Pangolin reaches this container, from a private address. Trusting it
-	# makes reverse_proxy append that hop to X-Forwarded-For instead of replacing
-	# the header, so core can still see the client (AUTH_TRUSTED_PROXIES).
-	servers {
-		trusted_proxies static private_ranges
-		trusted_proxies_strict
-	}
 }
 
-# {args[0]} names the app; the web image writes its inline-script hashes to
-# /etc/caddy/csp/<app> at build time (infra/web/inline-script-hashes.ts).
-(spa) {
+:80 {
+	root * /srv
 	# Brotli is precompressed at build time (infra/web/precompress.ts) and served
 	# as is; encode covers clients without Brotli and files with no copy.
 	encode zstd gzip
-	# Nothing frames these apps, and admin must never be framed.
+	# Nothing frames these apps, and admin must never be framed. The image writes
+	# its inline-script hashes to /etc/caddy/csp (infra/web/inline-script-hashes.ts).
 	# HSTS leaves out includeSubDomains until ops confirm every host is HTTPS.
 	header {
-		Content-Security-Policy "default-src 'self'; script-src 'self' {file./etc/caddy/csp/{args[0]}}; style-src 'self' 'unsafe-inline'; img-src 'self' data:; font-src 'self' data:; connect-src 'self' https://{$BASE_DOMAIN}:*; frame-src 'self'; frame-ancestors 'none'; base-uri 'self'; form-action 'self'; object-src 'none'"
+		Content-Security-Policy "default-src 'self'; script-src 'self' {file./etc/caddy/csp}; style-src 'self' 'unsafe-inline'; img-src 'self' data:; font-src 'self' data:; connect-src 'self' https://{$BASE_DOMAIN}:*; frame-src 'self'; frame-ancestors 'none'; base-uri 'self'; form-action 'self'; object-src 'none'"
 		X-Frame-Options "DENY"
 		Referrer-Policy "strict-origin-when-cross-origin"
 		X-Content-Type-Options "nosniff"
@@ -29,7 +24,7 @@
 		-Server
 	}
 	# Hashed build output: a missing one is a 404, never the app shell.
-	handle /assets/* {
+	handle {$APP_PATH}/assets/* {
 		header Cache-Control "public, max-age=31536000, immutable"
 		file_server {
 			precompressed br
@@ -38,45 +33,9 @@
 	# TanStack Start's SPA mode emits _shell.html, not index.html.
 	handle {
 		header Cache-Control "no-store"
-		try_files {path} /_shell.html
+		try_files {path} {$APP_PATH}/_shell.html
 		file_server {
 			precompressed br
 		}
-	}
-}
-
-http://auth.{$BASE_DOMAIN} {
-	root * /srv/auth
-	import spa auth
-}
-
-http://admin.{$BASE_DOMAIN} {
-	root * /srv/admin
-	import spa admin
-}
-
-http://app.{$BASE_DOMAIN} {
-	# Engineering is built with base /engineering, so its assets live there too.
-	handle /engineering* {
-		uri strip_prefix /engineering
-		root * /srv/engineering
-		import spa engineering
-	}
-	handle {
-		root * /srv/workspace
-		import spa workspace
-	}
-}
-
-# The API shares the bare domain: tagaroa.cc/api, dev.tagaroa.cc/api.
-http://{$BASE_DOMAIN} {
-	handle /api/* {
-		request_body {
-			max_size 10MB
-		}
-		reverse_proxy core:8080
-	}
-	handle {
-		respond 404
 	}
 }
