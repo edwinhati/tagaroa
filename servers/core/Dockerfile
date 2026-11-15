@@ -38,20 +38,25 @@ COPY --from=prune /pruned/runtime/json/ .
 RUN bun install --frozen-lockfile --production
 COPY --from=prune /pruned/runtime/full/ .
 
-FROM oven/bun:1.4.4-slim@sha256:1846adf22496bd711036aae8be147e57bdebbaea2e5264e3e0b5af1db187d9a4
+# Distroless: Bun, glibc and CA certificates, with no shell or OS packages to patch.
+FROM oven/bun:1.4.4-distroless@sha256:153a951ae40106e125898103e6e990ee0f38e6aee7f561029e26cf9fbed23470
+# Its entrypoint is bun; cleared so commands name bun themselves, as deploys and
+# onboarding run them (`bun dist/migrate.js`, `bun scripts/bootstrap-admin.ts`).
+ENTRYPOINT []
 ENV NODE_ENV=production
 WORKDIR /repo/servers/core
-COPY --from=deps --chown=bun:bun /repo/node_modules /repo/node_modules
-COPY --from=deps --chown=bun:bun /repo/packages/contracts /repo/packages/contracts
-COPY --from=deps --chown=bun:bun /repo/packages/email /repo/packages/email
-COPY --from=deps --chown=bun:bun /repo/servers/core/node_modules ./node_modules
-COPY --from=deps --chown=bun:bun /repo/servers/core/package.json ./package.json
-COPY --from=build --chown=bun:bun /repo/servers/core/dist ./dist
-COPY --from=deps --chown=bun:bun /repo/servers/core/drizzle ./drizzle
-COPY --from=deps --chown=bun:bun /repo/servers/core/scripts ./scripts
-COPY --from=deps --chown=bun:bun /repo/servers/core/src ./src
-USER bun
+COPY --from=deps --chown=nonroot:nonroot /repo/node_modules /repo/node_modules
+COPY --from=deps --chown=nonroot:nonroot /repo/packages/contracts /repo/packages/contracts
+COPY --from=deps --chown=nonroot:nonroot /repo/packages/email /repo/packages/email
+COPY --from=deps --chown=nonroot:nonroot /repo/servers/core/node_modules ./node_modules
+COPY --from=deps --chown=nonroot:nonroot /repo/servers/core/package.json ./package.json
+COPY --from=build --chown=nonroot:nonroot /repo/servers/core/dist ./dist
+COPY --from=deps --chown=nonroot:nonroot /repo/servers/core/drizzle ./drizzle
+COPY --from=deps --chown=nonroot:nonroot /repo/servers/core/scripts ./scripts
+COPY --from=deps --chown=nonroot:nonroot /repo/servers/core/src ./src
+USER nonroot
 EXPOSE 8080
+# Exec form: there is no shell to run a string.
 HEALTHCHECK --interval=15s --timeout=5s --start-period=30s --retries=5 \
-  CMD bun -e "fetch('http://127.0.0.1:8080/api/health/live').then(r=>process.exit(r.ok?0:1),()=>process.exit(1))"
+  CMD ["bun", "-e", "fetch('http://127.0.0.1:8080/api/health/live').then(r=>process.exit(r.ok?0:1),()=>process.exit(1))"]
 CMD ["bun", "dist/main.js"]
