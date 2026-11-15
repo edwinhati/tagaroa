@@ -54,8 +54,10 @@ environment.
      build` in `servers/core`. A second `turbo prune --production` tree gets the production install.
      Both installs see only core's workspaces, so a change anywhere else (docs, another
      app) reuses them from the layer cache.
-   - Runtime stage `oven/bun:<version>-slim`: `dist/`, production dependencies, `drizzle/`
-     (migration files) and `scripts/`. Default command `bun dist/main.js`. Non-root user.
+   - Runtime stage `oven/bun:<version>-distroless` (Bun, glibc and CA certificates; no
+     shell or OS packages): `dist/`, production dependencies, `drizzle/` (migration files)
+     and `scripts/`. Its `bun` entrypoint is cleared, so every command names `bun` itself;
+     default command `bun dist/main.js`. Runs as `nonroot`.
    - `servers/core/src/migrate.ts` (compiled into `dist/migrate.js`) applies
      `drizzle/` with drizzle-orm's migrator on the same driver the app uses, then exits.
      `drizzle-kit` stays a dev dependency and is not in the image.
