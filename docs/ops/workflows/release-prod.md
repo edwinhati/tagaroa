@@ -80,8 +80,8 @@ oldest. For it:
      differs from its source.
    - Look up the tenancy namespace once and record it in `../NOTES.md`.
 3. **Deploy** over SSH as `tagaroa@168.107.65.35` (key in secret `PROD_SSH_KEY`, host key
-   pinned in `PROD_SSH_KNOWN_HOSTS`): copy `infra/prod/compose.yml` and
-   `infra/prod/deploy.sh` to `/home/tagaroa/apps`, then feed `deploy.sh` the release
+   pinned in `PROD_SSH_KNOWN_HOSTS`): copy `infra/prod/compose.yml`,
+   `infra/prod/deploy.sh` and `infra/prod/onboard.sh` to `/home/tagaroa/apps`, then feed `deploy.sh` the release
    on stdin: `RELEASE_SHA=<S>` and one OCIR image per deployable.
    Same steps and rollback as dev's `deploy.sh`, with these differences:
    - `docker login sin.ocir.io` with the token in `/home/tagaroa/apps/.ocir` before pull.
@@ -132,15 +132,28 @@ oldest. For it:
   container, as dev's (`deploy-dev.md`): `auth.` → `tagaroa-prod-auth-1:80`, `admin.` →
   `tagaroa-prod-admin-1:80`, `app.tagaroa.cc` → `/engineering` prefix to
   `tagaroa-prod-engineering-1:80` and the rest to `tagaroa-prod-workspace-1:80`, and
-  `tagaroa.cc` → `/api` prefix to `tagaroa-prod-core-1:8080`. Follow how Grafana or
-  Arcane are published there. SSO off; the app does its own
-  sign-in.
+  `tagaroa.cc` → `tagaroa-prod-core-1:8080` (the whole host, as dev). Follow how Grafana or
+  Arcane are published there. Pangolin SSO stays on while prod is being onboarded, so
+  nobody else reaches it; it comes off before the release that passes preflight
+  (below), since the app does its own sign-in.
 - **Resend:** prod webhook → `https://tagaroa.cc/api/notifications/webhooks/resend`.
-- **First admin:** after the first release, run `bootstrap-admin.ts` once on the VM
-  (see `deploy-dev.md`). Then follow `docs/security/access-control-rollout.md` for
-  named operators and a second super-admin.
-- **First release:** there is no prod yet, so the first brief covers all of `main`.
-  Approve it like any other.
+- **First release:** there is no prod yet, so the first brief covers all of `main`, and
+  prod's database has no operators, so the preflight stops it once:
+  1. Approve the brief. The run promotes every image to OCIR, then deploy.sh stops at
+     preflight `independent-recovery-operators` and the brief goes **Blocked**.
+  2. On the VM, as `tagaroa` in `/home/tagaroa/apps`, run
+     `sh onboard.sh you@example.com < release`, where `release` holds the six lines the
+     run deployed (`RELEASE_SHA=<S>` and
+     `<NAME>_IMAGE=sin.ocir.io/<namespace>/tagaroa/<repo>:<version>`). It migrates,
+     starts the stack without preflight, and prints the first super-admin's temporary
+     password.
+  3. Sign in at `https://auth.tagaroa.cc` (through Pangolin SSO), change the password and
+     enrol MFA; then add a second super-admin and a separate requester, each past
+     their own password change and MFA (`docs/security/access-control-rollout.md`).
+  4. Turn Pangolin SSO off on the four prod hosts: the operators now guard the app, and
+     the release's public checks run from GitHub, outside SSO.
+  5. Set the brief back to **Todo** and run `approve.sh` again. This time the preflight
+     passes, the release records `.release.env`, and the public checks pass.
 
 ## Secrets (GitHub repo secrets)
 
