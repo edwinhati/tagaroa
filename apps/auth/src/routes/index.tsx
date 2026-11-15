@@ -4,9 +4,11 @@ import { lazy, Suspense, useState } from "react";
 
 import { AuthShell, Panel, ScreenHeading } from "../components/auth-shell";
 import { ChoosePasswordStep } from "../components/choose-password-step";
+import { HandBackStep } from "../components/hand-back-step";
 import { SignInStep } from "../components/sign-in-step";
 import { TwoFactorStep } from "../components/two-factor-step";
 import { authClient, postSignInTarget } from "../lib/auth-client";
+import { signedOAuthQuery } from "../lib/oauth";
 import { sessionQueryOptions, signInDestination } from "../lib/session";
 
 const SecureAccountStep = lazy(async () => {
@@ -42,8 +44,10 @@ export const Route = createFileRoute("/")({
     const destination = signInDestination(
       await context.queryClient.ensureQueryData(sessionQueryOptions),
     );
+    // Another app (NetBird) sent the person here to sign in; they go back there.
+    const oauthQuery = signedOAuthQuery();
 
-    if (destination.to === "workspace") {
+    if (destination.to === "workspace" && !oauthQuery) {
       const target = postSignInTarget(search.redirect);
       // Without VITE_POST_SIGNIN_URL the target falls back to "/", which is this
       // page: bouncing there would loop, so the form renders instead.
@@ -54,7 +58,7 @@ export const Route = createFileRoute("/")({
 
     // Someone who signed in earlier and left before choosing a password comes
     // back to the second step, with no memory of what they typed.
-    return { initialDestination: destination.to };
+    return { initialDestination: destination.to, oauthQuery };
   },
   component: SignIn,
 });
@@ -66,18 +70,24 @@ export const Route = createFileRoute("/")({
  */
 function SignIn() {
   const { redirect } = Route.useSearch();
-  const { initialDestination } = Route.useRouteContext();
+  const { initialDestination, oauthQuery } = Route.useRouteContext();
 
   // null while the credentials step is showing. Otherwise the temporary password
   // to change away from, empty when we did not see it being typed.
   const [step, setStep] = useState<
-    "sign-in" | "choose-password" | "two-factor" | "secure-account"
+    | "sign-in"
+    | "choose-password"
+    | "two-factor"
+    | "secure-account"
+    | "hand-back"
   >(
     initialDestination === "choose-password"
       ? "choose-password"
       : initialDestination === "secure-account"
         ? "secure-account"
-        : "sign-in",
+        : initialDestination === "workspace" && oauthQuery
+          ? "hand-back"
+          : "sign-in",
   );
   const [temporaryPassword, setTemporaryPassword] = useState("");
   // The password typed on this page (sign-in or the one just chosen), so
@@ -89,9 +99,13 @@ function SignIn() {
   const [sessionToken, setSessionToken] = useState("");
 
   function leaveForWorkspace() {
-    window.location.assign(postSignInTarget(redirect));
+    if (oauthQuery) setStep("hand-back");
+    else window.location.assign(postSignInTarget(redirect));
   }
 
+  if (step === "hand-back" && oauthQuery) {
+    return <HandBackStep query={oauthQuery} />;
+  }
   if (step === "two-factor") {
     return <TwoFactorStep onDone={leaveForWorkspace} />;
   }
@@ -110,13 +124,14 @@ function SignIn() {
       <ChoosePasswordStep
         sessionToken={sessionToken}
         temporaryPassword={temporaryPassword}
-        onDone={async (chosenPassword) => {
+        onDone={async (chosenPassword, renewedToken) => {
           setPassword(chosenPassword);
+          setSessionToken(renewedToken);
           const { data } = await authClient.getSession(
-            sessionToken
+            renewedToken
               ? {
                   fetchOptions: {
-                    headers: { Authorization: `Bearer ${sessionToken}` },
+                    headers: { Authorization: `Bearer ${renewedToken}` },
                   },
                 }
               : undefined,

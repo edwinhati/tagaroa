@@ -73,7 +73,7 @@ Raw notes on where Tagaroa runs and the tools around it. Workflow specs live in
 - Migrations are explicit (`drizzle-kit migrate`, files in `servers/core/drizzle`), never
   at startup. `docs/security/access-control-rollout.md`: migrate before deploying app changes.
 - Core env: `servers/core/.env.example`. Production requires HTTPS `TRUSTED_ORIGINS`,
-  `PASSKEY_ORIGINS`, `PASSKEY_RP_ID`; an unconfigured notification channel fails loudly.
+  `PASSKEY_ORIGINS`, `PASSKEY_RP_ID`, and `SIGN_IN_URL` (the door, on a trusted origin); an unconfigured notification channel fails loudly.
 - Session cookies (ISSUE-16, ISSUE-30). In production mode every Better Auth cookie is
   host-only on the API host, `__Host-better-auth.*` (`Secure`, `Path=/`, no `Domain`):
   `dev.tagaroa.cc` on dev, `tagaroa.cc` on prod. The browser sends it to that exact host

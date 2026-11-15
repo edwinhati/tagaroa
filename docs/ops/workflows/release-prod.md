@@ -129,6 +129,7 @@ oldest. For it:
   `BETTER_AUTH_URL=https://tagaroa.cc`,
   `TRUSTED_ORIGINS=https://auth.tagaroa.cc,https://admin.tagaroa.cc,https://app.tagaroa.cc`,
   `PASSKEY_ORIGINS=https://auth.tagaroa.cc,https://app.tagaroa.cc`, `PASSKEY_RP_ID=tagaroa.cc`,
+  `SIGN_IN_URL=https://auth.tagaroa.cc`,
   prod Resend key, `RESEND_FROM=Tagaroa <no-reply@tagaroa.cc>`, its own
   `RESEND_WEBHOOK_SECRET`, `NOTIFICATION_WEBHOOK_URL` on `tagaroa.cc`.
 - **Pangolin:** four public resources on the OCI VM's local site, each to its
@@ -145,6 +146,20 @@ oldest. For it:
   Pangolin SSO while prod is being onboarded, so nobody else reaches it; SSO comes off
   before the release that passes preflight (below), since the app does its own sign-in.
 - **Resend:** prod webhook → `https://tagaroa.cc/api/notifications/webhooks/resend`.
+- **NetBird sign-in:** `vpn.tagaroa.cc` signs people in with Tagaroa over OIDC (issuer
+  `https://tagaroa.cc/api/auth`, discovery and every endpoint under the public
+  `/api/auth/*`). Any active account may sign in; NetBird holds new users for approval
+  and owns their groups. Its own email/password login stays as the way in when prod is
+  down. Once per environment, after a release that carries it:
+  1. On the VM, as `tagaroa` in `/home/tagaroa/apps`, register the client and keep the
+     secret it prints once:
+     `docker exec tagaroa-prod-core-1 bun scripts/oauth-client.ts you@example.com NetBird https://vpn.tagaroa.cc/oauth2/callback`
+     (the email is a super-admin, who owns the client).
+  2. In the NetBird dashboard, Settings → Identity Providers → Add, type Generic OIDC,
+     name `Tagaroa`, issuer `https://tagaroa.cc/api/auth`, and that client ID and
+     secret. If the redirect URL it shows differs from the one above, register the
+     client again with it.
+  3. Turn on NetBird's user approval, so a first sign-in waits for an admin.
 - **First release:** there is no prod yet, so the first brief covers all of `main`, and
   prod's database has no operators, so the preflight stops it once:
   1. Approve the brief. The run promotes every image to OCIR, then deploy.sh stops at

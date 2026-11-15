@@ -27,7 +27,8 @@ export function ChoosePasswordStep({
 }: {
   sessionToken: string;
   temporaryPassword: string;
-  onDone: (password: string) => void | Promise<void>;
+  /** The new password, and the signed token of the session it starts. */
+  onDone: (password: string, sessionToken: string) => void | Promise<void>;
 }) {
   const [failure, setFailure] = useState<string | null>(null);
 
@@ -41,15 +42,25 @@ export function ChoosePasswordStep({
     onSubmit: async ({ value }) => {
       setFailure(null);
 
+      // Changing the password ends every session, this one too, and starts a
+      // new one. The old token now names a revoked session: sent again, core
+      // answers by clearing the new cookie, so the bearer fallback takes the
+      // new token from this response instead.
+      let renewedToken = "";
       const result = await attemptAuth(
         () =>
           authClient.changePassword({
             currentPassword: value.current,
             newPassword: value.password,
             revokeOtherSessions: true,
-            fetchOptions: sessionToken
-              ? { headers: { Authorization: `Bearer ${sessionToken}` } }
-              : undefined,
+            fetchOptions: {
+              ...(sessionToken && {
+                headers: { Authorization: `Bearer ${sessionToken}` },
+              }),
+              onSuccess: ({ response }) => {
+                renewedToken = response.headers.get("set-auth-token") ?? "";
+              },
+            },
           }),
         "That temporary password didn't match. Check your welcome email and try again.",
       );
@@ -59,7 +70,7 @@ export function ChoosePasswordStep({
         return;
       }
 
-      void onDone(value.password);
+      void onDone(value.password, renewedToken);
     },
   });
 

@@ -35,14 +35,8 @@ import { OnboardingHook } from "./onboarding.hook";
         repository: AuthRepository,
         config: ConfigService<AppEnv, true>,
         trail: AuditTrail,
-      ) => ({
-        // This library re-enables Express's parsers on every route outside
-        // /api/auth, so `@Body()` works here despite the app's own
-        // `bodyParser: false`. `rawBody` additionally keeps the undecoded JSON
-        // bytes on the request, which is the only thing a provider's webhook
-        // signature can be checked against.
-        bodyParser: { rawBody: true },
-        auth: createAuth(repository, {
+      ) => {
+        const auth = createAuth(repository, {
           baseURL: config.get("BETTER_AUTH_URL", { infer: true }),
           nodeEnv: config.get("NODE_ENV", { infer: true }),
           passkeyOrigins: config.get("PASSKEY_ORIGINS", { infer: true }),
@@ -52,10 +46,38 @@ import { OnboardingHook } from "./onboarding.hook";
           // another module's tables and the trail stays testable on its own.
           recordAudit: (event) => trail.record(event),
           secret: config.get("BETTER_AUTH_SECRET", { infer: true }),
+          signInURL: config.get("SIGN_IN_URL", { infer: true }),
           trustedOrigins: config.get("TRUSTED_ORIGINS", { infer: true }),
           trustedProxies: config.get("AUTH_TRUSTED_PROXIES", { infer: true }),
-        }),
-      }),
+        });
+        return {
+          // This library re-enables Express's parsers on every route outside
+          // /api/auth, so `@Body()` works here despite the app's own
+          // `bodyParser: false`. `rawBody` additionally keeps the undecoded JSON
+          // bytes on the request, which is the only thing a provider's webhook
+          // signature can be checked against.
+          bodyParser: { rawBody: true },
+          auth,
+          // OIDC discovery belongs under the issuer, `/api/auth`, where Better
+          // Auth keeps the document server-only; NetBird reads it from here.
+          middleware: (
+            req: { method: string; path: string },
+            res: { json: (body: unknown) => void },
+            next: () => void,
+          ) => {
+            if (
+              req.method !== "GET" ||
+              req.path !== "/api/auth/.well-known/openid-configuration"
+            ) {
+              next();
+              return;
+            }
+            void auth.api
+              .getOpenIdConfig()
+              .then((metadata) => res.json(metadata), next);
+          },
+        };
+      },
     }),
   ],
   providers: [

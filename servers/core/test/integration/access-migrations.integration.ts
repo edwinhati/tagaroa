@@ -34,6 +34,7 @@ test.skipIf(Boolean(process.env.TEST_DATABASE_URL))(
         TRUSTED_ORIGINS: "https://work.company.example",
         PASSKEY_ORIGINS: "https://work.company.example",
         PASSKEY_RP_ID: "company.example",
+        SIGN_IN_URL: "https://work.company.example",
         RESEND_API_KEY: "fixture-never-sent",
         RESEND_FROM: "fixture@company.example",
       });
@@ -207,6 +208,7 @@ test.skipIf(Boolean(process.env.TEST_DATABASE_URL))(
           TRUSTED_ORIGINS: production.TRUSTED_ORIGINS.join(","),
           PASSKEY_ORIGINS: production.PASSKEY_ORIGINS.join(","),
           PASSKEY_RP_ID: production.PASSKEY_RP_ID,
+          SIGN_IN_URL: production.SIGN_IN_URL,
           RESEND_API_KEY: production.RESEND_API_KEY,
           RESEND_FROM: production.RESEND_FROM,
           NOTIFICATION_WORKER: "1",

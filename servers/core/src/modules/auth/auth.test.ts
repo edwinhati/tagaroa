@@ -5,6 +5,7 @@ import { APIError, getIP } from "better-auth/api";
 import { defaultStatements } from "better-auth/plugins/admin/access";
 
 import {
+  admittedForSignIn,
   applyTemporaryPasswordLifecycle,
   type AuthConfig,
   createAuth,
@@ -176,6 +177,7 @@ const testConfig = {
   passkeyOrigins: "http://localhost:3001",
   passkeyRpId: "localhost",
   secret: "test-secret-with-at-least-thirty-two-characters",
+  signInURL: "http://localhost:3001",
   trustedOrigins: ["http://localhost:8080"],
 } satisfies AuthConfig;
 
@@ -199,7 +201,38 @@ test("exposes the Better Auth health endpoint", async () => {
     "have-i-been-pwned",
     "open-api",
     "organization",
+    "jwt",
+    "oauth-provider",
   ]);
+});
+
+// OIDC clients are an operator's script, never self-service on the public host.
+test("serves no OAuth client management over HTTP", async () => {
+  const auth = createAuth(createAuthMetadataRepository(), testConfig);
+  for (const path of ["/oauth2/create-client", "/oauth2/register", "/token"]) {
+    const response = await auth.handler(
+      new Request(`http://localhost:8080/api/auth${path}`, {
+        body: "{}",
+        headers: {
+          "content-type": "application/json",
+          origin: "http://localhost:8080",
+        },
+        method: "POST",
+      }),
+    );
+    expect(response.status, path).toBe(404);
+  }
+});
+
+test("hands another app only someone the apps would admit", () => {
+  expect(admittedForSignIn({ role: "user" })).toBe(true);
+  expect(admittedForSignIn({ mustChangePassword: true, role: "user" })).toBe(
+    false,
+  );
+  expect(admittedForSignIn({ role: "admin" })).toBe(false);
+  expect(admittedForSignIn({ role: "admin", twoFactorEnabled: true })).toBe(
+    true,
+  );
 });
 
 // Pangolin forwards the client, Caddy appends Pangolin's hop. Walking right to

@@ -20,6 +20,7 @@ const production = {
   TRUSTED_ORIGINS: "https://auth.company.example,https://work.company.example",
   PASSKEY_ORIGINS: "https://auth.company.example,https://work.company.example",
   PASSKEY_RP_ID: "company.example",
+  SIGN_IN_URL: "https://auth.company.example/",
 };
 
 test("production requires explicit HTTPS origins and a compatible passkey relying party", () => {
@@ -27,7 +28,12 @@ test("production requires explicit HTTPS origins and a compatible passkey relyin
     "https://auth.company.example",
     "https://work.company.example",
   ]);
-  for (const key of ["TRUSTED_ORIGINS", "PASSKEY_ORIGINS", "PASSKEY_RP_ID"]) {
+  for (const key of [
+    "TRUSTED_ORIGINS",
+    "PASSKEY_ORIGINS",
+    "PASSKEY_RP_ID",
+    "SIGN_IN_URL",
+  ]) {
     expect(() => validateEnv({ ...production, [key]: undefined })).toThrow();
   }
   for (const override of [
@@ -48,6 +54,8 @@ test("production requires explicit HTTPS origins and a compatible passkey relyin
     { PASSKEY_RP_ID: "localhost" },
     { PASSKEY_RP_ID: "example" },
     { PASSKEY_RP_ID: "auth.company.example.evil.example" },
+    // OIDC sends people here to sign in; it must be the door, not anywhere.
+    { SIGN_IN_URL: "https://evil.example/" },
   ]) {
     expect(() => validateEnv({ ...production, ...override })).toThrow();
   }

@@ -32,6 +32,8 @@ export const testEnv = {
   TWILIO_FROM: "+15550100",
   WHATSAPP_APP_SECRET: "test-app-secret",
   TRUSTED_ORIGINS: trustedOrigins,
+  // The door, which the e2e configs list first among the trusted origins.
+  SIGN_IN_URL: process.env.E2E_SIGN_IN_URL ?? trustedOrigins.split(",")[0]!,
 } as const;
 
 const run = (command: string[]) => {

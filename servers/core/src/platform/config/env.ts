@@ -11,6 +11,11 @@ export interface AppEnv {
   PASSKEY_ORIGINS: string[];
   PASSKEY_RP_ID: string;
   /**
+   * The door's sign-in page. Another app signing in with Tagaroa (OIDC) is sent
+   * here, and back once the person is signed in.
+   */
+  SIGN_IN_URL: string;
+  /**
    * The proxy hops in front of core whose `X-Forwarded-For` entries are
    * skipped when resolving a client IP. The rate limiter keys on that IP.
    */
@@ -177,6 +182,10 @@ export const validateEnv = (config: Record<string, unknown>): AppEnv => {
   }
   const passkeyRpId =
     optional(config, "PASSKEY_RP_ID") ?? new URL(passkeyOrigins[0]!).hostname;
+  const signInUrl = validUrl(
+    optional(config, "SIGN_IN_URL") ?? "http://localhost:3001/",
+    "SIGN_IN_URL",
+  );
 
   if (nodeEnv === "production") {
     required(config, "TRUSTED_ORIGINS");
@@ -187,6 +196,11 @@ export const validateEnv = (config: Record<string, unknown>): AppEnv => {
       throw new Error("PASSKEY_ORIGINS is required in production");
     }
     required(config, "PASSKEY_RP_ID");
+    required(config, "SIGN_IN_URL");
+    // The door calls core from this origin, so it must be a trusted one.
+    if (!trustedOrigins.includes(new URL(signInUrl).origin)) {
+      throw new Error("SIGN_IN_URL must be on a TRUSTED_ORIGINS origin");
+    }
     const auth = new URL(authUrl);
     if (auth.protocol !== "https:" || auth.username || auth.password) {
       throw new Error(
@@ -275,6 +289,7 @@ export const validateEnv = (config: Record<string, unknown>): AppEnv => {
     TRUSTED_ORIGINS: trustedOrigins,
     PASSKEY_ORIGINS: passkeyOrigins,
     PASSKEY_RP_ID: passkeyRpId,
+    SIGN_IN_URL: signInUrl,
     AUTH_TRUSTED_PROXIES: String(
       optional(config, "AUTH_TRUSTED_PROXIES") ?? PRIVATE_RANGES,
     )
