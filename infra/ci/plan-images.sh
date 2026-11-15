@@ -14,7 +14,10 @@
 # The snapshot rewrites package.json files; the job's checkout is thrown away.
 set -euo pipefail
 : "${SHA:?}" "${REGISTRY:?}" "${GITHUB_OUTPUT:?}"
-bunx changeset version --snapshot alpha >&2
+# Just after a release nothing is pending, and Changesets refuses to snapshot.
+if find .changeset -maxdepth 1 -name '*.md' ! -name README.md | grep -q .; then
+  bunx changeset version --snapshot alpha >&2
+fi
 
 release="RELEASE_SHA=$SHA"
 core="" apps="[]"

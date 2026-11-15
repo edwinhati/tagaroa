@@ -4,14 +4,16 @@ set -euo pipefail
 root=$(cd "$(dirname "$0")/../.." && pwd)
 tmp=$(mktemp -d)
 trap 'rm -rf "$tmp"' EXIT
-mkdir -p "$tmp/bin"
+mkdir -p "$tmp/bin" "$tmp/.changeset"
+touch "$tmp/.changeset/README.md" "$tmp/.changeset/pending.md"
 for dir in servers/core apps/auth apps/admin apps/workspace domains/engineering; do
   mkdir -p "$tmp/$dir"
   echo '{"version":"0.1.0"}' > "$tmp/$dir/package.json"
 done
-# The snapshot: auth has a pending changeset.
+# The snapshot: auth has a pending changeset. Like Changesets, it fails with none.
 cat > "$tmp/bin/bunx" <<'SH'
 #!/bin/sh
+[ -e .changeset/pending.md ] || { echo 'No unreleased changesets found.' >&2; exit 1; }
 echo '{"version":"0.1.1-alpha-abc1234"}' > apps/auth/package.json
 SH
 # The registry knows the tags listed in $KNOWN; $REGISTRY_DOWN makes every lookup fail.
@@ -44,8 +46,16 @@ export GITHUB_OUTPUT="$tmp/out2"
 bash "$root/infra/ci/plan-images.sh" 2>/dev/null
 [[ $(value core) == 0.1.0 ]]
 
+# A release just merged: nothing is pending, so every released version is built.
+rm .changeset/pending.md
+echo '{"version":"0.1.0"}' > apps/auth/package.json
+export GITHUB_OUTPUT="$tmp/out4"
+bash "$root/infra/ci/plan-images.sh" 2>/dev/null
+[[ $(value core) == 0.1.0 ]]
+[[ $(value apps | jq -r 'map(.version) | join(" ")') == '0.1.0 0.1.0 0.1.0 0.1.0' ]]
+
 # A registry that cannot answer stops the plan instead of rebuilding released tags.
 export GITHUB_OUTPUT="$tmp/out3" REGISTRY_DOWN=1
 if bash "$root/infra/ci/plan-images.sh" 2>/dev/null; then echo 'Planned builds with the registry down'; exit 1; fi
 [[ ! -s "$GITHUB_OUTPUT" ]]
-echo 'PASS: builds only missing tags, alpha for pending changesets, stops when the registry cannot answer'
+echo 'PASS: builds only missing tags, alpha for pending changesets, released versions after a release, stops when the registry cannot answer'
