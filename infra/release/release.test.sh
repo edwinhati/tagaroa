@@ -99,6 +99,7 @@ case "$*" in
   *'sed -n'*) echo bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb ;;
   *--rollback*) exit 0 ;;
   *deploy.sh*) cat > "$RELEASE_IN"; exit "${FAIL_DEPLOY:-0}" ;;
+  *'smoke.sh tagaroa-prod'*) exit "${FAIL_SMOKE:-0}" ;;
 esac
 SH
 cat > "$tmp/bin/curl" <<'SH'
@@ -161,4 +162,11 @@ export FAIL_DEPLOY=0 VERIFY_TYPE=text/plain
 if bash "$root/infra/release/release.sh"; then echo 'Bad public verification accepted'; exit 1; fi
 grep -q -- --rollback "$TRACE"
 grep -q 'issue status fixture-id blocked' "$TRACE"
-echo 'PASS: approved release, internal rollback preservation, public verification rollback'
+# A container that does not answer on the VM (the NetBird-only hosts) rolls back too.
+: > "$TRACE"
+export VERIFY_TYPE=text/html FAIL_SMOKE=1
+if bash "$root/infra/release/release.sh"; then echo 'Failed smoke check accepted'; exit 1; fi
+grep -q 'smoke.sh tagaroa-prod' "$TRACE"
+grep -q -- --rollback "$TRACE"
+grep -q 'issue status fixture-id blocked' "$TRACE"
+echo 'PASS: approved release, internal rollback preservation, public verification and smoke rollback'
