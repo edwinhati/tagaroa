@@ -132,7 +132,8 @@ One-time setup (needs root on `168.144.104.237`):
   `BETTER_AUTH_URL=https://dev.tagaroa.cc`,
   `TRUSTED_ORIGINS=https://auth.dev.tagaroa.cc,https://admin.dev.tagaroa.cc,https://app.dev.tagaroa.cc`,
   `PASSKEY_ORIGINS=https://auth.dev.tagaroa.cc,https://app.dev.tagaroa.cc`,
-  `PASSKEY_RP_ID=dev.tagaroa.cc`, `NOTIFICATION_WEBHOOK_URL=https://dev.tagaroa.cc/api/notifications/webhooks`
+  `PASSKEY_RP_ID=dev.tagaroa.cc`, `SIGN_IN_URL=https://auth.dev.tagaroa.cc`,
+  `NOTIFICATION_WEBHOOK_URL=https://dev.tagaroa.cc/api/notifications/webhooks`
   (confirm the exact shape `.env.example` expects), `RESEND_API_KEY` (dev key),
   `RESEND_FROM=Tagaroa Dev <dev-no-reply@tagaroa.cc>`, `RESEND_WEBHOOK_SECRET`.
   No Twilio, WhatsApp or Frappe in dev.

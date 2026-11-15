@@ -7,5 +7,6 @@ export const auth = createAuth(createAuthMetadataRepository(), {
   passkeyOrigins: "http://localhost:3001",
   passkeyRpId: "localhost",
   secret: "schema-generation-only-not-used-at-runtime",
+  signInURL: "http://localhost:3001",
   trustedOrigins: ["http://localhost:8080"],
 });

@@ -36,6 +36,7 @@ BETTER_AUTH_URL=https://dev.tagaroa.cc
 TRUSTED_ORIGINS=https://auth.dev.tagaroa.cc,https://admin.dev.tagaroa.cc,https://app.dev.tagaroa.cc
 PASSKEY_ORIGINS=https://auth.dev.tagaroa.cc,https://app.dev.tagaroa.cc
 PASSKEY_RP_ID=dev.tagaroa.cc
+SIGN_IN_URL=https://auth.dev.tagaroa.cc
 NOTIFICATION_WORKER=0
 ENV
 docker run --rm --network "$id" --env-file "$tmp/env" "$core_image" bun dist/migrate.js

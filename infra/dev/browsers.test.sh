@@ -45,6 +45,7 @@ BETTER_AUTH_URL=$api
 TRUSTED_ORIGINS=https://auth.dev.localtest.me:$port,https://admin.dev.localtest.me:$port,https://app.dev.localtest.me:$port
 PASSKEY_ORIGINS=https://auth.dev.localtest.me:$port,https://app.dev.localtest.me:$port
 PASSKEY_RP_ID=dev.localtest.me
+SIGN_IN_URL=https://auth.dev.localtest.me:$port
 NOTIFICATION_WORKER=0
 ENV
 docker run --rm --network "$id" --env-file "$tmp/env" "$core_image" bun dist/migrate.js >/dev/null

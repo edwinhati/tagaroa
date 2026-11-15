@@ -1,12 +1,15 @@
+import { oauthProvider } from "@better-auth/oauth-provider";
 import { passkey } from "@better-auth/passkey";
 import { asObject } from "@repo/contracts";
 import {
   ADMIN_ROLE_IDS,
   IDENTITY_ROLES,
+  isPrivilegedRole,
+  isSuperAdmin,
   PASSWORD_LENGTH,
   USER_ADDITIONAL_FIELDS,
 } from "@repo/contracts/identity";
-import { createAuthMiddleware } from "better-auth/api";
+import { APIError, createAuthMiddleware } from "better-auth/api";
 import { deleteSessionCookie } from "better-auth/cookies";
 import { betterAuth } from "better-auth/minimal";
 import { openAPI } from "better-auth/plugins";
@@ -14,6 +17,7 @@ import { admin } from "better-auth/plugins/admin";
 import { defaultAc } from "better-auth/plugins/admin/access";
 import { bearer } from "better-auth/plugins/bearer";
 import { haveIBeenPwned } from "better-auth/plugins/haveibeenpwned";
+import { jwt } from "better-auth/plugins/jwt";
 import { organization } from "better-auth/plugins/organization";
 import { twoFactor } from "better-auth/plugins/two-factor";
 
@@ -35,6 +39,8 @@ export interface AuthConfig {
   passkeyRpId: string;
   recordAudit?: (event: AuthAuditInput) => Promise<void>;
   secret: string;
+  /** The door's sign-in page, where OIDC sign-ins (NetBird) are sent. */
+  signInURL: string;
   trustedOrigins: string[];
   /** Proxy hops skipped, right to left, in `X-Forwarded-For`. */
   trustedProxies?: string[];
@@ -139,6 +145,32 @@ export const excessSessionTokens = (
     )
     .slice(limit)
     .map((session) => session.token);
+
+/**
+ * Whether another app may be handed this person through OIDC. The apps hold a
+ * session to the shell's admission rule (`isAdmitted`), but an OIDC client never
+ * sees the door, so core holds it here: a temporary password is replaced and a
+ * privileged role has MFA first, or the door finishes that before the client
+ * hears anything.
+ */
+export const admittedForSignIn = (user: Record<string, unknown>): boolean =>
+  user.mustChangePassword !== true &&
+  (!isPrivilegedRole(roleOf(user)) || user.twoFactorEnabled === true);
+
+const roleOf = (user: Record<string, unknown> | undefined) =>
+  typeof user?.role === "string" ? user.role : null;
+
+// Clients are registered by an operator with scripts/oauth-client.ts, never over
+// HTTP: no self-service registration, and no client CRUD on the public API host.
+const OAUTH_CLIENT_ROUTES = [
+  "/oauth2/register",
+  "/oauth2/create-client",
+  "/oauth2/get-client",
+  "/oauth2/get-clients",
+  "/oauth2/update-client",
+  "/oauth2/client/rotate-secret",
+  "/oauth2/delete-client",
+];
 
 const accessControlRoles = Object.fromEntries(
   IDENTITY_ROLES.map(({ id, permissions }) => [
@@ -261,7 +293,12 @@ export const createAuth = (repository: AuthRepository, config: AuthConfig) => {
     // Revoking one session takes its token, which no operator may hold, and it
     // never checks whose session it is. Core's
     // `POST /auth-management/sessions/:sessionId/revoke` replaces it.
-    disabledPaths: ["/admin/revoke-user-session"],
+    // The JWT plugin's session-to-JWT route; tokens come from /oauth2/token.
+    disabledPaths: [
+      "/admin/revoke-user-session",
+      "/token",
+      ...OAUTH_CLIENT_ROUTES,
+    ],
     databaseHooks: {
       session: {
         create: {
@@ -332,6 +369,39 @@ export const createAuth = (repository: AuthRepository, config: AuthConfig) => {
         allowUserToCreateOrganization: false,
         disableOrganizationDeletion: true,
         teams: { defaultTeam: { enabled: false }, enabled: true },
+      }),
+      // Signs ID tokens and publishes /jwks. RS256 is the one algorithm every
+      // OIDC client verifies; NetBird's Dex among them.
+      jwt({
+        disableSettingJwtHeader: true,
+        jwks: { keyPairConfig: { alg: "RS256", modulusLength: 2048 } },
+      }),
+      // Tagaroa as an OIDC provider (issuer `<BETTER_AUTH_URL>/api/auth`), so
+      // NetBird signs people in at the door. Every client is first-party; the
+      // door accepts consent for it rather than asking.
+      oauthProvider({
+        clientPrivileges: ({ user }) => isSuperAdmin(roleOf(user)),
+        consentPage: config.signInURL,
+        // Dex (NetBird) reads who signed in from the ID token, not userinfo.
+        customIdTokenClaims: ({ scopes, user }) => ({
+          ...(scopes.includes("email") && {
+            email: user.email,
+            email_verified: user.emailVerified,
+          }),
+          ...(scopes.includes("profile") && { name: user.name }),
+        }),
+        loginPage: config.signInURL,
+        postLogin: {
+          consentReferenceId: () => undefined,
+          page: config.signInURL,
+          shouldRedirect: ({ session, user }) => {
+            // An operator acting as someone never signs in elsewhere as them.
+            if (session.impersonatedBy) throw new APIError("FORBIDDEN");
+            return !admittedForSignIn(user);
+          },
+        },
+        resourcePrivileges: () => false,
+        scopes: ["openid", "profile", "email", "offline_access"],
       }),
     ],
     user: {
