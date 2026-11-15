@@ -81,7 +81,8 @@ oldest. For it:
    - Look up the tenancy namespace once and record it in `../NOTES.md`.
 3. **Deploy** over SSH as `tagaroa@168.107.65.35` (key in secret `PROD_SSH_KEY`, host key
    pinned in `PROD_SSH_KNOWN_HOSTS`): copy `infra/prod/compose.yml`,
-   `infra/prod/deploy.sh` and `infra/prod/onboard.sh` to `/home/tagaroa/apps`, then feed `deploy.sh` the release
+   `infra/prod/deploy.sh`, `infra/prod/onboard.sh` and `infra/dev/smoke.sh` to
+   `/home/tagaroa/apps`, then feed `deploy.sh` the release
    on stdin: `RELEASE_SHA=<S>` and one OCIR image per deployable.
    Same steps and rollback as dev's `deploy.sh`, with these differences:
    - `docker login sin.ocir.io` with the token in `/home/tagaroa/apps/.ocir` before pull.
@@ -91,9 +92,11 @@ oldest. For it:
    - Core and the four apps join the external network `pangolin_default` and publish
      no host port; the apps get env `BASE_DOMAIN=tagaroa.cc`. Compose project name
      `tagaroa-prod`.
-4. **Verify** from the runner through the public URLs:
-   `https://tagaroa.cc/api/health/live` → 200, and `/` on `auth.`, `admin.`, `app.`
-   → 200 HTML, `app.tagaroa.cc/engineering` → 200 HTML.
+4. **Verify:** on the VM, `smoke.sh tagaroa-prod` asks core and each app where Pangolin
+   reaches them (`/api/health/live` → 200 JSON, each app's `/` → 200 HTML). From the
+   runner, the two public URLs: `https://auth.tagaroa.cc/` → 200 HTML and
+   `https://tagaroa.cc/api/auth/ok` → 200 JSON. The other hosts are NetBird-only
+   (see "Pangolin" below), so the runner cannot reach them.
 5. **Tag** each released version on `S` with Changesets' tag name (`@apps/auth@0.1.0`)
    and push the new ones. A version already tagged keeps its first release's tag. Prod
    is out by now, so a failed push only warns.
@@ -132,10 +135,15 @@ oldest. For it:
   container, as dev's (`deploy-dev.md`): `auth.` → `tagaroa-prod-auth-1:80`, `admin.` →
   `tagaroa-prod-admin-1:80`, `app.tagaroa.cc` → `/engineering` prefix to
   `tagaroa-prod-engineering-1:80` and the rest to `tagaroa-prod-workspace-1:80`, and
-  `tagaroa.cc` → `tagaroa-prod-core-1:8080` (the whole host, as dev). Follow how Grafana or
-  Arcane are published there. Pangolin SSO stays on while prod is being onboarded, so
-  nobody else reaches it; it comes off before the release that passes preflight
-  (below), since the app does its own sign-in.
+  `tagaroa.cc` → `tagaroa-prod-core-1:8080` (the whole host, as dev).
+  Only `auth.` is public. On `tagaroa.cc`, rules let `/api/auth/*` (sign-in, MFA, SSO)
+  and `/api/notifications/webhooks/*` (Resend, signed) through and drop everything else.
+  `app.` and `admin.` carry the shared policy "Private ingress only". NetBird reaches
+  those three hosts through the private ingress on the VM
+  (`/home/docker/private-ingress`: `admin-prod` 172.25.251.26, `app-prod` .28,
+  `api-prod` .29), with NetBird resources and DNS records for them. `auth.` keeps
+  Pangolin SSO while prod is being onboarded, so nobody else reaches it; SSO comes off
+  before the release that passes preflight (below), since the app does its own sign-in.
 - **Resend:** prod webhook → `https://tagaroa.cc/api/notifications/webhooks/resend`.
 - **First release:** there is no prod yet, so the first brief covers all of `main`, and
   prod's database has no operators, so the preflight stops it once:
@@ -147,11 +155,12 @@ oldest. For it:
      `<NAME>_IMAGE=sin.ocir.io/<namespace>/tagaroa/<repo>:<version>`). It migrates,
      starts the stack without preflight, and prints the first super-admin's temporary
      password.
-  3. Sign in at `https://auth.tagaroa.cc` (through Pangolin SSO), change the password and
-     enrol MFA; then add a second super-admin and a separate requester, each past
-     their own password change and MFA (`docs/security/access-control-rollout.md`).
-  4. Turn Pangolin SSO off on the four prod hosts: the operators now guard the app, and
-     the release's public checks run from GitHub, outside SSO.
+  3. On NetBird, sign in at `https://auth.tagaroa.cc` (through Pangolin SSO), change the
+     password and enrol MFA; then, in `https://admin.tagaroa.cc`, add a second
+     super-admin and a separate requester, each past their own password change and MFA
+     (`docs/security/access-control-rollout.md`).
+  4. Turn Pangolin SSO off on `auth.tagaroa.cc`: the operators now guard the app, and
+     the release's public check of `auth.` runs from GitHub, outside SSO.
   5. Set the brief back to **Todo** and run `approve.sh` again. This time the preflight
      passes, the release records `.release.env`, and the public checks pass.
 

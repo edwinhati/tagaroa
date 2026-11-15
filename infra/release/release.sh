@@ -102,18 +102,21 @@ engineering engineering domains/engineering
 DEPLOYABLES
 } >> "$log" 2>&1
 step=deploy
-scp infra/prod/compose.yml infra/prod/deploy.sh infra/prod/onboard.sh "$host:/home/tagaroa/apps/" >> "$log" 2>&1
+# smoke.sh is dev's, run with the prod project name.
+scp infra/prod/compose.yml infra/prod/deploy.sh infra/prod/onboard.sh infra/dev/smoke.sh "$host:/home/tagaroa/apps/" >> "$log" 2>&1
 deployed=1
 ssh "$host" 'sh /home/tagaroa/apps/deploy.sh' <<< "$release" >> "$log" 2>&1
 step=verify
-for domain in auth.tagaroa.cc admin.tagaroa.cc app.tagaroa.cc tagaroa.cc; do
-  path=/; expected=text/html
-  if [[ "$domain" == tagaroa.cc ]]; then path=/api/health/live; expected=application/json; fi
+# Only auth and the API's sign-in routes are public; Pangolin blocks the rest, which
+# NetBird reaches through the private ingress. So every container is checked on the
+# VM, where Pangolin reaches it, and the public pair from here.
+ssh "$host" 'sh /home/tagaroa/apps/smoke.sh tagaroa-prod' >> "$log" 2>&1
+for check in "auth.tagaroa.cc/ text/html" "tagaroa.cc/api/auth/ok application/json"; do
+  read -r url expected <<< "$check"
   result=$(curl --retry 5 --retry-delay 2 --retry-all-errors --fail --silent --show-error \
-    -o /dev/null -w '%{http_code} %{content_type}' "https://$domain$path")
-  [[ "$result" == "200 $expected"* ]] || { echo "$domain smoke check failed: $result" >> "$log"; exit 1; }
+    -o /dev/null -w '%{http_code} %{content_type}' "https://$url")
+  [[ "$result" == "200 $expected"* ]] || { echo "$url public check failed: $result" >> "$log"; exit 1; }
 done
-curl --retry 5 --retry-all-errors --fail --silent --show-error -o /dev/null https://app.tagaroa.cc/engineering
 # Changesets' tag names (`changeset tag`), on the sha that shipped them; a version
 # already tagged keeps its first release's tag. Prod is out by now, so this only warns.
 push_tags() {
