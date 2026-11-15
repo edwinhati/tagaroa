@@ -5,7 +5,8 @@
 #
 # A shared package counts through every deployable that uses it (turbo's graph),
 # and infra/web through every app image. Tests, Markdown and the changesets
-# themselves do not count. A release PR, which consumes changesets, passes.
+# themselves do not count. A changeset may name only core and the apps. A release
+# PR, which consumes changesets, passes if it consumes all of them.
 # Files outside any workspace (root dependencies, CI) are not checked: name the
 # apps they should reach in a changeset yourself.
 #
@@ -16,7 +17,18 @@ deployables=" @servers/core @apps/auth @apps/admin @apps/workspace @domains/engi
 apps=(@apps/auth @apps/admin @apps/workspace @domains/engineering)
 changesets() { git diff --name-only "--diff-filter=$1" "$base" HEAD -- .changeset | grep -E '\.md$' | grep -v '^\.changeset/README\.md$' || true; }
 
-if [[ -n $(changesets D) ]]; then echo "Consumes changesets: a release PR."; exit 0; fi
+if [[ -n $(changesets D) ]]; then
+  # A changeset left pending keeps its apps on an alpha, so their released version
+  # is never built and prod cannot ship it. QA checks the PR merged into main, so
+  # this also catches one that landed after the release branch was cut.
+  left=$(git ls-tree --name-only HEAD .changeset/ | grep -E '\.md$' | grep -v '^\.changeset/README\.md$' || true)
+  if [[ -n $left ]]; then
+    echo "::error::This release leaves $(wc -l <<< "$left" | tr -d ' ') changeset(s) pending. Rebase on main and run \`bun run release:version\` again."
+    exit 1
+  fi
+  echo "Consumes every changeset: a release PR."
+  exit 0
+fi
 
 workspaces=$(turbo ls --output=json | jq -r '.packages.items[] | "\(.path)\t\(.name)"')
 direct=() reached=()
@@ -36,6 +48,14 @@ fi
 
 named=" $(changesets AM | while IFS= read -r f; do awk '/^---$/ { n++; next } n == 1' "$f"; done \
   | sed -nE 's/^"?([^":]+)"?: *(patch|minor|major).*/\1/p' | sort -u | tr '\n' ' ') "
+# Shared packages are not versioned (`ignore` in .changeset/config.json), and
+# Changesets refuses a changeset that mixes them with versioned ones.
+for name in $named; do
+  [[ $deployables == *" $name "* ]] || {
+    echo "::error::A changeset names $name, which is not versioned. Name only core and the apps it reaches."
+    exit 1
+  }
+done
 missing=()
 for name in $(printf '%s\n' ${reached[@]+"${reached[@]}"} | sort -u); do
   [[ $deployables == *" $name "* && $named != *" $name "* ]] && missing+=("$name")

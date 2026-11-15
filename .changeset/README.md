@@ -23,13 +23,14 @@ Agents can write `.changeset/<unique-name>.md` directly:
 ISSUE-12: Explain the change users will see.
 ```
 
-Name the consumers of a changed shared package too: a change to `@repo/shell`
-reaches every app that imports it. QA enforces this on pull requests
+Shared packages (`@repo/*`) are not versioned (`ignore` in `config.json`), so a
+changeset names only core and the apps: a change to `@repo/shell` names every app
+that imports it. QA enforces this on pull requests
 (`bun run check:changesets <base>`, `scripts/ci/check-changesets.sh`): a change to
 what core or an app is built from, directly, through a shared package or through
-`infra/web`, needs a changeset naming it. Tests, Markdown and changes outside any
-workspace are not checked; if a root dependency bump or a CI change should reach an
-app, name it yourself. Dependabot's pull requests skip the check and ride with the
+`infra/web`, needs a changeset naming it, and a changeset that names a `@repo/*`
+package fails. Tests, Markdown and changes outside any workspace are not checked;
+if a root dependency bump or a CI change should reach an app, name it yourself. Dependabot's pull requests skip the check and ride with the
 next changeset.
 
 All workspaces stay private. Changesets tracks their versions, changelogs and tags
@@ -56,7 +57,10 @@ without publishing anything to npm.
 2. Run `bun run changeset:status` to review pending changes.
 3. Run `bun run release:version`. This consumes pending changesets, updates
    workspace versions and `CHANGELOG.md` files, and refreshes `bun.lock`.
-4. Review and commit those changes together, run QA, and merge the release PR.
+4. Review and commit those changes together, run QA, and merge the release PR. It
+   must consume every pending changeset: QA fails it if one landed on `main` in the
+   meantime, since that app's released version would never be built. Rebase and run
+   `bun run release:version` again.
 5. Its dev deploy builds the new `X.Y.Z` images, and the release brief lists the
    version changes. Approve it with `bash infra/release/approve.sh`.
 

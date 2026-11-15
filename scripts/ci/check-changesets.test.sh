@@ -36,7 +36,19 @@ expect pass "tests and Markdown only"
 echo '# probe' >> infra/web/Caddyfile
 changeset '"@apps/auth": patch'
 expect fail "a web image change that misses three apps"
-git rm -q "$(git ls-files '.changeset/*.md' | grep -v README.md | head -1)"
+echo '// probe' >> packages/shell/src/urls.ts
+changeset $'"@apps/auth": patch\n"@apps/admin": patch\n"@apps/workspace": patch\n"@domains/engineering": patch\n"@repo/shell": patch'
+expect fail "a changeset that names a shared package"
+changeset '"@apps/auth": patch'
+printf -- '---\n"@apps/admin": patch\n---\n\nProbe.\n' > .changeset/zz-probe-2.md
+git add -A
+git -c user.name=t -c user.email=t@t.invalid commit -q --no-verify -m pending
+# shellcheck disable=SC2046 # one path per changeset
+git rm -q $(git ls-files '.changeset/*.md' | grep -vE '^\.changeset/(README|zz-probe-2)\.md$')
+echo '// probe' >> apps/auth/src/lib/forms.ts
+expect fail "a release PR that leaves a changeset pending"
+# shellcheck disable=SC2046
+git rm -q $(git ls-files '.changeset/*.md' | grep -v '^\.changeset/README\.md$')
 echo '// probe' >> apps/auth/src/lib/forms.ts
 expect pass "a release PR"
 echo 'PASS: changesets must name every app or core a change reaches'

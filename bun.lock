@@ -21,7 +21,7 @@
     },
     "apps/admin": {
       "name": "@apps/admin",
-      "version": "0.0.0",
+      "version": "0.1.0",
       "dependencies": {
         "@fontsource-variable/geist": "catalog:",
         "@fontsource-variable/geist-mono": "catalog:",
@@ -58,7 +58,7 @@
     },
     "apps/auth": {
       "name": "@apps/auth",
-      "version": "0.0.0",
+      "version": "0.1.0",
       "dependencies": {
         "@fontsource-variable/geist": "catalog:",
         "@fontsource-variable/geist-mono": "catalog:",
@@ -89,7 +89,7 @@
     },
     "apps/workspace": {
       "name": "@apps/workspace",
-      "version": "0.0.0",
+      "version": "0.1.0",
       "dependencies": {
         "@fontsource-variable/geist": "catalog:",
         "@fontsource-variable/geist-mono": "catalog:",
@@ -116,7 +116,7 @@
     },
     "domains/engineering": {
       "name": "@domains/engineering",
-      "version": "0.0.0",
+      "version": "0.1.0",
       "dependencies": {
         "@fontsource-variable/geist": "catalog:",
         "@fontsource-variable/geist-mono": "catalog:",
@@ -251,7 +251,7 @@
     },
     "servers/core": {
       "name": "@servers/core",
-      "version": "0.0.0",
+      "version": "0.1.0",
       "dependencies": {
         "@better-auth/drizzle-adapter": "1.7.12",
         "@better-auth/passkey": "catalog:",

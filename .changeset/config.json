@@ -9,7 +9,7 @@
   },
   "changelog": "@changesets/cli/changelog",
   "commit": false,
-  "ignore": [],
+  "ignore": ["@repo/*"],
   "fixed": [],
   "linked": [],
   "updateInternalDependencies": "patch",
