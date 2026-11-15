@@ -326,7 +326,19 @@ test(
         .toBe(false);
     }
 
+    // The password was typed on this page a moment ago, so setup starts with it.
     await signIn();
+    await expect(
+      page.getByRole("heading", { name: "Secure your account" }),
+    ).toBeVisible();
+    await expect(
+      page.getByRole("img", { name: "Authenticator setup QR code" }),
+    ).toBeVisible();
+    const abandonedUri = await page
+      .getByRole("button", { name: "Open authenticator app" })
+      .getAttribute("href");
+    // A reload forgets it, and setup asks.
+    await page.reload();
     await expect(
       page.getByRole("heading", { name: "Secure your account" }),
     ).toBeVisible();
@@ -335,20 +347,6 @@ test(
       .fill("wrong-password");
     await page.getByRole("button", { name: "Continue", exact: true }).click();
     await expect(page.getByRole("alert")).toContainText("Invalid password");
-    await page
-      .getByLabel("Current password", { exact: true })
-      .fill(admin.password);
-    await page.getByRole("button", { name: "Continue", exact: true }).click();
-    await expect(
-      page.getByRole("img", { name: "Authenticator setup QR code" }),
-    ).toBeVisible();
-    const abandonedUri = await page
-      .getByRole("button", { name: "Open authenticator app" })
-      .getAttribute("href");
-    await page.reload();
-    await expect(
-      page.getByRole("heading", { name: "Secure your account" }),
-    ).toBeVisible();
     await page
       .getByLabel("Current password", { exact: true })
       .fill(admin.password);

@@ -38,7 +38,7 @@ export function SignInStep({
   initialEmail?: string;
   onTemporaryPassword: (password: string, sessionToken: string) => void;
   onTwoFactor: () => void;
-  onDone: (sessionToken?: string) => void | Promise<void>;
+  onDone: (sessionToken?: string, password?: string) => void | Promise<void>;
   pendingLabel?: string;
   showPasskey?: boolean;
 }) {
@@ -109,7 +109,7 @@ export function SignInStep({
         );
         return;
       }
-      await onDone(token);
+      await onDone(token, value.password);
     },
   });
 

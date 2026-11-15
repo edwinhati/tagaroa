@@ -10,9 +10,12 @@ import { AuthShell, Panel, ScreenHeading } from "./auth-shell";
 export function SecureAccountStep({
   completionLabel = "Continue to workspace",
   onDone,
+  password,
 }: {
   completionLabel?: string;
   onDone: () => void;
+  /** Typed on this page a moment ago; setup then starts without asking again. */
+  password?: string;
 }) {
   return (
     <AuthShell>
@@ -25,6 +28,7 @@ export function SecureAccountStep({
           completionLabel={completionLabel}
           hideIntro
           onDone={onDone}
+          password={password}
         />
       </Panel>
     </AuthShell>

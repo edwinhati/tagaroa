@@ -27,7 +27,7 @@ export function ChoosePasswordStep({
 }: {
   sessionToken: string;
   temporaryPassword: string;
-  onDone: () => void | Promise<void>;
+  onDone: (password: string) => void | Promise<void>;
 }) {
   const [failure, setFailure] = useState<string | null>(null);
 
@@ -59,7 +59,7 @@ export function ChoosePasswordStep({
         return;
       }
 
-      void onDone();
+      void onDone(value.password);
     },
   });
 

@@ -22,7 +22,13 @@ import { Label } from "@repo/ui/components/label";
 import { Separator } from "@repo/ui/components/separator";
 import { Spinner } from "@repo/ui/components/spinner";
 import { QRCodeSVG } from "qrcode.react";
-import { useState, type FormEvent, type ReactNode } from "react";
+import {
+  useEffect,
+  useRef,
+  useState,
+  type FormEvent,
+  type ReactNode,
+} from "react";
 
 import { attemptAuth } from "./attempt-auth";
 import type { WorkspaceAuthClient } from "./create-auth-client";
@@ -222,6 +228,33 @@ export function RecoveryCodesFlow({
   );
 }
 
+type Enrollment = { backupCodes: string[]; totpURI: string };
+
+async function startEnrollment(
+  client: WorkspaceAuthClient,
+  password: string,
+): Promise<{ failure?: string; enrollment?: Enrollment }> {
+  const result = await attemptAuth(
+    () => client.twoFactor.enable({ method: "totp", password }),
+    "Two-factor setup could not start. Check your password and try again.",
+  );
+  if (result.failure) return { failure: result.failure };
+  if (result.data?.method === "totp" && result.data.totpURI) {
+    return {
+      enrollment: {
+        backupCodes: result.data.backupCodes ?? [],
+        totpURI: result.data.totpURI,
+      },
+    };
+  }
+  return {};
+}
+
+/**
+ * `password`, when the page saw it typed a moment ago (sign-in or a password
+ * change), starts setup without asking for it again. Without it, or if it no
+ * longer works, the flow asks.
+ */
 export function AuthenticatorSetupFlow({
   cancelLabel = "Back",
   client,
@@ -229,6 +262,7 @@ export function AuthenticatorSetupFlow({
   hideIntro = false,
   onCancel,
   onDone,
+  password,
 }: {
   cancelLabel?: string;
   client: WorkspaceAuthClient;
@@ -236,12 +270,22 @@ export function AuthenticatorSetupFlow({
   hideIntro?: boolean;
   onCancel?: () => void;
   onDone: () => void;
+  password?: string;
 }) {
-  const [enrollment, setEnrollment] = useState<{
-    backupCodes: string[];
-    totpURI: string;
-  } | null>(null);
+  const [enrollment, setEnrollment] = useState<Enrollment | null>(null);
   const [verified, setVerified] = useState(false);
+  const [starting, setStarting] = useState(Boolean(password));
+  // Enabling twice issues two secrets; StrictMode runs effects twice in dev.
+  const started = useRef(false);
+
+  useEffect(() => {
+    if (!password || started.current) return;
+    started.current = true;
+    void startEnrollment(client, password).then((result) => {
+      if (result.enrollment) setEnrollment(result.enrollment);
+      setStarting(false);
+    });
+  }, [client, password]);
 
   if (enrollment && verified) {
     return (
@@ -264,6 +308,18 @@ export function AuthenticatorSetupFlow({
     );
   }
 
+  if (starting) {
+    return (
+      <div
+        className="gap-2 py-4 text-sm flex items-center justify-center text-muted-foreground"
+        role="status"
+      >
+        <Spinner aria-hidden="true" data-icon="inline-start" />
+        Starting authenticator setup…
+      </div>
+    );
+  }
+
   return (
     <PasswordStep
       cancelLabel={cancelLabel}
@@ -273,17 +329,9 @@ export function AuthenticatorSetupFlow({
       hideIntro={hideIntro}
       onCancel={onCancel}
       onSubmit={async (password) => {
-        const result = await attemptAuth(
-          () => client.twoFactor.enable({ method: "totp", password }),
-          "Two-factor setup could not start. Check your password and try again.",
-        );
-        if (result.failure) return result.failure;
-        if (result.data?.method === "totp" && result.data.totpURI) {
-          setEnrollment({
-            backupCodes: result.data.backupCodes ?? [],
-            totpURI: result.data.totpURI,
-          });
-        }
+        const result = await startEnrollment(client, password);
+        if (result.enrollment) setEnrollment(result.enrollment);
+        return result.failure;
       }}
       pendingLabel="Starting…"
       submitLabel="Continue"
