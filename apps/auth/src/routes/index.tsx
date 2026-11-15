@@ -80,6 +80,9 @@ function SignIn() {
         : "sign-in",
   );
   const [temporaryPassword, setTemporaryPassword] = useState("");
+  // The password typed on this page (sign-in or the one just chosen), so
+  // authenticator setup does not ask for it again. Memory only.
+  const [password, setPassword] = useState("");
   // Signed session token from sign-in's `set-auth-token` header. Used when the
   // browser dropped the cross-origin Set-Cookie and change-password has no
   // cookie session yet.
@@ -95,7 +98,10 @@ function SignIn() {
   if (step === "secure-account") {
     return (
       <Suspense fallback={<SecureAccountFallback />}>
-        <SecureAccountStep onDone={leaveForWorkspace} />
+        <SecureAccountStep
+          onDone={leaveForWorkspace}
+          password={password || undefined}
+        />
       </Suspense>
     );
   }
@@ -104,7 +110,8 @@ function SignIn() {
       <ChoosePasswordStep
         sessionToken={sessionToken}
         temporaryPassword={temporaryPassword}
-        onDone={async () => {
+        onDone={async (chosenPassword) => {
+          setPassword(chosenPassword);
           const { data } = await authClient.getSession(
             sessionToken
               ? {
@@ -131,8 +138,9 @@ function SignIn() {
         setStep("choose-password");
       }}
       onTwoFactor={() => setStep("two-factor")}
-      onDone={async (token) => {
+      onDone={async (token, typedPassword) => {
         if (token) setSessionToken(token);
+        if (typedPassword) setPassword(typedPassword);
         // Cookie session first — bearer alone cannot admit the workspace app.
         let { data } = await authClient.getSession();
         if (data == null && token) {
