@@ -1,5 +1,15 @@
 # @apps/auth
 
+## 0.2.0
+
+### Minor Changes
+
+- d152c6c: ISSUE-126: When NetBird sends someone to sign in, the sign-in page takes them back to it once they are signed in, after any password change or authenticator setup they still owe. Choosing a new password no longer signs you straight back out.
+
+### Patch Changes
+
+- e6965c9: ISSUE-125: Setting up an authenticator right after signing in or choosing a new password no longer asks for that password again; setup goes straight to the QR code.
+
 ## 0.1.0
 
 ### Minor Changes
