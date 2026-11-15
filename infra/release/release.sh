@@ -102,7 +102,7 @@ engineering engineering domains/engineering
 DEPLOYABLES
 } >> "$log" 2>&1
 step=deploy
-scp infra/prod/compose.yml infra/prod/deploy.sh "$host:/home/tagaroa/apps/" >> "$log" 2>&1
+scp infra/prod/compose.yml infra/prod/deploy.sh infra/prod/onboard.sh "$host:/home/tagaroa/apps/" >> "$log" 2>&1
 deployed=1
 ssh "$host" 'sh /home/tagaroa/apps/deploy.sh' <<< "$release" >> "$log" 2>&1
 step=verify

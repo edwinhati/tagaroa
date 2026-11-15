@@ -20,8 +20,9 @@ Complete ISSUE-7 before merging/enabling the deployment workflows:
   delivery and webhook, DNS and Pangolin resources from the issue specification.
 - Establish the named recovery operators and verify their real MFA enrollment.
   First-admin bootstrap alone does not satisfy the security preflight. Complete
-  controlled onboarding before attempting a normal release; keep the public
-  application unavailable until preflight passes.
+  controlled onboarding with `onboard.sh` (docs/ops/workflows/release-prod.md, "First
+  release") before attempting a normal release; keep the public application
+  behind Pangolin SSO until the operators exist.
 
 The production Linux user and SSH credentials were provisioned
 during ISSUE-8/10 implementation. Operator-controlled accounts, email and registry
