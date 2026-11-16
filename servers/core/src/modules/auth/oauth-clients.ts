@@ -16,6 +16,7 @@ export const registerOAuthClient = async (
   ownerId: string,
   name: string,
   redirectUris: string[],
+  postLogoutRedirectUris: string[] = [],
 ) => {
   const context = await auth.$context;
   const { token } = await context.internalAdapter.createSession(ownerId);
@@ -24,7 +25,14 @@ export const registerOAuthClient = async (
     return await auth.api.adminCreateOAuthClient({
       body: {
         client_name: name,
+        // Signing out of the app signs out of Tagaroa too: NetBird's Dex sends
+        // the browser to the end-session endpoint with its client ID and
+        // `<its issuer>/logout/callback` to come back to.
+        enable_end_session: true,
         grant_types: ["authorization_code", "refresh_token"],
+        ...(postLogoutRedirectUris.length > 0 && {
+          post_logout_redirect_uris: postLogoutRedirectUris,
+        }),
         redirect_uris: redirectUris,
         // Dex, NetBird's login, sends no PKCE challenge upstream.
         require_pkce: false,

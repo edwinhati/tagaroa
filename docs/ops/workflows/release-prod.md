@@ -124,8 +124,9 @@ pinned in `PROD_SSH_KNOWN_HOSTS`), `infra/release/release.sh deploy`:
   down. Once per environment, after a release that carries it:
   1. On the VM, as `tagaroa` in `/home/tagaroa/apps`, register the client and keep the
      secret it prints once:
-     `docker exec tagaroa-prod-core-1 bun scripts/oauth-client.ts you@example.com NetBird https://vpn.tagaroa.cc/oauth2/callback`
-     (the email is a super-admin, who owns the client).
+     `docker exec tagaroa-prod-core-1 bun scripts/oauth-client.ts you@example.com NetBird https://vpn.tagaroa.cc/oauth2/callback --logout https://vpn.tagaroa.cc/oauth2/logout/callback`
+     (the email is a super-admin, who owns the client; `--logout` is where NetBird
+     comes back after signing someone out of Tagaroa).
   2. In the NetBird dashboard, Settings → Identity Providers → Add, type Generic OIDC,
      name `Tagaroa`, issuer `https://tagaroa.cc/api/auth`, and that client ID and
      secret. If the redirect URL it shows differs from the one above, register the
