@@ -23,11 +23,18 @@ serveCore();
 
 const issuer = `${testEnv.BETTER_AUTH_URL}/api/auth`;
 const redirectUri = "https://vpn.example/oauth2/callback";
+const logoutUri = "https://vpn.example/oauth2/logout/callback";
 
 const register = async () => {
   const owner = await sessionUserId(await adminCookie("super-admin"));
   const auth = app.get<AuthService<Auth>>(AuthService).instance;
-  return registerOAuthClient(auth, owner, "NetBird", [redirectUri]);
+  return registerOAuthClient(
+    auth,
+    owner,
+    "NetBird",
+    [redirectUri],
+    [logoutUri],
+  );
 };
 
 /** A browser navigation, so Better Auth answers with a redirect, not JSON. */
@@ -149,5 +156,43 @@ describe("Tagaroa as an OIDC provider", () => {
     });
     expect(accepted.status).toBe(200);
     expect((await accepted.json()).url).toStartWith(`${redirectUri}?code=`);
+  });
+
+  test("signs someone out when the client asks, then sends them back to it", async () => {
+    const client = await register();
+    const employee = await signedIn(false);
+    // NetBird's Dex sends its client ID and callback, without an id_token_hint,
+    // so the door asks the person to confirm first.
+    const asked = await request(
+      `/api/auth/oauth2/end-session?client_id=${client.client_id}&post_logout_redirect_uri=${encodeURIComponent(logoutUri)}`,
+      {
+        headers: { accept: "text/html", cookie: employee.jar.header() },
+        redirect: "manual",
+      },
+    );
+    expect(asked.status).toBe(200);
+    expect(await asked.text()).toContain("Confirm logout");
+
+    const confirmation = asked.headers
+      .getSetCookie()
+      .map((cookie) => cookie.split(";", 1)[0]);
+    const confirmed = await request("/api/auth/oauth2/end-session/confirm", {
+      method: "POST",
+      headers: {
+        accept: "text/html",
+        "content-type": "application/x-www-form-urlencoded",
+        cookie: [employee.jar.header(), ...confirmation].join("; "),
+      },
+      body: "action=confirm",
+      redirect: "manual",
+    });
+    expect(confirmed.headers.get("location")).toBe(logoutUri);
+    expect(
+      (
+        await request("/api/auth/get-session", {
+          headers: { cookie: employee.jar.header() },
+        })
+      ).json(),
+    ).resolves.toBeNull();
   });
 });

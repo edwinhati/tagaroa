@@ -6,16 +6,26 @@ import { registerOAuthClient } from "../src/modules/auth/oauth-clients";
 /**
  * Registers an app that signs in with Tagaroa (OIDC), such as NetBird:
  *
- *   bun scripts/oauth-client.ts <super-admin-email> <name> <redirect-uri>...
+ *   bun scripts/oauth-client.ts <super-admin-email> <name> <redirect-uri>... [--logout <post-logout-redirect-uri>...]
  *
  * The super-admin owns the client. Its secret is printed once: put it straight
- * into the app's settings.
+ * into the app's settings. `--logout` names where the app may send people back
+ * after they sign out (NetBird: `https://vpn.tagaroa.cc/oauth2/logout/callback`).
  */
-async function main([email, name, ...redirectUris]: string[]) {
-  if (!email?.includes("@") || !name || redirectUris.length === 0)
-    throw new Error(
-      "Usage: oauth-client.ts <super-admin-email> <name> <redirect-uri>...",
-    );
+const USAGE =
+  "Usage: oauth-client.ts <super-admin-email> <name> <redirect-uri>... [--logout <post-logout-redirect-uri>...]";
+
+async function main([email, name, ...uris]: string[]) {
+  const at = uris.indexOf("--logout");
+  const redirectUris = at < 0 ? uris : uris.slice(0, at);
+  const logoutUris = at < 0 ? [] : uris.slice(at + 1);
+  if (
+    !email?.includes("@") ||
+    !name ||
+    redirectUris.length === 0 ||
+    (at >= 0 && logoutUris.length === 0)
+  )
+    throw new Error(USAGE);
 
   const context = await auth.$context;
   const owner = await context.internalAdapter.findUserByEmail(
@@ -30,6 +40,7 @@ async function main([email, name, ...redirectUris]: string[]) {
     owner.user.id,
     name,
     redirectUris,
+    logoutUris,
   );
   console.log(`Registered ${name}`);
   console.log(`Client ID: ${client.client_id}`);
