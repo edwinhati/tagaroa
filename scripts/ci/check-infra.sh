@@ -1,6 +1,6 @@
 #!/bin/bash
 # Checks for everything outside the Bun workspaces, where both outages of
-# 2026-11-04 started (a jq filter in infra/release/brief.sh):
+# 2026-11-04 started (a jq filter in the release brief script, since removed):
 #   - shellcheck on every tracked shell script
 #   - actionlint on the workflows (it also shellchecks their run: blocks)
 #   - every *.test.sh self-test that runs with stubs only

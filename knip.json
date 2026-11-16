@@ -1,0 +1,39 @@
+{
+  "$schema": "https://unpkg.com/knip@6/schema.json",
+  "ignoreExportsUsedInFile": true,
+  "ignoreBinaries": ["hk"],
+  "workspaces": {
+    ".": {
+      "entry": [
+        "e2e.config.ts",
+        "scripts/*.{mjs,ts}",
+        "tests/exploration/*.e2e.ts",
+        "infra/web/*.ts"
+      ]
+    },
+    "apps/auth": {
+      "entry": [
+        "src/routes/**/*.tsx",
+        "playwright.deployed.config.ts",
+        "e2e/*.deployed.ts"
+      ]
+    },
+    "apps/workspace": {
+      "vite": { "config": [] },
+      "entry": ["vite.config.ts"]
+    },
+    "domains/engineering": {
+      "vite": { "config": [] },
+      "entry": ["vite.config.ts"]
+    },
+    "servers/core": {
+      "entry": [
+        "src/migrate.ts",
+        "src/modules/auth/auth.cli.ts",
+        "scripts/*.ts",
+        "test/**/*.integration.ts",
+        "test/start-exploration.ts"
+      ]
+    }
+  }
+}

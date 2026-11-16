@@ -1,0 +1,205 @@
+name: Production
+
+# Ships main's released versions to prod: Build → Test → Release → Deploy. Merging a
+# release PR (`bun run release:version`, .changeset/README.md) is the approval:
+# Development deploys that commit to dev, finds versions no release has tagged and
+# starts this run with its sha. To retry, re-run the failed jobs, or dispatch this by
+# hand with a sha on main. A failure opens a Multica issue.
+# Every job but Report needs only GitHub and the VM; Build also joins NetBird for the
+# dev registry, and Report for Multica.
+# Spec: docs/ops/workflows/release-prod.md
+on:
+  workflow_dispatch:
+    inputs:
+      sha:
+        description: Full sha of a commit on main to release
+        required: true
+
+concurrency:
+  group: production
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+defaults:
+  run:
+    shell: bash
+
+env:
+  SHA: ${{ inputs.sha }}
+  PROD_HOST: tagaroa@168.107.65.35
+
+jobs:
+  # Copies each deployable's released version at the sha from the dev registry to OCIR,
+  # by digest: the image Development built and tested. Nothing is rebuilt.
+  build:
+    name: Build
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    outputs:
+      release: ${{ steps.promote.outputs.release }}
+      tags: ${{ steps.promote.outputs.tags }}
+    steps:
+      # The whole history, so the sha can be checked against main.
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ inputs.sha }}
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Join NetBird
+        env:
+          NETBIRD_SETUP_KEY: ${{ secrets.NETBIRD_SETUP_KEY }}
+        run: bash infra/ci/netbird-up.sh 172.25.251.19=registry.engineering.tagaroa.cc
+
+      - name: Promote images
+        id: promote
+        env:
+          REGISTRY_TOKEN: ${{ secrets.REGISTRY_TOKEN }}
+          OCIR_USERNAME: ${{ secrets.OCIR_USERNAME }}
+          OCIR_TOKEN: ${{ secrets.OCIR_TOKEN }}
+          OCIR_NAMESPACE: ${{ vars.OCIR_NAMESPACE }}
+        run: bash infra/release/release.sh promote "$SHA"
+
+  # What a rollback cannot undo, or what would stop core starting, fails here, before
+  # anything reaches prod (infra/release/gates.sh). Both depend on core's version: an
+  # unchanged core ships no migration and needs no new config.
+  test:
+    name: Test
+    needs: build
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ inputs.sha }}
+          fetch-depth: 0
+          persist-credentials: false
+
+      # Key names only: no value of prod's .env leaves the VM.
+      - name: Read prod's core version and config keys
+        id: prod
+        env:
+          PROD_SSH_KEY: ${{ secrets.PROD_SSH_KEY }}
+          PROD_SSH_KNOWN_HOSTS: ${{ secrets.PROD_SSH_KNOWN_HOSTS }}
+        run: |
+          install -d -m 700 ~/.ssh
+          printf '%s\n' "$PROD_SSH_KEY" > ~/.ssh/id_ed25519
+          printf '%s\n' "$PROD_SSH_KNOWN_HOSTS" > ~/.ssh/known_hosts
+          chmod 600 ~/.ssh/id_ed25519 ~/.ssh/known_hosts
+          core=$(ssh "$PROD_HOST" 'f=/home/tagaroa/apps/.release.env; if [ -f $f ]; then sed -n "s/^CORE_IMAGE=.*://p" $f; fi')
+          ssh "$PROD_HOST" "sed -n 's/^\([A-Z][A-Z0-9_]*\)=.*/\1/p' /home/tagaroa/apps/.env" > "$RUNNER_TEMP/prod-keys"
+          echo "Prod runs core ${core:-nothing yet}."
+          from=$(bash infra/release/gates.sh range "$SHA" "$core")
+          echo "from=$from" >> "$GITHUB_OUTPUT"
+
+      - name: Migrations only add
+        if: steps.prod.outputs.from != ''
+        env:
+          FROM: ${{ steps.prod.outputs.from }}
+        run: bash infra/release/gates.sh migrations "$FROM" "$SHA"
+
+      - name: Prod's .env has every new config key
+        if: steps.prod.outputs.from != ''
+        env:
+          FROM: ${{ steps.prod.outputs.from }}
+        run: bash infra/release/gates.sh config "$FROM" "$SHA" "$RUNNER_TEMP/prod-keys"
+
+  # Changesets' tag names (`@apps/auth@0.1.0`) on the sha. A version already tagged keeps
+  # its first release's tag. Tags pushed with GITHUB_TOKEN start no workflow.
+  release:
+    name: Release
+    needs: [build, test]
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ inputs.sha }}
+          fetch-depth: 0
+
+      - name: Tag the released versions
+        env:
+          TAGS: ${{ needs.build.outputs.tags }}
+        run: |
+          new=()
+          for tag in $TAGS; do
+            git rev-parse -q --verify "refs/tags/$tag" >/dev/null && continue
+            git tag "$tag" "$SHA"
+            new+=("refs/tags/$tag")
+          done
+          if ((${#new[@]})); then git push origin "${new[@]}"; else echo "Every version is tagged already."; fi
+
+  deploy:
+    name: Deploy
+    needs: [build, release]
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    outputs:
+      rollback: ${{ steps.deploy.outputs.rollback }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ inputs.sha }}
+          persist-credentials: false
+
+      - name: Deploy prod
+        id: deploy
+        env:
+          RELEASE: ${{ needs.build.outputs.release }}
+          PROD_SSH_KEY: ${{ secrets.PROD_SSH_KEY }}
+          PROD_SSH_KNOWN_HOSTS: ${{ secrets.PROD_SSH_KNOWN_HOSTS }}
+        run: |
+          install -d -m 700 ~/.ssh
+          printf '%s\n' "$PROD_SSH_KEY" > ~/.ssh/id_ed25519
+          printf '%s\n' "$PROD_SSH_KNOWN_HOSTS" > ~/.ssh/known_hosts
+          chmod 600 ~/.ssh/id_ed25519 ~/.ssh/known_hosts
+          printf '%s\n' "$RELEASE"
+          bash infra/release/release.sh deploy
+
+  # A failed release is a Multica issue for edwinhati, with the run link.
+  report:
+    name: Report the failure
+    needs: [build, test, release, deploy]
+    if: failure()
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Join NetBird
+        env:
+          NETBIRD_SETUP_KEY: ${{ secrets.NETBIRD_SETUP_KEY }}
+        run: bash infra/ci/netbird-up.sh 172.25.251.12=multica.engineering.tagaroa.cc
+
+      - name: Install the Multica CLI
+        run: bash infra/ci/install-multica.sh
+
+      - name: Open a Multica issue
+        env:
+          MULTICA_SERVER_URL: https://multica.engineering.tagaroa.cc
+          MULTICA_WORKSPACE_ID: 146a9d46-1689-41e0-a8f4-20c8468b372f
+          MULTICA_TOKEN: ${{ secrets.MULTICA_TOKEN }}
+          RESULTS: build=${{ needs.build.result }} test=${{ needs.test.result }} release=${{ needs.release.result }} deploy=${{ needs.deploy.result }}
+          ROLLBACK: ${{ needs.deploy.outputs.rollback }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          stage=$(tr ' ' '\n' <<< "$RESULTS" | sed -n 's/=failure$//p' | head -n 1)
+          case "$stage:$ROLLBACK" in
+            deploy:done) state="The release failed its checks, so prod is back on the previous release." ;;
+            deploy:failed) state="**ROLLBACK FAILED.** Prod may be down." ;;
+            deploy:*) state="deploy.sh failed and restores the previous images itself; the run log says whether that worked." ;;
+            *) state="Nothing reached prod." ;;
+          esac
+          body="$RUNNER_TEMP/release-failure.md"
+          printf '%s\n\n%s\n\nRetry: fix the cause, then re-run the failed jobs.\n' "$state" "$RUN_URL" > "$body"
+          multica login --token "$MULTICA_TOKEN" >/dev/null
+          multica issue create --title "Production release ${SHA:0:7} failed at ${stage:-an unknown step}" \
+            --description-file "$body" --allow-external-file --assignee edwinhati --status todo \
+            --project 2e3066f3-2cc4-4521-8444-729703e51986 >/dev/null
+          echo "Opened a Multica issue."

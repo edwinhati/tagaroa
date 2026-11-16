@@ -1,0 +1,384 @@
+name: Development
+
+# Pull requests run Build → Test. A push to main runs Build → Test → Deploy dev, and when
+# main then carries a version with no release tag (a merged release PR), its last job
+# starts Production. The schedule and manual runs are Build → Test with every browser,
+# and deploy nothing. Docs-only pushes to main skip: they would deploy nothing.
+# Pull requests run only the slow suites their change can affect (scripts/ci/qa-scope.sh);
+# main, the schedule and manual runs always run all of them.
+# The repository variable QA_RUNS_ON moves Build and Test onto the sandboxed self-hosted
+# runner, e.g. ["self-hosted","tagaroa-qa"] (docs/ops/workflows/qa-runner.md). The deploy
+# jobs, the only ones with secrets, always run on GitHub-hosted runners.
+# Spec: docs/ops/workflows/deploy-dev.md
+on:
+  pull_request:
+  push:
+    branches: [main]
+    paths-ignore: ["**.md", "docs/**"]
+  workflow_dispatch:
+  schedule:
+    - cron: "0 1 * * 0" # Sundays 01:00 UTC (08:00 Asia/Jakarta).
+
+# A newer push to a pull request cancels its run. Runs on main queue: GitHub keeps only
+# the newest pending one, so a burst of merges deploys the last. The event is in the
+# group, so a scheduled or manual run never replaces a pending deploy.
+concurrency:
+  group: development-${{ github.event_name }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+permissions:
+  contents: read
+
+defaults:
+  run:
+    shell: bash
+
+env:
+  REGISTRY: registry.engineering.tagaroa.cc
+  # Private ingress address, reachable only over NetBird; netbird-up.sh pins it.
+  REGISTRY_ADDRESS: 172.25.251.19=registry.engineering.tagaroa.cc
+  DEV_HOST: tagaroa@168.144.104.237
+  APPS_DIR: /home/tagaroa/apps
+
+jobs:
+  build:
+    name: Build
+    runs-on: ${{ fromJSON(vars.QA_RUNS_ON || '"ubuntu-24.04"') }}
+    timeout-minutes: 30
+    steps:
+      # Two commits: a pull request's merge commit and its base, for check:changesets.
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 2
+          persist-credentials: false
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        id: node
+        with:
+          node-version: "24"
+          package-manager-cache: false
+      - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2.2.0
+        id: bun
+        with:
+          bun-version-file: package.json
+      - run: bun install --frozen-lockfile
+      # A change to what core or an app is built from needs a changeset naming it, or it
+      # never gets a new version or image. Dependabot's bumps ride with the next one.
+      - run: bun run check:changesets HEAD^1
+        if: github.event_name == 'pull_request' && github.event.pull_request.user.login != 'dependabot[bot]'
+      # This archive transports Turbo entries; Turbo still validates each task hash.
+      - uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        id: turbo-cache
+        with:
+          path: .turbo/cache
+          key: turbo-v1-${{ runner.os }}-${{ runner.arch }}-ubuntu24-node${{ steps.node.outputs.node-version }}-bun${{ steps.bun.outputs.bun-version }}-${{ hashFiles('bun.lock') }}-${{ github.run_id }}-${{ github.run_attempt }}
+          restore-keys: |
+            turbo-v1-${{ runner.os }}-${{ runner.arch }}-ubuntu24-node${{ steps.node.outputs.node-version }}-bun${{ steps.bun.outputs.bun-version }}-${{ hashFiles('bun.lock') }}-
+      - run: bun run lint
+      - run: bun run format
+      - run: bun run check-types
+      - run: bun run boundaries
+      - run: bun run knip
+      - run: bun run test
+      - run: bun run build
+      # Pinned by checksum; Dependabot does not see this one, so bump it by hand.
+      - name: Install actionlint
+        env:
+          VERSION: 1.7.12
+          SHA256: 8aca8db96f1b94770f1b0d72b6dddcb1ebb8123cb3712530b08cc387b349a3d8
+        run: |
+          archive="$RUNNER_TEMP/actionlint.tar.gz"
+          curl -fsSL --retry 3 -o "$archive" \
+            "https://github.com/rhysd/actionlint/releases/download/v$VERSION/actionlint_${VERSION}_linux_amd64.tar.gz"
+          echo "$SHA256  $archive" | sha256sum -c -
+          mkdir -p "$RUNNER_TEMP/bin"
+          tar -xzf "$archive" -C "$RUNNER_TEMP/bin" actionlint
+          echo "$RUNNER_TEMP/bin" >> "$GITHUB_PATH"
+      # GitHub's and the QA runner's images ship shellcheck; local-ci's actions-runner image does not.
+      - run: command -v shellcheck || { sudo apt-get update -qq && sudo apt-get install -y -qq shellcheck; }
+      - run: bun run check:infra
+      # Forks and other contributors can read public artifacts, but cannot publish them.
+      - uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        if: >-
+          (github.event_name != 'pull_request' && github.ref == 'refs/heads/main') ||
+          (github.event_name == 'pull_request' &&
+           github.event.pull_request.head.repo.full_name == github.repository &&
+           github.event.pull_request.user.login == github.repository_owner)
+        with:
+          path: .turbo/cache
+          key: ${{ steps.turbo-cache.outputs.cache-primary-key }}
+
+  # Applied migrations are immutable: drizzle's migrator never re-checks their hash. So a
+  # migration that is not additive carries its allow before dev applies it, and
+  # Production's gate (infra/release/gates.sh) finds it there.
+  migrations:
+    name: Migrations
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: "24"
+          package-manager-cache: false
+      - run: sh scripts/check-migrations.sh "origin/$GITHUB_BASE_REF"
+      - run: node --test scripts/check-migrations.test.mjs
+      - run: bash infra/release/gates.sh migrations "origin/$GITHUB_BASE_REF" HEAD
+
+  test:
+    name: Test (${{ matrix.project }})
+    needs: build
+    runs-on: ${{ fromJSON(vars.QA_RUNS_ON || '"ubuntu-24.04"') }}
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      # Pushes to main repeat a pull request that already ran every browser, so they run
+      # chromium alone.
+      matrix:
+        project: ${{ fromJSON(github.event_name == 'push' && '["chromium"]' || '["chromium","firefox","webkit","mobile-chromium"]') }}
+    steps:
+      # Two commits: a pull request's merge commit and its base, for qa-scope.sh.
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 2
+          persist-credentials: false
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: "24"
+          package-manager-cache: false
+      - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2.2.0
+        with:
+          bun-version-file: package.json
+      - run: bun install --frozen-lockfile
+      - name: Scope
+        id: scope
+        env:
+          BASE: ${{ github.event_name == 'pull_request' && 'HEAD^1' || '' }}
+        run: bash scripts/ci/qa-scope.sh "$BASE"
+      # The self-hosted image already carries the browsers' system libraries.
+      - run: bunx playwright install ${{ runner.environment == 'github-hosted' && '--with-deps' || '' }} ${{ matrix.project == 'mobile-chromium' && 'chromium' || matrix.project }}
+        if: steps.scope.outputs.e2e_auth == 'true' || steps.scope.outputs.e2e_admin == 'true'
+        working-directory: apps/auth
+      - run: bun run test:integration --log-order=stream
+        if: matrix.project == 'chromium' && steps.scope.outputs.integration == 'true'
+      # Both browser suites share the seeded operator and must run sequentially.
+      - run: bun run test:e2e --project ${{ matrix.project }}
+        if: steps.scope.outputs.e2e_auth == 'true'
+        working-directory: apps/auth
+      - run: bun run test:e2e --project ${{ matrix.project }}
+        if: steps.scope.outputs.e2e_admin == 'true'
+        working-directory: apps/admin
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        if: always()
+        with:
+          name: browser-results-${{ matrix.project }}
+          path: |
+            apps/auth/test-results
+            apps/admin/test-results
+          retention-days: 7
+
+  # Each deployable's version comes from changesets, and its image tag from its version
+  # (infra/ci/plan-images.sh): a pending changeset makes it X.Y.Z-alpha-<sha7>, none leaves
+  # it at its released X.Y.Z. Only tags the registry lacks are built, so a released version
+  # is built once, from the commit that set it, and Production copies that image to prod
+  # by digest. Images are built only for a commit that passed Build and Test.
+  plan:
+    name: Plan images
+    if: github.event_name == 'push'
+    needs: [build, test]
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    outputs:
+      core: ${{ steps.plan.outputs.core }}
+      apps: ${{ steps.plan.outputs.apps }}
+      release: ${{ steps.plan.outputs.release }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2.2.0
+        with:
+          bun-version-file: package.json
+      - run: bun install --frozen-lockfile
+
+      - name: Join NetBird
+        env:
+          NETBIRD_SETUP_KEY: ${{ secrets.NETBIRD_SETUP_KEY }}
+        run: bash infra/ci/netbird-up.sh "$REGISTRY_ADDRESS"
+
+      - name: Plan images
+        id: plan
+        env:
+          SHA: ${{ github.sha }}
+          REGISTRY_TOKEN: ${{ secrets.REGISTRY_TOKEN }}
+        run: |
+          printf '%s' "$REGISTRY_TOKEN" | docker login "$REGISTRY" --username ci --password-stdin
+          bash infra/ci/plan-images.sh
+
+  # Core has native dependencies, so each platform is built on its own runner (dev runs
+  # amd64, prod arm64); deploy joins the two single-platform pushes with `docker manifest`.
+  build-core:
+    name: Build core (${{ matrix.arch }})
+    needs: plan
+    if: needs.plan.outputs.core != ''
+    strategy:
+      matrix:
+        include:
+          - arch: amd64
+            runner: ubuntu-24.04
+          - arch: arm64
+            runner: ubuntu-24.04-arm
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Join NetBird
+        env:
+          NETBIRD_SETUP_KEY: ${{ secrets.NETBIRD_SETUP_KEY }}
+        run: bash infra/ci/netbird-up.sh "$REGISTRY_ADDRESS"
+
+      - name: Build and push core
+        env:
+          ARCH: ${{ matrix.arch }}
+          VERSION: ${{ needs.plan.outputs.core }}
+          REGISTRY_TOKEN: ${{ secrets.REGISTRY_TOKEN }}
+        run: |
+          printf '%s' "$REGISTRY_TOKEN" | docker login "$REGISTRY" --username ci --password-stdin
+          docker buildx build --platform "linux/$ARCH" --provenance=false --sbom=false --push \
+            -f servers/core/Dockerfile -t "$REGISTRY/tagaroa/core-service:$VERSION-$ARCH" .
+
+  # One image per front end, for both platforms. Only the build stage runs code, on
+  # this runner's platform, so the arm64 image needs no emulation; the second build
+  # reuses the first one's stages.
+  build-apps:
+    name: Build ${{ matrix.name }}
+    needs: plan
+    if: needs.plan.outputs.apps != '[]'
+    strategy:
+      matrix:
+        include: ${{ fromJSON(needs.plan.outputs.apps) }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Join NetBird
+        env:
+          NETBIRD_SETUP_KEY: ${{ secrets.NETBIRD_SETUP_KEY }}
+        run: bash infra/ci/netbird-up.sh "$REGISTRY_ADDRESS"
+
+      - name: Build and push ${{ matrix.name }}
+        env:
+          NAME: ${{ matrix.name }}
+          DIR: ${{ matrix.dir }}
+          APP_PATH: ${{ matrix.path }}
+          VERSION: ${{ matrix.version }}
+          REGISTRY_TOKEN: ${{ secrets.REGISTRY_TOKEN }}
+        run: |
+          printf '%s' "$REGISTRY_TOKEN" | docker login "$REGISTRY" --username ci --password-stdin
+          image="$REGISTRY/tagaroa/$NAME:$VERSION"
+          for arch in amd64 arm64; do
+            docker buildx build --platform "linux/$arch" --provenance=false --sbom=false --push \
+              -f infra/web/Dockerfile --build-arg "APP=$DIR" --build-arg "APP_PATH=$APP_PATH" \
+              -t "$image-$arch" .
+          done
+          docker manifest create "$image" "$image-amd64" "$image-arm64"
+          docker manifest push --purge "$image"
+
+  deploy:
+    name: Deploy dev
+    needs: [plan, build-core, build-apps]
+    # A build with nothing to build is skipped, which must not skip the deploy.
+    if: >-
+      !cancelled() && needs.plan.result == 'success' &&
+      contains(fromJSON('["success","skipped"]'), needs.build-core.result) &&
+      contains(fromJSON('["success","skipped"]'), needs.build-apps.result)
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Join NetBird
+        env:
+          NETBIRD_SETUP_KEY: ${{ secrets.NETBIRD_SETUP_KEY }}
+        run: bash infra/ci/netbird-up.sh "$REGISTRY_ADDRESS"
+
+      - name: Join core's platforms
+        if: needs.plan.outputs.core != ''
+        env:
+          VERSION: ${{ needs.plan.outputs.core }}
+          REGISTRY_TOKEN: ${{ secrets.REGISTRY_TOKEN }}
+        run: |
+          printf '%s' "$REGISTRY_TOKEN" | docker login "$REGISTRY" --username ci --password-stdin
+          core="$REGISTRY/tagaroa/core-service:$VERSION"
+          docker manifest create "$core" "$core-amd64" "$core-arm64"
+          docker manifest push --purge "$core"
+
+      # The droplet pulls from the registry over its own NetBird link. deploy.sh restores
+      # the previous images itself when a step fails.
+      - name: Deploy
+        env:
+          RELEASE: ${{ needs.plan.outputs.release }}
+          DEV_SSH_KEY: ${{ secrets.DEV_SSH_KEY }}
+          DEV_SSH_KNOWN_HOSTS: ${{ secrets.DEV_SSH_KNOWN_HOSTS }}
+        run: |
+          install -d -m 700 ~/.ssh
+          printf '%s\n' "$DEV_SSH_KEY" > ~/.ssh/id_ed25519
+          printf '%s\n' "$DEV_SSH_KNOWN_HOSTS" > ~/.ssh/known_hosts
+          chmod 600 ~/.ssh/id_ed25519 ~/.ssh/known_hosts
+          printf '%s\n' "$RELEASE"
+          scp infra/dev/compose.yml infra/dev/deploy.sh infra/dev/onboard.sh infra/dev/smoke.sh "$DEV_HOST:$APPS_DIR/"
+          # APPS_DIR is a fixed path; the release travels on stdin.
+          # shellcheck disable=SC2029
+          ssh "$DEV_HOST" "sh $APPS_DIR/deploy.sh" <<< "$RELEASE"
+
+      # A release that deployed but does not answer goes back to the one before, as on prod.
+      - name: Smoke check
+        run: |
+          # shellcheck disable=SC2029
+          ssh "$DEV_HOST" "sh $APPS_DIR/smoke.sh" && exit 0
+          echo "::error::Dev failed its smoke check; rolling back to the previous release."
+          # shellcheck disable=SC2029
+          ssh "$DEV_HOST" "sh $APPS_DIR/deploy.sh --rollback" || echo "::error::ROLLBACK FAILED."
+          exit 1
+
+  # A merged release PR leaves main with versions no release has tagged yet. Production
+  # tags them before it deploys, so once it has run this starts nothing until the next
+  # release PR. A dispatch made with GITHUB_TOKEN still starts a run.
+  start-production:
+    name: Start Production
+    needs: deploy
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    permissions:
+      contents: read
+      actions: write
+    steps:
+      # The whole history, for the release tags.
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Start Production for untagged versions
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          untagged=""
+          for dir in servers/core apps/auth apps/admin apps/workspace domains/engineering; do
+            tag=$(jq -r '"\(.name)@\(.version)"' "$dir/package.json")
+            git rev-parse -q --verify "refs/tags/$tag" >/dev/null || untagged+=" $tag"
+          done
+          if [[ -z $untagged ]]; then echo "Every version here is released."; exit 0; fi
+          echo "Not released yet:$untagged. Starting Production for $GITHUB_SHA."
+          gh workflow run production.yml --ref main -f sha="$GITHUB_SHA"

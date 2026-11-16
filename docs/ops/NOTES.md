@@ -63,7 +63,7 @@ Raw notes on where Tagaroa runs and the tools around it. Workflow specs live in
 ## Tagaroa specifics
 
 - Repo `edwinhati/tagaroa` on GitHub, private, free plan (2000 Actions minutes/month,
-  no required-reviewer environments). QA (`.github/workflows/qa.yml`) runs on hosted runners, or on the sandboxed
+  no required-reviewer environments). Build and Test (`.github/workflows/development.yml`) run on hosted runners, or on the sandboxed
   self-hosted QA runner when the repo variable `QA_RUNS_ON` is set (`workflows/qa-runner.md`).
 - Deployables: `servers/core` (NestJS on Bun, `start:prod` = `bun dist/main.js`,
   Postgres, Better Auth); SPAs built with `vite build` (TanStack Start, SPA mode):
@@ -107,10 +107,9 @@ Raw notes on where Tagaroa runs and the tools around it. Workflow specs live in
   Only a message sent on an unconfigured channel fails, so SMS/WhatsApp can stay unset.
 - Release rebuilds arm64 images from the released sha (prod does not reuse dev's image).
   Required anyway: SPAs bake environment URLs in at build time.
-- Approving a release = `bash infra/release/approve.sh`, which sets its Multica issue to
-  In Progress and dispatches `release-prod.yml` (no schedule since ISSUE-117). One open
-  release issue at a time, rewritten for
-  the newest dev sha. A failed release rolls back and sets the issue to Blocked.
+- Approving a release = merging the release PR (ISSUE-128). Development then starts
+  `production.yml`, which promotes, runs the migration and config gates, tags and
+  deploys. A failed release rolls back and opens a Multica issue.
 - Alerts: vmalert uses `-notifier.blackhole` (nobody is notified). The Alertmanager
   route to an "Ops alert" Multica autopilot was removed in ISSUE-108.
 - Weekly point-in-time restore test of the pgBackRest backups; the result is in the
@@ -138,10 +137,11 @@ Raw notes on where Tagaroa runs and the tools around it. Workflow specs live in
   public. Dev: site "DigitalOcean Droplet SG" → `tagaroa-dev-<app>-1:80` per host, with
   `app.`'s `/engineering` and the API's `/api` routed by path, VPN-only (NetBird),
   same rule shape as Multica's web pages.
-- Dev deploys only after the QA workflow succeeds on that `main` commit. Docs-only
-  pushes skip QA, so they never deploy (nothing deployable changed).
-- Release approval: a Multica issue with the brief, approved by running the
-  "Deploy prod" workflow for that sha.
+- Dev deploys only after Build and Test pass on that `main` commit, in the same
+  Development run. Docs-only pushes skip it, so they never deploy (nothing deployable
+  changed).
+- Release approval: merging the release PR (ISSUE-128; before it, a Multica brief and
+  `approve.sh`).
 - Rollback (from `docs/security/access-control-rollout.md`): roll back application
   images only, keep the additive schema; never restore revoked grants as a shortcut.
 - `bun run security:preflight` in `servers/core` checks a target's production config and

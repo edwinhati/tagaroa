@@ -1,7 +1,7 @@
 import type { EmailTheme } from "./components/email/email-theme.js";
 
 /**
- * `theme-default.ts` re-tinted to Tagaroa.
+ * The default `@emailcn/react-email` theme, re-tinted to Tagaroa.
  *
  * The values are the literal hex of `packages/ui/src/styles/tagaroa.css`,
  * converted out of oklch once and written down here. That conversion is

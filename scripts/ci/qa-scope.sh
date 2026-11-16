@@ -26,14 +26,14 @@ changed=$(git diff --name-only "$base_sha" HEAD) || everything "git diff failed"
 [[ -n $changed ]] || everything "no changed files"
 
 # Paths no suite reads. infra/docker is NOT here: the tests start its Postgres.
-# Workflow files other than qa.yml run nothing in QA; qa.yml itself always runs everything.
+# production.yml runs none of the suites; development.yml itself runs everything.
 ignored() {
   case $1 in
     *.md | docs/* | .changeset/* | .agents/* | .claude/* | hk.pkl) return 0 ;;
     infra/docker/*) return 1 ;;
     infra/*) return 0 ;;
     .github/dependabot.yml | .github/actionlint.yaml) return 0 ;;
-    .github/workflows/deploy-dev.yml | .github/workflows/release-prod.yml) return 0 ;;
+    .github/workflows/production.yml) return 0 ;;
     scripts/ci/check-infra.sh) return 0 ;;
     *) return 1 ;;
   esac

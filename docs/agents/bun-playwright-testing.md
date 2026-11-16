@@ -45,7 +45,7 @@ bunx --bun --no-install playwright install --with-deps chromium
 
 Configure one `chromium` project. Add Firefox or WebKit only when cross-engine behavior is an acceptance requirement. Every configured project runs by default, so three browsers roughly multiply the browser work. [Playwright browser projects](https://playwright.dev/docs/browsers#run-tests-on-different-browsers)
 
-In this repo, `apps/auth` and `apps/admin` configure `chromium`, `firefox`, `webkit` and `mobile-chromium`. PRs run only `chromium`. All four run in the Sunday and manual matrix in `.github/workflows/qa.yml`.
+In this repo, `apps/auth` and `apps/admin` configure `chromium`, `firefox`, `webkit` and `mobile-chromium`. PRs run only `chromium`. All four run in the Sunday and manual matrix in `.github/workflows/development.yml`.
 
 ### Firefox on macOS 27
 

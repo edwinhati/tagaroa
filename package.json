@@ -49,6 +49,7 @@
     "explore:headed": "bun run explore --headed",
     "format": "oxfmt --check",
     "format:fix": "oxfmt .",
+    "knip": "knip",
     "lint": "oxlint --deny-warnings .",
     "lint:fix": "oxlint --fix --deny-warnings .",
     "prepare": "[ -n \"$CI\" ] || hk install",
@@ -69,6 +70,7 @@
     "@types/node": "catalog:",
     "ai": "7.0.157",
     "e2e": "0.21.3",
+    "knip": "6.45.1",
     "oxfmt": "^0.75.0",
     "oxlint": "^1.90.0",
     "turbo": "^2.11.10",
@@ -89,19 +91,5 @@
   "engines": {
     "bun": "1.4.4",
     "node": ">=24.15"
-  },
-  "knip": {
-    "workspaces": {
-      "apps/auth": {
-        "entry": [
-          "src/routes/**/*.tsx"
-        ]
-      },
-      "servers/core": {
-        "entry": [
-          "src/modules/auth/auth.cli.ts"
-        ]
-      }
-    }
   }
 }

@@ -1,30 +1,33 @@
 # Deploy dev
 
-Every `main` commit that passes QA is running on dev a few minutes later, with no human
-involved. Dev is how you and the agents try merged work before it is released.
+Every `main` commit that passes Build and Test is running on dev a few minutes later,
+with no human involved. Dev is how you and the agents try merged work before it is
+released.
 
 Context and machine details: `../NOTES.md`.
 
 ## Trigger
 
-- **Event:** the `QA` workflow (`.github/workflows/qa.yml`) completes with conclusion
-  `success` for a `push` to `main` (`on: workflow_run`, `workflows: [QA]`,
-  `types: [completed]`, then `if:` conclusion success, event push, branch main).
-  Deploy `github.event.workflow_run.head_sha`, never the branch tip.
-- **Manual:** `workflow_dispatch` with an optional `sha` input (default: current `main`),
-  for redeploying after a config change. It must refuse a sha that is not on `main`.
-- Docs-only pushes skip QA, so they never deploy. That is intended.
-- Concurrency group `deploy-dev`, `cancel-in-progress: false`. GitHub keeps only the
-  newest pending run, so a burst of merges deploys the last one.
+The workflow is `.github/workflows/development.yml`, on GitHub-hosted runners. One run
+is Build → Test → Deploy dev:
+
+- **Pull request:** Build and Test only (plus Migrations). A newer push cancels the run.
+- **Push to `main`:** Build, Test, then the deploy jobs for that commit (`github.sha`,
+  never the branch tip). Docs-only pushes skip the workflow, so they never deploy.
+  That is intended.
+- **Schedule** (Sundays 01:00 UTC) **and manual runs:** Build and Test with every
+  browser; they deploy nothing. To redeploy, re-run the deploy jobs of the last `main`
+  run.
+- Runs on `main` queue in one concurrency group: GitHub keeps only the newest pending
+  run, so a burst of merges deploys the last one.
 
 ## Checkpoint
 
-None. A failure notifies Rex (see "On failure").
+None. A failure fails the run (see "On failure").
 
 ## What it builds
 
-The workflow is `.github/workflows/deploy-dev.yml`, on GitHub-hosted runners. It builds
-one image per deployable and pushes it to Artifact Keeper
+Development builds one image per deployable and pushes it to Artifact Keeper
 (`registry.engineering.tagaroa.cc`, private, see "Registry access"):
 `tagaroa/core-service`, `tagaroa/auth`, `tagaroa/admin`, `tagaroa/workspace` and
 `tagaroa/engineering`.
@@ -44,7 +47,7 @@ environment.
 
 1. **Core image** `tagaroa/core-service:<version>`, from `servers/core/Dockerfile`, one
    multi-arch image: `linux/amd64` for dev and `linux/arm64`, which a release later
-   copies to prod unchanged (`release-prod.md`, "Deploy"). Core has native
+   copies to prod unchanged (`release-prod.md`, "Steps"). Core has native
    dependencies, so each platform builds on its own runner (`ubuntu-24.04`,
    `ubuntu-24.04-arm`), is pushed as `core:<version>-<arch>` without attestations and
    joined with `docker manifest create`.
@@ -96,7 +99,7 @@ over NetBird: Pangolin's private ingress serves `registry.engineering.tagaroa.cc
 `infra/ci/netbird-up.sh`, which installs a pinned NetBird client, joins with the
 reusable, ephemeral setup key in `NETBIRD_SETUP_KEY` (group CI) and pins the private
 addresses in `/etc/hosts`. NetBird policies let the CI group reach the registry and
-Multica on tcp 443, nothing else. The peer disappears when the runner does.
+Multica (Production's failure report) on tcp 443, nothing else. The peer disappears when the runner does.
 
 Tokens are Artifact Keeper service-account tokens, used as the password with any
 username: `REGISTRY_TOKEN` (CI, read and write on `tagaroa`) and a read-only one the
@@ -172,36 +175,43 @@ One-time setup (needs root on `168.144.104.237`):
 
 ## Steps (each run)
 
-1. `sha`: resolve the sha and refuse one that is not on `main` or has no green QA run.
-2. `plan` (joined to NetBird): each deployable's version and image, and which images
-   the registry lacks (see "What it builds").
-3. `build-core` (one job per platform) and `build-apps` (one job per app), only for
-   the missing images. No layer cache: hosted runners start clean.
-4. `deploy`: join core's two platforms if core was built, copy the stack files into
-   `/home/tagaroa/apps` over SSH and feed `deploy.sh` the release lines. The droplet
-   pulls over its own NetBird link.
-5. Smoke check: `smoke.sh` on the droplet asks each container on `pangolin_default`,
-   where Pangolin reaches it: core `/api/health/live` → 200 JSON; auth, admin and
-   workspace `/` → 200 HTML; engineering `/engineering` → 200 HTML. Fail the run on
-   any miss.
-6. Hand off to the release loop: create or update the release brief
-   (`release-prod.md`, "Brief"). This is a separate `brief` job that needs `deploy`,
-   so a brief failure is not reported as a broken dev. The run is done when the
-   brief is current. Multica reporting is optional: `infra/release/brief-step.sh`
-   turns a failed login or brief update into a `::warning::`, and the run stays
-   green. Production still fails closed: with no current
-   approved brief `release-prod.yml` releases nothing, and `release.sh` stops on any
-   Multica error.
+1. **Build** (job `build`): `check:changesets` on pull requests, then `lint`, `format`,
+   `check-types`, `boundaries`, `knip`, `test`, `build` and `check:infra`. On pull
+   requests, **Migrations** checks that applied migrations are unchanged
+   (`scripts/check-migrations.sh`) and that new ones only add, or carry an allow
+   (`infra/release/gates.sh migrations`, `release-prod.md`, "Steps").
+2. **Test** (job `test`, after Build): integration tests and the browser suites, chromium
+   on `main` and every browser elsewhere, scoped on pull requests by
+   `scripts/ci/qa-scope.sh`.
+3. **Deploy dev**, on `main` only and after Test:
+   1. `plan` (joined to NetBird): each deployable's version and image, and which images
+      the registry lacks (see "What it builds").
+   2. `build-core` (one job per platform) and `build-apps` (one job per app), only for
+      the missing images. No layer cache: hosted runners start clean.
+   3. `deploy`: join core's two platforms if core was built, copy the stack files into
+      `/home/tagaroa/apps` over SSH and feed `deploy.sh` the release lines. The droplet
+      pulls over its own NetBird link. Then `smoke.sh` on the droplet asks each
+      container on `pangolin_default`, where Pangolin reaches it: core
+      `/api/health/live` → 200 JSON; auth, admin and workspace `/` → 200 HTML;
+      engineering `/engineering` → 200 HTML. On any miss, `deploy.sh --rollback` brings
+      back the release before this one, and the run fails.
+   4. `start-production`: when a version at this commit has no release tag, which a
+      merged release PR causes, dispatch Production with the sha (`release-prod.md`).
 
 ## On failure
 
-Dev stays on the previous images (deploy.sh rolls back) and the run fails; the failed
-run in GitHub Actions is the only record. No release brief is created or updated
-for a failed sha.
+Dev stays on the previous images (deploy.sh rolls back, and a failed smoke check rolls
+back) and the run fails; the failed run in GitHub Actions is the only record. A commit
+that fails Build or Test builds no image and never deploys.
 
-If the deploy succeeded and only the brief update failed, dev stays on the new images
-and the `brief` job ends with a warning; the brief cannot fail the run. A failed
-build, deploy or smoke check still fails the run.
+## Rollback drill
+
+`deploy.sh --rollback` is the step a failed check runs on both environments. Try it on
+dev after a deploy that has a previous release: on the droplet
+(`ssh root@168.144.104.237`), run
+`sudo -u tagaroa sh -c 'cd /home/tagaroa/apps && sh deploy.sh --rollback && sh smoke.sh'`.
+The smoke check should pass on the previous release. Re-run the last `main` run's deploy jobs to go forward
+again.
 
 ## Secrets (GitHub repo secrets)
 
@@ -210,15 +220,11 @@ build, deploy or smoke check still fails the run.
 - `REGISTRY_TOKEN`: Artifact Keeper service-account token, read and write on `tagaroa`.
 - `DEV_SSH_KEY`, `DEV_SSH_KNOWN_HOSTS`: deploy key for `tagaroa@168.144.104.237` and
   its pinned host key.
-- `MULTICA_TOKEN`: a Multica personal access token (`mul_…`) for edwinhati@tagaroa.com,
-  used with `multica login --token` against `https://multica.engineering.tagaroa.cc`,
-  reached over NetBird at its private ingress address `172.25.251.12`.
-
-GitHub does not pass secrets to workflows run from forks, and only `main` runs these
-workflows, so pull request code never sees them.
+  GitHub does not pass secrets to workflows run from forks, and only `main` runs these
+  workflows, so pull request code never sees them.
 
 ## Done when
 
-A merge to `main` that passes QA shows up on `https://app.dev.tagaroa.cc` without anyone
-touching it; a deliberately broken migration on a test branch merged to `main` leaves dev
-on the previous version with a failed run.
+A merge to `main` that passes Build and Test shows up on `https://app.dev.tagaroa.cc`
+without anyone touching it; a deliberately broken migration on a test branch merged to
+`main` leaves dev on the previous version with a failed run.

@@ -1,90 +1,65 @@
 # Release to prod
 
-Prod changes only when you say so, and saying so takes one command:
-`bash infra/release/approve.sh`.
-Everything before that (collecting what changed, checking migrations, confirming dev
-is healthy) is done for you; everything after it (building, deploying, verifying,
-rolling back) also runs without you. You are asked once, late, with a brief.
+Merging a release PR is the approval: it is the only way prod changes. Cut one with
+`bun run release:version` when you want what is on dev in prod (`.changeset/README.md`,
+"Cut a release"). Everything after the merge runs without you, and every check a person
+used to make before approving is code that fails the release.
 
 Context and machine details: `../NOTES.md`. Builds on `deploy-dev.md`.
 
 ## Trigger
 
-1. **Brief update (event):** the last step of every successful dev deploy.
-2. **Release (dispatch):** `.github/workflows/release-prod.yml`, `workflow_dispatch`
-   only, on `ubuntu-24.04`. There is no schedule. Concurrency group `release-prod`,
-   `cancel-in-progress: false`. The job joins NetBird (`deploy-dev.md`, "Registry
-   access") to reach Artifact Keeper and Multica.
+- **Event:** Development's last job on `main`, `start-production`, after dev is deployed
+  and passed its smoke check. When a deployable's version at that commit has no
+  release tag (`<package>@<version>`), which only a merged release PR causes, it
+  dispatches `.github/workflows/production.yml` with the commit's sha. A dispatch made
+  with `GITHUB_TOKEN` still starts a run.
+- **Retry:** re-run the failed jobs of the Production run, or dispatch it by hand
+  (Actions → Production → Run workflow) with a full sha on `main`.
+- Concurrency group `production`, `cancel-in-progress: false`. On `ubuntu-24.04`;
+  Build joins NetBird (`deploy-dev.md`, "Registry access") for the dev registry and
+  Report for Multica.
 
-## Checkpoint
+## Steps
 
-One: `bash infra/release/approve.sh` sets the open brief to **In Progress** and
-dispatches `release-prod.yml` on `main` (needs `multica` and `gh` logged in). The
-release still runs every check in `release.sh`.
+**Build:** check the sha is on `main`, then promote each deployable's released version
+at it, the version in its `package.json` (core, auth, admin, workspace, engineering).
+Its image was built when that version first reached `main` (`deploy-dev.md`, "What it
+builds"); nothing is rebuilt. With `skopeo copy --all --preserve-digests` from Artifact
+Keeper to OCI Container Registry, Singapore:
+`registry.engineering.tagaroa.cc/tagaroa/<name>:<version>` →
+`sin.ocir.io/<tenancy-namespace>/tagaroa/<name>:<version>`. The same multi-arch images
+dev ran; prod pulls their arm64 half. It refuses, before anything reaches prod, a
+version that is not a release (`X.Y.Z`), an image with no `linux/arm64` part, and a
+copy whose manifest digest differs from its source (`infra/release/release.sh promote`).
 
-Setting the brief to In Progress in Multica by hand approves it but starts nothing;
-dispatch `release-prod.yml` afterwards (Actions → Release prod → Run workflow).
+**Test:** the gates, `infra/release/gates.sh`. Core ships migrations and needs config
+only with a new version, so both compare the commit that set prod's core version (read
+from `CORE_IMAGE` in the VM's `.release.env`) with the sha. A release that keeps prod's
+core version, or the first release, has nothing to check.
 
-## Brief
+- **Migrations only add.** A migration added since then that drops, renames, alters a
+  column's type or nullability, truncates or deletes fails the release, because a
+  rollback restores images, never the schema. One that is safe anyway carries
+  `-- migration-guard: allow <reason>` in its file; an allow on a migration that only
+  adds fails too. Pull requests run the same check on the migrations they add, so the
+  allow is in the file before dev applies it and the file can no longer change
+  (`scripts/check-migrations.sh`).
+- **Prod's `.env` has every new config key.** A key added uncommented to
+  `servers/core/.env.example` since then must be in `/home/tagaroa/apps/.env`. Only key
+  names leave the VM.
 
-There is at most one open release issue. It carries the label `release` (create the
-label once, colour of your choice) and is assigned to edwinhati (member, not an agent),
-in status **Todo**. Never put it in **In Review**: that step of the Default workflow hands
-the issue to Rex.
+**Release:** tag each released version on the sha with Changesets' tag name
+(`@apps/auth@0.1.0`) and push the new ones. A version already tagged keeps its first
+release's tag. The tags are what tells Development a version has been released.
 
-After each successful dev deploy of sha `S`:
+**Deploy** over SSH as `tagaroa@168.107.65.35` (key in secret `PROD_SSH_KEY`, host key
+pinned in `PROD_SSH_KNOWN_HOSTS`), `infra/release/release.sh deploy`:
 
-- Read the prod sha `P` from the VM (`RELEASE_SHA` in `/home/tagaroa/apps/.release.env`,
-  see "Deploy").
-  Before the first release there is no `P`; the brief then covers all of `main`.
-- If an open release issue exists (label `release`, status `todo`), rewrite its title and
-  description for `S`. Otherwise create one. Never touch an issue that is already
-  `in_progress` (a release is running); start a new one after it closes.
-- Title: `Release <short S> to prod`.
-- Description, in this order, each part short:
-  1. One line: `<n> commits, <m> migrations, dev healthy since <time>`.
-  2. **Versions:** each deployable's version at `S` beside prod's (`core 0.1.0 → 0.2.0`,
-     `auth 0.1.0 (unchanged)`). A release ships these versions, not dev's alpha
-     builds, so pending changesets at `S` are named as not in this release: to ship
-     them, merge a release PR first (`.changeset/README.md`).
-  3. **Migrations:** new files under `servers/core/drizzle/` in `P..S`, by name, and for
-     each whether it only adds (tables, columns, indexes) or changes/drops. Anything not
-     purely additive is flagged in bold at the top as **Needs a look**.
-  4. **Config:** keys added or removed in `servers/core/.env.example` or any app's
-     `.env.example` in `P..S`. Each new required key is flagged **Needs a look**, because
-     prod's `.env` must have it before approval.
-  5. **Changes:** the merged PRs in `P..S` as `#<n> <title> (ISSUE-<k>)`, linked.
-     Commits without a PR listed by subject.
-  6. Links: the dev deploy run, the QA run for `S`, `https://app.dev.tagaroa.cc`.
-  7. Last line: ``Approve: run `bash infra/release/approve.sh`.``
-- The full sha `S` is stored in the issue's metadata (`multica issue metadata`, key
-  `sha`) so the deploy never parses prose.
-
-## Deploy (after approval)
-
-The run lists issues with label `release` in status `in_progress` and takes the
-oldest. For it:
-
-1. Comment `Releasing <short S>…` (so a second check run won't start it again; the
-   concurrency group also prevents overlap).
-2. **Promote** each deployable's released version at `S`, the version in its
-   `package.json` there (core, auth, admin, workspace, engineering). Its image was
-   built when that version first reached `main` (`deploy-dev.md`, "What it builds");
-   nothing is rebuilt at release time. With `skopeo copy --all --preserve-digests`
-   from Artifact Keeper to OCI Container Registry, Singapore:
-   `registry.engineering.tagaroa.cc/tagaroa/<name>:<version>` →
-   `sin.ocir.io/<tenancy-namespace>/tagaroa/<name>:<version>`. The same multi-arch
-   images dev ran; prod pulls their arm64 half.
-   - Refuse, before anything reaches prod, when a version is not a release (`X.Y.Z`),
-     when an image has no `linux/arm64` part, or when a copy's manifest digest
-     differs from its source.
-   - Look up the tenancy namespace once and record it in `../NOTES.md`.
-3. **Deploy** over SSH as `tagaroa@168.107.65.35` (key in secret `PROD_SSH_KEY`, host key
-   pinned in `PROD_SSH_KNOWN_HOSTS`): copy `infra/prod/compose.yml`,
-   `infra/prod/deploy.sh`, `infra/prod/onboard.sh` and `infra/dev/smoke.sh` to
-   `/home/tagaroa/apps`, then feed `deploy.sh` the release
-   on stdin: `RELEASE_SHA=<S>` and one OCIR image per deployable.
-   Same steps and rollback as dev's `deploy.sh`, with these differences:
+1. Copy `infra/prod/compose.yml`, `infra/prod/deploy.sh`, `infra/prod/onboard.sh` and
+   `infra/dev/smoke.sh` to `/home/tagaroa/apps`, then feed `deploy.sh` the release on
+   stdin: `RELEASE_SHA=<S>` and one OCIR image per deployable. Same steps and rollback
+   as dev's `deploy.sh`, with these differences:
    - `docker login sin.ocir.io` with the token in `/home/tagaroa/apps/.ocir` before pull.
    - No `postgres` service. Core, migrate and preflight join the external network
      `postgres_backend` and connect straight to `postgres:5432` (not PgBouncer: it runs
@@ -92,26 +67,22 @@ oldest. For it:
    - Core and the four apps join the external network `pangolin_default` and publish
      no host port; the apps get env `BASE_DOMAIN=tagaroa.cc`. Compose project name
      `tagaroa-prod`.
-4. **Verify:** on the VM, `smoke.sh tagaroa-prod` asks core and each app where Pangolin
+2. **Verify:** on the VM, `smoke.sh tagaroa-prod` asks core and each app where Pangolin
    reaches them (`/api/health/live` → 200 JSON, each app's `/` → 200 HTML). From the
    runner, the two public URLs: `https://auth.tagaroa.cc/` → 200 HTML and
    `https://tagaroa.cc/api/auth/ok` → 200 JSON. The other hosts are NetBird-only
    (see "Pangolin" below), so the runner cannot reach them.
-5. **Tag** each released version on `S` with Changesets' tag name (`@apps/auth@0.1.0`)
-   and push the new ones. A version already tagged keeps its first release's tag. Prod
-   is out by now, so a failed push only warns.
-6. **Report:** comment `Released <short S>: core 0.2.0, auth 0.1.0, …. <n> commits, <m>
-   migrations applied.` with the run link, and set the issue to **Done**.
 
 ## On failure
 
-- `deploy.sh` restores the previous images itself (schema stays; see `deploy-dev.md`).
-  If verification in step 4 fails after deploy.sh succeeded, run
-  `deploy.sh --rollback` (restores `.release.env.previous`).
-- Comment on the release issue: which step failed, the last 50 lines of its log, whether
-  rollback succeeded, and the run link. Set the issue to **Blocked**, keep it assigned
-  to edwinhati. It is the only notification.
-- If the rollback itself fails, the comment says so in its first line.
+- `deploy.sh` restores the previous images itself when one of its steps fails (schema
+  stays; see `deploy-dev.md`). When verification fails after `deploy.sh` succeeded,
+  Deploy runs `deploy.sh --rollback`, which restores `.release.env.previous`.
+- The Report job opens a Multica issue assigned to edwinhati: the step that failed,
+  whether prod was rolled back, and the run link. A failed rollback says so in its
+  first line. Fix the cause, then re-run the failed jobs.
+- Build, Test and Release fail before anything reaches prod. A failed Deploy leaves the
+  tags in place, so the next merge does not start Production again: re-run it.
 
 ## One-time setup
 
@@ -160,13 +131,13 @@ oldest. For it:
      secret. If the redirect URL it shows differs from the one above, register the
      client again with it.
   3. Turn on NetBird's user approval, so a first sign-in waits for an admin.
-- **First release:** there is no prod yet, so the first brief covers all of `main`, and
-  prod's database has no operators, so the preflight stops it once:
-  1. Approve the brief. The run promotes every image to OCIR, then deploy.sh stops at
-     preflight `independent-recovery-operators` and the brief goes **Blocked**.
+- **First release:** prod's database has no operators, so the preflight stops the
+  first release once:
+  1. Merge the release PR. The run promotes every image to OCIR and tags the versions,
+     then deploy.sh stops at preflight `independent-recovery-operators` and Deploy fails.
   2. On the VM, as `tagaroa` in `/home/tagaroa/apps`, run
      `sh onboard.sh you@example.com < release`, where `release` holds the six lines the
-     run deployed (`RELEASE_SHA=<S>` and
+     run printed (`RELEASE_SHA=<S>` and
      `<NAME>_IMAGE=sin.ocir.io/<namespace>/tagaroa/<repo>:<version>`). It migrates,
      starts the stack without preflight, and prints the first super-admin's temporary
      password.
@@ -176,17 +147,21 @@ oldest. For it:
      (`docs/security/access-control-rollout.md`).
   4. Turn Pangolin SSO off on `auth.tagaroa.cc`: the operators now guard the app, and
      the release's public check of `auth.` runs from GitHub, outside SSO.
-  5. Set the brief back to **Todo** and run `approve.sh` again. This time the preflight
-     passes, the release records `.release.env`, and the public checks pass.
+  5. Re-run the failed Deploy job. This time the preflight passes, the release records
+     `.release.env`, and the public checks pass.
 
 ## Secrets (GitHub repo secrets)
 
-`PROD_SSH_KEY`, `PROD_SSH_KNOWN_HOSTS`, `OCIR_USERNAME`, `OCIR_TOKEN`, plus
-`NETBIRD_SETUP_KEY`, `REGISTRY_TOKEN` and `MULTICA_TOKEN` from `deploy-dev.md`.
+`PROD_SSH_KEY`, `PROD_SSH_KNOWN_HOSTS`, `OCIR_USERNAME`, `OCIR_TOKEN` (and the repository
+variable `OCIR_NAMESPACE`), plus `NETBIRD_SETUP_KEY` and `REGISTRY_TOKEN` from
+`deploy-dev.md`, and `MULTICA_TOKEN`: a Multica personal access token (`mul_…`) for
+edwinhati@tagaroa.com, used by Report with `multica login --token` against
+`https://multica.engineering.tagaroa.cc`, reached over NetBird at its private ingress
+address `172.25.251.12`.
 
 ## Done when
 
-After a merge to `main`, your Multica inbox has one release issue whose brief you can
-judge in under a minute; running `approve.sh` has prod on that sha within about
-fifteen minutes with the issue Done; and a release whose preflight fails leaves prod on
-the previous version with the issue Blocked and the reason in its comment.
+Merging a release PR has prod on its versions within about fifteen minutes of dev, with
+the versions tagged; a release with a migration that only an allow could pass, or a new
+config key prod lacks, stops at Test with prod unchanged; and a release that fails its
+checks after deploying leaves prod on the previous version and a Multica issue saying so.

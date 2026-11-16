@@ -1,12 +1,12 @@
 # Production release setup
 
-The release workflow runs only when `infra/release/approve.sh` dispatches it, and
-processes only Multica issues labelled `release` that Edwin has moved to In Progress.
-It validates the SHA against `main` and successful QA, copies each deployable's
-released version (core and the four apps) from Artifact Keeper to OCIR by digest,
-migrates, runs the existing security preflight,
-starts the application, and checks the public URLs. Failed releases become Blocked with a
-scrubbed log and rollback result.
+The Production workflow (`.github/workflows/production.yml`) runs when Development
+finds a merged release PR on `main`, or when dispatched by hand with a sha on `main`.
+It copies each deployable's released version (core and the four apps) from Artifact
+Keeper to OCIR by digest, checks that new migrations only add and that prod's `.env`
+has every new config key, tags the versions, migrates, runs the existing security
+preflight, starts the application, and checks the public URLs. A failed release rolls
+back and opens a Multica issue with the run link.
 
 Complete ISSUE-7 before merging/enabling the deployment workflows:
 
@@ -30,8 +30,8 @@ credentials remain ISSUE-7 responsibilities.
 
 The first successful release expires only pre-deployment `TagaroaProdDown`
 silences whose comment names ISSUE-10. Normal maintenance silences remain intact.
-Production stays on its approved SHA; no release is approved automatically.
+Prod changes only when a release PR is merged or Production is dispatched by hand.
 
 Run `bash infra/prod/deploy.test.sh` for isolated rollback/idempotency checks.
-Run `actionlint .github/workflows/release-prod.yml` and
-`shellcheck infra/prod/deploy.sh infra/release/release.sh` before changing the flow.
+Run `bun run check:infra` (actionlint, shellcheck and the release, gates and deploy
+self-tests) before changing the flow.
