@@ -6,7 +6,8 @@ hk uses native Git hook configuration on Git 2.54+, or `.git/hooks` on older Git
 No tracked hooks folder is needed.
 
 The pre-commit hook runs the steps in `hk.pkl` in parallel: Oxfmt and Oxlint on
-staged files, plus the existing full typecheck and unit test scripts. It also
+staged files, plus the full typecheck, unit tests, `turbo boundaries` and knip (unused
+files, dependencies and exports; config in `knip.json`). It also
 rejects staged Impeccable Live injections through `scripts/check-live-staged.sh`.
 Checks report failures without fixing or staging files. hk temporarily stashes
 unstaged work so checks see the staged snapshot and restores it afterward.

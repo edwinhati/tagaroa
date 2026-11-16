@@ -1,6 +1,6 @@
 #!/bin/bash
 # Works out, for one commit, each deployable's version and image, and which of
-# those images are not in the registry yet. Runs in deploy-dev.yml's plan job from
+# those images are not in the registry yet. Runs in development.yml's plan job from
 # a full install of the repo at that commit, logged in to the registry.
 #
 # A deployable with a pending changeset gets its next version as an alpha snapshot

@@ -17,7 +17,8 @@ jobs carry `PROD_SSH_KEY`. This runner is the opposite:
   (`postgres:18-alpine`, data on tmpfs) that shares the runner's network, so
   `127.0.0.1:5432` works exactly as on a laptop. `TAGAROA_TEST_POSTGRES=external`
   tells `servers/core/test/database.ts` not to call `docker compose`.
-- **No secrets.** QA's `checks` and `workflows` jobs use none.
+- **No secrets.** Development's `build` and `test` jobs use none; its deploy jobs,
+  which do, always run on GitHub-hosted runners.
 - **No sudo**, `no-new-privileges`, CPU, memory and process limits.
 - **Its own label**, `tagaroa-qa`. It must never carry `tagaroa`, or deploy jobs
   could be scheduled onto it.
@@ -47,8 +48,9 @@ inbound ports.
    `RUNNER_TOKEN` from `.env` afterwards.
 4. Check it shows as Idle under repo Settings → Actions → Runners.
 5. Turn it on: repo Settings → Secrets and variables → Actions → Variables →
-   `QA_RUNS_ON` = `["self-hosted","tagaroa-qa"]`. Then Actions → QA → Run workflow on
-   `main` and watch both jobs pick up `tagaroa-qa` and pass.
+   `QA_RUNS_ON` = `["self-hosted","tagaroa-qa"]`. Then Actions → Development → Run
+   workflow on `main` (a manual run deploys nothing) and watch Build and Test pick up
+   `tagaroa-qa` and pass.
 
 To go back to hosted runners, delete `QA_RUNS_ON`. Do that before taking the runner
 down for long: a job with no matching runner waits up to 24 hours, then fails.
@@ -61,6 +63,6 @@ Browsers themselves are downloaded by the job and reused across jobs.
 
 ## Capacity
 
-One runner runs one job at a time. A pull request's `checks` and `workflows` jobs
+One runner runs one job at a time. A pull request's `build` and `test` jobs
 therefore run one after the other, and the weekly four-browser matrix takes about an
 hour. Register a second container with another `RUNNER_NAME` if that is too slow.

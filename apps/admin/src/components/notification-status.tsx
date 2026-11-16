@@ -5,10 +5,10 @@ import type {
 import { cn } from "@repo/ui/lib/utils";
 import { MailIcon, SmartphoneIcon, type LucideIcon } from "lucide-react";
 
-import { COLUMN, FIGURE, Mark, MONO, type MarkTone } from "./admin-surface";
+import { Mark, MONO, type MarkTone } from "./admin-surface";
 import { WhatsAppMark } from "./brand-mark";
 
-export { COLUMN, FIGURE, MONO };
+export { MONO };
 
 /**
  * The vocabulary of a message's life, in one place.

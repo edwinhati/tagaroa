@@ -37,6 +37,12 @@ FAIL_STEP=never-match
 release new | sh "$tmp/deploy.sh"
 grep -q 'engineering:new' "$tmp/.release.env"
 grep -q 'core:old' "$tmp/.release.env.previous"
+# --rollback restores the release before this one; with none it refuses.
+sh "$tmp/deploy.sh" --rollback
+grep -q 'core:old' "$tmp/.release.env"
+rm -f "$tmp/.release.env.previous"
+if sh "$tmp/deploy.sh" --rollback > "$tmp/log" 2>&1; then echo 'Rolled back with no previous release' >&2; exit 1; fi
+release new | sh "$tmp/deploy.sh"
 
 # A release that is not exactly the six keys never reaches docker.
 for bad in "$(release new; echo 'EXTRA_IMAGE=x')" "$(release new | grep -v AUTH_IMAGE)" "$(release new | sed 's/:new$/:new;rm -rf ~/')"; do
@@ -69,4 +75,4 @@ release first > "$tmp/first"
 if sh "$tmp/onboard.sh" < "$tmp/first" > "$tmp/log" 2>&1; then
   echo 'Onboarding ran after a release was recorded' >&2; exit 1
 fi
-echo 'PASS: successful deploy, malformed releases, first-release onboarding, rollback at each stage'
+echo 'PASS: successful deploy, explicit rollback, malformed releases, first-release onboarding, rollback at each stage'

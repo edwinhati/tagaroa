@@ -15,6 +15,12 @@ steps {
   ["tests"] {
     check = "bun run test"
   }
+  ["boundaries"] {
+    check = "bun run boundaries"
+  }
+  ["knip"] {
+    check = "bun run knip"
+  }
 }
 
 hooks {

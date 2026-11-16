@@ -1,4 +1,4 @@
-import { IDENTITY_ROLES, type IdentityRoleId } from "@repo/contracts/identity";
+import { IDENTITY_ROLES } from "@repo/contracts/identity";
 import {
   Field,
   FieldDescription,
@@ -22,8 +22,6 @@ export const accountRoles = IDENTITY_ROLES.map(({ id, label }) => ({
   label,
   value: id,
 }));
-
-export type AccountRole = IdentityRoleId;
 
 const isInvalid = (field: AnyFieldApi) =>
   field.state.meta.isTouched && !field.state.meta.isValid;
