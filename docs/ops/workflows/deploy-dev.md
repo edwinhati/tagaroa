@@ -61,6 +61,7 @@ environment.
      shell or OS packages): `dist/`, production dependencies, `drizzle/` (migration files)
      and `scripts/`. Its `bun` entrypoint is cleared, so every command names `bun` itself;
      default command `bun dist/main.js`. Runs as `nonroot`.
+     Scanner findings that remain are explained in `docs/ops/core-image-findings.md`.
    - `servers/core/src/migrate.ts` (compiled into `dist/migrate.js`) applies
      `drizzle/` with drizzle-orm's migrator on the same driver the app uses, then exits.
      `drizzle-kit` stays a dev dependency and is not in the image.
