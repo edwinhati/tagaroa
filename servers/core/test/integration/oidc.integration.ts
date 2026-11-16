@@ -158,41 +158,57 @@ describe("Tagaroa as an OIDC provider", () => {
     expect((await accepted.json()).url).toStartWith(`${redirectUri}?code=`);
   });
 
-  test("signs someone out when the client asks, then sends them back to it", async () => {
+  test("sends a sign-out it cannot tie to the session to the door, sealed with the app's return address", async () => {
     const client = await register();
     const employee = await signedIn(false);
     // NetBird's Dex sends its client ID and callback, without an id_token_hint,
-    // so the door asks the person to confirm first.
-    const asked = await request(
-      `/api/auth/oauth2/end-session?client_id=${client.client_id}&post_logout_redirect_uri=${encodeURIComponent(logoutUri)}`,
-      {
-        headers: { accept: "text/html", cookie: employee.jar.header() },
-        redirect: "manual",
-      },
+    // so Better Auth would ask for a confirmation of its own.
+    const asked = await endSession(
+      client.client_id,
+      logoutUri,
+      employee.jar.header(),
     );
-    expect(asked.status).toBe(200);
-    expect(await asked.text()).toContain("Confirm logout");
+    expect(asked.status).toBe(302);
+    const door = new URL(asked.headers.get("location")!);
+    expect(door.origin).toBe(new URL(testEnv.SIGN_IN_URL).origin);
+    expect(door.pathname).toBe("/sign-out");
 
-    const confirmation = asked.headers
-      .getSetCookie()
-      .map((cookie) => cookie.split(";", 1)[0]);
-    const confirmed = await request("/api/auth/oauth2/end-session/confirm", {
-      method: "POST",
-      headers: {
-        accept: "text/html",
-        "content-type": "application/x-www-form-urlencoded",
-        cookie: [employee.jar.header(), ...confirmation].join("; "),
-      },
-      body: "action=confirm",
-      redirect: "manual",
+    const sealed = door.searchParams.get("request")!;
+    const opened = await request(
+      `/api/auth/sign-out/return?request=${encodeURIComponent(sealed)}`,
+    );
+    expect(opened.status).toBe(200);
+    expect(await opened.json()).toEqual({
+      name: "NetBird",
+      url: `${logoutUri}?state=s1`,
     });
-    expect(confirmed.headers.get("location")).toBe(logoutUri);
-    expect(
-      (
-        await request("/api/auth/get-session", {
-          headers: { cookie: employee.jar.header() },
-        })
-      ).json(),
-    ).resolves.toBeNull();
+
+    const tampered = await request(
+      `/api/auth/sign-out/return?request=${encodeURIComponent(`${sealed.slice(0, -2)}AA`)}`,
+    );
+    expect(tampered.status).toBe(400);
+  });
+
+  test("never carries a return address the app did not register to the door", async () => {
+    const client = await register();
+    const asked = await endSession(
+      client.client_id,
+      "https://elsewhere.example/",
+    );
+    expect(asked.status).toBe(302);
+    const door = new URL(asked.headers.get("location")!);
+    expect(door.pathname).toBe("/sign-out");
+    expect(door.searchParams.has("request")).toBe(false);
   });
 });
+
+/** A browser navigation to the end-session endpoint, as Dex sends it. */
+const endSession = (clientId: string, returnTo: string, cookie = "") =>
+  request(
+    `/api/auth/oauth2/end-session?${new URLSearchParams({
+      client_id: clientId,
+      post_logout_redirect_uri: returnTo,
+      state: "s1",
+    })}`,
+    { headers: { accept: "text/html", cookie }, redirect: "manual" },
+  );

@@ -203,6 +203,7 @@ test("exposes the Better Auth health endpoint", async () => {
     "organization",
     "jwt",
     "oauth-provider",
+    "door-sign-out",
   ]);
 });
 
