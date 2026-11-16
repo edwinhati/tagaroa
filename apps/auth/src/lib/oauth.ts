@@ -44,3 +44,34 @@ export async function finishOAuth(query: string): Promise<string | undefined> {
   );
   return result.failure;
 }
+
+/** The app that asked to sign someone out, and where it takes them back. */
+export type SignOutReturn = { name: string; url: string };
+
+/**
+ * Core sealed the app's sign-out request when it sent the person here, so only a
+ * return address that app registered comes back. Undefined when the request is
+ * missing, expired or was tampered with.
+ */
+export async function signOutReturn(
+  request: string,
+): Promise<SignOutReturn | undefined> {
+  const result = await attemptAuth(
+    () =>
+      authClient.$fetch<SignOutReturn>("/sign-out/return", {
+        method: "GET",
+        query: { request },
+      }),
+    "This sign-out link has expired.",
+  );
+  return result.data ?? undefined;
+}
+
+/** Ends the Tagaroa session in this browser. Answers the failure to show. */
+export async function signOutHere(): Promise<string | undefined> {
+  const result = await attemptAuth(
+    () => authClient.signOut(),
+    "Couldn’t sign you out. Try again.",
+  );
+  return result.failure;
+}

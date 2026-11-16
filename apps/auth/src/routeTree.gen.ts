@@ -12,6 +12,7 @@ import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as LockedOutRouteImport } from './routes/locked-out'
 import { Route as ReauthRouteImport } from './routes/reauth'
+import { Route as SignOutRouteImport } from './routes/sign-out'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
@@ -28,35 +29,44 @@ const ReauthRoute = ReauthRouteImport.update({
   path: '/reauth',
   getParentRoute: () => rootRouteImport,
 } as any)
+const SignOutRoute = SignOutRouteImport.update({
+  id: '/sign-out',
+  path: '/sign-out',
+  getParentRoute: () => rootRouteImport,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/locked-out': typeof LockedOutRoute
   '/reauth': typeof ReauthRoute
+  '/sign-out': typeof SignOutRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/locked-out': typeof LockedOutRoute
   '/reauth': typeof ReauthRoute
+  '/sign-out': typeof SignOutRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
   '/locked-out': typeof LockedOutRoute
   '/reauth': typeof ReauthRoute
+  '/sign-out': typeof SignOutRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/' | '/locked-out' | '/reauth'
+  fullPaths: '/' | '/locked-out' | '/reauth' | '/sign-out'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/locked-out' | '/reauth'
-  id: '__root__' | '/' | '/locked-out' | '/reauth'
+  to: '/' | '/locked-out' | '/reauth' | '/sign-out'
+  id: '__root__' | '/' | '/locked-out' | '/reauth' | '/sign-out'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   LockedOutRoute: typeof LockedOutRoute
   ReauthRoute: typeof ReauthRoute
+  SignOutRoute: typeof SignOutRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -82,6 +92,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ReauthRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/sign-out': {
+      id: '/sign-out'
+      path: '/sign-out'
+      fullPath: '/sign-out'
+      preLoaderRoute: typeof SignOutRouteImport
+      parentRoute: typeof rootRouteImport
+    }
   }
 }
 
@@ -89,6 +106,7 @@ const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   LockedOutRoute: LockedOutRoute,
   ReauthRoute: ReauthRoute,
+  SignOutRoute: SignOutRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

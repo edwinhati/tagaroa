@@ -8,6 +8,7 @@ import { SQL } from "bun";
 
 const core = E2E_ORIGINS.core;
 const callback = "https://vpn.example/oauth2/callback";
+const loggedOut = "https://vpn.example/oauth2/logout/callback";
 
 // NetBird's login (Dex) asks core to sign someone in, core sends them to the
 // door, and the door hands them back once they are fully signed in: here a new
@@ -31,12 +32,14 @@ test(
           "id", "client_id", "client_secret", "name", "redirect_uris",
           "scopes", "grant_types", "response_types",
           "token_endpoint_auth_method", "skip_consent", "require_pkce",
+          "enable_end_session", "post_logout_redirect_uris",
           "created_at", "updated_at"
         ) VALUES (
           ${crypto.randomUUID()}, ${clientId}, 'unused', 'NetBird',
           ARRAY[${callback}], ARRAY['openid', 'profile', 'email', 'offline_access'],
           ARRAY['authorization_code', 'refresh_token'], ARRAY['code'],
-          'client_secret_basic', true, false, now(), now()
+          'client_secret_basic', true, false, true, ARRAY[${loggedOut}],
+          now(), now()
         )`;
       await sql`
         UPDATE "auth"."user" SET "two_factor_enabled" = false
@@ -106,5 +109,25 @@ test(
     await expect(page).toHaveURL(
       new RegExp(`^${callback}\\?code=[^&]+&state=from-netbird`),
     );
+
+    // Signing out of NetBird: Dex sends no id_token_hint, so core cannot tie the
+    // request to this session and the door asks, then hands the person back.
+    await page.goto(
+      `${core}/api/auth/oauth2/end-session?${new URLSearchParams({
+        client_id: clientId,
+        post_logout_redirect_uri: loggedOut,
+        state: "leaving",
+      })}`,
+    );
+    await expect(
+      page.getByRole("heading", { name: "Sign out of Tagaroa" }),
+    ).toBeFocused();
+    await expect(page.getByText("NetBird is signing you out")).toBeVisible();
+    await page.getByRole("button", { name: "Sign out" }).click();
+    await expect(page).toHaveURL(`${loggedOut}?state=leaving`);
+    const session = await page.request.get(`${core}/api/auth/get-session`, {
+      headers: { origin: E2E_ORIGINS.auth },
+    });
+    expect(await session.json()).toBeNull();
   },
 );

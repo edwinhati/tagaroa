@@ -28,6 +28,7 @@ import {
   authenticationAuditEvent,
   endedSessionAuditEvent,
 } from "./audit-events";
+import { doorSignOut } from "./door-sign-out";
 import { type AuthRepository } from "./infrastructure/persistence/auth.persistence.module";
 import { expiredTemporaryPassword, validateAdminWrite } from "./request-policy";
 import { SESSION_POLICY, temporaryPasswordExpired } from "./session-policy";
@@ -403,6 +404,8 @@ export const createAuth = (repository: AuthRepository, config: AuthConfig) => {
         resourcePrivileges: () => false,
         scopes: ["openid", "profile", "email", "offline_access"],
       }),
+      // A sign-out the provider cannot finish on its own lands on the door.
+      doorSignOut(config.signInURL),
     ],
     user: {
       additionalFields: USER_ADDITIONAL_FIELDS,
