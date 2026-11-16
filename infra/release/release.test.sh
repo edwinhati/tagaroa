@@ -68,9 +68,9 @@ version apps/auth @apps/auth 0.1.0
 version apps/admin @apps/admin 0.1.0
 version apps/workspace @apps/workspace 0.1.0
 version domains/engineering @domains/engineering 0.1.0
-promote() { : > "$TRACE"; : > "$GITHUB_OUTPUT"; bash "$root/infra/release/release.sh" promote "${1:-$sha}"; }
+promote() { : > "$TRACE"; : > "$GITHUB_OUTPUT"; bash "$root/infra/release/release.sh" promote "$1"; }
 
-promote > /dev/null
+promote "$sha" > /dev/null
 grep -qF "skopeo copy --all --preserve-digests --retry-times 3 docker://registry.engineering.tagaroa.cc/tagaroa/core-service:0.2.0 docker://sin.ocir.io/fixture/tagaroa/core-service:0.2.0" "$TRACE"
 grep -qF "docker://sin.ocir.io/fixture/tagaroa/engineering:0.1.0" "$TRACE"
 if grep -q '^docker ' "$TRACE"; then echo 'Release rebuilt images'; exit 1; fi
@@ -85,7 +85,7 @@ for case in short HEAD_SHA=bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb OFF_MAIN=1; 
 done
 # An alpha in package.json, no arm64 image, or a copy that differs from its source.
 version apps/admin @apps/admin 0.1.1-alpha-abc1234
-fails promote
+fails promote "$sha"
 grep -q 'admin has no released version' "$tmp/out"
 version apps/admin @apps/admin 0.1.0
 for case in IMAGE_ARCH=amd64 DEST_MANIFEST=tampered; do
