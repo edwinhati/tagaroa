@@ -1,5 +1,11 @@
 # @apps/admin
 
+## 0.1.2
+
+### Patch Changes
+
+- 27383c5: ISSUE-128: Remove code nothing used (an unused email theme file and two unused admin exports), found by knip. No change in behaviour.
+
 ## 0.1.1
 
 ### Patch Changes
