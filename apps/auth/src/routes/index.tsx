@@ -24,7 +24,7 @@ function SecureAccountFallback() {
       </ScreenHeading>
       <Panel>
         <div
-          className="gap-2 py-4 text-sm flex items-center justify-center text-muted-foreground"
+          className="gap-2 py-4 text-sm flex items-center text-muted-foreground"
           role="status"
         >
           <Spinner aria-hidden="true" data-icon="inline-start" />

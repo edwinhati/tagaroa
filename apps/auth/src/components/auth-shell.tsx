@@ -25,6 +25,9 @@ export function AuthShell({ children }: { children: ReactNode }) {
       {/* Cap the two-pane band so ultrawide screens do not strand a 21rem form
           in an enormous empty left column. */}
       <div className="gap-3 px-5 pb-5 lg:grid-cols-2 lg:px-7 lg:pb-7 mx-auto grid w-full max-w-[96rem]">
+        {/* The credential panel: the door's flat bordered inset, never Card
+            (product lift). The radius is an explicit 1rem because the theme
+            remaps rounded-2xl to the product panel radius (12px). */}
         <main className="min-w-0 px-6 py-10 flex items-center justify-center rounded-[1rem] border border-border bg-card/60">
           {/* rise-in: first paint and every AuthShell remount (sign-in → 2FA,
               choose-password, …) share the same 180ms entry. Route Link
@@ -69,7 +72,7 @@ export function ScreenHeading({
       </h1>
 
       {children ? (
-        <p className="mt-1.5 leading-relaxed mx-auto text-[13px] text-pretty text-muted-foreground">
+        <p className="mt-1.5 leading-relaxed text-[13px] text-pretty text-muted-foreground">
           {children}
         </p>
       ) : null}
