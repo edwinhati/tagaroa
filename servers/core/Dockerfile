@@ -36,6 +36,12 @@ COPY --from=prune /pruned/runtime/json/ .
 # ponytail: production install runs on the build platform; if a dependency ever
 # ships a native binary, pass --cpu/--os here from TARGETARCH.
 RUN bun install --frozen-lockfile --production
+# TypeScript arrives only as a peer dependency of @thallesp/nestjs-better-auth,
+# which never loads it; core runs compiled JS. Its native `tsc` embeds Go's
+# golang.org/x/text, which image scanners flag. `--omit=peer` would also drop
+# react-dom, which email rendering needs, so remove just these.
+RUN rm -rf node_modules/.bun/typescript@* node_modules/.bun/@typescript+* \
+ && find node_modules -xtype l -delete
 COPY --from=prune /pruned/runtime/full/ .
 
 # Distroless: Bun, glibc and CA certificates, with no shell or OS packages to patch.
