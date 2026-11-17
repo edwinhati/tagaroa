@@ -3,7 +3,8 @@
 How to point `servers/core` at a Frappe HR (v16) site so that joiners are issued accounts
 and leavers are offboarded. What the sync does and does not decide is in
 [ADR 0004](../adr/0004-hr-record-drives-joiners-and-leavers.md); the people-side procedure
-is in [access operations](access-operations.md).
+is in [access operations](access-operations.md). Tagaroa hosts Frappe HR itself; building,
+running, backing up and upgrading it is in [`infra/frappe`](../../infra/frappe/README.md).
 
 ## 1. A read-only API user in Frappe
 

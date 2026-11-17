@@ -1,0 +1,129 @@
+# Frappe HR, from frappe_docker's compose.yaml with its MariaDB and Redis overrides folded in.
+# The image is built on this host by build.sh; see README.md.
+name: frappe
+
+x-defaults: &defaults
+  restart: unless-stopped
+  logging:
+    driver: json-file
+    options:
+      max-size: 10m
+      max-file: "3"
+  security_opt:
+    - no-new-privileges:true
+
+x-frappe: &frappe
+  <<: *defaults
+  image: tagaroa-frappe:${FRAPPE_TAG:?set FRAPPE_TAG to the tag build.sh made}
+  pull_policy: never
+  volumes:
+    - sites:/home/frappe/frappe-bench/sites
+  depends_on:
+    configurator:
+      condition: service_completed_successfully
+
+services:
+  configurator:
+    <<: *frappe
+    restart: on-failure
+    entrypoint: [bash, -c]
+    command:
+      - >
+        ls -1 apps > sites/apps.txt;
+        bench set-config -g db_host db;
+        bench set-config -gp db_port 3306;
+        bench set-config -g redis_cache redis://redis-cache:6379;
+        bench set-config -g redis_queue redis://redis-queue:6379;
+        bench set-config -g redis_socketio redis://redis-queue:6379;
+        bench set-config -gp socketio_port 9000;
+        bench set-config -g chromium_path /usr/lib/chromium/chromium-headless-shell;
+    depends_on:
+      db:
+        condition: service_healthy
+      redis-cache:
+        condition: service_started
+      redis-queue:
+        condition: service_started
+
+  backend:
+    <<: *frappe
+    environment:
+      GUNICORN_THREADS: "4"
+      GUNICORN_WORKERS: "2"
+      GUNICORN_TIMEOUT: "120"
+
+  frontend:
+    <<: *frappe
+    command: [nginx-entrypoint.sh]
+    environment:
+      BACKEND: backend:8000
+      SOCKETIO: websocket:9000
+      NGINX_LISTEN_PORT: "8080"
+      # One site per stack: every host name serves it, whatever the proxy in front sends.
+      FRAPPE_SITE_NAME_HEADER: ${SITE:?}
+      CLIENT_MAX_BODY_SIZE: 50m
+    # Loopback only; the private ingress or a tunnel in front of it is the way in.
+    ports:
+      - 127.0.0.1:${HTTP_PORT:-8080}:8080
+    depends_on:
+      - backend
+      - websocket
+
+  websocket:
+    <<: *frappe
+    command: [node, /home/frappe/frappe-bench/apps/frappe/socketio.js]
+
+  queue-short:
+    <<: *frappe
+    command: bench worker --queue short,default
+
+  queue-long:
+    <<: *frappe
+    command: bench worker --queue long,default,short
+
+  scheduler:
+    <<: *frappe
+    command: bench schedule
+
+  db:
+    <<: *defaults
+    image: mariadb:11.8
+    command:
+      - --character-set-server=utf8mb4
+      - --collation-server=utf8mb4_unicode_ci
+      - --skip-character-set-client-handshake
+      - --innodb-snapshot-isolation=OFF
+    environment:
+      MARIADB_ROOT_PASSWORD: ${DB_PASSWORD:?}
+      MARIADB_AUTO_UPGRADE: "1"
+    healthcheck:
+      test: [CMD, healthcheck.sh, --connect, --innodb_initialized]
+      start_period: 5s
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    volumes:
+      - db-data:/var/lib/mysql
+
+  redis-cache:
+    <<: *defaults
+    image: redis:8.6-alpine
+
+  redis-queue:
+    <<: *defaults
+    image: redis:8.6-alpine
+    volumes:
+      - redis-queue-data:/data
+
+  # Run by backup.sh only.
+  backup:
+    image: rclone/rclone:1.76.0
+    profiles: [backup]
+    volumes:
+      - sites:/sites:ro
+      - ./rclone.conf:/config/rclone/rclone.conf:ro
+
+volumes:
+  sites: {}
+  db-data: {}
+  redis-queue-data: {}
