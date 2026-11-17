@@ -396,10 +396,18 @@ fifteen seconds. Every element identifies whose workspace this is or accepts a c
 ### Composition
 
 - Full-width header: mark left, theme control right.
-- From `lg`: two equal columns. Left centres a 21rem stack (display, optional sentence, form panel).
-  Right is the tide panel.
-- Tide and form panels are inset, 16px radius, 1px border, flat (no `--panel-shadow`).
-- Below `lg`, drop the tide; keep header and form panel.
+- Every `AuthShell` screen uses the same composition: sign-in, reauthentication, 2FA,
+  password replacement, security setup, hand-back, recovery guidance, and sign-out.
+- From `lg`: two equal columns separated by 12px, capped at 96rem. The left credential
+  panel centres a 21rem stack; the right is the tide panel.
+- The heading, optional sentence, fields, and supporting actions share a leading edge
+  inside the credential panel. Leave 32px after the heading and 20px between form groups.
+- The credential panel contains the whole step, including its heading. `Panel` groups
+  step content without a second border, fill, or inset padding.
+- Tide and credential panels are inset, 16px radius, 1px border, flat (no `--panel-shadow`).
+  Credential panel padding is 40px vertically and 24px horizontally.
+- Below `lg`, drop the tide; keep the header and credential panel.
+- On sign-in, a quiet rule and 16px of padding separate passkey from password submission.
 
 ### Tide
 

@@ -22,6 +22,7 @@ coverage
 # impeccable live — per-session machine state. The apps carry their own
 # rules (impeccable writes them); this covers the repo-root boot lock.
 .impeccable/
+.hallmark/
 
 # Vercel
 .vercel
