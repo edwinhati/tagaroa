@@ -124,8 +124,8 @@ jobs:
         with:
           node-version: "24"
           package-manager-cache: false
-      - run: sh scripts/check-migrations.sh "origin/$GITHUB_BASE_REF"
-      - run: node --test scripts/check-migrations.test.mjs
+      - run: sh scripts/ci/check-migrations.sh "origin/$GITHUB_BASE_REF"
+      - run: node --test scripts/ci/check-migrations.test.mjs
       - run: bash infra/release/gates.sh migrations "origin/$GITHUB_BASE_REF" HEAD
 
   test:

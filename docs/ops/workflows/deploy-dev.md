@@ -179,7 +179,7 @@ One-time setup (needs root on `168.144.104.237`):
 1. **Build** (job `build`): `check:changesets` on pull requests, then `lint`, `format`,
    `check-types`, `boundaries`, `knip`, `test`, `build` and `check:infra`. On pull
    requests, **Migrations** checks that applied migrations are unchanged
-   (`scripts/check-migrations.sh`) and that new ones only add, or carry an allow
+   (`scripts/ci/check-migrations.sh`) and that new ones only add, or carry an allow
    (`infra/release/gates.sh migrations`, `release-prod.md`, "Steps").
 2. **Test** (job `test`, after Build): integration tests and the browser suites, chromium
    on `main` and every browser elsewhere, scoped on pull requests by

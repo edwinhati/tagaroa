@@ -44,7 +44,7 @@ core version, or the first release, has nothing to check.
   `-- migration-guard: allow <reason>` in its file; an allow on a migration that only
   adds fails too. Pull requests run the same check on the migrations they add, so the
   allow is in the file before dev applies it and the file can no longer change
-  (`scripts/check-migrations.sh`).
+  (`scripts/ci/check-migrations.sh`).
 - **Prod's `.env` has every new config key.** A key added uncommented to
   `servers/core/.env.example` since then must be in `/home/tagaroa/apps/.env`. Only key
   names leave the VM.

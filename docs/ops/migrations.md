@@ -13,7 +13,7 @@ applied the old file skips your edit and `migrate` still reports success.
 first commit).
 
 Add a new migration instead (`bun run db:generate`, or a hand-written file plus
-its journal entry). `scripts/check-migrations.sh` fails the `migrations` job in
+its journal entry). `scripts/ci/check-migrations.sh` fails the `migrations` job in
 QA when a pull request modifies, renames or deletes a `.sql` file that is
 already on `main`.
 
