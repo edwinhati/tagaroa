@@ -22,7 +22,7 @@
     },
     "apps/admin": {
       "name": "@apps/admin",
-      "version": "0.1.1",
+      "version": "0.1.2",
       "dependencies": {
         "@fontsource-variable/geist": "catalog:",
         "@fontsource-variable/geist-mono": "catalog:",
@@ -59,7 +59,7 @@
     },
     "apps/auth": {
       "name": "@apps/auth",
-      "version": "0.2.0",
+      "version": "0.2.1",
       "dependencies": {
         "@fontsource-variable/geist": "catalog:",
         "@fontsource-variable/geist-mono": "catalog:",
@@ -252,7 +252,7 @@
     },
     "servers/core": {
       "name": "@servers/core",
-      "version": "0.2.0",
+      "version": "0.2.1",
       "dependencies": {
         "@better-auth/drizzle-adapter": "1.7.12",
         "@better-auth/oauth-provider": "1.7.12",
