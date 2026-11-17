@@ -1,12 +1,13 @@
 #!/bin/bash
 set -e
 
-# Create per-app databases, roles, and privileges on first initialization.
+# Creates the tagaroa database and role (password tagaroa) that
+# servers/core/.env.example connects with, on first initialization.
 #
-# Idempotent by design: POSTGRES_USER and POSTGRES_DB may already be one of the
-# names below (docker-compose.yml defaults both to `tagaroa`, .env.example sets
-# both to `postgres`), and a bare CREATE for one that exists would abort the
-# whole init under ON_ERROR_STOP=1 — leaving every later database uncreated.
+# Idempotent by design: POSTGRES_USER or POSTGRES_DB may already name one of
+# them (docker-compose.yml sets both to `postgres`, but a developer can change
+# that), and a bare CREATE for one that exists would abort the whole init under
+# ON_ERROR_STOP=1, leaving the rest uncreated.
 #
 # PostgreSQL >= 15 revokes CREATE on the public schema from PUBLIC, so each role
 # also needs an explicit schema grant or its migrations fail with
@@ -17,13 +18,9 @@ psql_super() { psql -v ON_ERROR_STOP=1 --username "$POSTGRES_USER" "$@"; }
 
 exists() { test -n "$(psql_super --dbname "$POSTGRES_DB" -tAc "$1")"; }
 
-# db:role — an empty role means the database is owned by $POSTGRES_USER and is
-# reached with the superuser's credentials, which is what every local .env.example
-# in this repo already does (servers/core -> auth, and the two ventures below).
-# Only databases something actually connects to locally belong here: flow is on
-# Neon, traccar and the k8s-only databases are not served from this container.
-# The ventures need only their base database — server/src/test/harness.ts derives
-# and creates <db>_test itself on first run.
+# db:role; an empty role leaves the database to $POSTGRES_USER. Only databases
+# something connects to locally belong here. Core's tests create their own
+# tagaroa_test (servers/core/test/database.ts).
 # shellcheck disable=SC2043 # a list of one, kept as a list so more can be added
 for spec in tagaroa:tagaroa; do
     db="${spec%%:*}"; role="${spec##*:}"

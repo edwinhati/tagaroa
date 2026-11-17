@@ -11,7 +11,7 @@
 #   Rollback restores images, never the schema, so anything else must be marked in
 #   its file with `-- migration-guard: allow <reason>`. An allow on an additive
 #   migration fails too, so none is left behind by mistake. Changing or removing an
-#   applied migration always fails (scripts/check-migrations.sh blocks it on PRs).
+#   applied migration always fails (scripts/ci/check-migrations.sh blocks it on PRs).
 # config: every key added uncommented to servers/core/.env.example in from..to is in
 #   prod's .env. Keys that were there before already work on prod.
 # range: core ships migrations and needs config only with a new version, so <from>

@@ -1,10 +1,12 @@
 #!/bin/bash
-# Checks for everything outside the Bun workspaces, where both outages of
-# 2026-11-04 started (a jq filter in the release brief script, since removed):
+# Checks for everything outside the Bun workspaces:
 #   - shellcheck on every tracked shell script
 #   - actionlint on the workflows (it also shellchecks their run: blocks)
 #   - every *.test.sh self-test that runs with stubs only
-#   - the dev wrapper's own tests (scripts/with-live.test.mjs)
+#   - the dev wrapper's own tests (scripts/with-live.test.mjs and
+#     scripts/live-bridge.test.mjs; the bridge's terminal tests skip themselves
+#     without ttyd, tmux or the impeccable skill)
+#   - that every Bun version matches engines.bun
 #
 #   bash scripts/ci/check-infra.sh      (or: bun run check:infra)
 #
@@ -41,8 +43,10 @@ while IFS= read -r test; do
   esac || failed+=("$test")
 done < <(git ls-files '*.test.sh')
 
-section scripts/with-live.test.mjs
-node --test scripts/with-live.test.mjs || failed+=(scripts/with-live.test.mjs)
+for test in scripts/with-live.test.mjs scripts/live-bridge.test.mjs; do
+  section "$test"
+  node --test "$test" || failed+=("$test")
+done
 
 # Dependabot bumps the images; CI and local installs read engines.bun.
 section "bun version"
