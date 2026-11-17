@@ -174,22 +174,27 @@ export function SignInStep({
             )}
           </form.Subscribe>
           {showPasskey ? (
-            <Button
-              className="mt-2.5 w-full"
-              disabled={alternativePending}
-              onClick={() => void signInWithPasskey()}
-              type="button"
-              variant="outline"
-            >
-              {alternativePending ? (
-                <Spinner aria-hidden="true" data-icon="inline-start" />
-              ) : (
-                <UserRoundKeyIcon aria-hidden="true" data-icon="inline-start" />
-              )}
-              {alternativePending
-                ? "Waiting for passkey…"
-                : "Sign in with a passkey"}
-            </Button>
+            <div className="pt-4 border-t border-border">
+              <Button
+                className="w-full"
+                disabled={alternativePending}
+                onClick={() => void signInWithPasskey()}
+                type="button"
+                variant="outline"
+              >
+                {alternativePending ? (
+                  <Spinner aria-hidden="true" data-icon="inline-start" />
+                ) : (
+                  <UserRoundKeyIcon
+                    aria-hidden="true"
+                    data-icon="inline-start"
+                  />
+                )}
+                {alternativePending
+                  ? "Waiting for passkey…"
+                  : "Sign in with a passkey"}
+              </Button>
+            </div>
           ) : null}
         </AuthForm>
       </Panel>

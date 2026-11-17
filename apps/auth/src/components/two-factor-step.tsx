@@ -85,7 +85,7 @@ export function TwoFactorStep({ onDone }: { onDone: () => void }) {
                 aria-label="Authenticator code"
                 autoComplete="one-time-code"
                 autoFocus
-                containerClassName="w-full justify-center"
+                containerClassName="w-full"
                 inputMode="numeric"
                 maxLength={6}
                 onChange={(value) =>
