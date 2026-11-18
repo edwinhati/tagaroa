@@ -1652,6 +1652,49 @@ test("all administration pages load without page errors or horizontal overflow",
   }
 });
 
+test("issuing a privileged account from a stale sign-in goes to reauthentication", async ({
+  page,
+}) => {
+  test.setTimeout(60_000);
+  const sql = new SQL(databaseUrl);
+  const [original] =
+    await sql`select role from auth."user" where email = ${operator.email}`;
+  const email = `stale-grant-${crypto.randomUUID()}@tagaroa.test`;
+  try {
+    await sql`update auth."user" set role = 'super-admin' where email = ${operator.email}`;
+    const { session } = await (
+      await page.request.get(`${coreOrigin}/api/auth/get-session`)
+    ).json();
+    await sql`update auth.session set created_at = now() - interval '16 minutes' where id = ${session.id}`;
+    await page.goto("/identity-access/people");
+    await page.getByRole("button", { name: "Issue an account" }).click();
+    const dialog = page.getByRole("dialog", { name: "Issue an account" });
+    await dialog.getByLabel("Work email", { exact: true }).fill(email);
+    await dialog
+      .getByLabel("Personal email", { exact: true })
+      .fill(`personal-${email}`);
+    await dialog.getByRole("combobox", { name: "Role", exact: true }).click();
+    await page.getByRole("option", { name: "Helpdesk", exact: true }).click();
+    const refused = page.waitForResponse((response) =>
+      response.url().endsWith("/api/auth/admin/create-user"),
+    );
+    await dialog
+      .getByRole("button", { name: "Issue account", exact: true })
+      .click();
+    expect((await refused).status()).toBe(403);
+    await expect(page).toHaveURL(/\/reauth\?redirect=/);
+    expect(new URL(page.url()).searchParams.get("redirect")).toBe(
+      `${adminOrigin}/identity-access/people`,
+    );
+    const [issued] =
+      await sql`select count(*)::int as count from auth."user" where email = ${email}`;
+    expect(issued.count).toBe(0);
+  } finally {
+    await sql`update auth."user" set role = ${original.role} where email = ${operator.email}`;
+    await sql.close();
+  }
+});
+
 test("an administrator issues, edits, suspends, restores and reissues an account", async ({
   page,
   browser,
