@@ -1,5 +1,11 @@
 # @servers/core
 
+## 0.2.2
+
+### Patch Changes
+
+- 9474582: ISSUE-137: authenticator apps and passkey managers list accounts under `AUTH_APP_NAME` (default "Tagaroa"), so dev can show up as "Tagaroa Dev" instead of looking like prod.
+
 ## 0.2.1
 
 ### Patch Changes
