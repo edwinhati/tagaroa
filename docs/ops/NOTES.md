@@ -131,7 +131,7 @@ Raw notes on where Tagaroa runs and the tools around it. Workflow specs live in
   Dev runs `X.Y.Z-alpha-<sha7>` for pending changesets, prod the released `X.Y.Z`.
   The apps work out their URLs from the host, so one image runs everywhere.
 - Registries: dev images in Artifact Keeper on the OCI VM
-  (`registry.engineering.tagaroa.cc`, NetBird only, `infra/oci/artifact-keeper/`). Prod
+  (`registry.engineering.tagaroa.cc`, NetBird only, `/home/docker/artifact-keeper`). Prod
   images in OCI Container Registry (Singapore), pulled by the VM locally.
 - Ingress: every hostname is a Pangolin resource. Prod: on the OCI VM's local site,
   public. Dev: site "DigitalOcean Droplet SG" → `tagaroa-dev-<app>-1:80` per host, with

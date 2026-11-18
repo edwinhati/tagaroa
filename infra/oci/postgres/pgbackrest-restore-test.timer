@@ -1,8 +1,0 @@
-[Unit]
-Description=Weekly isolated PostgreSQL point-in-time recovery verification
-[Timer]
-OnCalendar=Sun *-*-* 02:00:00 UTC
-Persistent=true
-Unit=pgbackrest-restore-test.service
-[Install]
-WantedBy=timers.target
