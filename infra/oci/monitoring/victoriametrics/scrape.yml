@@ -68,6 +68,8 @@ scrape_configs:
         target_label: instance
       - target_label: __address__
         replacement: blackbox-exporter:9115
+  # Prod's only public endpoints: the door, and core through its sign-in routes. The
+  # rest of prod answers only over NetBird, so a public probe of it always fails.
   - job_name: tagaroa-prod
     scrape_interval: 30s
     metrics_path: /probe
@@ -76,8 +78,8 @@ scrape_configs:
         - http_2xx
     static_configs:
       - targets:
-          - https://tagaroa.cc/api/health/live
-          - https://app.tagaroa.cc/
+          - https://auth.tagaroa.cc/
+          - https://tagaroa.cc/api/auth/ok
     relabel_configs:
       - source_labels:
           - __address__
