@@ -130,7 +130,8 @@ jobs:
     name: Test (${{ matrix.project }})
     needs: build
     runs-on: ubuntu-24.04
-    timeout-minutes: 30
+    # Room for a slow package mirror: webkit's system packages alone are ~125 MB.
+    timeout-minutes: 60
     strategy:
       fail-fast: false
       # Pushes to main repeat a pull request that already ran every browser, so they run
@@ -156,6 +157,14 @@ jobs:
         env:
           BASE: ${{ github.event_name == 'pull_request' && 'HEAD^1' || '' }}
         run: bash scripts/ci/qa-scope.sh "$BASE"
+      # The runners' own Ubuntu mirror (*.ec2.archive.ubuntu.com) served packages at
+      # ~80 kB/s in November 2026, enough to time webkit's install out.
+      - name: Use the Azure Ubuntu mirror
+        if: steps.scope.outputs.e2e_auth == 'true' || steps.scope.outputs.e2e_admin == 'true'
+        run: |
+          { grep -rlE 'archive\.ubuntu\.com' /etc/apt || true; } \
+            | xargs -r sudo sed -i -E 's#https?://[a-z0-9.-]*archive\.ubuntu\.com#http://azure.archive.ubuntu.com#g'
+          { grep -rhoE 'https?://[a-z0-9.-]*\.ubuntu\.com[^ ]*' /etc/apt || true; } | sort -u
       - run: bunx playwright install --with-deps ${{ matrix.project == 'mobile-chromium' && 'chromium' || matrix.project }}
         if: steps.scope.outputs.e2e_auth == 'true' || steps.scope.outputs.e2e_admin == 'true'
         working-directory: apps/auth
