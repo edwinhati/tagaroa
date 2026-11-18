@@ -13,8 +13,8 @@ work (pgBackRest stanza `main` → OCI Object Storage); this workflow only prove
 Schedule. Host systemd timer `pgbackrest-restore-test.timer` on the OCI VM, next to the
 existing `pgbackrest-housekeeping.timer`: `OnCalendar=Sun *-*-* 02:00:00 UTC` (every
 Sunday, before the 03:15 backup), `Persistent=true`. Runs
-`/home/docker/postgres/pgbackrest/restore-test.sh` as root. The script and unit files
-live in `infra/oci/postgres/`, installed by hand; the VM copy must match.
+`/home/docker/postgres/pgbackrest/restore-test.sh` as root. The scripts and unit files
+exist only on the VM, beside that script and in `/etc/systemd/system/`.
 
 ## Checkpoint
 
@@ -65,7 +65,5 @@ notifies nobody (`-notifier.blackhole`).
 
 ## Done when
 
-Running the service by hand passes and records the metric; pointing it at a wrong
-stanza fails with the step in `restore-test-last.log`; and
-`sh infra/oci/postgres/restore-test.test.sh` and
-`sh infra/oci/postgres/restore-container.test.sh` pass.
+Running the service by hand passes and records the metric, and pointing it at a wrong
+stanza fails with the step in `restore-test-last.log`.

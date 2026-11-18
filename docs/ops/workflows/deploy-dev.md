@@ -94,7 +94,7 @@ environment.
 
 ## Registry access
 
-Artifact Keeper runs on the OCI VM (`infra/oci/artifact-keeper/`) and is reachable only
+Artifact Keeper runs on the OCI VM (`/home/docker/artifact-keeper`) and is reachable only
 over NetBird: Pangolin's private ingress serves `registry.engineering.tagaroa.cc` at
 `172.25.251.19` and drops public traffic. Each job that needs it runs
 `infra/ci/netbird-up.sh`, which installs a pinned NetBird client, joins with the
