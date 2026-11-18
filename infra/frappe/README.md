@@ -13,11 +13,15 @@ reachable only through NetBird.
 
 ## Host
 
-Not decided yet: a cloud VM or a Proxmox container on-premise. Either needs Docker with
-BuildKit, about 2 vCPU and 4 GB of RAM for Frappe alone, outbound HTTPS to GitHub and to
-`tagaroa.cc`, and NetBird to reach `git.engineering.tagaroa.cc` when building. `build.sh` builds
-for the host's own architecture; Frappe publishes amd64 and arm64 base images. Install into
-`/home/docker/frappe`, like the other services.
+A Proxmox LXC of its own on the PVE host (`root@10.10.10.2`), like Multica's CT 107. Not the OCI
+VM: that is the network and observability host, and its RAM stays under 50%. Not CT 105 either.
+
+- **Size:** 2 vCPU, 4 GB RAM, 30 GB disk, amd64.
+- **LXC:** Docker needs `nesting=1,keyctl=1`. Pin DNS like every CT:
+  `pct set <id> --nameserver 8.8.8.8 --searchdomain infra.engineering.tagaroa.com`.
+- **Install** into `/home/docker/frappe`.
+- **Network:** outbound HTTPS to GitHub and `tagaroa.cc`, and a way to reach
+  `git.engineering.tagaroa.cc` when building. Set `HTTP_BIND` to the CT's LAN address.
 
 ## Customising
 
@@ -43,7 +47,8 @@ Not in git; `0600`, owned by `docker`.
 | `FRAPPE_TAG`    | The tag given to `build.sh`, e.g. `16.53.2-0.0.1` (HRMS, then `erp`) |
 | `SITE`          | The site name, which is also its host name, e.g. `hr.tagaroa.cc`     |
 | `DB_PASSWORD`   | MariaDB root password, `openssl rand -base64 32`                     |
-| `HTTP_PORT`     | Loopback port for the frontend; defaults to `8080`                   |
+| `HTTP_BIND`     | Address the frontend listens on; the CT's LAN IP, default loopback   |
+| `HTTP_PORT`     | Port for the frontend; defaults to `8080`                            |
 | `BACKUP_REMOTE` | rclone destination, e.g. `r2:tagaroa-frappe-backups`                 |
 
 `rclone.conf` sits next to it, also `0600`, with the remote `BACKUP_REMOTE` names. For R2, use a
@@ -84,9 +89,10 @@ finish the setup wizard.
 ## Connecting to Tagaroa
 
 1. **Access.** Add the site to the private ingress and NetBird the way
-   [Artifact Keeper](../oci/artifact-keeper/README.md#access) is: a Pangolin resource on the
-   "Private ingress only" policy pointing at `127.0.0.1:${HTTP_PORT}` (or a Newt site on the host),
-   an address from `add-private-app.py`, a NetBird resource and a DNS zone for `SITE`.
+   [Artifact Keeper](../oci/artifact-keeper/README.md#access) is: a Pangolin resource on site
+   "PVE Home" on the "Private ingress only" policy, pointing at `${HTTP_BIND}:${HTTP_PORT}`, an
+   address from `add-private-app.py`, a NetBird resource and a DNS zone for `SITE`. The core
+   service on the OCI VM calls `FRAPPE_URL` too, so that path must let it through.
 2. **Webhook path.** Frappe calls `https://tagaroa.cc/api/hr/webhooks/frappe`. Pangolin resource
    39 drops every path it does not list, so add `ACCEPT PATH /api/hr/webhooks/*` to it first.
 3. **The sync.** Follow [Connecting Frappe HR](../../docs/security/frappe-hr-setup.md): the

@@ -62,9 +62,10 @@ services:
       # One site per stack: every host name serves it, whatever the proxy in front sends.
       FRAPPE_SITE_NAME_HEADER: ${SITE:?}
       CLIENT_MAX_BODY_SIZE: 50m
-    # Loopback only; the private ingress or a tunnel in front of it is the way in.
+    # Loopback by default. On Proxmox, HTTP_BIND is the CT's LAN address, so the Pangolin
+    # site agent in CT 103 can reach it.
     ports:
-      - 127.0.0.1:${HTTP_PORT:-8080}:8080
+      - ${HTTP_BIND:-127.0.0.1}:${HTTP_PORT:-8080}:8080
     depends_on:
       - backend
       - websocket
