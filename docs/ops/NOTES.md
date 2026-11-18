@@ -84,8 +84,8 @@ Raw notes on where Tagaroa runs and the tools around it. Workflow specs live in
   production trusted origin outside the API host. One session per person per browser,
   so `SESSION_POLICY.concurrentSessions` is unaffected. Local dev keeps the door same-origin
   through Vite (Brave/Safari dropped the cookie from `localhost:8080`).
-  - Checked: `infra/dev/images.test.sh` (cookie attributes, session read from the API
-    host) and `infra/dev/browsers.test.sh <core-image>`, which builds the four app
+  - Checked: `infra/deploy/images.test.sh` (cookie attributes, session read from the API
+    host) and `infra/deploy/browsers.test.sh <core-image>`, which builds the four app
     images, serves them as `*.dev.localtest.me` behind HTTPS and signs in through the door in
     Chromium, Firefox and WebKit.
   - Rejected: `Domain=tagaroa.cc` (sends prod tokens to every host under the zone; a
@@ -123,7 +123,7 @@ Raw notes on where Tagaroa runs and the tools around it. Workflow specs live in
   `dev.tagaroa.cc/api`, RP ID `dev.tagaroa.cc`.
   DNS is on Cloudflare; everything public resolves to the edge (168.107.65.35).
 - Builds: GitHub-hosted runners, amd64 and arm64 natively, joined to NetBird for the
-  job (`infra/ci/netbird-up.sh`). The CT 105 self-hosted runner was retired in
+  job (`scripts/ci/netbird-up.sh`). The CT 105 self-hosted runner was retired in
   ISSUE-117.
 - Prod images must be multi-arch (amd64 for dev, arm64 for prod).
 - One image per deployable since ISSUE-118: core, auth, admin, workspace and

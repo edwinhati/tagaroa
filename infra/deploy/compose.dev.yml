@@ -1,4 +1,4 @@
-# Dev stack on the DigitalOcean droplet, copied to /home/tagaroa/apps by every deploy.
+# Dev stack on the DigitalOcean droplet, copied to /home/tagaroa/apps/compose.yml by every deploy.
 # `.env` (secrets) stays on the box; `.release.env` (image refs) is written by deploy.sh.
 # No published ports: the droplet's public, and Docker bypasses ufw. Pangolin's site
 # container reaches core and each app on pangolin_default, as it does TMS.

@@ -1,6 +1,6 @@
 #!/bin/bash
 # Installs the pinned Multica CLI on a GitHub-hosted amd64 runner.
-#   bash infra/ci/install-multica.sh
+#   bash scripts/ci/install-multica.sh
 set -euo pipefail
 version=0.7.2
 sum=5216eb619d5c2a244eeb0621711df9376a9c69cf757d8c133daf452d92d36007

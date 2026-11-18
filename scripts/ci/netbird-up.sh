@@ -4,7 +4,7 @@
 # NetBird allows TCP 443 to those two only; the peer is removed about 10 minutes after
 # the runner is gone. NetBird's DNS stays off: each name is pinned in /etc/hosts.
 #
-#   NETBIRD_SETUP_KEY=... bash infra/ci/netbird-up.sh <private ip>=<host>...
+#   NETBIRD_SETUP_KEY=... bash scripts/ci/netbird-up.sh <private ip>=<host>...
 set -euo pipefail
 : "${NETBIRD_SETUP_KEY:?netbird-up: NETBIRD_SETUP_KEY is required}"
 version=0.83.1

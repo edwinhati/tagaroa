@@ -1,6 +1,6 @@
 #!/bin/bash
 # Run after building the images, with deploy.sh's release lines on stdin:
-#   bash infra/dev/images.test.sh < release
+#   bash infra/deploy/images.test.sh < release
 # Uses only throwaway containers and a private network.
 set -euo pipefail
 while IFS='=' read -r key value; do

@@ -109,7 +109,7 @@ jobs:
 
   # Applied migrations are immutable: drizzle's migrator never re-checks their hash. So a
   # migration that is not additive carries its allow before dev applies it, and
-  # Production's gate (infra/release/gates.sh) finds it there.
+  # Production's gate (scripts/ci/gates.sh) finds it there.
   migrations:
     name: Migrations
     if: github.event_name == 'pull_request'
@@ -126,7 +126,7 @@ jobs:
           package-manager-cache: false
       - run: sh scripts/ci/check-migrations.sh "origin/$GITHUB_BASE_REF"
       - run: node --test scripts/ci/check-migrations.test.mjs
-      - run: bash infra/release/gates.sh migrations "origin/$GITHUB_BASE_REF" HEAD
+      - run: bash scripts/ci/gates.sh migrations "origin/$GITHUB_BASE_REF" HEAD
 
   test:
     name: Test (${{ matrix.project }})
@@ -181,7 +181,7 @@ jobs:
           retention-days: 7
 
   # Each deployable's version comes from changesets, and its image tag from its version
-  # (infra/ci/plan-images.sh): a pending changeset makes it X.Y.Z-alpha-<sha7>, none leaves
+  # (scripts/ci/plan-images.sh): a pending changeset makes it X.Y.Z-alpha-<sha7>, none leaves
   # it at its released X.Y.Z. Only tags the registry lacks are built, so a released version
   # is built once, from the commit that set it, and Production copies that image to prod
   # by digest. Images are built only for a commit that passed Build and Test.
@@ -207,7 +207,7 @@ jobs:
       - name: Join NetBird
         env:
           NETBIRD_SETUP_KEY: ${{ secrets.NETBIRD_SETUP_KEY }}
-        run: bash infra/ci/netbird-up.sh "$REGISTRY_ADDRESS"
+        run: bash scripts/ci/netbird-up.sh "$REGISTRY_ADDRESS"
 
       - name: Plan images
         id: plan
@@ -216,7 +216,7 @@ jobs:
           REGISTRY_TOKEN: ${{ secrets.REGISTRY_TOKEN }}
         run: |
           printf '%s' "$REGISTRY_TOKEN" | docker login "$REGISTRY" --username ci --password-stdin
-          bash infra/ci/plan-images.sh
+          bash scripts/ci/plan-images.sh
 
   # Core has native dependencies, so each platform is built on its own runner (dev runs
   # amd64, prod arm64); deploy joins the two single-platform pushes with `docker manifest`.
@@ -241,7 +241,7 @@ jobs:
       - name: Join NetBird
         env:
           NETBIRD_SETUP_KEY: ${{ secrets.NETBIRD_SETUP_KEY }}
-        run: bash infra/ci/netbird-up.sh "$REGISTRY_ADDRESS"
+        run: bash scripts/ci/netbird-up.sh "$REGISTRY_ADDRESS"
 
       - name: Build and push core
         env:
@@ -273,7 +273,7 @@ jobs:
       - name: Join NetBird
         env:
           NETBIRD_SETUP_KEY: ${{ secrets.NETBIRD_SETUP_KEY }}
-        run: bash infra/ci/netbird-up.sh "$REGISTRY_ADDRESS"
+        run: bash scripts/ci/netbird-up.sh "$REGISTRY_ADDRESS"
 
       - name: Build and push ${{ matrix.name }}
         env:
@@ -311,7 +311,7 @@ jobs:
       - name: Join NetBird
         env:
           NETBIRD_SETUP_KEY: ${{ secrets.NETBIRD_SETUP_KEY }}
-        run: bash infra/ci/netbird-up.sh "$REGISTRY_ADDRESS"
+        run: bash scripts/ci/netbird-up.sh "$REGISTRY_ADDRESS"
 
       - name: Join core's platforms
         if: needs.plan.outputs.core != ''
@@ -337,7 +337,8 @@ jobs:
           printf '%s\n' "$DEV_SSH_KNOWN_HOSTS" > ~/.ssh/known_hosts
           chmod 600 ~/.ssh/id_ed25519 ~/.ssh/known_hosts
           printf '%s\n' "$RELEASE"
-          scp infra/dev/compose.yml infra/dev/deploy.sh infra/dev/onboard.sh infra/dev/smoke.sh "$DEV_HOST:$APPS_DIR/"
+          scp infra/deploy/compose.dev.yml "$DEV_HOST:$APPS_DIR/compose.yml"
+          scp infra/deploy/deploy.sh infra/deploy/smoke.sh "$DEV_HOST:$APPS_DIR/"
           # APPS_DIR is a fixed path; the release travels on stdin.
           # shellcheck disable=SC2029
           ssh "$DEV_HOST" "sh $APPS_DIR/deploy.sh" <<< "$RELEASE"

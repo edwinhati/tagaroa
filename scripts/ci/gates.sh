@@ -3,9 +3,9 @@
 # Test step runs both; pull requests run `migrations` (development.yml), so a
 # migration that needs an allow gets it before dev applies it and the file is frozen.
 #
-#   bash infra/release/gates.sh migrations <from> <to>
-#   bash infra/release/gates.sh config <from> <to> <file of prod's .env key names>
-#   bash infra/release/gates.sh range <to> <prod's core version>   (prints <from>, or nothing)
+#   bash scripts/ci/gates.sh migrations <from> <to>
+#   bash scripts/ci/gates.sh config <from> <to> <file of prod's .env key names>
+#   bash scripts/ci/gates.sh range <to> <prod's core version>   (prints <from>, or nothing)
 #
 # migrations: every migration added in from..to only adds (tables, columns, indexes).
 #   Rollback restores images, never the schema, so anything else must be marked in

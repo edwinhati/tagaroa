@@ -58,11 +58,10 @@ The recovery staffing check requires at least two active, MFA-enrolled super-adm
 
 Exit status 0 means the automated technical checks passed. Status 1 means configuration, connectivity, permissions or a check failed. A successful check does not approve production release: record real email delivery, HTTPS enrollment/sign-in, operator ownership and a restore from the target environment's backup infrastructure before acceptance. A separate notification worker deployment must be checked with its own worker-enabled configuration and actual process health.
 
-### Dev first release: operator onboarding
+### First release: operator onboarding
 
-The dev deploy (`infra/dev/deploy.sh`) runs this preflight before starting core, so a fresh environment cannot pass it: the operators have to sign in and enrol MFA, which needs the app running. The gate stays as is. Break the loop by hand on the dev droplet (`tagaroa@168.144.104.237`), in `/home/tagaroa/apps`, using the `core` and `web` image refs from the failed deploy log:
+The deploy (`infra/deploy/deploy.sh`) runs this preflight before starting core, so a fresh environment cannot pass it: the operators have to sign in and enrol MFA, which needs the app running. The gate stays as is. Dev and prod broke the loop once each, in November 2026, with `onboard.sh`, which migrated and started the stack without preflight, printed the first super-admin's temporary password and recorded no release. Both now have a recorded release, so it was removed in ISSUE-141. A new environment restores it from git history (`infra/prod/onboard.sh` before ISSUE-141), runs it in `/home/tagaroa/apps` with the six release lines from the failed deploy, then:
 
-1. `sh onboard.sh <core-image> <web-image> <first-super-admin-email>` migrates and starts the stack without preflight and prints that account's one-time temporary password. It refuses to run once `.release.env` exists, and records no release.
-2. The first super-admin signs in, replaces the password and enrols an authenticator (verified).
-3. They create a second super-admin and a separate helpdesk/admin requester in the admin app. Each operator is a different person who completes their own password change and MFA enrolment.
-4. Re-run the dev deploy workflow. Preflight must pass on its own; if it does not, the next deploy stops core/web again.
+1. The first super-admin signs in, replaces the password and enrols an authenticator (verified).
+2. They create a second super-admin and a separate helpdesk/admin requester in the admin app. Each operator is a different person who completes their own password change and MFA enrolment.
+3. Re-run the failed deploy. Preflight must pass on its own; if it does not, the deploy stops the stack again.
