@@ -18,7 +18,7 @@ import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 import * as z from "zod";
 
-import { write } from "../lib/api";
+import { announce, write } from "../lib/api";
 import {
   onboardingOutcome,
   refreshPeople,
@@ -139,6 +139,8 @@ function IssueForm({
         personalEmail,
       };
     },
+    // A stale sign-in goes to re-authenticate, as on every other admin write.
+    onError: announce.failed,
     onSuccess: (result) => {
       setIssued(result);
       void refreshPeople(queryClient);
