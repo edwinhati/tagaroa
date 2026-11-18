@@ -31,9 +31,9 @@ Keeper to OCI Container Registry, Singapore:
 `sin.ocir.io/<tenancy-namespace>/tagaroa/<name>:<version>`. The same multi-arch images
 dev ran; prod pulls their arm64 half. It refuses, before anything reaches prod, a
 version that is not a release (`X.Y.Z`), an image with no `linux/arm64` part, and a
-copy whose manifest digest differs from its source (`infra/release/release.sh promote`).
+copy whose manifest digest differs from its source (`scripts/ci/release.sh promote`).
 
-**Test:** the gates, `infra/release/gates.sh`. Core ships migrations and needs config
+**Test:** the gates, `scripts/ci/gates.sh`. Core ships migrations and needs config
 only with a new version, so both compare the commit that set prod's core version (read
 from `CORE_IMAGE` in the VM's `.release.env`) with the sha. A release that keeps prod's
 core version, or the first release, has nothing to check.
@@ -54,13 +54,13 @@ core version, or the first release, has nothing to check.
 release's tag. The tags are what tells Development a version has been released.
 
 **Deploy** over SSH as `tagaroa@168.107.65.35` (key in secret `PROD_SSH_KEY`, host key
-pinned in `PROD_SSH_KNOWN_HOSTS`), `infra/release/release.sh deploy`:
+pinned in `PROD_SSH_KNOWN_HOSTS`), `scripts/ci/release.sh deploy`:
 
-1. Copy `infra/prod/compose.yml`, `infra/prod/deploy.sh`, `infra/prod/onboard.sh` and
-   `infra/dev/smoke.sh` to `/home/tagaroa/apps`, then feed `deploy.sh` the release on
-   stdin: `RELEASE_SHA=<S>` and one OCIR image per deployable. Same steps and rollback
-   as dev's `deploy.sh`, with these differences:
-   - `docker login sin.ocir.io` with the token in `/home/tagaroa/apps/.ocir` before pull.
+1. Copy `infra/deploy/compose.prod.yml` (as `compose.yml`), `infra/deploy/deploy.sh` and
+   `infra/deploy/smoke.sh` to `/home/tagaroa/apps`, then feed `deploy.sh` the release on
+   stdin: `RELEASE_SHA=<S>` and one OCIR image per deployable. It is dev's `deploy.sh`,
+   with the same steps and rollback; prod differs only in what sits beside it:
+   - `.ocir`: `deploy.sh` logs in to `sin.ocir.io` with it before pull.
    - No `postgres` service. Core, migrate and preflight join the external network
      `postgres_backend` and connect straight to `postgres:5432` (not PgBouncer: it runs
      in transaction mode, and direct is simpler for one service).
@@ -113,9 +113,9 @@ pinned in `PROD_SSH_KNOWN_HOSTS`), `infra/release/release.sh deploy`:
   `app.` and `admin.` carry the shared policy "Private ingress only". NetBird reaches
   those three hosts through the private ingress on the VM
   (`/home/docker/private-ingress`: `admin-prod` 172.25.251.26, `app-prod` .28,
-  `api-prod` .29), with NetBird resources and DNS records for them. `auth.` keeps
-  Pangolin SSO while prod is being onboarded, so nobody else reaches it; SSO comes off
-  before the release that passes preflight (below), since the app does its own sign-in.
+  `api-prod` .29), with NetBird resources and DNS records for them. `auth.` has no
+  Pangolin SSO, since the app does its own sign-in; it kept SSO only until prod's first
+  operators enrolled.
 - **Resend:** prod webhook → `https://tagaroa.cc/api/notifications/webhooks/resend`.
 - **NetBird sign-in:** `vpn.tagaroa.cc` signs people in with Tagaroa over OIDC (issuer
   `https://tagaroa.cc/api/auth`, discovery and every endpoint under the public
@@ -132,24 +132,10 @@ pinned in `PROD_SSH_KNOWN_HOSTS`), `infra/release/release.sh deploy`:
      secret. If the redirect URL it shows differs from the one above, register the
      client again with it.
   3. Turn on NetBird's user approval, so a first sign-in waits for an admin.
-- **First release:** prod's database has no operators, so the preflight stops the
-  first release once:
-  1. Merge the release PR. The run promotes every image to OCIR and tags the versions,
-     then deploy.sh stops at preflight `independent-recovery-operators` and Deploy fails.
-  2. On the VM, as `tagaroa` in `/home/tagaroa/apps`, run
-     `sh onboard.sh you@example.com < release`, where `release` holds the six lines the
-     run printed (`RELEASE_SHA=<S>` and
-     `<NAME>_IMAGE=sin.ocir.io/<namespace>/tagaroa/<repo>:<version>`). It migrates,
-     starts the stack without preflight, and prints the first super-admin's temporary
-     password.
-  3. On NetBird, sign in at `https://auth.tagaroa.cc` (through Pangolin SSO), change the
-     password and enrol MFA; then, in `https://admin.tagaroa.cc`, add a second
-     super-admin and a separate requester, each past their own password change and MFA
-     (`docs/security/access-control-rollout.md`).
-  4. Turn Pangolin SSO off on `auth.tagaroa.cc`: the operators now guard the app, and
-     the release's public check of `auth.` runs from GitHub, outside SSO.
-  5. Re-run the failed Deploy job. This time the preflight passes, the release records
-     `.release.env`, and the public checks pass.
+- **First release:** a database with no operators fails the preflight, so an
+  environment's first release needs its operators enrolled on a stack started without
+  it. Prod's first release passed on 2026-11-18; how that is done is in
+  `docs/security/access-control-rollout.md`, "First release: operator onboarding".
 
 ## Secrets (GitHub repo secrets)
 

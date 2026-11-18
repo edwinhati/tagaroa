@@ -34,7 +34,8 @@ ignored() {
     infra/*) return 0 ;;
     .github/dependabot.yml | .github/actionlint.yaml) return 0 ;;
     .github/workflows/production.yml) return 0 ;;
-    scripts/ci/check-infra.sh) return 0 ;;
+    scripts/ci/qa-scope.sh) return 1 ;;
+    scripts/ci/*) return 0 ;;
     *) return 1 ;;
   esac
 }

@@ -33,7 +33,7 @@ Development builds one image per deployable and pushes it to Artifact Keeper
 `tagaroa/engineering`.
 
 **Versions come from changesets** (`.changeset/README.md`), and an image's tag is its
-version. `infra/ci/plan-images.sh` applies `changeset version --snapshot alpha` to the
+version. `scripts/ci/plan-images.sh` applies `changeset version --snapshot alpha` to the
 checkout:
 
 - a deployable with a pending changeset gets its next version as an alpha,
@@ -97,7 +97,7 @@ environment.
 Artifact Keeper runs on the OCI VM (`/home/docker/artifact-keeper`) and is reachable only
 over NetBird: Pangolin's private ingress serves `registry.engineering.tagaroa.cc` at
 `172.25.251.19` and drops public traffic. Each job that needs it runs
-`infra/ci/netbird-up.sh`, which installs a pinned NetBird client, joins with the
+`scripts/ci/netbird-up.sh`, which installs a pinned NetBird client, joins with the
 reusable, ephemeral setup key in `NETBIRD_SETUP_KEY` (group CI) and pins the private
 addresses in `/etc/hosts`. NetBird policies let the CI group reach the registry and
 Multica (Production's failure report) on tcp 443, nothing else. The peer disappears when the runner does.
@@ -117,11 +117,11 @@ One-time setup (needs root on `168.144.104.237`):
   --block-inbound --disable-server-routes`), `/etc/hosts` entry
   `172.25.251.19 registry.engineering.tagaroa.cc`, and `docker login` as `tagaroa` with
   the read-only registry token.
-- **Stack files** live in the repo at `infra/dev/` (`compose.yml`, `deploy.sh`,
-  `onboard.sh`, `smoke.sh`) and are copied into `/home/tagaroa/apps` by every deploy,
-  so config changes ship through git. `.env` (mode 0600, owner `tagaroa`) stays on the
-  box and is never in git.
-- `compose.yml`, project name `tagaroa-dev`:
+- **Stack files** live in the repo at `infra/deploy/` and are copied into
+  `/home/tagaroa/apps` by every deploy: `compose.dev.yml` as `compose.yml`, and
+  `deploy.sh` and `smoke.sh`, which prod runs too. Config changes ship through git.
+  `.env` (mode 0600, owner `tagaroa`) stays on the box and is never in git.
+- `compose.dev.yml`, project name `tagaroa-dev`:
   - `postgres`: `postgres:18-alpine` (same major as prod), named volume, healthcheck.
   - `migrate`: core image, `bun dist/migrate.js`, after postgres is healthy.
   - `preflight`: core image, `bun scripts/security-preflight.ts`, after migrate.
@@ -181,7 +181,7 @@ One-time setup (needs root on `168.144.104.237`):
    `check-types`, `boundaries`, `knip`, `test`, `build` and `check:infra`. On pull
    requests, **Migrations** checks that applied migrations are unchanged
    (`scripts/ci/check-migrations.sh`) and that new ones only add, or carry an allow
-   (`infra/release/gates.sh migrations`, `release-prod.md`, "Steps").
+   (`scripts/ci/gates.sh migrations`, `release-prod.md`, "Steps").
 2. **Test** (job `test`, after Build): integration tests and the browser suites, chromium
    on `main` and every browser elsewhere, scoped on pull requests by
    `scripts/ci/qa-scope.sh`.

@@ -68,7 +68,7 @@ version apps/auth @apps/auth 0.1.0
 version apps/admin @apps/admin 0.1.0
 version apps/workspace @apps/workspace 0.1.0
 version domains/engineering @domains/engineering 0.1.0
-promote() { : > "$TRACE"; : > "$GITHUB_OUTPUT"; bash "$root/infra/release/release.sh" promote "$1"; }
+promote() { : > "$TRACE"; : > "$GITHUB_OUTPUT"; bash "$root/scripts/ci/release.sh" promote "$1"; }
 
 promote "$sha" > /dev/null
 grep -qF "skopeo copy --all --preserve-digests --retry-times 3 docker://registry.engineering.tagaroa.cc/tagaroa/core-service:0.2.0 docker://sin.ocir.io/fixture/tagaroa/core-service:0.2.0" "$TRACE"
@@ -80,7 +80,7 @@ check test "$(grep -c '_IMAGE=' "$GITHUB_OUTPUT")" = 5
 grep -qx 'tags=@servers/core@0.2.0 @apps/auth@0.1.0 @apps/admin@0.1.0 @apps/workspace@0.1.0 @domains/engineering@0.1.0' "$GITHUB_OUTPUT"
 # A short sha, a checkout of another commit or a commit off main never get copied.
 for case in short HEAD_SHA=bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb OFF_MAIN=1; do
-  if [[ $case == short ]]; then fails promote aaaaaaa; else fails env "$case" bash "$root/infra/release/release.sh" promote "$sha"; fi
+  if [[ $case == short ]]; then fails promote aaaaaaa; else fails env "$case" bash "$root/scripts/ci/release.sh" promote "$sha"; fi
   if grep -q 'skopeo copy' "$TRACE"; then echo "Promoted despite $case"; exit 1; fi
 done
 # An alpha in package.json, no arm64 image, or a copy that differs from its source.
@@ -90,12 +90,12 @@ grep -q 'admin has no released version' "$tmp/out"
 version apps/admin @apps/admin 0.1.0
 for case in IMAGE_ARCH=amd64 DEST_MANIFEST=tampered; do
   : > "$GITHUB_OUTPUT"
-  fails env "$case" bash "$root/infra/release/release.sh" promote "$sha"
+  fails env "$case" bash "$root/scripts/ci/release.sh" promote "$sha"
   if grep -q RELEASE_SHA "$GITHUB_OUTPUT"; then echo "Wrote a release despite $case"; exit 1; fi
 done
 echo 'PASS: promote copies released versions by digest, refuses an alpha, a sha off main, a missing arm64 image or a mismatched copy'
 
-deploy() { : > "$TRACE"; : > "$GITHUB_OUTPUT"; RELEASE="RELEASE_SHA=$sha" bash "$root/infra/release/release.sh" deploy; }
+deploy() { : > "$TRACE"; : > "$GITHUB_OUTPUT"; RELEASE="RELEASE_SHA=$sha" bash "$root/scripts/ci/release.sh" deploy; }
 deploy > /dev/null
 grep -qx "RELEASE_SHA=$sha" "$RELEASE_IN"
 grep -q 'smoke.sh tagaroa-prod' "$TRACE"

@@ -1,5 +1,5 @@
 #!/bin/bash
-# Self-check for netbird-up.sh with curl, uname and sudo stubbed: bash infra/ci/netbird-up.test.sh
+# Self-check for netbird-up.sh with curl, uname and sudo stubbed: bash scripts/ci/netbird-up.test.sh
 set -euo pipefail
 root=$(cd "$(dirname "$0")/../.." && pwd)
 tmp=$(mktemp -d)
@@ -27,14 +27,14 @@ cd "$root"
 
 # No key: stop before downloading anything.
 : > "$TRACE"
-if env -u NETBIRD_SETUP_KEY bash infra/ci/netbird-up.sh 10.0.0.1=example.test >/dev/null 2>&1; then
+if env -u NETBIRD_SETUP_KEY bash scripts/ci/netbird-up.sh 10.0.0.1=example.test >/dev/null 2>&1; then
   echo "FAIL: ran without a setup key"; exit 1
 fi
 [[ ! -s $TRACE ]] || { echo "FAIL: acted without a setup key"; cat "$TRACE"; exit 1; }
 
 # A download that does not match the pinned checksum is never installed or run.
 : > "$TRACE"
-if NETBIRD_SETUP_KEY=k bash infra/ci/netbird-up.sh 10.0.0.1=example.test >/dev/null 2>&1; then
+if NETBIRD_SETUP_KEY=k bash scripts/ci/netbird-up.sh 10.0.0.1=example.test >/dev/null 2>&1; then
   echo "FAIL: accepted a tampered download"; exit 1
 fi
 grep -q 'netbird_0\.83\.1_linux_amd64\.tar\.gz' "$TRACE" || { echo "FAIL: wrong download"; cat "$TRACE"; exit 1; }

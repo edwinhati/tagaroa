@@ -1,13 +1,13 @@
 #!/bin/bash
 # Production's Build and Deploy steps (.github/workflows/production.yml).
 #
-#   bash infra/release/release.sh promote <sha>
+#   bash scripts/ci/release.sh promote <sha>
 #     From a checkout of <sha>, a commit on main: copies each deployable's released
 #     version (its package.json) from the dev registry to OCIR by digest. That is the
 #     image Development built and tested when the version first reached main; nothing
 #     is rebuilt. Writes release= (deploy.sh's six lines) and tags= (Changesets' tag
 #     names, `@apps/auth@0.1.0`) to $GITHUB_OUTPUT.
-#   RELEASE=<six lines> bash infra/release/release.sh deploy
+#   RELEASE=<six lines> bash scripts/ci/release.sh deploy
 #     Deploys on the VM, checks every container there and the two public URLs, and
 #     rolls back when a check fails (deploy.sh restores the previous images itself when
 #     it fails). After a rollback, writes rollback=done|failed to $GITHUB_OUTPUT.
@@ -58,8 +58,8 @@ DEPLOYABLES
 
   deploy)
     : "${RELEASE:?}"
-    # smoke.sh is dev's, run with the prod project name.
-    scp infra/prod/compose.yml infra/prod/deploy.sh infra/prod/onboard.sh infra/dev/smoke.sh "$host:/home/tagaroa/apps/"
+    scp infra/deploy/compose.prod.yml "$host:/home/tagaroa/apps/compose.yml"
+    scp infra/deploy/deploy.sh infra/deploy/smoke.sh "$host:/home/tagaroa/apps/"
     if ! ssh "$host" 'sh /home/tagaroa/apps/deploy.sh' <<< "$RELEASE"; then
       echo "::error::deploy.sh failed. It restores the previous images itself; its log above says whether that worked."
       exit 1

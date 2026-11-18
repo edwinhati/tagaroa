@@ -51,7 +51,7 @@ jobs:
       - name: Join NetBird
         env:
           NETBIRD_SETUP_KEY: ${{ secrets.NETBIRD_SETUP_KEY }}
-        run: bash infra/ci/netbird-up.sh 172.25.251.19=registry.engineering.tagaroa.cc
+        run: bash scripts/ci/netbird-up.sh 172.25.251.19=registry.engineering.tagaroa.cc
 
       - name: Promote images
         id: promote
@@ -60,10 +60,10 @@ jobs:
           OCIR_USERNAME: ${{ secrets.OCIR_USERNAME }}
           OCIR_TOKEN: ${{ secrets.OCIR_TOKEN }}
           OCIR_NAMESPACE: ${{ vars.OCIR_NAMESPACE }}
-        run: bash infra/release/release.sh promote "$SHA"
+        run: bash scripts/ci/release.sh promote "$SHA"
 
   # What a rollback cannot undo, or what would stop core starting, fails here, before
-  # anything reaches prod (infra/release/gates.sh). Both depend on core's version: an
+  # anything reaches prod (scripts/ci/gates.sh). Both depend on core's version: an
   # unchanged core ships no migration and needs no new config.
   test:
     name: Test
@@ -91,20 +91,20 @@ jobs:
           core=$(ssh "$PROD_HOST" 'f=/home/tagaroa/apps/.release.env; if [ -f $f ]; then sed -n "s/^CORE_IMAGE=.*://p" $f; fi')
           ssh "$PROD_HOST" "sed -n 's/^\([A-Z][A-Z0-9_]*\)=.*/\1/p' /home/tagaroa/apps/.env" > "$RUNNER_TEMP/prod-keys"
           echo "Prod runs core ${core:-nothing yet}."
-          from=$(bash infra/release/gates.sh range "$SHA" "$core")
+          from=$(bash scripts/ci/gates.sh range "$SHA" "$core")
           echo "from=$from" >> "$GITHUB_OUTPUT"
 
       - name: Migrations only add
         if: steps.prod.outputs.from != ''
         env:
           FROM: ${{ steps.prod.outputs.from }}
-        run: bash infra/release/gates.sh migrations "$FROM" "$SHA"
+        run: bash scripts/ci/gates.sh migrations "$FROM" "$SHA"
 
       - name: Prod's .env has every new config key
         if: steps.prod.outputs.from != ''
         env:
           FROM: ${{ steps.prod.outputs.from }}
-        run: bash infra/release/gates.sh config "$FROM" "$SHA" "$RUNNER_TEMP/prod-keys"
+        run: bash scripts/ci/gates.sh config "$FROM" "$SHA" "$RUNNER_TEMP/prod-keys"
 
   # Changesets' tag names (`@apps/auth@0.1.0`) on the sha. A version already tagged keeps
   # its first release's tag. Tags pushed with GITHUB_TOKEN start no workflow.
@@ -158,7 +158,7 @@ jobs:
           printf '%s\n' "$PROD_SSH_KNOWN_HOSTS" > ~/.ssh/known_hosts
           chmod 600 ~/.ssh/id_ed25519 ~/.ssh/known_hosts
           printf '%s\n' "$RELEASE"
-          bash infra/release/release.sh deploy
+          bash scripts/ci/release.sh deploy
 
   # A failed release is a Multica issue for edwinhati, with the run link.
   report:
@@ -175,10 +175,10 @@ jobs:
       - name: Join NetBird
         env:
           NETBIRD_SETUP_KEY: ${{ secrets.NETBIRD_SETUP_KEY }}
-        run: bash infra/ci/netbird-up.sh 172.25.251.12=multica.engineering.tagaroa.cc
+        run: bash scripts/ci/netbird-up.sh 172.25.251.12=multica.engineering.tagaroa.cc
 
       - name: Install the Multica CLI
-        run: bash infra/ci/install-multica.sh
+        run: bash scripts/ci/install-multica.sh
 
       - name: Open a Multica issue
         env:

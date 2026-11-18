@@ -15,7 +15,7 @@ set -uo pipefail
 cd "$(git rev-parse --show-toplevel)" || exit 1
 
 # These need built images and Docker, not stubs; run them by hand as their headers say.
-needs_images=" infra/dev/images.test.sh infra/dev/browsers.test.sh "
+needs_images=" infra/deploy/images.test.sh infra/deploy/browsers.test.sh "
 
 failed=()
 section() { printf '\n== %s\n' "$1"; }

@@ -33,7 +33,7 @@ updates:
   # Postgres in the dev stack, the QA runner and the local developer stack.
   - package-ecosystem: docker-compose
     directories:
-      - /infra/dev
+      - /infra/deploy
       - /infra/qa-runner
       - /infra/docker
     schedule:

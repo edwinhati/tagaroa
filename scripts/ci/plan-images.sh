@@ -8,7 +8,7 @@
 # released X.Y.Z. A tag that exists is never built again, so a released version is
 # built once, from the commit that set it.
 #
-#   SHA=<full sha> REGISTRY=<host> bash infra/ci/plan-images.sh
+#   SHA=<full sha> REGISTRY=<host> bash scripts/ci/plan-images.sh
 # Writes to $GITHUB_OUTPUT: core= (version to build, or empty), apps= (JSON list
 # of {name, dir, path, version} to build) and release= (deploy.sh's six lines).
 # The snapshot rewrites package.json files; the job's checkout is thrown away.

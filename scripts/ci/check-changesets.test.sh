@@ -32,7 +32,8 @@ changeset '"@apps/auth": patch'
 expect fail "a shared package change that names only one of its apps"
 echo '// probe' >> apps/auth/src/lib/forms.test.ts
 echo probe >> apps/auth/README.md
-expect pass "tests and Markdown only"
+echo '// probe' >> apps/auth/playwright.deployed.config.ts
+expect pass "tests, Playwright configs and Markdown only"
 echo '# probe' >> infra/web/Caddyfile
 changeset '"@apps/auth": patch'
 expect fail "a web image change that misses three apps"

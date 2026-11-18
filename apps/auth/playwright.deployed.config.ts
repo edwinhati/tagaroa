@@ -1,6 +1,6 @@
 import { defineConfig, devices } from "@playwright/test";
 
-// The deployed topology from `infra/dev/browsers.test.sh`, which starts the
+// The deployed topology from `infra/deploy/browsers.test.sh`, which starts the
 // stack and runs this; not part of `test:e2e`.
 export default defineConfig({
   testDir: "./e2e",

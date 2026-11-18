@@ -31,7 +31,7 @@ value() { sed -n "s/^$1=//p" "$GITHUB_OUTPUT"; }
 # Released core, admin and workspace exist; engineering's 0.1.0 was never built.
 printf 'registry.test/tagaroa/%s:0.1.0\n' core-service admin workspace > "$KNOWN"
 export GITHUB_OUTPUT="$tmp/out1"
-bash "$root/infra/ci/plan-images.sh" 2>/dev/null
+bash "$root/scripts/ci/plan-images.sh" 2>/dev/null
 [[ $(value core) == "" ]]
 [[ $(value apps) == '[{"name":"auth","dir":"apps/auth","path":"","version":"0.1.1-alpha-abc1234"},{"name":"engineering","dir":"domains/engineering","path":"/engineering","version":"0.1.0"}]' ]]
 sed -n '/^release<</,/^RELEASE_EOF$/p' "$GITHUB_OUTPUT" > "$tmp/release"
@@ -43,19 +43,19 @@ grep -qx 'ENGINEERING_IMAGE=registry.test/tagaroa/engineering:0.1.0' "$tmp/relea
 # Nothing exists yet: core is built too.
 : > "$KNOWN"
 export GITHUB_OUTPUT="$tmp/out2"
-bash "$root/infra/ci/plan-images.sh" 2>/dev/null
+bash "$root/scripts/ci/plan-images.sh" 2>/dev/null
 [[ $(value core) == 0.1.0 ]]
 
 # A release just merged: nothing is pending, so every released version is built.
 rm .changeset/pending.md
 echo '{"version":"0.1.0"}' > apps/auth/package.json
 export GITHUB_OUTPUT="$tmp/out4"
-bash "$root/infra/ci/plan-images.sh" 2>/dev/null
+bash "$root/scripts/ci/plan-images.sh" 2>/dev/null
 [[ $(value core) == 0.1.0 ]]
 [[ $(value apps | jq -r 'map(.version) | join(" ")') == '0.1.0 0.1.0 0.1.0 0.1.0' ]]
 
 # A registry that cannot answer stops the plan instead of rebuilding released tags.
 export GITHUB_OUTPUT="$tmp/out3" REGISTRY_DOWN=1
-if bash "$root/infra/ci/plan-images.sh" 2>/dev/null; then echo 'Planned builds with the registry down'; exit 1; fi
+if bash "$root/scripts/ci/plan-images.sh" 2>/dev/null; then echo 'Planned builds with the registry down'; exit 1; fi
 [[ ! -s "$GITHUB_OUTPUT" ]]
 echo 'PASS: builds only missing tags, alpha for pending changesets, released versions after a release, stops when the registry cannot answer'
