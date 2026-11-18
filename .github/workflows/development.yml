@@ -6,9 +6,7 @@ name: Development
 # and deploy nothing. Docs-only pushes to main skip: they would deploy nothing.
 # Pull requests run only the slow suites their change can affect (scripts/ci/qa-scope.sh);
 # main, the schedule and manual runs always run all of them.
-# The repository variable QA_RUNS_ON moves Build and Test onto the sandboxed self-hosted
-# runner, e.g. ["self-hosted","tagaroa-qa"] (docs/ops/workflows/qa-runner.md). The deploy
-# jobs, the only ones with secrets, always run on GitHub-hosted runners.
+# Every job runs on GitHub-hosted runners; the deploy jobs are the only ones with secrets.
 # Spec: docs/ops/workflows/deploy-dev.md
 on:
   pull_request:
@@ -43,7 +41,7 @@ env:
 jobs:
   build:
     name: Build
-    runs-on: ${{ fromJSON(vars.QA_RUNS_ON || '"ubuntu-24.04"') }}
+    runs-on: ubuntu-24.04
     timeout-minutes: 30
     steps:
       # Two commits: a pull request's merge commit and its base, for check:changesets.
@@ -131,8 +129,9 @@ jobs:
   test:
     name: Test (${{ matrix.project }})
     needs: build
-    runs-on: ${{ fromJSON(vars.QA_RUNS_ON || '"ubuntu-24.04"') }}
-    timeout-minutes: 30
+    runs-on: ubuntu-24.04
+    # Room for a slow package mirror: webkit's system packages alone are ~125 MB.
+    timeout-minutes: 60
     strategy:
       fail-fast: false
       # Pushes to main repeat a pull request that already ran every browser, so they run
@@ -158,8 +157,15 @@ jobs:
         env:
           BASE: ${{ github.event_name == 'pull_request' && 'HEAD^1' || '' }}
         run: bash scripts/ci/qa-scope.sh "$BASE"
-      # The self-hosted image already carries the browsers' system libraries.
-      - run: bunx playwright install ${{ runner.environment == 'github-hosted' && '--with-deps' || '' }} ${{ matrix.project == 'mobile-chromium' && 'chromium' || matrix.project }}
+      # The runners' own Ubuntu mirror (*.ec2.archive.ubuntu.com) served packages at
+      # ~80 kB/s in November 2026, enough to time webkit's install out.
+      - name: Use the Azure Ubuntu mirror
+        if: steps.scope.outputs.e2e_auth == 'true' || steps.scope.outputs.e2e_admin == 'true'
+        run: |
+          { grep -rlE 'archive\.ubuntu\.com' /etc/apt || true; } \
+            | xargs -r sudo sed -i -E 's#https?://[a-z0-9.-]*archive\.ubuntu\.com#http://azure.archive.ubuntu.com#g'
+          { grep -rhoE 'https?://[a-z0-9.-]*\.ubuntu\.com[^ ]*' /etc/apt || true; } | sort -u
+      - run: bunx playwright install --with-deps ${{ matrix.project == 'mobile-chromium' && 'chromium' || matrix.project }}
         if: steps.scope.outputs.e2e_auth == 'true' || steps.scope.outputs.e2e_admin == 'true'
         working-directory: apps/auth
       - run: bun run test:integration --log-order=stream
@@ -356,9 +362,12 @@ jobs:
   # A merged release PR leaves main with versions no release has tagged yet. Production
   # tags them before it deploys, so once it has run this starts nothing until the next
   # release PR. A dispatch made with GITHUB_TOKEN still starts a run.
+  # Only dev's deploy decides: a build job skipped for having nothing to build must not
+  # skip this, as the default success() would.
   start-production:
     name: Start Production
     needs: deploy
+    if: ${{ !cancelled() && needs.deploy.result == 'success' }}
     runs-on: ubuntu-24.04
     timeout-minutes: 5
     permissions:

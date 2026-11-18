@@ -45,7 +45,7 @@
     },
     "test:integration": {
       "cache": false,
-      "passThroughEnv": ["TAGAROA_TEST_POSTGRES", "TEST_DATABASE_URL"]
+      "passThroughEnv": ["TEST_DATABASE_URL"]
     },
     "test:e2e": {
       "cache": false,

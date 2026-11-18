@@ -62,9 +62,9 @@ Raw notes on where Tagaroa runs and the tools around it. Workflow specs live in
 
 ## Tagaroa specifics
 
-- Repo `edwinhati/tagaroa` on GitHub, private, free plan (2000 Actions minutes/month,
-  no required-reviewer environments). Build and Test (`.github/workflows/development.yml`) run on hosted runners, or on the sandboxed
-  self-hosted QA runner when the repo variable `QA_RUNS_ON` is set (`workflows/qa-runner.md`).
+- Repo `edwinhati/tagaroa` on GitHub, free plan, public since 2026-11-18 (while private:
+  2000 Actions minutes/month, no required-reviewer environments). Every job in
+  `.github/workflows/` runs on GitHub-hosted runners; the repo has no self-hosted runner.
 - Deployables: `servers/core` (NestJS on Bun, `start:prod` = `bun dist/main.js`,
   Postgres, Better Auth); SPAs built with `vite build` (TanStack Start, SPA mode):
   `apps/auth`, `apps/admin`, `apps/workspace`, `domains/engineering` (mounted under
@@ -124,7 +124,7 @@ Raw notes on where Tagaroa runs and the tools around it. Workflow specs live in
   DNS is on Cloudflare; everything public resolves to the edge (168.107.65.35).
 - Builds: GitHub-hosted runners, amd64 and arm64 natively, joined to NetBird for the
   job (`scripts/ci/netbird-up.sh`). The CT 105 self-hosted runner was retired in
-  ISSUE-117.
+  ISSUE-117 and removed from the repo's runners in ISSUE-142.
 - Prod images must be multi-arch (amd64 for dev, arm64 for prod).
 - One image per deployable since ISSUE-118: core, auth, admin, workspace and
   engineering, each versioned independently by Changesets (`.changeset/README.md`).

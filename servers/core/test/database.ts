@@ -47,20 +47,16 @@ const run = (command: string[]) => {
 };
 
 export async function prepareTestDatabase(): Promise<void> {
-  // The sandboxed QA runner (infra/qa-runner) has no Docker. Its Postgres is a
-  // sidecar on the runner's own network, already listening on 127.0.0.1:5432.
-  if (process.env.TAGAROA_TEST_POSTGRES !== "external") {
-    run([
-      "docker",
-      "compose",
-      "-f",
-      composeFile,
-      "up",
-      "-d",
-      "--wait",
-      "postgres",
-    ]);
-  }
+  run([
+    "docker",
+    "compose",
+    "-f",
+    composeFile,
+    "up",
+    "-d",
+    "--wait",
+    "postgres",
+  ]);
 
   if (!process.env.TEST_DATABASE_URL) {
     const sql = new SQL(

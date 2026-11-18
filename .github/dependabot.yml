@@ -20,7 +20,6 @@ updates:
     directories:
       - /servers/core
       - /infra/web
-      - /infra/qa-runner
     schedule:
       interval: monthly
     groups:
@@ -30,11 +29,10 @@ updates:
       prefix: build
     open-pull-requests-limit: 1
 
-  # Postgres in the dev stack, the QA runner and the local developer stack.
+  # Postgres in the dev stack and the local developer stack.
   - package-ecosystem: docker-compose
     directories:
       - /infra/deploy
-      - /infra/qa-runner
       - /infra/docker
     schedule:
       interval: monthly
