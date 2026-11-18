@@ -34,7 +34,7 @@ workspaces=$(turbo ls --output=json | jq -r '.packages.items[] | "\(.path)\t\(.n
 direct=() reached=()
 while IFS= read -r file; do
   case $file in
-    '' | *.md | .changeset/* | *.test.* | *.e2e.* | */e2e/* | */playwright.config.*) continue ;;
+    '' | *.md | .changeset/* | *.test.* | *.e2e.* | */e2e/* | */playwright.*config.*) continue ;;
     infra/web/*) reached+=("${apps[@]}"); continue ;;
   esac
   # The workspace with the longest path that contains this file, if any.
