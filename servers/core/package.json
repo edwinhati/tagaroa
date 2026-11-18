@@ -1,6 +1,6 @@
 {
   "name": "@servers/core",
-  "version": "0.2.1",
+  "version": "0.2.2",
   "private": true,
   "scripts": {
     "auth:schema": "bunx --bun auth generate --config ./src/modules/auth/auth.cli.ts --output ./src/modules/auth/infrastructure/persistence/drizzle/schema.ts --yes",
