@@ -23,6 +23,13 @@ const production = {
   SIGN_IN_URL: "https://auth.company.example/",
 };
 
+test("names the environment for authenticator apps only when told to", () => {
+  expect(validateEnv(production).AUTH_APP_NAME).toBeUndefined();
+  expect(
+    validateEnv({ ...production, AUTH_APP_NAME: "Tagaroa Dev" }).AUTH_APP_NAME,
+  ).toBe("Tagaroa Dev");
+});
+
 test("production requires explicit HTTPS origins and a compatible passkey relying party", () => {
   expect(validateEnv(production).PASSKEY_ORIGINS).toEqual([
     "https://auth.company.example",

@@ -137,6 +137,7 @@ One-time setup (needs root on `168.144.104.237`):
   `TRUSTED_ORIGINS=https://auth.dev.tagaroa.cc,https://admin.dev.tagaroa.cc,https://app.dev.tagaroa.cc`,
   `PASSKEY_ORIGINS=https://auth.dev.tagaroa.cc,https://app.dev.tagaroa.cc`,
   `PASSKEY_RP_ID=dev.tagaroa.cc`, `SIGN_IN_URL=https://auth.dev.tagaroa.cc`,
+  `AUTH_APP_NAME=Tagaroa Dev` (what authenticator apps list dev accounts under),
   `NOTIFICATION_WEBHOOK_URL=https://dev.tagaroa.cc/api/notifications/webhooks`
   (confirm the exact shape `.env.example` expects), `RESEND_API_KEY` (dev key),
   `RESEND_FROM=Tagaroa Dev <dev-no-reply@tagaroa.cc>`, `RESEND_WEBHOOK_SECRET`.

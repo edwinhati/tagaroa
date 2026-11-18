@@ -20,6 +20,12 @@ export interface AppEnv {
    * skipped when resolving a client IP. The rate limiter keys on that IP.
    */
   AUTH_TRUSTED_PROXIES: string[];
+  /**
+   * The name authenticator apps and passkey managers list accounts under, so
+   * someone enrolled in two environments can tell them apart. Defaults to
+   * "Tagaroa".
+   */
+  AUTH_APP_NAME?: string;
 
   /** Whether this process drains the notification queue. */
   NOTIFICATION_WORKER: boolean;
@@ -290,6 +296,7 @@ export const validateEnv = (config: Record<string, unknown>): AppEnv => {
     PASSKEY_ORIGINS: passkeyOrigins,
     PASSKEY_RP_ID: passkeyRpId,
     SIGN_IN_URL: signInUrl,
+    AUTH_APP_NAME: optional(config, "AUTH_APP_NAME"),
     AUTH_TRUSTED_PROXIES: String(
       optional(config, "AUTH_TRUSTED_PROXIES") ?? PRIVATE_RANGES,
     )

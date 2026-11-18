@@ -34,6 +34,8 @@ import { expiredTemporaryPassword, validateAdminWrite } from "./request-policy";
 import { SESSION_POLICY, temporaryPasswordExpired } from "./session-policy";
 
 export interface AuthConfig {
+  /** What authenticator apps and passkey managers call this environment. */
+  appName?: string;
   baseURL: string;
   nodeEnv: "development" | "production" | "test";
   passkeyOrigins: string | string[];
@@ -346,7 +348,7 @@ export const createAuth = (repository: AuthRepository, config: AuthConfig) => {
           maxFailedAttempts: 10,
         },
         backupCodeOptions: { storeBackupCodes: "encrypted" },
-        issuer: "Tagaroa",
+        issuer: config.appName ?? "Tagaroa",
         trustDeviceMaxAge: SESSION_POLICY.trustedDeviceDays * 24 * 60 * 60,
         twoFactorCookieMaxAge: SESSION_POLICY.twoFactorChallengeMinutes * 60,
       }),
@@ -354,7 +356,7 @@ export const createAuth = (repository: AuthRepository, config: AuthConfig) => {
         authenticatorSelection: { userVerification: "required" },
         origin: config.passkeyOrigins,
         rpID: config.passkeyRpId,
-        rpName: "Tagaroa",
+        rpName: config.appName ?? "Tagaroa",
       }),
       // Lets the door finish onboarding with the signed `set-auth-token` from
       // sign-in when a cross-origin Set-Cookie was dropped (Brave/Safari) and no
