@@ -12,6 +12,7 @@ const client = new SQL(env.DATABASE_URL);
 export const auth = createAuth(
   createAuthRepository(drizzle({ client, schema })),
   {
+    appName: env.AUTH_APP_NAME,
     baseURL: env.BETTER_AUTH_URL,
     nodeEnv: env.NODE_ENV,
     passkeyOrigins: env.PASSKEY_ORIGINS,

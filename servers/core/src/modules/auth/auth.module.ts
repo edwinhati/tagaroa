@@ -37,6 +37,7 @@ import { OnboardingHook } from "./onboarding.hook";
         trail: AuditTrail,
       ) => {
         const auth = createAuth(repository, {
+          appName: config.get("AUTH_APP_NAME", { infer: true }),
           baseURL: config.get("BETTER_AUTH_URL", { infer: true }),
           nodeEnv: config.get("NODE_ENV", { infer: true }),
           passkeyOrigins: config.get("PASSKEY_ORIGINS", { infer: true }),
