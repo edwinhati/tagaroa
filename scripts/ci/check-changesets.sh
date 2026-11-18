@@ -4,7 +4,7 @@
 # version, so without one the change never reaches dev or prod.
 #
 # A shared package counts through every deployable that uses it (turbo's graph),
-# and infra/web through every app image. Tests, Markdown and the changesets
+# and infra/web through every app image. Tests (and test folders), Markdown and the changesets
 # themselves do not count. A changeset may name only core and the apps. A release
 # PR, which consumes changesets, passes if it consumes all of them.
 # Files outside any workspace (root dependencies, CI) are not checked: name the
@@ -34,7 +34,7 @@ workspaces=$(turbo ls --output=json | jq -r '.packages.items[] | "\(.path)\t\(.n
 direct=() reached=()
 while IFS= read -r file; do
   case $file in
-    '' | *.md | .changeset/* | *.test.* | *.e2e.* | */e2e/* | */playwright.*config.*) continue ;;
+    '' | *.md | .changeset/* | *.test.* | *.e2e.* | */e2e/* | */test/* | */playwright.*config.*) continue ;;
     infra/web/*) reached+=("${apps[@]}"); continue ;;
   esac
   # The workspace with the longest path that contains this file, if any.
