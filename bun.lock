@@ -252,7 +252,7 @@
     },
     "servers/core": {
       "name": "@servers/core",
-      "version": "0.2.2",
+      "version": "0.2.3",
       "dependencies": {
         "@better-auth/drizzle-adapter": "1.7.12",
         "@better-auth/oauth-provider": "1.7.12",
