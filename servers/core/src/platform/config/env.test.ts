@@ -100,6 +100,13 @@ test("Frappe HR is all or nothing, with a strong secret and HTTPS in production"
       FRAPPE_URL: "http://hr.company.example",
     }),
   ).toThrow("HTTPS in production");
+  expect(
+    validateEnv({ ...production, ...frappe, FRAPPE_ACCESS_TOKEN: "id.token" })
+      .FRAPPE_ACCESS_TOKEN,
+  ).toBe("id.token");
+  expect(() =>
+    validateEnv({ ...production, ...frappe, FRAPPE_ACCESS_TOKEN: "token" }),
+  ).toThrow("<id>.<token>");
 });
 
 test("trusts private proxy hops by default and rejects a malformed one", () => {

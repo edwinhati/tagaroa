@@ -50,6 +50,13 @@ FRAPPE_API_SECRET=...
 FRAPPE_WEBHOOK_SECRET=...   # the same value as the webhook's secret
 ```
 
+If the site sits behind Pangolin, also set `FRAPPE_ACCESS_TOKEN` to a share-link token for
+its resource, as `<id>.<token>`; core sends it as `P-Access-Token-Id` and `P-Access-Token`.
+The resource's rules must pass core's source address on to auth (`PASS`), or the request is
+dropped before the token is checked. Tagaroa's prod does this for `office.tagaroa.cc`:
+resource 26 uses policy 46, which passes the OCI VM's own public address and drops
+everything else, so only NetBird and core with the token get through.
+
 Startup refuses a secret under 32 characters, and in production a `FRAPPE_URL` that is not
 HTTPS. Email delivery (`RESEND_*` and the notification worker) must be live: an account
 issued from HR has a temporary password nobody else ever sees, so an onboarding email that

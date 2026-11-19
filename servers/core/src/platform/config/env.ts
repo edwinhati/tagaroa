@@ -56,6 +56,9 @@ export interface AppEnv {
   FRAPPE_API_KEY?: string;
   FRAPPE_API_SECRET?: string;
   FRAPPE_WEBHOOK_SECRET?: string;
+  // Optional: a Pangolin access token, `<id>.<token>`, when the Frappe site is
+  // behind Pangolin.
+  FRAPPE_ACCESS_TOKEN?: string;
 }
 
 const required = (config: Record<string, unknown>, key: string): string => {
@@ -285,6 +288,10 @@ export const validateEnv = (config: Record<string, unknown>): AppEnv => {
   ) {
     throw new Error("FRAPPE_URL must use HTTPS in production");
   }
+  const frappeToken = optional(config, "FRAPPE_ACCESS_TOKEN");
+  if (frappeToken !== undefined && !/^[^.]+\.[^.]+$/.test(frappeToken)) {
+    throw new Error("FRAPPE_ACCESS_TOKEN must be <id>.<token>");
+  }
 
   return {
     BETTER_AUTH_SECRET: secret,
@@ -341,5 +348,6 @@ export const validateEnv = (config: Record<string, unknown>): AppEnv => {
     FRAPPE_API_SECRET: optional(config, "FRAPPE_API_SECRET"),
     FRAPPE_URL: frappeUrl && validUrl(frappeUrl, "FRAPPE_URL"),
     FRAPPE_WEBHOOK_SECRET: optional(config, "FRAPPE_WEBHOOK_SECRET"),
+    FRAPPE_ACCESS_TOKEN: frappeToken,
   };
 };

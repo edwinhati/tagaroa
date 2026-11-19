@@ -1,8 +1,8 @@
-import { expect, test } from "bun:test";
+import { afterEach, expect, spyOn, test } from "bun:test";
 import { createHmac } from "node:crypto";
 
 import type { Employee } from "../../domain/employee";
-import { toEmployee, verifyFrappeSignature } from "./frappe";
+import { frappeEmployees, toEmployee, verifyFrappeSignature } from "./frappe";
 
 const joiner: Employee = {
   companyEmail: "ada@tagaroa.example",
@@ -40,4 +40,27 @@ test("Frappe's signature is checked against the exact body", () => {
     verifyFrappeSignature("secret", '{"name":"HR-EMP-00002"}', signature),
   ).toBe(false);
   expect(verifyFrappeSignature("secret", body, "")).toBe(false);
+});
+
+afterEach(() => {
+  (globalThis.fetch as unknown as { mockRestore?: () => void }).mockRestore?.();
+});
+
+test("a Pangolin access token goes out as Pangolin's token headers", async () => {
+  const fetch = spyOn(globalThis, "fetch")
+    .mockResolvedValueOnce(Response.json({ data: null }))
+    .mockResolvedValueOnce(Response.json({ data: null }));
+  const options = { apiKey: "k", apiSecret: "s", url: "https://hr.example" };
+
+  await frappeEmployees({ ...options, accessToken: "abc.def" }).employee("E1");
+  await frappeEmployees(options).employee("E1");
+
+  const headers = fetch.mock.calls.map(
+    ([, init]) => init?.headers as Record<string, string>,
+  );
+  expect(headers[0]).toMatchObject({
+    "p-access-token": "def",
+    "p-access-token-id": "abc",
+  });
+  expect(headers[1]).not.toHaveProperty("p-access-token");
 });
