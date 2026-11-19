@@ -47,7 +47,9 @@ core version, or the first release, has nothing to check.
   (`scripts/ci/check-migrations.sh`).
 - **Prod's `.env` has every new config key.** A key added uncommented to
   `servers/core/.env.example` since then must be in `/home/tagaroa/apps/.env`. Only key
-  names leave the VM.
+  names leave the VM. That file is written by `infisical-agent-prod` from Infisical
+  (project "Tagaroa", environment `prod`, https://secrets.engineering.tagaroa.cc over
+  NetBird) every 5 minutes, so add a new key in Infisical, never in the file.
 
 **Release:** tag each released version on the sha with Changesets' tag name
 (`@apps/auth@0.1.0`) and push the new ones. A version already tagged keeps its first
