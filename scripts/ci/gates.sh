@@ -56,7 +56,7 @@ case ${1:-} in
     from=${2:?} to=${3:?} keys=${4:?} failed=0
     while read -r key; do
       if grep -qxF "$key" "$keys"; then echo "$key: on prod"
-      else echo "::error::$key is new in servers/core/.env.example and missing from prod's .env. Add it on the VM, then re-run."; failed=1; fi
+      else echo "::error::$key is new in servers/core/.env.example and missing from prod's .env. Add it in Infisical (project Tagaroa, env prod); the VM's agent writes it into .env within 5 minutes. Then re-run."; failed=1; fi
     done < <(git diff -U0 "$from" "$to" -- servers/core/.env.example | sed -nE 's/^\+([A-Z][A-Z0-9_]*)=.*/\1/p' | sort -u)
     exit "$failed"
     ;;

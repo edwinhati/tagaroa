@@ -1,5 +1,6 @@
 # Prod stack on the OCI VM, copied to /home/tagaroa/apps/compose.yml by every release.
-# `.env` stays on the box; `.release.env` (the sha and image refs) is written by deploy.sh.
+# `.env` is written on the box by infisical-agent-prod from Infisical (project Tagaroa, env
+# prod); `.release.env` (the sha and image refs) is written by deploy.sh.
 # Pangolin reaches core and each app on pangolin_default.
 name: tagaroa-prod
 x-core: &core
