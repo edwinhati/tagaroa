@@ -40,6 +40,7 @@ const unconfigured: EmployeeSource = {
         const url = config.get("FRAPPE_URL", { infer: true });
         return url
           ? {
+              accessToken: config.get("FRAPPE_ACCESS_TOKEN", { infer: true }),
               apiKey: config.get("FRAPPE_API_KEY", { infer: true })!,
               apiSecret: config.get("FRAPPE_API_SECRET", { infer: true })!,
               url,

@@ -8,7 +8,21 @@ export interface FrappeOptions {
   url: string;
   apiKey: string;
   apiSecret: string;
+  /**
+   * A Pangolin access token, `<id>.<token>`, for a Frappe site behind Pangolin.
+   * Sent as Pangolin's default token headers on every request.
+   */
+  accessToken?: string;
 }
+
+const pangolinHeaders = (token?: string): Record<string, string> => {
+  if (!token) return {};
+  const dot = token.indexOf(".");
+  return {
+    "p-access-token": token.slice(dot + 1),
+    "p-access-token-id": token.slice(0, dot),
+  };
+};
 
 /**
  * Frappe signs the body as base64 HMAC-SHA256 with the webhook secret. There is
@@ -63,6 +77,7 @@ export const frappeEmployees = (options: FrappeOptions): EmployeeSource => {
   const get = async (path: string): Promise<unknown> => {
     const response = await fetch(`${options.url}${path}`, {
       headers: {
+        ...pangolinHeaders(options.accessToken),
         accept: "application/json",
         authorization: `token ${options.apiKey}:${options.apiSecret}`,
       },

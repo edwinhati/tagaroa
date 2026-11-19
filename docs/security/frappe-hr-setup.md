@@ -3,7 +3,8 @@
 How to point `servers/core` at a Frappe HR (v16) site so that joiners are issued accounts
 and leavers are offboarded. What the sync does and does not decide is in
 [ADR 0004](../adr/0004-hr-record-drives-joiners-and-leavers.md); the people-side procedure
-is in [access operations](access-operations.md).
+is in [access operations](access-operations.md). Tagaroa hosts Frappe HR itself; building,
+running, backing up and upgrading it is in [`infra/frappe`](../../infra/frappe/README.md).
 
 ## 1. A read-only API user in Frappe
 
@@ -48,6 +49,13 @@ FRAPPE_API_KEY=...
 FRAPPE_API_SECRET=...
 FRAPPE_WEBHOOK_SECRET=...   # the same value as the webhook's secret
 ```
+
+If the site sits behind Pangolin, also set `FRAPPE_ACCESS_TOKEN` to a share-link token for
+its resource, as `<id>.<token>`; core sends it as `P-Access-Token-Id` and `P-Access-Token`.
+The resource's rules must pass core's source address on to auth (`PASS`), or the request is
+dropped before the token is checked. Tagaroa's prod does this for `office.tagaroa.cc`:
+resource 26 uses policy 46, which passes the OCI VM's own public address and drops
+everything else, so only NetBird and core with the token get through.
 
 Startup refuses a secret under 32 characters, and in production a `FRAPPE_URL` that is not
 HTTPS. Email delivery (`RESEND_*` and the notification worker) must be live: an account
