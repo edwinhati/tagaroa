@@ -13,7 +13,9 @@ What each deploy copies to `/home/tagaroa/apps` on its server: the dev droplet f
 
 Each server also holds files that are not in git, `0600` and owned by `tagaroa`: `.env`,
 its configuration, and on prod `.ocir`, the OCIR login as shell-quoted `OCIR_USERNAME` and
-`OCIR_TOKEN` assignments. `deploy.sh` logs in to OCIR only when `.ocir` is there.
+`OCIR_TOKEN` assignments. `deploy.sh` logs in to OCIR only when `.ocir` is there. On prod,
+`infisical-agent-prod` writes `.env` and `.ocir` from Infisical (project "Tagaroa",
+environment `prod`) every 5 minutes, so change them there, not in the file.
 
 The deploy preflight needs two MFA-enrolled super-admins and a separate requester, so an
 environment with none can't pass its first deploy. Dev and prod have them. A new

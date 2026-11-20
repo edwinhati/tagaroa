@@ -94,7 +94,9 @@ pinned in `PROD_SSH_KNOWN_HOSTS`), `scripts/ci/release.sh deploy`:
   need nothing: pgBackRest covers the whole cluster.
 - **OCIR:** an OCI user (or the existing one) with an auth token allowed to push and
   pull `tagaroa/*` in the tenancy. Runner: `OCIR_USERNAME`, `OCIR_TOKEN` secrets. VM:
-  the same pair in `/home/tagaroa/apps/.ocir` (0600). The repositories `tagaroa/core-service`,
+  the same pair in `/home/tagaroa/apps/.ocir` (0600), written by `infisical-agent-prod`
+  from Infisical (project "Tagaroa", environment `prod`, folder `/ocir`) like `.env`, so
+  rotate the token there and in the runner secrets, never in the file. The repositories `tagaroa/core-service`,
   `tagaroa/auth`, `tagaroa/admin`, `tagaroa/workspace` and `tagaroa/engineering` must
   be private: create them as private before the first release, or check them after it.
 - **Prod `.env`** (0600, owner `tagaroa`): as dev's (see `deploy-dev.md`) with
