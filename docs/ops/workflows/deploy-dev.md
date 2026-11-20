@@ -120,7 +120,11 @@ One-time setup (needs root on `168.144.104.237`):
 - **Stack files** live in the repo at `infra/deploy/` and are copied into
   `/home/tagaroa/apps` by every deploy: `compose.dev.yml` as `compose.yml`, and
   `deploy.sh` and `smoke.sh`, which prod runs too. Config changes ship through git.
-  `.env` (mode 0600, owner `tagaroa`) stays on the box and is never in git.
+  `.env` (mode 0600, owner `tagaroa`) stays on the box and is never in git. The droplet's
+  `infisical-agent` writes it every 5 minutes from Infisical (project "DigitalOcean
+  droplet", environment `prod`, folder `/tagaroa-dev`), so change a key there, never in
+  the file. That project is separate from prod's "Tagaroa" because Infisical's free plan
+  can't limit an identity to one environment.
 - `compose.dev.yml`, project name `tagaroa-dev`:
   - `postgres`: `postgres:18-alpine` (same major as prod), named volume, healthcheck.
   - `migrate`: core image, `bun dist/migrate.js`, after postgres is healthy.
@@ -130,7 +134,7 @@ One-time setup (needs root on `168.144.104.237`):
   - `auth`, `admin`, `workspace`, `engineering`: one app image each, env
     `BASE_DOMAIN=dev.tagaroa.cc`, no host port, only on `pangolin_default`, where the
     Newt tunnel reaches them as `tagaroa-dev-<app>-1:80`.
-- `.env` keys (values set by hand once; see `servers/core/.env.example`):
+- `.env` keys (values kept in Infisical; see `servers/core/.env.example`):
   `NODE_ENV=production`, `PORT=8080`, `POSTGRES_PASSWORD`, `DATABASE_URL`
   (→ `postgres:5432/tagaroa`), `BETTER_AUTH_SECRET` (new, random),
   `BETTER_AUTH_URL=https://dev.tagaroa.cc`,
